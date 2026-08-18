@@ -133,6 +133,7 @@ export function ClimbSearchForm({
         <>
           <div className="flex flex-wrap items-end gap-4">
             <TextField value={name} onChange={setName} className="min-w-56 flex-1">
+              <Label>Route Name</Label>
               <InputGroup>
                 <InputGroup.Prefix>
                   <Search className="size-4 text-muted" />
@@ -146,6 +147,7 @@ export function ClimbSearchForm({
               onChange={setAreaName}
               className="min-w-56 flex-1"
             >
+              <Label>Area Name</Label>
               <InputGroup>
                 <InputGroup.Prefix>
                   <Search className="size-4 text-muted" />
@@ -201,6 +203,7 @@ export function ClimbSearchForm({
                     </Checkbox>
                     {showBoulder && (
                       <Slider
+                        aria-label="Boulder grade range"
                         value={boulderRange}
                         onChange={(value) =>
                           setBoulderRange(value as [number, number])
@@ -235,6 +238,7 @@ export function ClimbSearchForm({
                     </Checkbox>
                     {showSport && (
                       <Slider
+                        aria-label="Sport grade range"
                         value={sportRange}
                         onChange={(value) => setSportRange(value as [number, number])}
                         minValue={0}
@@ -267,6 +271,7 @@ export function ClimbSearchForm({
                     </Checkbox>
                     {showTrad && (
                       <Slider
+                        aria-label="Trad grade range"
                         value={tradRange}
                         onChange={(value) => setTradRange(value as [number, number])}
                         minValue={0}
