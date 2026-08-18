@@ -7,6 +7,22 @@ export type Climb = typeof climbs.$inferSelect;
 
 export const PAGE_SIZE = 50;
 
+/**
+ * Turns raw user input into an FTS5 prefix query: each word becomes a quoted
+ * prefix term (implicitly AND'd together), so "squam" matches "Squamish" and
+ * quoting neutralizes FTS5 query-syntax characters (`-`, `:`, `"`, etc.) in
+ * the input instead of them causing a syntax error or being interpreted as
+ * MATCH operators.
+ */
+function toFtsPrefixQuery(raw: string): string {
+  return raw
+    .split(/\s+/)
+    .map((word) => word.replace(/"/g, '""').trim())
+    .filter(Boolean)
+    .map((word) => `"${word}"*`)
+    .join(" ");
+}
+
 export async function getArea(db: Database, id: number): Promise<Area | undefined> {
   return db.select().from(areas).where(eq(areas.id, id)).get();
 }
@@ -55,11 +71,27 @@ export async function getSubtreeClimbs(
   };
 }
 
-export async function searchAreas(db: Database, name: string): Promise<Area[]> {
-  return db.all<Area>(sql`
-    SELECT areas.* FROM areas
+export type AreaWithAncestorPath = Area & { ancestorPath: string | null };
+
+/** `ancestorPath` reads immediate-parent-first, e.g. "Squamish > British Columbia > Canada". */
+export async function searchAreas(
+  db: Database,
+  name: string,
+): Promise<AreaWithAncestorPath[]> {
+  const query = toFtsPrefixQuery(name);
+  if (!query) return [];
+
+  return db.all<AreaWithAncestorPath>(sql`
+    SELECT areas.*, (
+      SELECT GROUP_CONCAT(ancestor.name, ' > ') FROM (
+        SELECT name FROM areas ancestor
+        WHERE ancestor.lft < areas.lft AND ancestor.rght > areas.rght
+        ORDER BY ancestor.lft DESC
+      ) ancestor
+    ) AS ancestorPath
+    FROM areas
     JOIN areas_fts ON areas_fts.rowid = areas.id
-    WHERE areas_fts MATCH ${name}
+    WHERE areas_fts MATCH ${query}
     ORDER BY rank
     LIMIT 25
   `);
@@ -67,33 +99,41 @@ export async function searchAreas(db: Database, name: string): Promise<Area[]> {
 
 type MatchedArea = { id: number; lft: number; rght: number };
 
-export type Discipline = "boulder" | "rope";
+export type Discipline = "boulder" | "sport" | "trad";
 
 export type SearchClimbsParams = {
   name?: string;
   areaName?: string;
   disciplines: Discipline[];
   boulderRange?: [number, number];
-  ropeRange?: [number, number];
+  sportRange?: [number, number];
+  tradRange?: [number, number];
 };
+
+export type ClimbWithAreaName = Climb & { areaName: string };
 
 export async function searchClimbs(
   db: Database,
   params: SearchClimbsParams,
-): Promise<Climb[]> {
+): Promise<ClimbWithAreaName[]> {
   const conditions: SQL[] = [];
 
   if (params.name) {
+    const nameQuery = toFtsPrefixQuery(params.name);
+    if (!nameQuery) return [];
     conditions.push(
-      sql`climbs.id IN (SELECT rowid FROM climbs_fts WHERE climbs_fts MATCH ${params.name})`,
+      sql`climbs.id IN (SELECT rowid FROM climbs_fts WHERE climbs_fts MATCH ${nameQuery})`,
     );
   }
 
   if (params.areaName) {
+    const areaNameQuery = toFtsPrefixQuery(params.areaName);
+    if (!areaNameQuery) return [];
+
     const matchedAreas = await db.all<MatchedArea>(sql`
       SELECT areas.id, areas.lft, areas.rght FROM areas
       JOIN areas_fts ON areas_fts.rowid = areas.id
-      WHERE areas_fts MATCH ${params.areaName}
+      WHERE areas_fts MATCH ${areaNameQuery}
     `);
 
     // No area matched this name at all — no climb can satisfy the filter.
@@ -112,10 +152,16 @@ export async function searchClimbs(
       sql`(climbs.type = 'boulder' AND climbs.grade BETWEEN ${min} AND ${max})`,
     );
   }
-  if (params.disciplines.includes("rope") && params.ropeRange) {
-    const [min, max] = params.ropeRange;
+  if (params.disciplines.includes("sport") && params.sportRange) {
+    const [min, max] = params.sportRange;
     disciplineClauses.push(
-      sql`(climbs.type IN ('sport', 'trad') AND climbs.grade BETWEEN ${min} AND ${max})`,
+      sql`(climbs.type = 'sport' AND climbs.grade BETWEEN ${min} AND ${max})`,
+    );
+  }
+  if (params.disciplines.includes("trad") && params.tradRange) {
+    const [min, max] = params.tradRange;
+    disciplineClauses.push(
+      sql`(climbs.type = 'trad' AND climbs.grade BETWEEN ${min} AND ${max})`,
     );
   }
   if (disciplineClauses.length > 0) {
@@ -127,8 +173,8 @@ export async function searchClimbs(
       ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
       : sql``;
 
-  return db.all<Climb>(sql`
-    SELECT climbs.* FROM climbs
+  return db.all<ClimbWithAreaName>(sql`
+    SELECT climbs.*, areas.name AS areaName FROM climbs
     JOIN areas ON areas.id = climbs.area_id
     ${whereClause}
     ORDER BY (CASE WHEN climbs.type = 'boulder' THEN 0 ELSE 1 END), climbs.grade

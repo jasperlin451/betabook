@@ -36,7 +36,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
       <div>
         <h1 className="text-2xl font-semibold">{area.name}</h1>
         {area.description && (
-          <p className="text-muted-foreground mt-1">{area.description}</p>
+          <p className="text-muted mt-1">{area.description}</p>
         )}
       </div>
 

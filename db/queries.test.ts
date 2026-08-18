@@ -105,7 +105,12 @@ describe("getSubtreeClimbs", () => {
 
 describe("searchAreas", () => {
   it("fuzzy-matches on partial area name", async () => {
-    const results = await searchAreas(db, "Boulders");
+    const results = await searchAreas(db, "Bould");
+    expect(results.map((a) => a.name)).toContain("Test Boulders");
+  });
+
+  it("does not throw on FTS5 query-syntax characters in the input", async () => {
+    const results = await searchAreas(db, 'Boulders"');
     expect(results.map((a) => a.name)).toContain("Test Boulders");
   });
 
@@ -118,6 +123,11 @@ describe("searchAreas", () => {
 describe("searchClimbs", () => {
   it("matches by climb name", async () => {
     const results = await searchClimbs(db, { name: "Crimper", disciplines: [] });
+    expect(results.map((c) => c.name)).toEqual(["Test Crimper"]);
+  });
+
+  it("fuzzy-matches by partial climb name", async () => {
+    const results = await searchClimbs(db, { name: "Crim", disciplines: [] });
     expect(results.map((c) => c.name)).toEqual(["Test Crimper"]);
   });
 
@@ -146,11 +156,20 @@ describe("searchClimbs", () => {
 
   it("filters by both disciplines independently without interleaving", async () => {
     const results = await searchClimbs(db, {
-      disciplines: ["boulder", "rope"],
+      disciplines: ["boulder", "trad"],
       boulderRange: [5, 5],
-      ropeRange: [6, 6],
+      tradRange: [6, 6],
     });
     expect(results.map((c) => c.name).sort()).toEqual(["Test Crack", "Test Highball"]);
+  });
+
+  it("filters sport and trad independently by their own grade ranges", async () => {
+    const results = await searchClimbs(db, {
+      disciplines: ["sport", "trad"],
+      sportRange: [10, 10],
+      tradRange: [0, 0],
+    });
+    expect(results.map((c) => c.name)).toEqual(["Test Crimper"]);
   });
 
   it("excludes climbs outside the requested grade range", async () => {
