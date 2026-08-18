@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AreaSearchForm, ClimbSearchForm } from "@/components/search-form";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
+import { getDb } from "@/db/client";
 import { searchAreas, searchClimbs, type Discipline } from "@/db/queries";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 
@@ -26,10 +27,11 @@ function toRange(
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
   const mode = params.mode === "climb" ? "climb" : "area";
+  const db = await getDb();
 
   if (mode === "area") {
     const name = typeof params.name === "string" ? params.name : "";
-    const results = name ? await searchAreas(name) : [];
+    const results = name ? await searchAreas(db, name) : [];
 
     return (
       <div className="flex flex-col gap-6">
@@ -58,7 +60,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   const hasQuery = Boolean(name || areaName || disciplines.length > 0);
   const results = hasQuery
-    ? await searchClimbs({
+    ? await searchClimbs(db, {
         name: name || undefined,
         areaName: areaName || undefined,
         disciplines,

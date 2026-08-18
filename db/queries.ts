@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, gte, lt, lte, sql, type SQL } from "drizzle-orm";
-import { getDb } from "./client";
+import type { Database } from "./client";
 import { areas, climbs } from "./schema";
 
 export type Area = typeof areas.$inferSelect;
@@ -7,13 +7,11 @@ export type Climb = typeof climbs.$inferSelect;
 
 export const PAGE_SIZE = 50;
 
-export async function getArea(id: number): Promise<Area | undefined> {
-  const db = await getDb();
+export async function getArea(db: Database, id: number): Promise<Area | undefined> {
   return db.select().from(areas).where(eq(areas.id, id)).get();
 }
 
-export async function getSubareas(areaId: number): Promise<Area[]> {
-  const db = await getDb();
+export async function getSubareas(db: Database, areaId: number): Promise<Area[]> {
   return db
     .select()
     .from(areas)
@@ -22,8 +20,7 @@ export async function getSubareas(areaId: number): Promise<Area[]> {
 }
 
 /** Root-first, immediate-parent-last. Does not include `area` itself. */
-export async function getAncestors(area: Area): Promise<Area[]> {
-  const db = await getDb();
+export async function getAncestors(db: Database, area: Area): Promise<Area[]> {
   return db
     .select()
     .from(areas)
@@ -32,10 +29,10 @@ export async function getAncestors(area: Area): Promise<Area[]> {
 }
 
 export async function getSubtreeClimbs(
+  db: Database,
   area: Area,
   page = 1,
 ): Promise<{ climbs: Climb[]; page: number; pageSize: number; hasNextPage: boolean }> {
-  const db = await getDb();
   // Fetch one extra row to detect a next page without a separate COUNT query.
   const rows = await db
     .select({ climb: climbs })
@@ -58,8 +55,7 @@ export async function getSubtreeClimbs(
   };
 }
 
-export async function searchAreas(name: string): Promise<Area[]> {
-  const db = await getDb();
+export async function searchAreas(db: Database, name: string): Promise<Area[]> {
   return db.all<Area>(sql`
     SELECT areas.* FROM areas
     JOIN areas_fts ON areas_fts.rowid = areas.id
@@ -82,9 +78,9 @@ export type SearchClimbsParams = {
 };
 
 export async function searchClimbs(
+  db: Database,
   params: SearchClimbsParams,
 ): Promise<Climb[]> {
-  const db = await getDb();
   const conditions: SQL[] = [];
 
   if (params.name) {

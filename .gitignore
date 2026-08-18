@@ -47,3 +47,6 @@ next-env.d.ts
 .wrangler
 .open-next
 worker-configuration.d.ts
+
+# seed data
+climbs_data

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
+import { getDb } from "@/db/client";
 import { getAncestors, getArea, getSubareas, getSubtreeClimbs } from "@/db/queries";
 
 type AreaPageProps = {
@@ -16,15 +17,16 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
 
   if (!Number.isInteger(areaId)) notFound();
 
-  const area = await getArea(areaId);
+  const db = await getDb();
+  const area = await getArea(db, areaId);
   if (!area) notFound();
 
   const page = Math.max(1, Number(pageParam) || 1);
 
   const [ancestors, subareas, subtreeClimbs] = await Promise.all([
-    getAncestors(area),
-    getSubareas(area.id),
-    getSubtreeClimbs(area, page),
+    getAncestors(db, area),
+    getSubareas(db, area.id),
+    getSubtreeClimbs(db, area, page),
   ]);
 
   return (

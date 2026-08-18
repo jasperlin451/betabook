@@ -25,10 +25,10 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
 
   if (!climb) notFound();
 
-  const area = await getArea(climb.areaId);
+  const area = await getArea(db, climb.areaId);
   if (!area) notFound();
 
-  const ancestors = await getAncestors(area);
+  const ancestors = await getAncestors(db, area);
 
   return (
     <div className="flex flex-col gap-6">
