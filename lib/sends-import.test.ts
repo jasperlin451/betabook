@@ -208,6 +208,7 @@ describe("normalizeImportRows", () => {
         rating: 4,
         comment: "Very fun climbing",
         gradeText: "5.11c",
+        raw: row(),
       },
     ]);
   });
@@ -333,22 +334,34 @@ describe("normalizeImportRows", () => {
 });
 
 describe("buildFailedRowsCsv", () => {
-  it("includes an invalid row's original CSV values via the column mapping", () => {
-    const invalid: InvalidImportRow[] = [
-      { rowIndex: 4, raw: row({ Date: "" }), reason: "Missing climb name" },
-    ];
-    const csvText = buildFailedRowsCsv(invalid, [], [], FULL_MAPPING);
-    expect(csvText).toContain("I'll Burn the Building Down");
-    expect(csvText).toContain("Office Space");
-    expect(csvText).toContain("Missing climb name");
-    expect(csvText).toContain("5"); // row 4 (0-indexed) -> "5" in the export
+  it("outputs the source headers plus an appended reason column", () => {
+    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], [], []);
+    const [header] = csvText.trim().split("\n");
+    expect(header).toBe([...SAMPLE_HEADERS, "Import Failure Reason"].join(","));
   });
 
-  it("includes a not-found row with a human-readable reason", () => {
-    const notFound: NotFoundRow[] = [
-      { climbName: "Ghost Route", areaName: "Nowhere", dateSent: "2026-01-01", reason: "climb-not-found" },
+  it("carries an invalid row's original CSV values through unchanged, including unmapped columns", () => {
+    const invalid: InvalidImportRow[] = [
+      { rowIndex: 4, raw: row({ Country: "Canada" }), reason: "Missing climb name" },
     ];
-    const csvText = buildFailedRowsCsv([], notFound, [], FULL_MAPPING);
+    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, invalid, [], []);
+    expect(csvText).toContain("I'll Burn the Building Down");
+    expect(csvText).toContain("Office Space");
+    expect(csvText).toContain("Canada"); // Country isn't used by any wizard field, but must still round-trip
+    expect(csvText).toContain("Missing climb name");
+  });
+
+  it("includes a not-found row's original values with a human-readable reason", () => {
+    const notFound: NotFoundRow[] = [
+      {
+        climbName: "Ghost Route",
+        areaName: "Nowhere",
+        dateSent: "2026-01-01",
+        reason: "climb-not-found",
+        raw: row({ Climb: "Ghost Route", Area: "Nowhere" }),
+      },
+    ];
+    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], notFound, []);
     expect(csvText).toContain("Ghost Route");
     expect(csvText).toContain("Nowhere");
     expect(csvText).toContain("Climb not found");
@@ -356,9 +369,15 @@ describe("buildFailedRowsCsv", () => {
 
   it("includes an ambiguous-match reason distinctly from not-found", () => {
     const notFound: NotFoundRow[] = [
-      { climbName: "Direct", areaName: "Big Wall", dateSent: null, reason: "climb-ambiguous" },
+      {
+        climbName: "Direct",
+        areaName: "Big Wall",
+        dateSent: null,
+        reason: "climb-ambiguous",
+        raw: row({ Climb: "Direct", Area: "Big Wall" }),
+      },
     ];
-    const csvText = buildFailedRowsCsv([], notFound, [], FULL_MAPPING);
+    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], notFound, []);
     expect(csvText).toContain("Ambiguous climb match");
   });
 
@@ -376,11 +395,12 @@ describe("buildFailedRowsCsv", () => {
             rating: 5,
             comment: "Great",
             gradeText: "5.10a",
+            raw: row({ Climb: "Some Route", Area: "Some Crag" }),
           },
         ],
       },
     ];
-    const csvText = buildFailedRowsCsv([], [], batchErrors, FULL_MAPPING);
+    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], [], batchErrors);
     expect(csvText).toContain("Some Route");
     expect(csvText).toContain("Not attempted: Not signed in");
   });
@@ -388,7 +408,13 @@ describe("buildFailedRowsCsv", () => {
   it("combines all three buckets into one CSV", () => {
     const invalid: InvalidImportRow[] = [{ rowIndex: 0, raw: row(), reason: "Missing area name" }];
     const notFound: NotFoundRow[] = [
-      { climbName: "Ghost Route", areaName: "Nowhere", dateSent: null, reason: "climb-not-found" },
+      {
+        climbName: "Ghost Route",
+        areaName: "Nowhere",
+        dateSent: null,
+        reason: "climb-not-found",
+        raw: row({ Climb: "Ghost Route", Area: "Nowhere" }),
+      },
     ];
     const batchErrors: BatchErrorRow[] = [
       {
@@ -403,17 +429,18 @@ describe("buildFailedRowsCsv", () => {
             rating: null,
             comment: null,
             gradeText: null,
+            raw: row({ Climb: "Batch Route", Area: "Batch Crag" }),
           },
         ],
       },
     ];
-    const csvText = buildFailedRowsCsv(invalid, notFound, batchErrors, FULL_MAPPING);
+    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, invalid, notFound, batchErrors);
     const lines = csvText.trim().split("\n");
     expect(lines).toHaveLength(4); // header + 3 data rows
   });
 
   it("returns just a header row when there's nothing to export", () => {
-    const csvText = buildFailedRowsCsv([], [], [], FULL_MAPPING);
+    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], [], []);
     expect(csvText.trim().split("\n")).toHaveLength(1);
   });
 });

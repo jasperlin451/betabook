@@ -188,6 +188,7 @@ export type NormalizedImportRow = {
   rating: number | null;
   comment: string | null; // truncated to MAX_COMMENT_LENGTH here, not rejected
   gradeText: string | null;
+  raw: Record<string, string>; // the original CSV row, kept for a failed-rows export identical to the source
 };
 
 export type InvalidImportRow = {
@@ -274,6 +275,7 @@ export function normalizeImportRows(
       rating,
       comment,
       gradeText,
+      raw: row,
     });
   });
 
@@ -285,88 +287,52 @@ export type NotFoundRow = {
   areaName: string;
   dateSent: string | null;
   reason: "climb-not-found" | "climb-ambiguous";
+  raw: Record<string, string>; // the original CSV row, for a failed-rows export identical to the source
 };
 
 export type BatchErrorRow = { rows: NormalizedImportRow[]; message: string };
 
-const FAILED_ROWS_CSV_COLUMNS = [
-  "row",
-  "climbName",
-  "areaName",
-  "dateSent",
-  "completionType",
-  "rating",
-  "comment",
-  "grade",
-  "reason",
-] as const;
-
-type FailedRowExport = Record<(typeof FAILED_ROWS_CSV_COLUMNS)[number], string>;
+const REASON_COLUMN = "Import Failure Reason";
 
 /**
  * Builds a CSV of every row that couldn't be imported — the client-side
  * `invalid` bucket (normalization failures), the server-reported `notFound`
  * bucket (climb resolution failures), and any `batchErrors` (rows whose
  * batch request itself failed) — so the user can review and fix them
- * outside the wizard. `invalid` rows still have their original CSV values
- * (via `columnMapping`, since `raw` is keyed by the source file's own
- * headers); `notFound`/`batchErrors` only have what the wizard already
- * resolved, so some columns are blank for those.
+ * outside the wizard. Every row's original CSV columns/values are carried
+ * through unchanged (via each row's own `raw`), with one column appended
+ * explaining why it failed — the export otherwise matches the source file
+ * exactly, so it can be edited and re-uploaded as-is.
  */
 export function buildFailedRowsCsv(
+  headers: string[],
   invalid: InvalidImportRow[],
   notFound: NotFoundRow[],
   batchErrors: BatchErrorRow[],
-  columnMapping: ColumnMapping,
 ): string {
-  const rows: FailedRowExport[] = [];
+  const fields = [...headers, REASON_COLUMN];
+  const toRow = (raw: Record<string, string>, reason: string) => [
+    ...headers.map((h) => raw[h] ?? ""),
+    reason,
+  ];
 
-  const fromMappedColumn = (raw: Record<string, string>, column: string | null) =>
-    column ? (raw[column] ?? "") : "";
+  const data: string[][] = [];
 
   for (const r of invalid) {
-    rows.push({
-      row: String(r.rowIndex + 1),
-      climbName: fromMappedColumn(r.raw, columnMapping.climbName),
-      areaName: fromMappedColumn(r.raw, columnMapping.areaName),
-      dateSent: fromMappedColumn(r.raw, columnMapping.date),
-      completionType: fromMappedColumn(r.raw, columnMapping.completionType),
-      rating: fromMappedColumn(r.raw, columnMapping.rating),
-      comment: fromMappedColumn(r.raw, columnMapping.comment),
-      grade: fromMappedColumn(r.raw, columnMapping.grade),
-      reason: r.reason,
-    });
+    data.push(toRow(r.raw, r.reason));
   }
 
   for (const r of notFound) {
-    rows.push({
-      row: "",
-      climbName: r.climbName,
-      areaName: r.areaName,
-      dateSent: r.dateSent ?? "",
-      completionType: "",
-      rating: "",
-      comment: "",
-      grade: "",
-      reason: r.reason === "climb-not-found" ? "Climb not found" : "Ambiguous climb match",
-    });
+    data.push(
+      toRow(r.raw, r.reason === "climb-not-found" ? "Climb not found" : "Ambiguous climb match"),
+    );
   }
 
   for (const batch of batchErrors) {
     for (const r of batch.rows) {
-      rows.push({
-        row: "",
-        climbName: r.climbName,
-        areaName: r.areaName,
-        dateSent: r.dateSent ?? "",
-        completionType: r.completionType,
-        rating: r.rating != null ? String(r.rating) : "",
-        comment: r.comment ?? "",
-        grade: r.gradeText ?? "",
-        reason: `Not attempted: ${batch.message}`,
-      });
+      data.push(toRow(r.raw, `Not attempted: ${batch.message}`));
     }
   }
 
-  return Papa.unparse({ fields: [...FAILED_ROWS_CSV_COLUMNS], data: rows.map((r) => FAILED_ROWS_CSV_COLUMNS.map((c) => r[c])) });
+  return Papa.unparse({ fields, data });
 }

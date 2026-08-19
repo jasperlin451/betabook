@@ -91,6 +91,7 @@ export type ImportResult = {
     areaName: string;
     dateSent: string | null;
     reason: ImportRowFailureReason;
+    raw: Record<string, string>;
   }>;
 };
 
@@ -129,6 +130,7 @@ export async function importSends(
         areaName: row.areaName,
         dateSent: row.dateSent,
         reason: matches.length === 0 ? "climb-not-found" : "climb-ambiguous",
+        raw: row.raw,
       });
       continue;
     }

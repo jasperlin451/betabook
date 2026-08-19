@@ -189,12 +189,12 @@ export function ImportWizard() {
   }
 
   function handleDownloadFailedRows() {
-    if (!importResult || !normalized || !columnMapping) return;
+    if (!importResult || !normalized || !parsedCsv) return;
     const csvText = buildFailedRowsCsv(
+      parsedCsv.headers,
       normalized.invalid,
       importResult.notFound,
       importResult.batchErrors,
-      columnMapping,
     );
     const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
