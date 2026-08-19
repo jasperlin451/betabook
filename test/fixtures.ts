@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { areas, climbs } from "@/db/schema";
+import { areas, climbs, user, sends } from "@/db/schema";
 
 /**
  * A small tree exercising: a root with no ancestors, a two-level-deep
@@ -54,4 +54,36 @@ export async function seedManyClimbs(
     await db.insert(climbs).values(rows.slice(i, i + CHUNK_SIZE));
   }
   await db.run(sql`INSERT INTO climbs_fts(rowid, name) SELECT id, name FROM climbs WHERE id >= ${startId}`);
+}
+
+type FixtureUserOverrides = Partial<typeof user.$inferInsert> & { id: string };
+
+/** Inserts a minimal `user` row for send-query tests; `id` must be unique per call. */
+export async function seedFixtureUser(db: Database, overrides: FixtureUserOverrides) {
+  const row = {
+    name: "Test Climber",
+    email: `${overrides.id}@example.com`,
+    ...overrides,
+  };
+  await db.insert(user).values(row);
+  return row;
+}
+
+type FixtureSendOverrides = Partial<typeof sends.$inferInsert> & {
+  userId: string;
+  climbId: number;
+  dateSent: string;
+};
+
+/** Inserts a `sends` row referencing an existing fixture user/climb. */
+export async function seedFixtureSend(db: Database, overrides: FixtureSendOverrides) {
+  const row = {
+    completionType: "redpoint" as const,
+    comment: null,
+    rating: null,
+    suggestedGrade: null,
+    ...overrides,
+  };
+  await db.insert(sends).values(row);
+  return row;
 }

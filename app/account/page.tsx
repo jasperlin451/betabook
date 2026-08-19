@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { Link } from "@heroui/react";
 import { initAuth } from "@/lib/auth";
 import { SignOutButton } from "@/components/sign-out-button";
 
@@ -15,6 +16,7 @@ export default async function AccountPage() {
     <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
       <h1 className="text-lg font-semibold">Account</h1>
       <p className="text-sm text-muted">Signed in as {session.user.email}</p>
+      <Link href={`/users/${session.user.id}`}>View my profile</Link>
       <SignOutButton />
     </div>
   );

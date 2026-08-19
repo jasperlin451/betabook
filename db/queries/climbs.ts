@@ -1,47 +1,13 @@
-import { and, asc, eq, gt, gte, lt, lte, sql, type SQL } from "drizzle-orm";
-import type { Database } from "./client";
-import { areas, climbs } from "./schema";
+import { and, asc, eq, gte, lte, sql, type SQL } from "drizzle-orm";
+import type { Database } from "@/db/client";
+import { areas, climbs } from "@/db/schema";
+import { PAGE_SIZE, toFtsPrefixQuery } from "./shared";
+import type { Area } from "./areas";
 
-export type Area = typeof areas.$inferSelect;
 export type Climb = typeof climbs.$inferSelect;
 
-export const PAGE_SIZE = 50;
-
-/**
- * Turns raw user input into an FTS5 prefix query: each word becomes a quoted
- * prefix term (implicitly AND'd together), so "squam" matches "Squamish" and
- * quoting neutralizes FTS5 query-syntax characters (`-`, `:`, `"`, etc.) in
- * the input instead of them causing a syntax error or being interpreted as
- * MATCH operators.
- */
-function toFtsPrefixQuery(raw: string): string {
-  return raw
-    .split(/\s+/)
-    .map((word) => word.replace(/"/g, '""').trim())
-    .filter(Boolean)
-    .map((word) => `"${word}"*`)
-    .join(" ");
-}
-
-export async function getArea(db: Database, id: number): Promise<Area | undefined> {
-  return db.select().from(areas).where(eq(areas.id, id)).get();
-}
-
-export async function getSubareas(db: Database, areaId: number): Promise<Area[]> {
-  return db
-    .select()
-    .from(areas)
-    .where(eq(areas.parentId, areaId))
-    .orderBy(asc(areas.lft));
-}
-
-/** Root-first, immediate-parent-last. Does not include `area` itself. */
-export async function getAncestors(db: Database, area: Area): Promise<Area[]> {
-  return db
-    .select()
-    .from(areas)
-    .where(and(lt(areas.lft, area.lft), gt(areas.rght, area.rght)))
-    .orderBy(asc(areas.lft));
+export async function getClimb(db: Database, id: number): Promise<Climb | undefined> {
+  return db.select().from(climbs).where(eq(climbs.id, id)).get();
 }
 
 export async function getSubtreeClimbs(
@@ -69,32 +35,6 @@ export async function getSubtreeClimbs(
     pageSize: PAGE_SIZE,
     hasNextPage,
   };
-}
-
-export type AreaWithAncestorPath = Area & { ancestorPath: string | null };
-
-/** `ancestorPath` reads immediate-parent-first, e.g. "Squamish > British Columbia > Canada". */
-export async function searchAreas(
-  db: Database,
-  name: string,
-): Promise<AreaWithAncestorPath[]> {
-  const query = toFtsPrefixQuery(name);
-  if (!query) return [];
-
-  return db.all<AreaWithAncestorPath>(sql`
-    SELECT areas.*, (
-      SELECT GROUP_CONCAT(ancestor.name, ' > ') FROM (
-        SELECT name FROM areas ancestor
-        WHERE ancestor.lft < areas.lft AND ancestor.rght > areas.rght
-        ORDER BY ancestor.lft DESC
-      ) ancestor
-    ) AS ancestorPath
-    FROM areas
-    JOIN areas_fts ON areas_fts.rowid = areas.id
-    WHERE areas_fts MATCH ${query}
-    ORDER BY rank
-    LIMIT 25
-  `);
 }
 
 type MatchedArea = { id: number; lft: number; rght: number };

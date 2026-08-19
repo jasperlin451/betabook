@@ -4,18 +4,47 @@ import { createDb, type Database } from "./client";
 import {
   getAncestors,
   getArea,
+  getClimb,
+  getSendsForClimb,
+  getSendsForUser,
   getSubareas,
   getSubtreeClimbs,
+  getUser,
+  getUserSendForClimb,
   searchAreas,
   searchClimbs,
 } from "./queries";
-import { seedFixtureTree } from "@/test/fixtures";
+import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
 let db: Database;
 
 beforeAll(async () => {
   db = createDb(env.DB);
   await seedFixtureTree(db);
+
+  await seedFixtureUser(db, { id: "test-user-1", name: "Alice Climber" });
+  await seedFixtureUser(db, { id: "test-user-2", name: "Bob Climber" });
+
+  // Test Highball (climb id 1) sent by both users on different dates;
+  // Test Slab (climb id 2) sent only by test-user-1.
+  await seedFixtureSend(db, {
+    userId: "test-user-1",
+    climbId: 1,
+    dateSent: "2026-01-01",
+    rating: 4,
+  });
+  await seedFixtureSend(db, {
+    userId: "test-user-2",
+    climbId: 1,
+    dateSent: "2026-02-01",
+    completionType: "flash",
+  });
+  await seedFixtureSend(db, {
+    userId: "test-user-1",
+    climbId: 2,
+    dateSent: "2026-03-01",
+    completionType: "onsight",
+  });
 });
 
 describe("getArea", () => {
@@ -178,5 +207,66 @@ describe("searchClimbs", () => {
       boulderRange: [0, 3],
     });
     expect(results.map((c) => c.name)).toEqual(["Test Slab"]);
+  });
+});
+
+describe("getClimb", () => {
+  it("returns the climb for a known id", async () => {
+    const climb = await getClimb(db, 1);
+    expect(climb?.name).toBe("Test Highball");
+  });
+
+  it("returns undefined for an unknown id", async () => {
+    const climb = await getClimb(db, 999999);
+    expect(climb).toBeUndefined();
+  });
+});
+
+describe("getUser", () => {
+  it("returns the user for a known id", async () => {
+    const user = await getUser(db, "test-user-1");
+    expect(user?.name).toBe("Alice Climber");
+  });
+
+  it("returns undefined for an unknown id", async () => {
+    const user = await getUser(db, "no-such-user");
+    expect(user).toBeUndefined();
+  });
+});
+
+describe("getUserSendForClimb", () => {
+  it("returns the user's send for a climb they've sent", async () => {
+    const send = await getUserSendForClimb(db, "test-user-1", 1);
+    expect(send?.rating).toBe(4);
+  });
+
+  it("returns undefined when the user hasn't sent that climb", async () => {
+    const send = await getUserSendForClimb(db, "test-user-1", 3);
+    expect(send).toBeUndefined();
+  });
+});
+
+describe("getSendsForClimb", () => {
+  it("returns every user's send for the climb, newest dateSent first", async () => {
+    const results = await getSendsForClimb(db, 1);
+    expect(results.map((s) => s.userName)).toEqual(["Bob Climber", "Alice Climber"]);
+  });
+
+  it("returns an empty array for a climb with no sends", async () => {
+    const results = await getSendsForClimb(db, 3);
+    expect(results).toEqual([]);
+  });
+});
+
+describe("getSendsForUser", () => {
+  it("returns every send across a user's climbs, newest dateSent first", async () => {
+    const results = await getSendsForUser(db, "test-user-1");
+    expect(results.map((s) => s.climbName)).toEqual(["Test Slab", "Test Highball"]);
+  });
+
+  it("returns an empty array for a user with no sends", async () => {
+    await seedFixtureUser(db, { id: "test-user-3", name: "No Sends" });
+    const results = await getSendsForUser(db, "test-user-3");
+    expect(results).toEqual([]);
   });
 });

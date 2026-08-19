@@ -1,10 +1,13 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { Link } from "@heroui/react";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
-import { getAncestors, getArea } from "@/db/queries";
+import { SendPanel } from "@/components/send-panel";
+import { SendList } from "@/components/send-list";
+import { getAncestors, getArea, getClimb, getSendsForClimb, getUserSendForClimb } from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
 import { getDb } from "@/db/client";
-import { climbs } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { initAuth } from "@/lib/auth";
 
 type ClimbPageProps = {
   params: Promise<{ id: string }>;
@@ -17,11 +20,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   if (!Number.isInteger(climbId)) notFound();
 
   const db = await getDb();
-  const climb = await db
-    .select()
-    .from(climbs)
-    .where(eq(climbs.id, climbId))
-    .get();
+  const climb = await getClimb(db, climbId);
 
   if (!climb) notFound();
 
@@ -29,6 +28,13 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   if (!area) notFound();
 
   const ancestors = await getAncestors(db, area);
+
+  const auth = await initAuth();
+  const session = await auth.api.getSession({ headers: await headers() });
+  const userSend = session
+    ? ((await getUserSendForClimb(db, session.user.id, climb.id)) ?? null)
+    : null;
+  const climbSends = await getSendsForClimb(db, climb.id);
 
   return (
     <div className="flex flex-col gap-6">
@@ -41,8 +47,19 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
         </p>
       </div>
 
-      {/* Ticks are post-MVP — this is the natural spot for a future
-          "log a tick" / community ticks section. */}
+      <div className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold">Sends</h2>
+
+        {session ? (
+          <SendPanel climb={climb} existingSend={userSend} />
+        ) : (
+          <p className="text-muted text-sm">
+            <Link href="/sign-in">Sign in</Link> to log a send.
+          </p>
+        )}
+
+        <SendList sends={climbSends} context="climb" climbType={climb.type} />
+      </div>
     </div>
   );
 }

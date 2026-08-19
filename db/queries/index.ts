@@ -1,4 +1,5 @@
+export * from "./shared";
 export * from "./areas";
 export * from "./climbs";
-export * from "./auth";
+export * from "./users";
 export * from "./sends";
