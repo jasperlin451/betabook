@@ -23,8 +23,9 @@ export const sends = sqliteTable(
       enum: ["redpoint", "flash", "onsight"],
     }).notNull(),
     // ISO date (YYYY-MM-DD) — when the climb was actually sent, not when
-    // this row was logged/edited (that's createdAt/updatedAt below).
-    dateSent: text("date_sent").notNull(),
+    // this row was logged/edited (that's createdAt/updatedAt below). Nullable
+    // since older/imported sends often have no recorded date at all.
+    dateSent: text("date_sent"),
     comment: text("comment"),
     rating: integer("rating"), // 1-5, nullable = abstained
     suggestedGrade: integer("suggested_grade"), // same ordinal space as climbs.grade, scoped by climb.type

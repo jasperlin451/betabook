@@ -32,6 +32,15 @@ export async function getSendsForClimb(db: Database, climbId: number): Promise<S
     .orderBy(desc(sends.dateSent));
 }
 
+/** All climb ids the user already has a send for — cheap pre-check for bulk import, avoids one query per row just to detect duplicates. */
+export async function getUserSentClimbIds(db: Database, userId: string): Promise<Set<number>> {
+  const rows = await db
+    .select({ climbId: sends.climbId })
+    .from(sends)
+    .where(eq(sends.userId, userId));
+  return new Set(rows.map((r) => r.climbId));
+}
+
 export async function getSendsForUser(db: Database, userId: string): Promise<SendWithClimb[]> {
   return db
     .select({

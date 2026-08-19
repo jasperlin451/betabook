@@ -142,6 +142,37 @@ export function nativeGradeArray(type: ClimbType): readonly string[] {
   return disciplineFor(type) === "boulder" ? BOULDER_HUECO : ROPE_YDS;
 }
 
+/**
+ * Reverse of formatGrade: grade text -> ordinal index, or null if it doesn't
+ * match anything in the chosen table. `preference` mirrors the "native vs
+ * converted" choice a caller (e.g. the CSV import wizard) exposes to a user,
+ * rather than the raw hueco/font/yds/french distinction — the actual table
+ * is resolved from climb type + this preference. Converted-scale tables
+ * (HUECO_TO_FONT/YDS_TO_FRENCH) aren't strictly 1:1 (see the comment atop
+ * this file), so an ambiguous converted-scale string resolves to its first
+ * (easiest) matching index rather than failing outright.
+ */
+export function parseGrade(
+  type: ClimbType,
+  text: string,
+  preference: "native" | "converted" = "native",
+): number | null {
+  const discipline = disciplineFor(type);
+  const table =
+    preference === "native"
+      ? discipline === "boulder"
+        ? BOULDER_HUECO
+        : ROPE_YDS
+      : discipline === "boulder"
+        ? HUECO_TO_FONT
+        : YDS_TO_FRENCH;
+
+  const trimmed = text.trim().toLowerCase();
+  if (!trimmed) return null;
+  const index = table.findIndex((g) => g.toLowerCase() === trimmed);
+  return index === -1 ? null : index;
+}
+
 export function formatGrade(
   type: ClimbType,
   grade: number | null | undefined,

@@ -56,6 +56,15 @@ describe("validateSendInput", () => {
     expect(validateSendInput("boulder", raw({ dateSent: TODAY }), TODAY).dateSent).toBe(TODAY);
   });
 
+  it("accepts a null send date", () => {
+    expect(validateSendInput("boulder", raw({ dateSent: null }), TODAY).dateSent).toBeNull();
+  });
+
+  it("treats a blank send date as null", () => {
+    expect(validateSendInput("boulder", raw({ dateSent: "" }), TODAY).dateSent).toBeNull();
+    expect(validateSendInput("boulder", raw({ dateSent: "   " }), TODAY).dateSent).toBeNull();
+  });
+
   it("trims a comment and accepts it under the length limit", () => {
     const result = validateSendInput("boulder", raw({ comment: "  Great climb!  " }), TODAY);
     expect(result.comment).toBe("Great climb!");

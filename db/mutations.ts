@@ -6,8 +6,15 @@ import { eq } from "drizzle-orm";
 import { initAuth } from "@/lib/auth";
 import { getDb } from "@/db/client";
 import { sends } from "@/db/schema";
-import { getClimb, getUserSendForClimb } from "@/db/queries";
+import {
+  findClimbsByNameAndArea,
+  getClimb,
+  getUserSendForClimb,
+  getUserSentClimbIds,
+} from "@/db/queries";
 import { validateSendInput, type RawSendInput } from "@/lib/sends";
+import { parseGrade } from "@/lib/grades";
+import type { NormalizedImportRow } from "@/lib/sends-import";
 
 async function requireSession() {
   const auth = await initAuth();
@@ -73,4 +80,82 @@ export async function deleteSend(sendId: number) {
 
   revalidatePath(`/climbs/${existing.climbId}`);
   revalidatePath(`/users/${session.user.id}`);
+}
+
+export type ImportRowFailureReason = "climb-not-found" | "climb-ambiguous";
+export type ImportResult = {
+  imported: number;
+  alreadyLogged: number;
+  notFound: Array<{
+    climbName: string;
+    areaName: string;
+    dateSent: string | null;
+    reason: ImportRowFailureReason;
+  }>;
+};
+
+// D1 caps queries at 100 bound parameters. Each sends row binds 7 values
+// (userId, climbId, completionType, dateSent, comment, rating,
+// suggestedGrade — id is auto-increment, createdAt/updatedAt use SQL
+// defaults, so those aren't bound). 10 rows × 7 = 70, safely under 100.
+const INSERT_CHUNK_SIZE = 10;
+
+export async function importSends(
+  rows: NormalizedImportRow[],
+  gradeScalePreference: "native" | "converted",
+): Promise<ImportResult> {
+  const session = await requireSession();
+  const db = await getDb();
+
+  const alreadySent = await getUserSentClimbIds(db, session.user.id);
+  const toInsert: (typeof sends.$inferInsert)[] = [];
+  const notFound: ImportResult["notFound"] = [];
+  let alreadyLogged = 0;
+
+  for (const row of rows) {
+    const matches = await findClimbsByNameAndArea(db, row.climbName, row.areaName);
+
+    // Exactly one match: done. Multiple matches: only resolves if the CSV's
+    // (optional) climb-type hint narrows it to exactly one; otherwise still
+    // ambiguous. Zero matches: not found.
+    const narrowed = row.climbTypeHint
+      ? matches.filter((m) => m.type === row.climbTypeHint)
+      : matches;
+    const resolved = narrowed.length === 1 ? narrowed[0] : undefined;
+
+    if (!resolved) {
+      notFound.push({
+        climbName: row.climbName,
+        areaName: row.areaName,
+        dateSent: row.dateSent,
+        reason: matches.length === 0 ? "climb-not-found" : "climb-ambiguous",
+      });
+      continue;
+    }
+
+    if (alreadySent.has(resolved.id)) {
+      alreadyLogged++;
+      continue;
+    }
+    alreadySent.add(resolved.id); // guards against duplicate rows within the same CSV too
+
+    toInsert.push({
+      userId: session.user.id,
+      climbId: resolved.id,
+      completionType: row.completionType,
+      dateSent: row.dateSent,
+      comment: row.comment,
+      rating: row.rating,
+      suggestedGrade: row.gradeText
+        ? parseGrade(resolved.type, row.gradeText, gradeScalePreference)
+        : null,
+    });
+  }
+
+  for (let i = 0; i < toInsert.length; i += INSERT_CHUNK_SIZE) {
+    await db.insert(sends).values(toInsert.slice(i, i + INSERT_CHUNK_SIZE));
+  }
+
+  revalidatePath(`/users/${session.user.id}`);
+  return { imported: toInsert.length, alreadyLogged, notFound };
 }

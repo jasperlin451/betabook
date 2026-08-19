@@ -6,7 +6,7 @@ export const MAX_COMMENT_LENGTH = 280;
 
 export type SendInput = {
   completionType: CompletionType;
-  dateSent: string;
+  dateSent: string | null;
   comment: string | null;
   rating: number | null;
   suggestedGrade: number | null;
@@ -42,10 +42,11 @@ export function validateSendInput(
     throw new Error("Invalid completion type");
   }
 
-  if (typeof raw.dateSent !== "string" || !ISO_DATE_RE.test(raw.dateSent)) {
+  const dateSent = typeof raw.dateSent === "string" ? raw.dateSent.trim() : "";
+  if (dateSent && !ISO_DATE_RE.test(dateSent)) {
     throw new Error("Invalid send date");
   }
-  if (raw.dateSent > today) {
+  if (dateSent && dateSent > today) {
     throw new Error("Send date can't be in the future");
   }
 
@@ -74,7 +75,7 @@ export function validateSendInput(
 
   return {
     completionType: raw.completionType,
-    dateSent: raw.dateSent,
+    dateSent: dateSent || null,
     comment,
     rating,
     suggestedGrade,

@@ -37,6 +37,27 @@ export async function getSubtreeClimbs(
   };
 }
 
+/** Exact (case-insensitive, trimmed) name match, in an area matching areaName exactly or as an ancestor. Returns every match — caller decides what 0/1/many means. */
+export async function findClimbsByNameAndArea(
+  db: Database,
+  climbName: string,
+  areaName: string,
+): Promise<Climb[]> {
+  return db.all<Climb>(sql`
+    SELECT climbs.* FROM climbs
+    JOIN areas ON areas.id = climbs.area_id
+    WHERE LOWER(TRIM(climbs.name)) = LOWER(TRIM(${climbName}))
+    AND (
+      LOWER(TRIM(areas.name)) = LOWER(TRIM(${areaName}))
+      OR EXISTS (
+        SELECT 1 FROM areas ancestor
+        WHERE ancestor.lft < areas.lft AND ancestor.rght > areas.rght
+        AND LOWER(TRIM(ancestor.name)) = LOWER(TRIM(${areaName}))
+      )
+    )
+  `);
+}
+
 type MatchedArea = { id: number; lft: number; rght: number };
 
 export type Discipline = "boulder" | "sport" | "trad";

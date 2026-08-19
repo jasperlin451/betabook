@@ -41,7 +41,7 @@ export function SendList(props: SendListProps) {
                     <Table.Cell>
                       <Link href={`/users/${send.userId}`}>{send.userName}</Link>
                     </Table.Cell>
-                    <Table.Cell>{send.dateSent}</Table.Cell>
+                    <Table.Cell>{send.dateSent ?? "Date unknown"}</Table.Cell>
                     <Table.Cell>
                       <Chip color={COMPLETION_CHIP_COLOR[send.completionType]} variant="primary">
                         {send.completionType.toUpperCase()}
@@ -57,7 +57,7 @@ export function SendList(props: SendListProps) {
                     <Table.Cell>
                       <Link href={`/climbs/${send.climbId}`}>{send.climbName}</Link>
                     </Table.Cell>
-                    <Table.Cell>{send.dateSent}</Table.Cell>
+                    <Table.Cell>{send.dateSent ?? "Date unknown"}</Table.Cell>
                     <Table.Cell>
                       <Chip color={COMPLETION_CHIP_COLOR[send.completionType]} variant="primary">
                         {send.completionType.toUpperCase()}

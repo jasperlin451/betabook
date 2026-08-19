@@ -34,7 +34,9 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   const [completionType, setCompletionType] = useState<CompletionType>(
     existingSend?.completionType ?? "redpoint",
   );
-  const [dateSent, setDateSent] = useState(existingSend?.dateSent ?? today);
+  const [dateSent, setDateSent] = useState(
+    existingSend ? (existingSend.dateSent ?? "") : today,
+  );
   const [comment, setComment] = useState(existingSend?.comment ?? "");
   const [rating, setRating] = useState(
     existingSend?.rating != null ? String(existingSend.rating) : "abstain",
@@ -105,7 +107,6 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
           type="date"
           value={dateSent}
           max={today}
-          required
           onChange={(e) => setDateSent(e.target.value)}
           className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
         />

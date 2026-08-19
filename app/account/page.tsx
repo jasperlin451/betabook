@@ -17,6 +17,7 @@ export default async function AccountPage() {
       <h1 className="text-lg font-semibold">Account</h1>
       <p className="text-sm text-muted">Signed in as {session.user.email}</p>
       <Link href={`/users/${session.user.id}`}>View my profile</Link>
+      <Link href="/account/import">Import Sends</Link>
       <SignOutButton />
     </div>
   );

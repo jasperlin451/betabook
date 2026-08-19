@@ -6,6 +6,7 @@ import {
   YDS_TO_FRENCH,
   formatGrade,
   nativeGradeArray,
+  parseGrade,
 } from "./grades";
 
 describe("formatGrade", () => {
@@ -63,5 +64,44 @@ describe("grade scale tables", () => {
 
   it("keeps YDS_TO_FRENCH the same length as ROPE_YDS", () => {
     expect(YDS_TO_FRENCH.length).toBe(ROPE_YDS.length);
+  });
+});
+
+describe("parseGrade", () => {
+  it("parses a native-scale boulder grade", () => {
+    expect(parseGrade("boulder", "V4")).toBe(5);
+    expect(parseGrade("boulder", "VB")).toBe(0);
+  });
+
+  it("parses a native-scale rope grade for sport and trad", () => {
+    expect(parseGrade("sport", "5.10a")).toBe(10);
+    expect(parseGrade("trad", "5.6")).toBe(6);
+  });
+
+  it("is case-insensitive and trims whitespace", () => {
+    expect(parseGrade("boulder", "  v4  ")).toBe(5);
+  });
+
+  it("parses a converted-scale grade when requested", () => {
+    expect(parseGrade("boulder", HUECO_TO_FONT[5], "converted")).toBe(5);
+    expect(parseGrade("sport", YDS_TO_FRENCH[10], "converted")).toBe(10);
+  });
+
+  it("resolves an ambiguous converted-scale value to its first matching index", () => {
+    // YDS_TO_FRENCH has "7a+" at both index 17 and 18 (see grades.ts's own
+    // comment about the conversion not being strictly 1:1).
+    expect(YDS_TO_FRENCH[17]).toBe("7a+");
+    expect(YDS_TO_FRENCH[18]).toBe("7a+");
+    expect(parseGrade("sport", "7a+", "converted")).toBe(17);
+  });
+
+  it("returns null for text that doesn't match anything in the table", () => {
+    expect(parseGrade("boulder", "V99")).toBeNull();
+    expect(parseGrade("sport", "not a grade")).toBeNull();
+  });
+
+  it("returns null for blank text", () => {
+    expect(parseGrade("boulder", "")).toBeNull();
+    expect(parseGrade("boulder", "   ")).toBeNull();
   });
 });
