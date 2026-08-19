@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Link } from "@heroui/react";
 import { Mountain } from "lucide-react";
 import { Providers } from "./providers";
+import { AuthNav } from "@/components/auth-nav";
 import "./globals.css";
 
 const navLinks = [
@@ -47,9 +48,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   {link.label}
                 </Link>
               ))}
-              <span className="text-muted" title="Not yet implemented">
-                Log In
-              </span>
+              <AuthNav />
             </nav>
           </header>
           <main className="flex-1 p-4">{children}</main>
@@ -61,7 +60,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   {link.label}
                 </Link>
               ))}
-              <span title="Not yet implemented">Log In</span>
+              <AuthNav />
             </nav>
           </footer>
         </Providers>

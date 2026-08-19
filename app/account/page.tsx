@@ -1,0 +1,21 @@
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { initAuth } from "@/lib/auth";
+import { SignOutButton } from "@/components/sign-out-button";
+
+export default async function AccountPage() {
+  const auth = await initAuth();
+  const session = await auth.api.getSession({ headers: await headers() });
+
+  if (!session) {
+    redirect("/sign-in");
+  }
+
+  return (
+    <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
+      <h1 className="text-lg font-semibold">Account</h1>
+      <p className="text-sm text-muted">Signed in as {session.user.email}</p>
+      <SignOutButton />
+    </div>
+  );
+}

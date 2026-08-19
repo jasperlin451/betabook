@@ -15,6 +15,20 @@
       "when": 1787029783506,
       "tag": "0001_fts5_search",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787094539246,
+      "tag": "0002_unusual_blacklash",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787117317413,
+      "tag": "0003_chief_the_captain",
+      "breakpoints": true
     }
   ]
 }
