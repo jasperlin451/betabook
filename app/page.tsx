@@ -79,12 +79,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-bold">Find a climb. Check the consensus.</h1>
-        <p className="text-muted mt-1">
-          Search by name, area, grade, and discipline. Open a route to compare ascents.
-        </p>
-      </div>
       <ModeSwitch mode={mode} />
       <ClimbSearchForm
         defaultName={name}

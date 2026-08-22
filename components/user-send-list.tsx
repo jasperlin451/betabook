@@ -4,12 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Link } from "@heroui/react";
 import { formatGrade } from "@/lib/grades";
-import { userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
+import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { AscentType } from "@/components/ascent-type";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
-import { SendFilterForm } from "@/components/send-filter-form";
+import { DisciplineFilterForm } from "@/components/send-filter-form";
 
 function AreaBreadcrumb({
   areaId,
@@ -100,7 +100,12 @@ export function UserSendList({
 
   return (
     <div className="flex flex-col gap-4">
-      <SendFilterForm context="user" value={filter} onChange={handleFilterChange} />
+      <DisciplineFilterForm
+        value={filter}
+        onChange={handleFilterChange}
+        onReset={() => handleFilterChange(DEFAULT_USER_SENDS_FILTER)}
+        showNameSearch={false}
+      />
       {sends.length === 0 ? (
         <p className="text-muted text-sm">No sends match these filters.</p>
       ) : (

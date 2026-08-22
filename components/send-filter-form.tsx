@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import {
   Button,
   buttonVariants,
@@ -7,12 +8,344 @@ import {
   CheckboxGroup,
   Disclosure,
   Fieldset,
-  Slider,
+  InputGroup,
+  Label,
+  ListBox,
+  Select,
+  TextField,
 } from "@heroui/react";
+import clsx from "clsx";
+import { Search } from "lucide-react";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 import { COMPLETION_TYPES, type CompletionType } from "@/lib/sends";
-import { DEFAULT_USER_SENDS_FILTER } from "@/lib/user-sends-filter";
 import type { Discipline, SendWithUserName, UserSendsFilter } from "@/db/queries";
+
+function toggleDiscipline(
+  disciplines: Discipline[],
+  value: Discipline,
+  checked: boolean,
+): Discipline[] {
+  return checked ? [...disciplines, value] : disciplines.filter((d) => d !== value);
+}
+
+// Shared by climb search (route/area name search + disciplines + grade
+// ranges) and the user sends filter (disciplines + grade ranges only, via
+// showNameSearch={false}) — one set of fields, not two near-duplicates.
+
+type NameSearchFieldsProps = {
+  name?: string;
+  onNameChange?: (value: string) => void;
+  areaName?: string;
+  onAreaNameChange?: (value: string) => void;
+};
+
+function NameSearchFields({
+  name = "",
+  onNameChange,
+  areaName = "",
+  onAreaNameChange,
+}: NameSearchFieldsProps) {
+  return (
+    <div className="flex flex-wrap items-end gap-4">
+      {onNameChange && (
+        <TextField value={name} onChange={onNameChange} className="min-w-56 flex-1">
+          <Label>Route Name</Label>
+          <InputGroup>
+            <InputGroup.Prefix>
+              <Search className="size-4 text-muted" />
+            </InputGroup.Prefix>
+            <InputGroup.Input placeholder="Search route name..." />
+          </InputGroup>
+        </TextField>
+      )}
+      {onAreaNameChange && (
+        <TextField value={areaName} onChange={onAreaNameChange} className="min-w-56 flex-1">
+          <Label>Area Name</Label>
+          <InputGroup>
+            <InputGroup.Prefix>
+              <Search className="size-4 text-muted" />
+            </InputGroup.Prefix>
+            <InputGroup.Input placeholder="Search area..." />
+          </InputGroup>
+        </TextField>
+      )}
+    </div>
+  );
+}
+
+function DisciplinesFields({
+  value,
+  onChange,
+  className,
+}: {
+  value: UserSendsFilter;
+  onChange: (value: UserSendsFilter) => void;
+  className?: string;
+}) {
+  const showBoulder = value.disciplines.includes("boulder");
+  const showSport = value.disciplines.includes("sport");
+  const showTrad = value.disciplines.includes("trad");
+
+  return (
+    <div className={clsx("flex items-center justify-start gap-3", className)}>
+      <span className="text-sm font-medium text-foreground">Disciplines</span>
+      <div className="flex items-center justify-start gap-4">
+        <Checkbox
+          isSelected={showBoulder}
+          onChange={(checked) =>
+            onChange({ ...value, disciplines: toggleDiscipline(value.disciplines, "boulder", checked) })
+          }
+        >
+          <Checkbox.Content>
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            Boulder
+          </Checkbox.Content>
+        </Checkbox>
+        <Checkbox
+          isSelected={showSport}
+          onChange={(checked) =>
+            onChange({ ...value, disciplines: toggleDiscipline(value.disciplines, "sport", checked) })
+          }
+        >
+          <Checkbox.Content>
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            Sport
+          </Checkbox.Content>
+        </Checkbox>
+        <Checkbox
+          isSelected={showTrad}
+          onChange={(checked) =>
+            onChange({ ...value, disciplines: toggleDiscipline(value.disciplines, "trad", checked) })
+          }
+        >
+          <Checkbox.Content>
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            Trad
+          </Checkbox.Content>
+        </Checkbox>
+      </div>
+    </div>
+  );
+}
+
+// Grades are discrete steps (V4, V5, V6, ...), not a continuum — two "Min
+// Grade"/"Max Grade" dropdowns are a couple of clicks; a drag-based range
+// slider is fiddly for selecting exact discrete values.
+function GradeSelect({
+  label,
+  grades,
+  index,
+  onChange,
+}: {
+  label: string;
+  grades: readonly string[];
+  index: number;
+  onChange: (index: number) => void;
+}) {
+  return (
+    <Select
+      aria-label={label}
+      selectedKey={String(index)}
+      onSelectionChange={(key) => onChange(Number(key))}
+    >
+      <Select.Trigger className="w-20">
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          {grades.map((grade, i) => (
+            <ListBox.Item key={i} id={String(i)}>
+              {grade}
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
+  );
+}
+
+function DisciplineGradeRange({
+  label,
+  grades,
+  range,
+  onChange,
+}: {
+  label: string;
+  grades: readonly string[];
+  range: [number, number];
+  onChange: (range: [number, number]) => void;
+}) {
+  return (
+    <div className="flex items-end gap-3">
+      <span className="shrink-0 pb-2.5 text-sm font-medium">{label}</span>
+      <GradeSelect
+        label="Min Grade"
+        grades={grades}
+        index={range[0]}
+        onChange={(min) => onChange([min, Math.max(min, range[1])])}
+      />
+      <span className="pb-2.5 text-muted">–</span>
+      <GradeSelect
+        label="Max Grade"
+        grades={grades}
+        index={range[1]}
+        onChange={(max) => onChange([Math.min(range[0], max), max])}
+      />
+    </div>
+  );
+}
+
+function DisciplineGradeSliders({
+  value,
+  onChange,
+}: {
+  value: UserSendsFilter;
+  onChange: (value: UserSendsFilter) => void;
+}) {
+  const showBoulder = value.disciplines.includes("boulder");
+  const showSport = value.disciplines.includes("sport");
+  const showTrad = value.disciplines.includes("trad");
+
+  return (
+    <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:gap-6">
+      {showBoulder && (
+        <DisciplineGradeRange
+          label="Boulder"
+          grades={BOULDER_HUECO}
+          range={value.boulderRange}
+          onChange={(boulderRange) => onChange({ ...value, boulderRange })}
+        />
+      )}
+
+      {showSport && (
+        <DisciplineGradeRange
+          label="Sport"
+          grades={ROPE_YDS}
+          range={value.sportRange}
+          onChange={(sportRange) => onChange({ ...value, sportRange })}
+        />
+      )}
+
+      {showTrad && (
+        <DisciplineGradeRange
+          label="Trad"
+          grades={ROPE_YDS}
+          range={value.tradRange}
+          onChange={(tradRange) => onChange({ ...value, tradRange })}
+        />
+      )}
+    </div>
+  );
+}
+
+export type DisciplineFilterFormProps = {
+  value: UserSendsFilter;
+  onChange: (value: UserSendsFilter) => void;
+  onReset: () => void;
+  showNameSearch?: boolean;
+  name?: string;
+  onNameChange?: (value: string) => void;
+  areaName?: string;
+  onAreaNameChange?: (value: string) => void;
+  /** Extra fields rendered inside "More Options", above the grade sliders —
+   * e.g. climb search's (placeholder, not yet wired to real data) rating
+   * slider. Not part of `value` since it isn't a discipline/grade filter. */
+  extraOptions?: ReactNode;
+};
+
+/** The one filter form for discipline + grade-range filtering — climb
+ * search and the user sends list render this exact component, differing
+ * only in `showNameSearch` and `extraOptions`. */
+export function DisciplineFilterForm({
+  value,
+  onChange,
+  onReset,
+  showNameSearch = true,
+  name,
+  onNameChange,
+  areaName,
+  onAreaNameChange,
+  extraOptions,
+}: DisciplineFilterFormProps) {
+  return (
+    <Disclosure className="rounded-xl bg-surface-secondary p-6">
+      {({ isExpanded }) => (
+        <>
+          <div className="flex flex-col gap-4">
+            {showNameSearch && (
+              <NameSearchFields
+                name={name}
+                onNameChange={onNameChange}
+                areaName={areaName}
+                onAreaNameChange={onAreaNameChange}
+              />
+            )}
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
+              <DisciplinesFields value={value} onChange={onChange} className="flex-1" />
+
+              {!isExpanded && (
+                <div className="flex sm:flex-col sm:justify-end">
+                  <div className="flex items-end justify-end gap-4">
+                    <Button variant="ghost" onPress={onReset}>
+                      Reset Filters
+                    </Button>
+
+                    <Disclosure.Heading className="contents">
+                      <Disclosure.Trigger className={buttonVariants({ variant: "ghost" })}>
+                        More Options
+                      </Disclosure.Trigger>
+                    </Disclosure.Heading>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
+            <Disclosure.Content className="min-w-0 flex-1">
+              {/* Disclosure.Body's own p-2 comes from an outer wrapper div this
+               * component doesn't expose a className for — style is the only
+               * prop that reaches it, to align this with the visible row above
+               * (pt-4 matches that row's own gap-4; pl-0 removes the built-in
+               * left inset so content lines up with the card's own padding). */}
+              <Disclosure.Body
+                className="flex flex-col gap-6"
+                style={{ paddingTop: "1rem", paddingLeft: 0 }}
+              >
+                {extraOptions}
+                <DisciplineGradeSliders value={value} onChange={onChange} />
+              </Disclosure.Body>
+            </Disclosure.Content>
+
+            {isExpanded && (
+              <div className="flex sm:flex-col sm:justify-end">
+                <div className="flex items-end justify-end gap-4">
+                  <Button variant="ghost" onPress={onReset}>
+                    Reset Filters
+                  </Button>
+
+                  <Disclosure.Heading className="contents">
+                    <Disclosure.Trigger className={buttonVariants({ variant: "ghost" })}>
+                      Less Options
+                    </Disclosure.Trigger>
+                  </Disclosure.Heading>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </Disclosure>
+  );
+}
 
 // Ascent type is the one filter dimension every climb's send list already
 // has data for. Richer climb-specific filters (rating threshold, date
@@ -32,178 +365,7 @@ export function filterClimbSends(
   return sends.filter((send) => filters.ascentTypes.includes(send.completionType));
 }
 
-type SendFilterFormProps =
-  | { context: "user"; value: UserSendsFilter; onChange: (value: UserSendsFilter) => void }
-  | { context: "climb"; value: ClimbSendFilters; onChange: (value: ClimbSendFilters) => void };
-
-export function SendFilterForm(props: SendFilterFormProps) {
-  return (
-    <Disclosure className="rounded-xl bg-surface-secondary px-4">
-      {({ isExpanded }) => (
-        <>
-          <Disclosure.Heading className="contents">
-            <Disclosure.Trigger
-              className={buttonVariants({ variant: "ghost", className: "my-2" })}
-            >
-              {isExpanded ? "Hide Filters" : "Filters"}
-            </Disclosure.Trigger>
-          </Disclosure.Heading>
-
-          <Disclosure.Content>
-            <Disclosure.Body className="flex flex-col gap-6 pb-4">
-              {props.context === "user" ? (
-                <UserFilterFields value={props.value} onChange={props.onChange} />
-              ) : (
-                <ClimbFilterFields value={props.value} onChange={props.onChange} />
-              )}
-            </Disclosure.Body>
-          </Disclosure.Content>
-        </>
-      )}
-    </Disclosure>
-  );
-}
-
-function UserFilterFields({
-  value,
-  onChange,
-}: {
-  value: UserSendsFilter;
-  onChange: (value: UserSendsFilter) => void;
-}) {
-  const showBoulder = value.disciplines.includes("boulder");
-  const showSport = value.disciplines.includes("sport");
-  const showTrad = value.disciplines.includes("trad");
-
-  return (
-    <>
-      <Fieldset>
-        <Fieldset.Legend>Disciplines</Fieldset.Legend>
-        <CheckboxGroup
-          aria-label="Disciplines"
-          value={value.disciplines}
-          onChange={(disciplines) => onChange({ ...value, disciplines: disciplines as Discipline[] })}
-          className="flex flex-col gap-4"
-        >
-          <div className="flex items-center gap-4">
-            <Checkbox value="boulder" className="w-24 shrink-0">
-              <Checkbox.Content>
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
-                Boulder
-              </Checkbox.Content>
-            </Checkbox>
-            {showBoulder && (
-              <Slider
-                aria-label="Boulder grade range"
-                value={value.boulderRange}
-                onChange={(boulderRange) =>
-                  onChange({ ...value, boulderRange: boulderRange as [number, number] })
-                }
-                minValue={0}
-                maxValue={BOULDER_HUECO.length - 1}
-                step={1}
-                className="flex-1"
-              >
-                <Slider.Track>
-                  <Slider.Fill />
-                  <Slider.Thumb index={0} />
-                  <Slider.Thumb index={1} />
-                </Slider.Track>
-              </Slider>
-            )}
-            {showBoulder && (
-              <span className="w-20 shrink-0 text-right text-xs text-muted">
-                {BOULDER_HUECO[value.boulderRange[0]]} - {BOULDER_HUECO[value.boulderRange[1]]}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Checkbox value="sport" className="w-24 shrink-0">
-              <Checkbox.Content>
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
-                Sport
-              </Checkbox.Content>
-            </Checkbox>
-            {showSport && (
-              <Slider
-                aria-label="Sport grade range"
-                value={value.sportRange}
-                onChange={(sportRange) =>
-                  onChange({ ...value, sportRange: sportRange as [number, number] })
-                }
-                minValue={0}
-                maxValue={ROPE_YDS.length - 1}
-                step={1}
-                className="flex-1"
-              >
-                <Slider.Track>
-                  <Slider.Fill />
-                  <Slider.Thumb index={0} />
-                  <Slider.Thumb index={1} />
-                </Slider.Track>
-              </Slider>
-            )}
-            {showSport && (
-              <span className="w-20 shrink-0 text-right text-xs text-muted">
-                {ROPE_YDS[value.sportRange[0]]} - {ROPE_YDS[value.sportRange[1]]}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Checkbox value="trad" className="w-24 shrink-0">
-              <Checkbox.Content>
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
-                Trad
-              </Checkbox.Content>
-            </Checkbox>
-            {showTrad && (
-              <Slider
-                aria-label="Trad grade range"
-                value={value.tradRange}
-                onChange={(tradRange) =>
-                  onChange({ ...value, tradRange: tradRange as [number, number] })
-                }
-                minValue={0}
-                maxValue={ROPE_YDS.length - 1}
-                step={1}
-                className="flex-1"
-              >
-                <Slider.Track>
-                  <Slider.Fill />
-                  <Slider.Thumb index={0} />
-                  <Slider.Thumb index={1} />
-                </Slider.Track>
-              </Slider>
-            )}
-            {showTrad && (
-              <span className="w-20 shrink-0 text-right text-xs text-muted">
-                {ROPE_YDS[value.tradRange[0]]} - {ROPE_YDS[value.tradRange[1]]}
-              </span>
-            )}
-          </div>
-        </CheckboxGroup>
-      </Fieldset>
-
-      <Button
-        variant="ghost"
-        className="self-start"
-        onPress={() => onChange(DEFAULT_USER_SENDS_FILTER)}
-      >
-        Reset Filters
-      </Button>
-    </>
-  );
-}
-
-function ClimbFilterFields({
+export function AscentTypeFilterForm({
   value,
   onChange,
 }: {
@@ -211,37 +373,53 @@ function ClimbFilterFields({
   onChange: (value: ClimbSendFilters) => void;
 }) {
   return (
-    <>
-      <Fieldset>
-        <Fieldset.Legend>Ascent type</Fieldset.Legend>
-        <CheckboxGroup
-          aria-label="Ascent type"
-          value={value.ascentTypes}
-          onChange={(ascentTypes) =>
-            onChange({ ...value, ascentTypes: ascentTypes as CompletionType[] })
-          }
-          className="flex flex-row gap-4"
-        >
-          {COMPLETION_TYPES.map((type) => (
-            <Checkbox key={type} value={type}>
-              <Checkbox.Content>
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
-                <span className="capitalize">{type}</span>
-              </Checkbox.Content>
-            </Checkbox>
-          ))}
-        </CheckboxGroup>
-      </Fieldset>
+    <Disclosure className="rounded-xl bg-surface-secondary px-4">
+      {({ isExpanded }) => (
+        <>
+          <div className="flex flex-wrap items-end gap-4 py-2">
+            <Disclosure.Heading className="contents">
+              <Disclosure.Trigger className={buttonVariants({ variant: "ghost" })}>
+                {isExpanded ? "Hide Filters" : "Filters"}
+              </Disclosure.Trigger>
+            </Disclosure.Heading>
+          </div>
 
-      <Button
-        variant="ghost"
-        className="self-start"
-        onPress={() => onChange(DEFAULT_CLIMB_SEND_FILTERS)}
-      >
-        Reset Filters
-      </Button>
-    </>
+          <Disclosure.Content>
+            <Disclosure.Body className="flex flex-col gap-6 pb-4">
+              <Fieldset>
+                <Fieldset.Legend>Ascent type</Fieldset.Legend>
+                <CheckboxGroup
+                  aria-label="Ascent type"
+                  value={value.ascentTypes}
+                  onChange={(ascentTypes) =>
+                    onChange({ ...value, ascentTypes: ascentTypes as CompletionType[] })
+                  }
+                  className="flex flex-row gap-4"
+                >
+                  {COMPLETION_TYPES.map((type) => (
+                    <Checkbox key={type} value={type}>
+                      <Checkbox.Content>
+                        <Checkbox.Control>
+                          <Checkbox.Indicator />
+                        </Checkbox.Control>
+                        <span className="capitalize">{type}</span>
+                      </Checkbox.Content>
+                    </Checkbox>
+                  ))}
+                </CheckboxGroup>
+              </Fieldset>
+
+              <Button
+                variant="ghost"
+                className="self-start"
+                onPress={() => onChange(DEFAULT_CLIMB_SEND_FILTERS)}
+              >
+                Reset Filters
+              </Button>
+            </Disclosure.Body>
+          </Disclosure.Content>
+        </>
+      )}
+    </Disclosure>
   );
 }
