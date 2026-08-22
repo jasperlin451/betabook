@@ -37,6 +37,27 @@ export async function getNearestAncestors(
   return ancestors.slice(-depth);
 }
 
+export type AreaBreadcrumbs = Record<number, { id: number; name: string }[]>;
+
+/** Up to `depth` ancestors for each of `areaIds`, keyed by area id — one
+ * lookup per distinct area, not per caller-side row. */
+export async function getAreaBreadcrumbs(
+  db: Database,
+  areaIds: number[],
+  depth = 2,
+): Promise<AreaBreadcrumbs> {
+  const breadcrumbs: AreaBreadcrumbs = {};
+  await Promise.all(
+    [...new Set(areaIds)].map(async (areaId) => {
+      const area = await getArea(db, areaId);
+      if (!area) return;
+      const ancestors = await getNearestAncestors(db, area, depth);
+      breadcrumbs[areaId] = ancestors.map((a) => ({ id: a.id, name: a.name }));
+    }),
+  );
+  return breadcrumbs;
+}
+
 export type AreaWithAncestorPath = Area & { ancestorPath: string | null };
 
 /** `ancestorPath` reads immediate-parent-first, e.g. "Squamish > British Columbia > Canada". */

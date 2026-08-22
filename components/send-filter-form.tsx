@@ -11,39 +11,8 @@ import {
 } from "@heroui/react";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 import { COMPLETION_TYPES, type CompletionType } from "@/lib/sends";
-import type { Discipline } from "@/db/queries";
-import type { SendWithClimb, SendWithUserName } from "@/db/queries";
-
-export type UserSendFilters = {
-  disciplines: Discipline[];
-  boulderRange: [number, number];
-  sportRange: [number, number];
-  tradRange: [number, number];
-};
-
-export const DEFAULT_USER_SEND_FILTERS: UserSendFilters = {
-  disciplines: ["boulder", "sport", "trad"],
-  boulderRange: [0, BOULDER_HUECO.length - 1],
-  sportRange: [0, ROPE_YDS.length - 1],
-  tradRange: [0, ROPE_YDS.length - 1],
-};
-
-export function filterUserSends(
-  sends: SendWithClimb[],
-  filters: UserSendFilters,
-): SendWithClimb[] {
-  return sends.filter((send) => {
-    if (!filters.disciplines.includes(send.climbType)) return false;
-    if (send.climbGrade == null) return true;
-    const range =
-      send.climbType === "boulder"
-        ? filters.boulderRange
-        : send.climbType === "sport"
-          ? filters.sportRange
-          : filters.tradRange;
-    return send.climbGrade >= range[0] && send.climbGrade <= range[1];
-  });
-}
+import { DEFAULT_USER_SENDS_FILTER } from "@/lib/user-sends-filter";
+import type { Discipline, SendWithUserName, UserSendsFilter } from "@/db/queries";
 
 // Ascent type is the one filter dimension every climb's send list already
 // has data for. Richer climb-specific filters (rating threshold, date
@@ -64,7 +33,7 @@ export function filterClimbSends(
 }
 
 type SendFilterFormProps =
-  | { context: "user"; value: UserSendFilters; onChange: (value: UserSendFilters) => void }
+  | { context: "user"; value: UserSendsFilter; onChange: (value: UserSendsFilter) => void }
   | { context: "climb"; value: ClimbSendFilters; onChange: (value: ClimbSendFilters) => void };
 
 export function SendFilterForm(props: SendFilterFormProps) {
@@ -99,8 +68,8 @@ function UserFilterFields({
   value,
   onChange,
 }: {
-  value: UserSendFilters;
-  onChange: (value: UserSendFilters) => void;
+  value: UserSendsFilter;
+  onChange: (value: UserSendsFilter) => void;
 }) {
   const showBoulder = value.disciplines.includes("boulder");
   const showSport = value.disciplines.includes("sport");
@@ -226,7 +195,7 @@ function UserFilterFields({
       <Button
         variant="ghost"
         className="self-start"
-        onPress={() => onChange(DEFAULT_USER_SEND_FILTERS)}
+        onPress={() => onChange(DEFAULT_USER_SENDS_FILTER)}
       >
         Reset Filters
       </Button>

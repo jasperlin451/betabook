@@ -1,7 +1,14 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
-import { getAncestors, getArea, getNearestAncestors, getSubareas, searchAreas } from "./areas";
+import {
+  getAncestors,
+  getArea,
+  getAreaBreadcrumbs,
+  getNearestAncestors,
+  getSubareas,
+  searchAreas,
+} from "./areas";
 import { seedFixtureTree } from "@/test/fixtures";
 
 let db: Database;
@@ -75,6 +82,20 @@ describe("getNearestAncestors", () => {
     const root = await getArea(db, 1);
     const ancestors = await getNearestAncestors(db, root!, 2);
     expect(ancestors).toEqual([]);
+  });
+});
+
+describe("getAreaBreadcrumbs", () => {
+  it("returns nearest-ancestor breadcrumbs keyed by area id, one lookup per distinct id", async () => {
+    const breadcrumbs = await getAreaBreadcrumbs(db, [4, 3, 4]);
+    expect(breadcrumbs[4].map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
+    expect(breadcrumbs[3].map((a) => a.name)).toEqual(["Test Crag"]);
+    expect(Object.keys(breadcrumbs)).toHaveLength(2);
+  });
+
+  it("omits unknown area ids rather than throwing", async () => {
+    const breadcrumbs = await getAreaBreadcrumbs(db, [999999]);
+    expect(breadcrumbs).toEqual({});
   });
 });
 

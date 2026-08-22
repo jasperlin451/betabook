@@ -3,12 +3,21 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
 import {
   getSendsForClimb,
-  getSendsForUser,
+  getSendsForUserPage,
   getUserSendForClimb,
+  getUserSendsSummary,
   getUserSentClimbIds,
-  summarizeUserSends,
+  type UserSendsFilter,
 } from "./sends";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
+import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
+
+const ALL_SENDS_FILTER: UserSendsFilter = {
+  disciplines: ["boulder", "sport", "trad"],
+  boulderRange: [0, BOULDER_HUECO.length - 1],
+  sportRange: [0, ROPE_YDS.length - 1],
+  tradRange: [0, ROPE_YDS.length - 1],
+};
 
 let db: Database;
 
@@ -65,28 +74,88 @@ describe("getSendsForClimb", () => {
   });
 });
 
-describe("getSendsForUser", () => {
-  it("returns every send across a user's climbs, newest dateSent first", async () => {
-    const results = await getSendsForUser(db, "test-user-1");
+describe("getSendsForUserPage", () => {
+  it("returns every send across a user's climbs, newest dateSent first, with area info", async () => {
+    const { sends: results, hasMore } = await getSendsForUserPage(
+      db,
+      "test-user-1",
+      ALL_SENDS_FILTER,
+      0,
+    );
     expect(results.map((s) => s.climbName)).toEqual(["Test Slab", "Test Highball"]);
-  });
-
-  it("includes the area each climb belongs to", async () => {
-    const results = await getSendsForUser(db, "test-user-1");
     expect(results.map((s) => s.areaName)).toEqual(["Test Slab Area", "Test Highball Alcove"]);
+    expect(hasMore).toBe(false);
   });
 
-  it("returns an empty array for a user with no sends", async () => {
+  it("returns an empty page for a user with no sends", async () => {
     await seedFixtureUser(db, { id: "test-user-3", name: "No Sends" });
-    const results = await getSendsForUser(db, "test-user-3");
+    const { sends: results, hasMore } = await getSendsForUserPage(
+      db,
+      "test-user-3",
+      ALL_SENDS_FILTER,
+      0,
+    );
     expect(results).toEqual([]);
+    expect(hasMore).toBe(false);
+  });
+
+  it("paginates with a page size and reports hasMore", async () => {
+    const page1 = await getSendsForUserPage(db, "test-user-1", ALL_SENDS_FILTER, 0, 1);
+    expect(page1.sends.map((s) => s.climbName)).toEqual(["Test Slab"]);
+    expect(page1.hasMore).toBe(true);
+
+    const page2 = await getSendsForUserPage(db, "test-user-1", ALL_SENDS_FILTER, 1, 1);
+    expect(page2.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
+    expect(page2.hasMore).toBe(false);
+  });
+
+  it("excludes disciplines not selected", async () => {
+    await seedFixtureUser(db, { id: "test-user-5", name: "Multi Discipline" });
+    await seedFixtureSend(db, {
+      userId: "test-user-5",
+      climbId: 1, // Test Highball, boulder
+      dateSent: "2026-01-01",
+    });
+    await seedFixtureSend(db, {
+      userId: "test-user-5",
+      climbId: 3, // Test Crimper, sport
+      dateSent: "2026-02-01",
+    });
+
+    const boulderOnly = await getSendsForUserPage(db, "test-user-5", {
+      ...ALL_SENDS_FILTER,
+      disciplines: ["boulder"],
+    }, 0);
+    expect(boulderOnly.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
+
+    const sportOnly = await getSendsForUserPage(db, "test-user-5", {
+      ...ALL_SENDS_FILTER,
+      disciplines: ["sport"],
+    }, 0);
+    expect(sportOnly.sends.map((s) => s.climbName)).toEqual(["Test Crimper"]);
+  });
+
+  it("excludes everything when no disciplines are selected", async () => {
+    const results = await getSendsForUserPage(db, "test-user-5", {
+      ...ALL_SENDS_FILTER,
+      disciplines: [],
+    }, 0);
+    expect(results.sends).toEqual([]);
+  });
+
+  it("filters by grade range within a discipline", async () => {
+    // Test Highball is V4 (ordinal 5), Test Slab is V1 (ordinal 2).
+    const highOnly = await getSendsForUserPage(db, "test-user-1", {
+      ...ALL_SENDS_FILTER,
+      boulderRange: [3, BOULDER_HUECO.length - 1],
+    }, 0);
+    expect(highOnly.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
   });
 });
 
-describe("summarizeUserSends", () => {
+describe("getUserSendsSummary", () => {
   it("summarizes send count, distinct areas, and peak grade in the most-logged discipline", async () => {
-    const userSends = await getSendsForUser(db, "test-user-1");
-    expect(summarizeUserSends(userSends)).toEqual({
+    expect(await getUserSendsSummary(db, "test-user-1")).toEqual({
       sendCount: 2,
       areaCount: 2,
       peakGrade: "V4",
@@ -96,7 +165,8 @@ describe("summarizeUserSends", () => {
   });
 
   it("returns zeroed/null stats for a user with no sends", async () => {
-    expect(summarizeUserSends([])).toEqual({
+    await seedFixtureUser(db, { id: "test-user-6", name: "Also No Sends" });
+    expect(await getUserSendsSummary(db, "test-user-6")).toEqual({
       sendCount: 0,
       areaCount: 0,
       peakGrade: null,

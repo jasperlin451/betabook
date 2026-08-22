@@ -1,17 +1,12 @@
-import { and, desc, eq, getTableColumns } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { sends, climbs, areas, user } from "@/db/schema";
+import { sends, user } from "@/db/schema";
 import { formatGrade, type ClimbType } from "@/lib/grades";
+import type { CompletionType } from "@/lib/sends";
+import type { Discipline } from "./climbs";
 
 export type Send = typeof sends.$inferSelect;
 export type SendWithUserName = Send & { userName: string };
-export type SendWithClimb = Send & {
-  climbName: string;
-  climbType: ClimbType;
-  climbGrade: number | null;
-  areaId: number;
-  areaName: string;
-};
 
 export async function getUserSendForClimb(
   db: Database,
@@ -43,21 +38,105 @@ export async function getUserSentClimbIds(db: Database, userId: string): Promise
   return new Set(rows.map((r) => r.climbId));
 }
 
-export async function getSendsForUser(db: Database, userId: string): Promise<SendWithClimb[]> {
-  return db
-    .select({
-      ...getTableColumns(sends),
-      climbName: climbs.name,
-      climbType: climbs.type,
-      climbGrade: climbs.grade,
-      areaId: climbs.areaId,
-      areaName: areas.name,
-    })
-    .from(sends)
-    .innerJoin(climbs, eq(sends.climbId, climbs.id))
-    .innerJoin(areas, eq(climbs.areaId, areas.id))
-    .where(eq(sends.userId, userId))
-    .orderBy(desc(sends.dateSent));
+// --- Paginated, filtered send history for a user's profile page ---
+//
+// A user's send count can run into the thousands, so (unlike the
+// community-ascents list for a single climb) this is deliberately never
+// fetched in full: both the row query and the summary stats below are
+// bounded/aggregate SQL, not "fetch everything and reduce in memory".
+
+export type UserSendRow = {
+  id: number;
+  climbId: number;
+  climbName: string;
+  climbType: ClimbType;
+  climbGrade: number | null;
+  areaId: number;
+  areaName: string;
+  completionType: CompletionType;
+  dateSent: string | null;
+  rating: number | null;
+  suggestedGrade: number | null;
+  comment: string | null;
+};
+
+export type UserSendsFilter = {
+  disciplines: Discipline[];
+  boulderRange: [number, number];
+  sportRange: [number, number];
+  tradRange: [number, number];
+};
+
+export const USER_SENDS_PAGE_SIZE = 10;
+
+export type UserSendsPage = {
+  sends: UserSendRow[];
+  hasMore: boolean;
+};
+
+function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
+  const disciplineClauses: SQL[] = [];
+  if (filter.disciplines.includes("boulder")) {
+    const [min, max] = filter.boulderRange;
+    disciplineClauses.push(
+      sql`(climbs.type = 'boulder' AND (climbs.grade IS NULL OR climbs.grade BETWEEN ${min} AND ${max}))`,
+    );
+  }
+  if (filter.disciplines.includes("sport")) {
+    const [min, max] = filter.sportRange;
+    disciplineClauses.push(
+      sql`(climbs.type = 'sport' AND (climbs.grade IS NULL OR climbs.grade BETWEEN ${min} AND ${max}))`,
+    );
+  }
+  if (filter.disciplines.includes("trad")) {
+    const [min, max] = filter.tradRange;
+    disciplineClauses.push(
+      sql`(climbs.type = 'trad' AND (climbs.grade IS NULL OR climbs.grade BETWEEN ${min} AND ${max}))`,
+    );
+  }
+  // No discipline selected at all — mirrors the old in-memory filter's
+  // `!disciplines.includes(...)` exclusion by matching nothing.
+  const disciplineWhere =
+    disciplineClauses.length > 0 ? sql`(${sql.join(disciplineClauses, sql` OR `)})` : sql`0`;
+
+  return sql`sends.user_id = ${userId} AND ${disciplineWhere}`;
+}
+
+export async function getSendsForUserPage(
+  db: Database,
+  userId: string,
+  filter: UserSendsFilter,
+  offset: number,
+  pageSize: number = USER_SENDS_PAGE_SIZE,
+): Promise<UserSendsPage> {
+  const where = userSendsWhere(userId, filter);
+
+  // Fetch one extra row to detect a next page without a separate COUNT query.
+  const rows = await db.all<UserSendRow>(sql`
+    SELECT
+      sends.id AS id,
+      sends.climb_id AS climbId,
+      climbs.name AS climbName,
+      climbs.type AS climbType,
+      climbs.grade AS climbGrade,
+      climbs.area_id AS areaId,
+      areas.name AS areaName,
+      sends.completion_type AS completionType,
+      sends.date_sent AS dateSent,
+      sends.rating AS rating,
+      sends.suggested_grade AS suggestedGrade,
+      sends.comment AS comment
+    FROM sends
+    JOIN climbs ON climbs.id = sends.climb_id
+    JOIN areas ON areas.id = climbs.area_id
+    WHERE ${where}
+    ORDER BY sends.date_sent DESC
+    LIMIT ${pageSize + 1}
+    OFFSET ${offset}
+  `);
+
+  const hasMore = rows.length > pageSize;
+  return { sends: hasMore ? rows.slice(0, pageSize) : rows, hasMore };
 }
 
 export type UserStatsSummary = {
@@ -68,41 +147,44 @@ export type UserStatsSummary = {
   latestSendDate: string | null;
 };
 
+type UserSendsTotals = { sendCount: number; areaCount: number; latestSendDate: string | null };
+type TopDiscipline = { type: ClimbType; count: number; maxGrade: number | null };
+
 /** Peak grade is scoped to the user's most-logged discipline — grades aren't
  * comparable across boulder/sport/trad, so picking a single cross-discipline
- * "best" would be misleading. Pure function operating on sends already
- * fetched by the caller (e.g. via getSendsForUser) — no separate query. */
-export function summarizeUserSends(userSends: SendWithClimb[]): UserStatsSummary {
-  if (userSends.length === 0) {
-    return {
-      sendCount: 0,
-      areaCount: 0,
-      peakGrade: null,
-      mostLoggedDiscipline: null,
-      latestSendDate: null,
-    };
+ * "best" would be misleading. Two small aggregate queries over the whole
+ * history (independent of any list filter/pagination), not a full row fetch. */
+export async function getUserSendsSummary(db: Database, userId: string): Promise<UserStatsSummary> {
+  const [totals] = await db.all<UserSendsTotals>(sql`
+    SELECT
+      COUNT(*) AS sendCount,
+      COUNT(DISTINCT climbs.area_id) AS areaCount,
+      MAX(sends.date_sent) AS latestSendDate
+    FROM sends
+    JOIN climbs ON climbs.id = sends.climb_id
+    WHERE sends.user_id = ${userId}
+  `);
+
+  if (!totals || totals.sendCount === 0) {
+    return { sendCount: 0, areaCount: 0, peakGrade: null, mostLoggedDiscipline: null, latestSendDate: null };
   }
 
-  const countByType = new Map<ClimbType, number>();
-  for (const send of userSends) {
-    countByType.set(send.climbType, (countByType.get(send.climbType) ?? 0) + 1);
-  }
-  const [mostLoggedType, mostLoggedCount] = [...countByType.entries()].sort(
-    (a, b) => b[1] - a[1],
-  )[0];
-
-  const peakGradeOrdinal = userSends
-    .filter((send) => send.climbType === mostLoggedType)
-    .map((send) => send.climbGrade)
-    .filter((grade): grade is number => grade != null)
-    .reduce((max, grade) => Math.max(max, grade), -Infinity);
+  const [topDiscipline] = await db.all<TopDiscipline>(sql`
+    SELECT climbs.type AS type, COUNT(*) AS count, MAX(climbs.grade) AS maxGrade
+    FROM sends
+    JOIN climbs ON climbs.id = sends.climb_id
+    WHERE sends.user_id = ${userId}
+    GROUP BY climbs.type
+    ORDER BY count DESC
+    LIMIT 1
+  `);
 
   return {
-    sendCount: userSends.length,
-    areaCount: new Set(userSends.map((send) => send.areaId)).size,
+    sendCount: totals.sendCount,
+    areaCount: totals.areaCount,
+    latestSendDate: totals.latestSendDate,
+    mostLoggedDiscipline: topDiscipline ? { type: topDiscipline.type, count: topDiscipline.count } : null,
     peakGrade:
-      peakGradeOrdinal === -Infinity ? null : formatGrade(mostLoggedType, peakGradeOrdinal),
-    mostLoggedDiscipline: { type: mostLoggedType, count: mostLoggedCount },
-    latestSendDate: userSends.find((send) => send.dateSent != null)?.dateSent ?? null,
+      topDiscipline?.maxGrade != null ? formatGrade(topDiscipline.type, topDiscipline.maxGrade) : null,
   };
 }

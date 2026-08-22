@@ -2,34 +2,34 @@ import { notFound } from "next/navigation";
 import { UserSendList } from "@/components/user-send-list";
 import { PageWithStats } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
-import { getArea, getNearestAncestors, getSendsForUser, getUser, summarizeUserSends } from "@/db/queries";
+import { getAreaBreadcrumbs, getSendsForUserPage, getUser, getUserSendsSummary } from "@/db/queries";
 import { getDb } from "@/db/client";
+import { parseUserSendsFilter } from "@/lib/user-sends-filter";
 
 type UserPageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function UserPage({ params }: UserPageProps) {
+export default async function UserPage({ params, searchParams }: UserPageProps) {
   const { id } = await params;
+  const filter = parseUserSendsFilter(await searchParams);
 
   const db = await getDb();
   const user = await getUser(db, id);
   if (!user) notFound();
 
-  const userSends = await getSendsForUser(db, id);
-  const summary = summarizeUserSends(userSends);
+  // The stats card reflects the user's whole history — computed via small
+  // aggregate queries, independent of the list's current filter/page.
+  const summary = await getUserSendsSummary(db, id);
   const memberSinceYear = new Date(user.createdAt).getFullYear();
 
-  // Up to two ancestor areas per climb, for a breadcrumb next to each send —
-  // fetched once per distinct area rather than once per send.
-  const areaBreadcrumbs: Record<number, { id: number; name: string }[]> = {};
-  await Promise.all(
-    [...new Set(userSends.map((send) => send.areaId))].map(async (areaId) => {
-      const area = await getArea(db, areaId);
-      if (!area) return;
-      const ancestors = await getNearestAncestors(db, area, 2);
-      areaBreadcrumbs[areaId] = ancestors.map((a) => ({ id: a.id, name: a.name }));
-    }),
+  // A user's send count can run into the thousands, so the list itself is
+  // always fetched a page at a time, never in full (see UserSendList).
+  const firstPage = await getSendsForUserPage(db, id, filter, 0);
+  const areaBreadcrumbs = await getAreaBreadcrumbs(
+    db,
+    firstPage.sends.map((send) => send.areaId),
   );
 
   return (
@@ -79,7 +79,15 @@ export default async function UserPage({ params }: UserPageProps) {
       >
         <div className="flex flex-col gap-4">
           <h2 className="text-lg font-semibold">Sends</h2>
-          <UserSendList sends={userSends} areaBreadcrumbs={areaBreadcrumbs} />
+          <UserSendList
+            key={JSON.stringify(filter)}
+            userId={id}
+            filter={filter}
+            initialSends={firstPage.sends}
+            initialHasMore={firstPage.hasMore}
+            initialAreaBreadcrumbs={areaBreadcrumbs}
+            hasAnySends={summary.sendCount > 0}
+          />
         </div>
       </PageWithStats>
     </div>
