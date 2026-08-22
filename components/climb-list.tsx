@@ -7,10 +7,14 @@ import type { ClimbType } from "@/lib/grades";
 import type { Climb } from "@/db/queries";
 import { ListRow } from "@/components/ui/list-row";
 
-const STYLE_CHIP_COLOR: Record<ClimbType, "warning" | "accent" | "success"> = {
-  boulder: "warning",
-  sport: "accent",
-  trad: "success",
+// success/warning/danger are reserved for ascent-type chips (AscentType), and
+// HeroUI's only other built-in tokens are accent/default — too few hues for
+// three disciplines that need to read as distinct from each other and from
+// gray. Overriding background/text directly gives each one its own color.
+const STYLE_CHIP_CLASSNAME: Record<ClimbType, string> = {
+  boulder: "bg-blue-100! text-blue-700!",
+  sport: "bg-violet-100! text-violet-700!",
+  trad: "bg-teal-100! text-teal-700!",
 };
 
 type ClimbListProps = {
@@ -52,7 +56,7 @@ export function ClimbList({
             meta={formatGrade(climb.type, climb.grade)}
             subtitle={climb.areaName}
             tags={
-              <Chip color={STYLE_CHIP_COLOR[climb.type]} variant="primary">
+              <Chip variant="soft" className={STYLE_CHIP_CLASSNAME[climb.type]}>
                 {climb.type.toUpperCase()}
               </Chip>
             }
