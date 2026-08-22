@@ -94,10 +94,10 @@ function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
       sql`(climbs.type = 'trad' AND (climbs.grade IS NULL OR climbs.grade BETWEEN ${min} AND ${max}))`,
     );
   }
-  // No discipline selected at all — mirrors the old in-memory filter's
-  // `!disciplines.includes(...)` exclusion by matching nothing.
+  // No discipline checked at all means the discipline/grade filter isn't
+  // active — match everything, not nothing.
   const disciplineWhere =
-    disciplineClauses.length > 0 ? sql`(${sql.join(disciplineClauses, sql` OR `)})` : sql`0`;
+    disciplineClauses.length > 0 ? sql`(${sql.join(disciplineClauses, sql` OR `)})` : sql`1`;
 
   return sql`sends.user_id = ${userId} AND ${disciplineWhere}`;
 }

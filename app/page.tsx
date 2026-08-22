@@ -63,18 +63,16 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const boulderRange = toRange(params.boulderRange, [0, BOULDER_HUECO.length - 1]);
   const sportRange = toRange(params.sportRange, [0, ROPE_YDS.length - 1]);
   const tradRange = toRange(params.tradRange, [0, ROPE_YDS.length - 1]);
-  // No discipline param at all means a fresh, unsearched form — treat it the
-  // same as "all three checked" rather than filtering everything out.
-  const effectiveDisciplines: Discipline[] =
-    disciplines.length > 0 ? disciplines : ["boulder", "sport", "trad"];
 
+  // No disciplines checked means the discipline/grade filter isn't active —
+  // searchClimbs already matches everything when `disciplines` is empty.
   const results = await searchClimbs(db, {
     name: name || undefined,
     areaName: areaName || undefined,
-    disciplines: effectiveDisciplines,
-    boulderRange: effectiveDisciplines.includes("boulder") ? boulderRange : undefined,
-    sportRange: effectiveDisciplines.includes("sport") ? sportRange : undefined,
-    tradRange: effectiveDisciplines.includes("trad") ? tradRange : undefined,
+    disciplines,
+    boulderRange: disciplines.includes("boulder") ? boulderRange : undefined,
+    sportRange: disciplines.includes("sport") ? sportRange : undefined,
+    tradRange: disciplines.includes("trad") ? tradRange : undefined,
   });
 
   return (

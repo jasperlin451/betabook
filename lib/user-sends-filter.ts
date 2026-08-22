@@ -1,10 +1,11 @@
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 import type { Discipline, UserSendsFilter } from "@/db/queries";
 
-export const ALL_DISCIPLINES: Discipline[] = ["boulder", "sport", "trad"];
-
+// No disciplines checked means "don't filter on discipline or grade at
+// all" — not "match nothing". Checking one activates that filter (and
+// reveals its grade-range dropdowns when the panel is expanded).
 export const DEFAULT_USER_SENDS_FILTER: UserSendsFilter = {
-  disciplines: ALL_DISCIPLINES,
+  disciplines: [],
   boulderRange: [0, BOULDER_HUECO.length - 1],
   sportRange: [0, ROPE_YDS.length - 1],
   tradRange: [0, ROPE_YDS.length - 1],
@@ -26,16 +27,15 @@ function toRange(
   return [Math.min(...values), Math.max(...values)];
 }
 
-/** Mirrors the climb-search page's own param parsing: no `discipline` param
- * at all means a fresh, unfiltered view — treated the same as all three
- * checked rather than filtering everything out. */
+/** No `discipline` params means no disciplines are checked — an unfiltered
+ * view, not "match nothing" (see DEFAULT_USER_SENDS_FILTER). */
 export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilter {
   const disciplines = toArray(params.discipline).filter(
     (d): d is Discipline => d === "boulder" || d === "sport" || d === "trad",
   );
 
   return {
-    disciplines: disciplines.length > 0 ? disciplines : ALL_DISCIPLINES,
+    disciplines,
     boulderRange: toRange(params.boulderRange, DEFAULT_USER_SENDS_FILTER.boulderRange),
     sportRange: toRange(params.sportRange, DEFAULT_USER_SENDS_FILTER.sportRange),
     tradRange: toRange(params.tradRange, DEFAULT_USER_SENDS_FILTER.tradRange),

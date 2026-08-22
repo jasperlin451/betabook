@@ -11,7 +11,7 @@ const COMPLETION_CHIP_COLOR: Record<CompletionType, "success" | "warning" | "dan
 
 export function AscentType({ type }: { type: CompletionType }) {
   return (
-    <Chip color={COMPLETION_CHIP_COLOR[type]} variant="primary" size="sm">
+    <Chip color={COMPLETION_CHIP_COLOR[type]} variant="soft" size="sm">
       {type.toUpperCase()}
     </Chip>
   );

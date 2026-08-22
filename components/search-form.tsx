@@ -92,8 +92,6 @@ export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
   );
 }
 
-const ALL_DISCIPLINES: Discipline[] = ["boulder", "sport", "trad"];
-
 const DEFAULT_BOULDER_RANGE: [number, number] = [0, BOULDER_HUECO.length - 1];
 const DEFAULT_SPORT_RANGE: [number, number] = [0, ROPE_YDS.length - 1];
 const DEFAULT_TRAD_RANGE: [number, number] = [0, ROPE_YDS.length - 1];
@@ -110,7 +108,7 @@ type ClimbSearchFormProps = {
 export function ClimbSearchForm({
   defaultName = "",
   defaultAreaName = "",
-  defaultDisciplines = ALL_DISCIPLINES,
+  defaultDisciplines = [],
   defaultBoulderRange = DEFAULT_BOULDER_RANGE,
   defaultSportRange = DEFAULT_SPORT_RANGE,
   defaultTradRange = DEFAULT_TRAD_RANGE,
@@ -178,7 +176,7 @@ export function ClimbSearchForm({
     setAreaName("");
     setRatingRange(DEFAULT_RATING_RANGE);
     setDisciplineFilter({
-      disciplines: ALL_DISCIPLINES,
+      disciplines: [],
       boulderRange: DEFAULT_BOULDER_RANGE,
       sportRange: DEFAULT_SPORT_RANGE,
       tradRange: DEFAULT_TRAD_RANGE,

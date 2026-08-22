@@ -135,12 +135,12 @@ describe("getSendsForUserPage", () => {
     expect(sportOnly.sends.map((s) => s.climbName)).toEqual(["Test Crimper"]);
   });
 
-  it("excludes everything when no disciplines are selected", async () => {
+  it("returns every discipline when none are selected (unfiltered, not empty)", async () => {
     const results = await getSendsForUserPage(db, "test-user-5", {
       ...ALL_SENDS_FILTER,
       disciplines: [],
     }, 0);
-    expect(results.sends).toEqual([]);
+    expect(results.sends.map((s) => s.climbName)).toEqual(["Test Crimper", "Test Highball"]);
   });
 
   it("filters by grade range within a discipline", async () => {
