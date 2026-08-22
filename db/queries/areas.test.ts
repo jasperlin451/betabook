@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
-import { getAncestors, getArea, getSubareas, searchAreas } from "./areas";
+import { getAncestors, getArea, getNearestAncestors, getSubareas, searchAreas } from "./areas";
 import { seedFixtureTree } from "@/test/fixtures";
 
 let db: Database;
@@ -55,6 +55,26 @@ describe("getAncestors", () => {
     const sportWall = await getArea(db, 3);
     const ancestors = await getAncestors(db, sportWall!);
     expect(ancestors.map((a) => a.name)).toEqual(["Test Crag"]);
+  });
+});
+
+describe("getNearestAncestors", () => {
+  it("returns the full chain when it's shorter than depth", async () => {
+    const alcove = await getArea(db, 4);
+    const ancestors = await getNearestAncestors(db, alcove!, 2);
+    expect(ancestors.map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
+  });
+
+  it("keeps only the nearest `depth` ancestors, root-first among themselves", async () => {
+    const alcove = await getArea(db, 4);
+    const ancestors = await getNearestAncestors(db, alcove!, 1);
+    expect(ancestors.map((a) => a.name)).toEqual(["Test Boulders"]);
+  });
+
+  it("returns an empty array for the root area", async () => {
+    const root = await getArea(db, 1);
+    const ancestors = await getNearestAncestors(db, root!, 2);
+    expect(ancestors).toEqual([]);
   });
 });
 

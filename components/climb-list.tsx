@@ -5,6 +5,7 @@ import { Chip, Link, Pagination, Table } from "@heroui/react";
 import { formatGrade } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
 import type { Climb } from "@/db/queries";
+import { ListRow } from "@/components/ui/list-row";
 
 const STYLE_CHIP_COLOR: Record<ClimbType, "warning" | "accent" | "success"> = {
   boulder: "warning",
@@ -37,45 +38,27 @@ export function ClimbList({
 
   if (variant === "search") {
     return (
-      <Table>
-        <Table.ResizableContainer>
-          <Table.Content aria-label="Climb search results">
-            <Table.Header>
-              <Table.Column isRowHeader defaultWidth="35%" minWidth={120}>
-                Route Name
-                <Table.ColumnResizer />
-              </Table.Column>
-              <Table.Column defaultWidth="30%" minWidth={100}>
-                Area
-                <Table.ColumnResizer />
-              </Table.Column>
-              <Table.Column defaultWidth="20%" minWidth={90}>
-                Style
-                <Table.ColumnResizer />
-              </Table.Column>
-              <Table.Column defaultWidth="15%" minWidth={80}>
-                Difficulty
-              </Table.Column>
-            </Table.Header>
-            <Table.Body>
-              {climbs.map((climb) => (
-                <Table.Row key={climb.id} id={climb.id}>
-                  <Table.Cell>
-                    <Link href={`/climbs/${climb.id}`}>{climb.name}</Link>
-                  </Table.Cell>
-                  <Table.Cell>{climb.areaName}</Table.Cell>
-                  <Table.Cell>
-                    <Chip color={STYLE_CHIP_COLOR[climb.type]} variant="primary">
-                      {climb.type.toUpperCase()}
-                    </Chip>
-                  </Table.Cell>
-                  <Table.Cell>{formatGrade(climb.type, climb.grade)}</Table.Cell>
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </Table.Content>
-        </Table.ResizableContainer>
-      </Table>
+      <div className="flex flex-col divide-y divide-separator">
+        {climbs.map((climb, index) => (
+          <ListRow
+            key={climb.id}
+            href={`/climbs/${climb.id}`}
+            leading={
+              <span className="w-6 shrink-0 text-sm tabular-nums text-muted">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+            }
+            title={climb.name}
+            meta={formatGrade(climb.type, climb.grade)}
+            subtitle={climb.areaName}
+            tags={
+              <Chip color={STYLE_CHIP_COLOR[climb.type]} variant="primary">
+                {climb.type.toUpperCase()}
+              </Chip>
+            }
+          />
+        ))}
+      </div>
     );
   }
 

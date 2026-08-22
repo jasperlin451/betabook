@@ -26,6 +26,17 @@ export async function getAncestors(db: Database, area: Area): Promise<Area[]> {
     .orderBy(asc(areas.lft));
 }
 
+/** The `depth` ancestors closest to `area` (root-first among themselves), for
+ * a short breadcrumb rather than the full ancestor chain. */
+export async function getNearestAncestors(
+  db: Database,
+  area: Area,
+  depth: number,
+): Promise<Area[]> {
+  const ancestors = await getAncestors(db, area);
+  return ancestors.slice(-depth);
+}
+
 export type AreaWithAncestorPath = Area & { ancestorPath: string | null };
 
 /** `ancestorPath` reads immediate-parent-first, e.g. "Squamish > British Columbia > Canada". */

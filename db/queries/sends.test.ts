@@ -1,7 +1,13 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
-import { getSendsForClimb, getSendsForUser, getUserSendForClimb, getUserSentClimbIds } from "./sends";
+import {
+  getSendsForClimb,
+  getSendsForUser,
+  getUserSendForClimb,
+  getUserSentClimbIds,
+  summarizeUserSends,
+} from "./sends";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
 let db: Database;
@@ -65,10 +71,38 @@ describe("getSendsForUser", () => {
     expect(results.map((s) => s.climbName)).toEqual(["Test Slab", "Test Highball"]);
   });
 
+  it("includes the area each climb belongs to", async () => {
+    const results = await getSendsForUser(db, "test-user-1");
+    expect(results.map((s) => s.areaName)).toEqual(["Test Slab Area", "Test Highball Alcove"]);
+  });
+
   it("returns an empty array for a user with no sends", async () => {
     await seedFixtureUser(db, { id: "test-user-3", name: "No Sends" });
     const results = await getSendsForUser(db, "test-user-3");
     expect(results).toEqual([]);
+  });
+});
+
+describe("summarizeUserSends", () => {
+  it("summarizes send count, distinct areas, and peak grade in the most-logged discipline", async () => {
+    const userSends = await getSendsForUser(db, "test-user-1");
+    expect(summarizeUserSends(userSends)).toEqual({
+      sendCount: 2,
+      areaCount: 2,
+      peakGrade: "V4",
+      mostLoggedDiscipline: { type: "boulder", count: 2 },
+      latestSendDate: "2026-03-01",
+    });
+  });
+
+  it("returns zeroed/null stats for a user with no sends", async () => {
+    expect(summarizeUserSends([])).toEqual({
+      sendCount: 0,
+      areaCount: 0,
+      peakGrade: null,
+      mostLoggedDiscipline: null,
+      latestSendDate: null,
+    });
   });
 });
 

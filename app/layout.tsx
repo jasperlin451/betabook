@@ -6,11 +6,6 @@ import { Providers } from "./providers";
 import { AuthNav } from "@/components/auth-nav";
 import "./globals.css";
 
-const navLinks = [
-  { href: "/?mode=area", label: "Areas" },
-  { href: "/?mode=climb", label: "Climbs" },
-];
-
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -43,11 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               Senderoni
             </Link>
             <nav className="flex items-center gap-6 text-sm">
-              {navLinks.map((link) => (
-                <Link key={link.href} href={link.href}>
-                  {link.label}
-                </Link>
-              ))}
+              <Link href="/">Search</Link>
               <AuthNav />
             </nav>
           </header>
@@ -55,11 +46,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <footer className="flex items-center justify-between border-t border-separator px-4 py-4 text-sm text-muted">
             <span>&copy; {new Date().getFullYear()} Senderoni</span>
             <nav className="flex items-center gap-6">
-              {navLinks.map((link) => (
-                <Link key={link.href} href={link.href}>
-                  {link.label}
-                </Link>
-              ))}
+              <Link href="/">Search</Link>
               <AuthNav />
             </nav>
           </footer>

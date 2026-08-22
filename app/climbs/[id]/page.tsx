@@ -1,9 +1,15 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { Link } from "@heroui/react";
+import { MapPin } from "lucide-react";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { SendPanel } from "@/components/send-panel";
-import { SendList } from "@/components/send-list";
+import { ClimbSendList } from "@/components/climb-send-list";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { PageWithStats } from "@/components/ui/page-shell";
+import { StatStrip } from "@/components/ui/stat-strip";
+import { RatingStars } from "@/components/ui/rating-stars";
+import { averageRating, ascentTypeBreakdown, suggestedGradeRange } from "@/lib/send-stats";
 import { getAncestors, getArea, getClimb, getSendsForClimb, getUserSendForClimb } from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
 import { getDb } from "@/db/client";
@@ -36,9 +42,16 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
     : null;
   const climbSends = await getSendsForClimb(db, climb.id);
 
+  const rating = averageRating(climbSends);
+  const gradeRange = suggestedGradeRange(climbSends, climb.type);
+  const breakdown = ascentTypeBreakdown(climbSends);
+  const loggedBreakdown = Object.entries(breakdown).filter(([, count]) => count > 0);
+
   return (
     <div className="flex flex-col gap-6">
-      <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
+      <Eyebrow icon={MapPin}>
+        <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
+      </Eyebrow>
 
       <div>
         <h1 className="text-2xl font-semibold">{climb.name}</h1>
@@ -47,19 +60,58 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
         </p>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold">Sends</h2>
+      <PageWithStats
+        statsPosition="before"
+        stats={
+          <StatStrip
+            cards={[
+              {
+                key: "summary",
+                stats: [
+                  {
+                    label: "Community rating",
+                    value: <RatingStars rating={rating} precision="decimal" />,
+                  },
+                  { label: "Logged ascents", value: climbSends.length },
+                  ...(gradeRange
+                    ? [{ label: "Suggested grade", value: `${gradeRange.min}–${gradeRange.max}` }]
+                    : []),
+                ],
+              },
+              ...(loggedBreakdown.length > 0
+                ? [
+                    {
+                      key: "breakdown",
+                      heading: (
+                        <span className="text-xs font-semibold tracking-wide text-muted uppercase">
+                          Ascent breakdown
+                        </span>
+                      ),
+                      stats: loggedBreakdown.map(([type, count]) => ({
+                        label: type,
+                        value: count,
+                      })),
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <h2 className="text-lg font-semibold">Sends</h2>
 
-        {session ? (
-          <SendPanel climb={climb} existingSend={userSend} />
-        ) : (
-          <p className="text-muted text-sm">
-            <Link href="/sign-in">Sign in</Link> to log a send.
-          </p>
-        )}
+          {session ? (
+            <SendPanel climb={climb} existingSend={userSend} />
+          ) : (
+            <p className="text-muted text-sm">
+              <Link href="/sign-in">Sign in</Link> to log a send.
+            </p>
+          )}
 
-        <SendList sends={climbSends} context="climb" climbType={climb.type} />
-      </div>
+          <ClimbSendList sends={climbSends} climbType={climb.type} />
+        </div>
+      </PageWithStats>
     </div>
   );
 }

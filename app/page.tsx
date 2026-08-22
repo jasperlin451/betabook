@@ -35,7 +35,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-3xl font-bold">Directory Search</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Find an area.</h1>
+          <p className="text-muted mt-1">Search the directory by crag or area name.</p>
+        </div>
         <ModeSwitch mode={mode} />
         <AreaSearchForm defaultName={name} />
         {name && (
@@ -76,7 +79,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold">Directory Search</h1>
+      <div>
+        <h1 className="text-3xl font-bold">Find a climb. Check the consensus.</h1>
+        <p className="text-muted mt-1">
+          Search by name, area, grade, and discipline. Open a route to compare ascents.
+        </p>
+      </div>
       <ModeSwitch mode={mode} />
       <ClimbSearchForm
         defaultName={name}
@@ -100,26 +108,26 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
 function ModeSwitch({ mode }: { mode: "area" | "climb" }) {
   return (
-    <div className="flex gap-2 border-b border-separator">
+    <div className="inline-flex gap-1 self-start rounded-full bg-surface-secondary p-1">
       <Link
         href="/?mode=area"
         className={
           mode === "area"
-            ? "rounded-t-lg border border-b-0 border-separator bg-background px-4 py-2 font-semibold text-foreground no-underline"
-            : "px-4 py-2 text-muted no-underline"
+            ? "rounded-full bg-background px-4 py-1.5 text-sm font-semibold text-foreground no-underline"
+            : "rounded-full px-4 py-1.5 text-sm text-muted no-underline"
         }
       >
-        Area Search
+        Search by area
       </Link>
       <Link
         href="/?mode=climb"
         className={
           mode === "climb"
-            ? "rounded-t-lg border border-b-0 border-separator bg-background px-4 py-2 font-semibold text-foreground no-underline"
-            : "px-4 py-2 text-muted no-underline"
+            ? "rounded-full bg-background px-4 py-1.5 text-sm font-semibold text-foreground no-underline"
+            : "rounded-full px-4 py-1.5 text-sm text-muted no-underline"
         }
       >
-        Climb Search
+        Search by climb
       </Link>
     </div>
   );
