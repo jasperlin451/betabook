@@ -134,8 +134,18 @@ export async function searchClimbs(
       ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
       : sql``;
 
+  // Explicit column aliases, not `climbs.*` — a raw-SQL wildcard returns
+  // SQLite's actual (snake_case) column names, not drizzle's camelCase
+  // field names, so `area_id` would come back as `area_id`, not `areaId`.
   return db.all<ClimbWithAreaName>(sql`
-    SELECT climbs.*, areas.name AS areaName FROM climbs
+    SELECT
+      climbs.id AS id,
+      climbs.area_id AS areaId,
+      climbs.name AS name,
+      climbs.type AS type,
+      climbs.grade AS grade,
+      areas.name AS areaName
+    FROM climbs
     JOIN areas ON areas.id = climbs.area_id
     ${whereClause}
     ORDER BY (CASE WHEN climbs.type = 'boulder' THEN 0 ELSE 1 END), climbs.grade

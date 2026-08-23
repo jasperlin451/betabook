@@ -122,6 +122,16 @@ describe("searchClimbs", () => {
     });
     expect(results.map((c) => c.name)).toEqual(["Test Slab"]);
   });
+
+  it("returns a real numeric areaId, not the raw snake_case column", async () => {
+    // Regression test: a raw-SQL `climbs.*` wildcard returns SQLite's actual
+    // column name (`area_id`), not drizzle's camelCase `areaId` field — that
+    // silently produced `undefined` here until the query explicitly aliased
+    // every column.
+    const results = await searchClimbs(db, { name: "Test Highball", disciplines: [] });
+    expect(results).toHaveLength(1);
+    expect(results[0].areaId).toBe(4); // Test Highball Alcove
+  });
 });
 
 describe("findClimbsByNameAndArea", () => {

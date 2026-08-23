@@ -7,37 +7,10 @@ import { formatGrade } from "@/lib/grades";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { AscentType } from "@/components/ascent-type";
+import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
-
-function AreaBreadcrumb({
-  areaId,
-  areaName,
-  ancestors,
-}: {
-  areaId: number;
-  areaName: string;
-  ancestors: { id: number; name: string }[];
-}) {
-  const linkClassName = "text-xs! font-normal! text-muted!";
-
-  return (
-    <span className="flex flex-wrap items-center gap-1 text-xs text-muted">
-      {ancestors.map((ancestor) => (
-        <span key={ancestor.id} className="flex items-center gap-1">
-          <Link href={`/areas/${ancestor.id}`} className={linkClassName}>
-            {ancestor.name}
-          </Link>
-          <span aria-hidden>/</span>
-        </span>
-      ))}
-      <Link href={`/areas/${areaId}`} className={linkClassName}>
-        {areaName}
-      </Link>
-    </span>
-  );
-}
 
 type UserSendListProps = {
   userId: string;

@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
 import {
+  getClimbSendStats,
   getSendsForClimb,
   getSendsForUserPage,
   getUserSendForClimb,
@@ -191,5 +192,68 @@ describe("getUserSentClimbIds", () => {
     await seedFixtureUser(db, { id: "test-user-4", name: "Also No Sends" });
     const ids = await getUserSentClimbIds(db, "test-user-4");
     expect(ids).toEqual(new Set());
+  });
+});
+
+describe("getClimbSendStats", () => {
+  it("averages ratings (ignoring nulls) and counts every send for a climb", async () => {
+    // Test Highball (climb 1) has three sends by this point, from earlier
+    // describe blocks' fixture seeding: one rating of 4, the rest null.
+    const stats = await getClimbSendStats(db, [1]);
+    expect(stats[1]).toEqual({ avgRating: 4, sendCount: 3, avgSuggestedGrade: null });
+  });
+
+  it("returns a null average when no send on the climb has a rating", async () => {
+    // Test Slab (climb 2) has exactly one send, with no rating.
+    const stats = await getClimbSendStats(db, [2]);
+    expect(stats[2]).toEqual({ avgRating: null, sendCount: 1, avgSuggestedGrade: null });
+  });
+
+  it("includes zero-send climbs in the requested ids rather than omitting them", async () => {
+    // Test Crack (climb 4) has no sends anywhere in this test file.
+    const stats = await getClimbSendStats(db, [4]);
+    expect(stats[4]).toEqual({ avgRating: null, sendCount: 0, avgSuggestedGrade: null });
+  });
+
+  it("returns an empty map for an empty id list, without querying", async () => {
+    expect(await getClimbSendStats(db, [])).toEqual({});
+  });
+
+  it("averages non-null suggested grades independently of rating", async () => {
+    await seedFixtureUser(db, { id: "test-user-7", name: "Grade Suggester" });
+    await seedFixtureUser(db, { id: "test-user-8", name: "Grade Suggester Two" });
+    // Test Crimper (climb 3) already has one send from an earlier describe
+    // block ("excludes disciplines not selected"), with no suggested grade.
+    await seedFixtureSend(db, {
+      userId: "test-user-7",
+      climbId: 3,
+      dateSent: "2026-01-01",
+      suggestedGrade: 8,
+    });
+    await seedFixtureSend(db, {
+      userId: "test-user-8",
+      climbId: 3,
+      dateSent: "2026-01-02",
+      suggestedGrade: 10,
+    });
+
+    const stats = await getClimbSendStats(db, [3]);
+    expect(stats[3]).toEqual({ avgRating: null, sendCount: 3, avgSuggestedGrade: 9 });
+  });
+
+  it("returns a null suggested-grade average when sends are rated but not grade-suggested", async () => {
+    await seedFixtureUser(db, { id: "test-user-9", name: "Rater Only" });
+    // Test Slab (climb 2) already has one send with no rating/suggestion;
+    // add a rated send with no suggested grade to confirm the two aggregates
+    // are computed independently.
+    await seedFixtureSend(db, {
+      userId: "test-user-9",
+      climbId: 2,
+      dateSent: "2026-04-01",
+      rating: 5,
+    });
+
+    const stats = await getClimbSendStats(db, [2]);
+    expect(stats[2]).toEqual({ avgRating: 5, sendCount: 2, avgSuggestedGrade: null });
   });
 });

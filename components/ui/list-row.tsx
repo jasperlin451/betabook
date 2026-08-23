@@ -1,15 +1,11 @@
 "use client";
 
 import { type ReactNode, useState } from "react";
-import { Link } from "@heroui/react";
 import clsx from "clsx";
 
 const COMMENT_PREVIEW_LENGTH = 140;
 
 type ListRowProps = {
-  /** Wraps the whole row in a link — for rows with no other interactive
-   * elements inside (e.g. search results). Don't combine with `comment`. */
-  href?: string;
   leading?: ReactNode;
   title: ReactNode;
   meta?: ReactNode;
@@ -21,7 +17,6 @@ type ListRowProps = {
 };
 
 export function ListRow({
-  href,
   leading,
   title,
   meta,
@@ -34,14 +29,8 @@ export function ListRow({
   const [expanded, setExpanded] = useState(false);
   const truncated = comment != null && comment.length > COMMENT_PREVIEW_LENGTH;
 
-  const body = (
-    <div
-      className={clsx(
-        "flex items-center gap-4 rounded-xl p-4",
-        href && "transition-colors hover:bg-surface-hover",
-        className,
-      )}
-    >
+  return (
+    <div className={clsx("flex items-center gap-4 rounded-xl p-4", className)}>
       {leading}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div>
@@ -77,14 +66,4 @@ export function ListRow({
       {trailing && <div className="shrink-0 text-right">{trailing}</div>}
     </div>
   );
-
-  if (href) {
-    return (
-      <Link href={href} className="block text-foreground no-underline">
-        {body}
-      </Link>
-    );
-  }
-
-  return body;
 }

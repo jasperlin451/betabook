@@ -188,3 +188,42 @@ export async function getUserSendsSummary(db: Database, userId: string): Promise
       topDiscipline?.maxGrade != null ? formatGrade(topDiscipline.type, topDiscipline.maxGrade) : null,
   };
 }
+
+export type ClimbSendStats = {
+  avgRating: number | null;
+  sendCount: number;
+  avgSuggestedGrade: number | null;
+};
+
+/** One batched lookup for a page of search results, not one query per climb.
+ * Climbs with zero sends are pre-seeded to the zero/null default rather than
+ * omitted, since a GROUP BY simply has no row for them. */
+export async function getClimbSendStats(
+  db: Database,
+  climbIds: number[],
+): Promise<Record<number, ClimbSendStats>> {
+  const stats: Record<number, ClimbSendStats> = {};
+  for (const id of climbIds) stats[id] = { avgRating: null, sendCount: 0, avgSuggestedGrade: null };
+  if (climbIds.length === 0) return stats;
+
+  const rows = await db.all<{
+    climbId: number;
+    avgRating: number | null;
+    sendCount: number;
+    avgSuggestedGrade: number | null;
+  }>(sql`
+    SELECT climb_id AS climbId, AVG(rating) AS avgRating, COUNT(*) AS sendCount,
+           AVG(suggested_grade) AS avgSuggestedGrade
+    FROM sends
+    WHERE climb_id IN (${sql.join(climbIds.map((id) => sql`${id}`), sql`, `)})
+    GROUP BY climb_id
+  `);
+  for (const row of rows) {
+    stats[row.climbId] = {
+      avgRating: row.avgRating,
+      sendCount: row.sendCount,
+      avgSuggestedGrade: row.avgSuggestedGrade,
+    };
+  }
+  return stats;
+}

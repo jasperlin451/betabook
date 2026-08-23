@@ -3,7 +3,13 @@ import { AreaSearchForm, ClimbSearchForm } from "@/components/search-form";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
 import { getDb } from "@/db/client";
-import { searchAreas, searchClimbs, type Discipline } from "@/db/queries";
+import {
+  getAreaBreadcrumbs,
+  getClimbSendStats,
+  searchAreas,
+  searchClimbs,
+  type Discipline,
+} from "@/db/queries";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 
 type SearchPageProps = {
@@ -74,6 +80,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     sportRange: disciplines.includes("sport") ? sportRange : undefined,
     tradRange: disciplines.includes("trad") ? tradRange : undefined,
   });
+  const sendStats = await getClimbSendStats(db, results.map((c) => c.id));
+  const areaBreadcrumbs = await getAreaBreadcrumbs(db, results.map((c) => c.areaId));
 
   return (
     <div className="flex flex-col gap-6">
@@ -91,6 +99,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <ClimbList
           climbs={results}
           variant="search"
+          sendStats={sendStats}
+          areaBreadcrumbs={areaBreadcrumbs}
           emptyMessage="No climbs match your search."
         />
       </section>
