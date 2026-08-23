@@ -2,7 +2,7 @@ import { and, asc, eq, gte, lte, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
 import { PAGE_SIZE, toFtsPrefixQuery } from "./shared";
-import type { Area } from "./areas";
+import { areaNameCondition, type Area } from "./areas";
 
 export type Climb = typeof climbs.$inferSelect;
 
@@ -58,8 +58,6 @@ export async function findClimbsByNameAndArea(
   `);
 }
 
-type MatchedArea = { id: number; lft: number; rght: number };
-
 export type Discipline = "boulder" | "sport" | "trad";
 
 export type SearchClimbsParams = {
@@ -87,24 +85,8 @@ export async function searchClimbs(
     );
   }
 
-  if (params.areaName) {
-    const areaNameQuery = toFtsPrefixQuery(params.areaName);
-    if (!areaNameQuery) return [];
-
-    const matchedAreas = await db.all<MatchedArea>(sql`
-      SELECT areas.id, areas.lft, areas.rght FROM areas
-      JOIN areas_fts ON areas_fts.rowid = areas.id
-      WHERE areas_fts MATCH ${areaNameQuery}
-    `);
-
-    // No area matched this name at all — no climb can satisfy the filter.
-    if (matchedAreas.length === 0) return [];
-
-    const rangeClauses = matchedAreas.map(
-      (m) => sql`(areas.lft >= ${m.lft} AND areas.rght <= ${m.rght})`,
-    );
-    conditions.push(sql`(${sql.join(rangeClauses, sql` OR `)})`);
-  }
+  const areaCondition = areaNameCondition(params.areaName);
+  if (areaCondition) conditions.push(areaCondition);
 
   const disciplineClauses: SQL[] = [];
   if (params.disciplines.includes("boulder") && params.boulderRange) {

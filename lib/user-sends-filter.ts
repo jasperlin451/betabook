@@ -39,6 +39,8 @@ export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilte
     boulderRange: toRange(params.boulderRange, DEFAULT_USER_SENDS_FILTER.boulderRange),
     sportRange: toRange(params.sportRange, DEFAULT_USER_SENDS_FILTER.sportRange),
     tradRange: toRange(params.tradRange, DEFAULT_USER_SENDS_FILTER.tradRange),
+    name: toArray(params.name)[0],
+    areaName: toArray(params.areaName)[0],
   };
 }
 
@@ -51,5 +53,7 @@ export function userSendsFilterToSearchParams(filter: UserSendsFilter): URLSearc
   params.append("sportRange", String(filter.sportRange[1]));
   params.append("tradRange", String(filter.tradRange[0]));
   params.append("tradRange", String(filter.tradRange[1]));
+  if (filter.name) params.set("name", filter.name);
+  if (filter.areaName) params.set("areaName", filter.areaName);
   return params;
 }

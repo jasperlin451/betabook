@@ -56,6 +56,28 @@ export async function seedManyClimbs(
   await db.run(sql`INSERT INTO climbs_fts(rowid, name) SELECT id, name FROM climbs WHERE id >= ${startId}`);
 }
 
+/** Inserts `count` unrelated root-level areas, each its own leaf, sharing a
+ * common name prefix — for exercising an area-name filter that matches many
+ * areas at once (regression coverage: matching N areas used to bind 2 SQL
+ * parameters per match, blowing past D1's per-statement bound-parameter
+ * limit — the same limit `seedManyClimbs`'s chunking works around). */
+export async function seedManyAreas(db: Database, count: number, startId: number) {
+  const rows = Array.from({ length: count }, (_, i) => ({
+    id: startId + i,
+    parentId: null,
+    lft: 100_000 + i * 2,
+    rght: 100_000 + i * 2 + 1,
+    name: `Bulk Area ${i}`,
+  }));
+  const CHUNK_SIZE = 20;
+  for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+    await db.insert(areas).values(rows.slice(i, i + CHUNK_SIZE));
+  }
+  await db.run(
+    sql`INSERT INTO areas_fts(rowid, name) SELECT id, name FROM areas WHERE id >= ${startId}`,
+  );
+}
+
 type FixtureUserOverrides = Partial<typeof user.$inferInsert> & { id: string };
 
 /** Inserts a minimal `user` row for send-query tests; `id` must be unique per call. */

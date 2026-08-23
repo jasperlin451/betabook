@@ -152,6 +152,65 @@ describe("getSendsForUserPage", () => {
     }, 0);
     expect(highOnly.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
   });
+
+  describe("name/areaName filtering", () => {
+    beforeAll(async () => {
+      await seedFixtureUser(db, { id: "test-user-10", name: "Name Filter Tester" });
+      // Test Highball lives in Test Highball Alcove, under Test Boulders,
+      // under Test Crag; Test Crimper lives directly in Test Sport Wall,
+      // also under Test Crag — a sibling subtree of Test Boulders.
+      await seedFixtureSend(db, {
+        userId: "test-user-10",
+        climbId: 1, // Test Highball
+        dateSent: "2026-05-01",
+      });
+      await seedFixtureSend(db, {
+        userId: "test-user-10",
+        climbId: 3, // Test Crimper
+        dateSent: "2026-05-02",
+      });
+    });
+
+    it("fuzzy-matches by partial climb name", async () => {
+      const results = await getSendsForUserPage(db, "test-user-10", {
+        ...ALL_SENDS_FILTER,
+        name: "Highb",
+      }, 0);
+      expect(results.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
+    });
+
+    it("matches by area name against the climb's own area or any ancestor", async () => {
+      const results = await getSendsForUserPage(db, "test-user-10", {
+        ...ALL_SENDS_FILTER,
+        areaName: "Boulders",
+      }, 0);
+      expect(results.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
+    });
+
+    it("matches every send under a shared top-level ancestor", async () => {
+      const results = await getSendsForUserPage(db, "test-user-10", {
+        ...ALL_SENDS_FILTER,
+        areaName: "Test Crag",
+      }, 0);
+      expect(results.sends.map((s) => s.climbName).sort()).toEqual(["Test Crimper", "Test Highball"]);
+    });
+
+    it("returns no sends when the climb name matches nothing", async () => {
+      const results = await getSendsForUserPage(db, "test-user-10", {
+        ...ALL_SENDS_FILTER,
+        name: "NoSuchClimbNameAtAll",
+      }, 0);
+      expect(results).toEqual({ sends: [], hasMore: false });
+    });
+
+    it("returns no sends when the area name matches nothing", async () => {
+      const results = await getSendsForUserPage(db, "test-user-10", {
+        ...ALL_SENDS_FILTER,
+        areaName: "NoSuchAreaNameAtAll",
+      }, 0);
+      expect(results).toEqual({ sends: [], hasMore: false });
+    });
+  });
 });
 
 describe("getUserSendsSummary", () => {
@@ -197,10 +256,10 @@ describe("getUserSentClimbIds", () => {
 
 describe("getClimbSendStats", () => {
   it("averages ratings (ignoring nulls) and counts every send for a climb", async () => {
-    // Test Highball (climb 1) has three sends by this point, from earlier
+    // Test Highball (climb 1) has four sends by this point, from earlier
     // describe blocks' fixture seeding: one rating of 4, the rest null.
     const stats = await getClimbSendStats(db, [1]);
-    expect(stats[1]).toEqual({ avgRating: 4, sendCount: 3, avgSuggestedGrade: null });
+    expect(stats[1]).toEqual({ avgRating: 4, sendCount: 4, avgSuggestedGrade: null });
   });
 
   it("returns a null average when no send on the climb has a rating", async () => {
@@ -222,8 +281,9 @@ describe("getClimbSendStats", () => {
   it("averages non-null suggested grades independently of rating", async () => {
     await seedFixtureUser(db, { id: "test-user-7", name: "Grade Suggester" });
     await seedFixtureUser(db, { id: "test-user-8", name: "Grade Suggester Two" });
-    // Test Crimper (climb 3) already has one send from an earlier describe
-    // block ("excludes disciplines not selected"), with no suggested grade.
+    // Test Crimper (climb 3) already has two sends from earlier describe
+    // blocks ("excludes disciplines not selected", "name/areaName
+    // filtering"), with no suggested grade.
     await seedFixtureSend(db, {
       userId: "test-user-7",
       climbId: 3,
@@ -238,7 +298,7 @@ describe("getClimbSendStats", () => {
     });
 
     const stats = await getClimbSendStats(db, [3]);
-    expect(stats[3]).toEqual({ avgRating: null, sendCount: 3, avgSuggestedGrade: 9 });
+    expect(stats[3]).toEqual({ avgRating: null, sendCount: 4, avgSuggestedGrade: 9 });
   });
 
   it("returns a null suggested-grade average when sends are rated but not grade-suggested", async () => {

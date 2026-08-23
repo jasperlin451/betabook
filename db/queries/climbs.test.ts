@@ -1,10 +1,11 @@
 import { env } from "cloudflare:test";
+import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
 import { climbs } from "@/db/schema";
 import { getArea } from "./areas";
 import { findClimbsByNameAndArea, getClimb, getSubtreeClimbs, searchClimbs } from "./climbs";
-import { seedFixtureTree } from "@/test/fixtures";
+import { seedFixtureTree, seedManyAreas } from "@/test/fixtures";
 
 let db: Database;
 
@@ -131,6 +132,38 @@ describe("searchClimbs", () => {
     const results = await searchClimbs(db, { name: "Test Highball", disciplines: [] });
     expect(results).toHaveLength(1);
     expect(results[0].areaId).toBe(4); // Test Highball Alcove
+  });
+
+  it("doesn't choke when an area name matches far more areas than one statement's bound-parameter limit allows", async () => {
+    // Regression test: area-name matching used to build one
+    // `(lft >= ? AND rght <= ?)` OR-clause per matched area, so a name
+    // matching many areas blew past D1's per-statement bound-parameter
+    // limit ("Failed query" at runtime). It's now a single correlated
+    // EXISTS subquery, so this must succeed regardless of match count.
+    const AREA_COUNT = 60;
+    const startId = 90_000;
+    await seedManyAreas(db, AREA_COUNT, startId);
+
+    const climbRows = Array.from({ length: AREA_COUNT }, (_, i) => ({
+      id: startId + i,
+      areaId: startId + i,
+      name: `Bulk Climb For Area ${i}`,
+      type: "boulder" as const,
+      grade: i % 19,
+    }));
+    const CHUNK_SIZE = 20;
+    for (let i = 0; i < climbRows.length; i += CHUNK_SIZE) {
+      await db.insert(climbs).values(climbRows.slice(i, i + CHUNK_SIZE));
+    }
+    await db.run(
+      sql`INSERT INTO climbs_fts(rowid, name) SELECT id, name FROM climbs WHERE id >= ${startId}`,
+    );
+
+    // searchClimbs caps results at 25 regardless of match count — the point
+    // here is that the query doesn't throw with 60 areas matched, not that
+    // every match comes back.
+    const results = await searchClimbs(db, { areaName: "Bulk Area", disciplines: [] });
+    expect(results).toHaveLength(25);
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Link } from "@heroui/react";
 import { formatGrade } from "@/lib/grades";
@@ -23,6 +23,64 @@ type UserSendListProps = {
   hasAnySends: boolean;
 };
 
+const SEARCH_DEBOUNCE_MS = 400;
+
+/** The name/area search + discipline/grade filter for a user's send history
+ * — split out from <UserSendList> so the page can place it in a sidebar
+ * column alongside the stats cards, while the send rows themselves stay in
+ * the main column. Debounces every field change (including the initial
+ * render) into a single navigation, same as the climb search form.
+ *
+ * Unlike <UserSendList>, the caller must NOT key this on the filter: this
+ * component owns its own state and is what drives the navigation, so a
+ * filter change is always self-inflicted, never an external resync. Keying
+ * it would remount it (and its <input>s) right when the debounce lands —
+ * exactly when the user pauses typing — yanking focus out from under them. */
+export function UserSendsFilterPanel({
+  userId,
+  filter,
+}: {
+  userId: string;
+  filter: UserSendsFilter;
+}) {
+  const router = useRouter();
+
+  const [name, setName] = useState(filter.name ?? "");
+  const [areaName, setAreaName] = useState(filter.areaName ?? "");
+  const [disciplineFilter, setDisciplineFilter] = useState<UserSendsFilter>({
+    disciplines: filter.disciplines,
+    boulderRange: filter.boulderRange,
+    sportRange: filter.sportRange,
+    tradRange: filter.tradRange,
+  });
+
+  useEffect(() => {
+    const params = userSendsFilterToSearchParams({ ...disciplineFilter, name, areaName });
+    const timeout = setTimeout(() => {
+      router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timeout);
+  }, [disciplineFilter, name, areaName, userId, router]);
+
+  function handleReset() {
+    setName("");
+    setAreaName("");
+    setDisciplineFilter(DEFAULT_USER_SENDS_FILTER);
+  }
+
+  return (
+    <DisciplineFilterForm
+      value={disciplineFilter}
+      onChange={setDisciplineFilter}
+      onReset={handleReset}
+      name={name}
+      onNameChange={setName}
+      areaName={areaName}
+      onAreaNameChange={setAreaName}
+    />
+  );
+}
+
 /** A user's send history: server-rendered first page, filters that navigate
  * (so the server can re-filter with real SQL), and a "load more" button
  * that fetches subsequent pages from /api/users/[id]/sends — a user's send
@@ -40,16 +98,10 @@ export function UserSendList({
   initialAreaBreadcrumbs,
   hasAnySends,
 }: UserSendListProps) {
-  const router = useRouter();
   const [sends, setSends] = useState(initialSends);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
   const [loadingMore, setLoadingMore] = useState(false);
-
-  function handleFilterChange(next: UserSendsFilter) {
-    const params = userSendsFilterToSearchParams(next);
-    router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
-  }
 
   async function handleLoadMore() {
     setLoadingMore(true);
@@ -73,12 +125,6 @@ export function UserSendList({
 
   return (
     <div className="flex flex-col gap-4">
-      <DisciplineFilterForm
-        value={filter}
-        onChange={handleFilterChange}
-        onReset={() => handleFilterChange(DEFAULT_USER_SENDS_FILTER)}
-        showNameSearch={false}
-      />
       {sends.length === 0 ? (
         <p className="text-muted text-sm">No sends match these filters.</p>
       ) : (

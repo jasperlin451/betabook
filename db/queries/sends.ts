@@ -3,6 +3,8 @@ import type { Database } from "@/db/client";
 import { sends, user } from "@/db/schema";
 import { formatGrade, type ClimbType } from "@/lib/grades";
 import type { CompletionType } from "@/lib/sends";
+import { areaNameCondition } from "./areas";
+import { toFtsPrefixQuery } from "./shared";
 import type { Discipline } from "./climbs";
 
 export type Send = typeof sends.$inferSelect;
@@ -65,6 +67,8 @@ export type UserSendsFilter = {
   boulderRange: [number, number];
   sportRange: [number, number];
   tradRange: [number, number];
+  name?: string;
+  areaName?: string;
 };
 
 export const USER_SENDS_PAGE_SIZE = 10;
@@ -99,7 +103,21 @@ function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
   const disciplineWhere =
     disciplineClauses.length > 0 ? sql`(${sql.join(disciplineClauses, sql` OR `)})` : sql`1`;
 
-  return sql`sends.user_id = ${userId} AND ${disciplineWhere}`;
+  const conditions: SQL[] = [sql`sends.user_id = ${userId}`, disciplineWhere];
+
+  if (filter.name) {
+    const nameQuery = toFtsPrefixQuery(filter.name);
+    conditions.push(
+      nameQuery
+        ? sql`sends.climb_id IN (SELECT rowid FROM climbs_fts WHERE climbs_fts MATCH ${nameQuery})`
+        : sql`0`,
+    );
+  }
+
+  const areaCondition = areaNameCondition(filter.areaName);
+  if (areaCondition) conditions.push(areaCondition);
+
+  return sql.join(conditions, sql` AND `);
 }
 
 export async function getSendsForUserPage(
