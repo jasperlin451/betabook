@@ -42,22 +42,24 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
     return (
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-3xl font-bold">Find an area.</h1>
-          <p className="text-muted mt-1">Search the directory by crag or area name.</p>
-        </div>
         <ModeSwitch mode={mode} />
-        <AreaSearchForm defaultName={name} />
-        {name && (
+        <PageWithStats
+          statsPosition="before"
+          stats={
+            <div className="lg:w-96 lg:shrink-0">
+              <AreaSearchForm defaultName={name} />
+            </div>
+          }
+        >
           <section className="flex flex-col gap-2">
             <h2 className="text-lg font-medium">Results</h2>
             <AreaList
               areas={results}
-              variant="link"
-              emptyMessage={`No areas matching "${name}".`}
+              variant="search"
+              emptyMessage={name ? `No areas matching "${name}".` : "Search for an area by name."}
             />
           </section>
-        )}
+        </PageWithStats>
       </div>
     );
   }

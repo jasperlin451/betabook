@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Input, Label, ListBox, Select, TextField } from "@heroui/react";
+import { Input, Label, ListBox, Select, TextField } from "@heroui/react";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
 import type { Discipline, UserSendsFilter } from "@/db/queries";
@@ -75,20 +75,30 @@ function RatingRangeSelect({
 }
 
 export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
+  const router = useRouter();
+  const [name, setName] = useState(defaultName);
+
+  // Auto-search: debounce every field change (including the initial render)
+  // into a single navigation, same as the climb search form.
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set("mode", "area");
+    if (name) params.set("name", name);
+
+    const timeout = setTimeout(() => {
+      router.replace(`/?${params.toString()}`, { scroll: false });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timeout);
+  }, [name, router]);
+
   return (
-    <form
-      method="get"
-      className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6"
-    >
-      <input type="hidden" name="mode" value="area" />
-      <TextField name="name" defaultValue={defaultName}>
+    <div className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6">
+      <TextField value={name} onChange={setName}>
         <Label>Area Name</Label>
-        <Input placeholder="Wall Boulders, Squamish..." className="bg-surface" />
+        <Input placeholder="Search area..." className="bg-surface" />
       </TextField>
-      <Button type="submit" fullWidth>
-        Search Areas
-      </Button>
-    </form>
+    </div>
   );
 }
 

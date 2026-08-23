@@ -1,10 +1,11 @@
 import { Card, Link } from "@heroui/react";
 import type { Area } from "@/db/queries";
+import { ListRow } from "@/components/ui/list-row";
 
 type AreaListProps = {
   areas: (Area & { ancestorPath?: string | null })[];
   emptyMessage?: string;
-  variant?: "card" | "link";
+  variant?: "card" | "link" | "search";
 };
 
 export function AreaList({
@@ -14,6 +15,25 @@ export function AreaList({
 }: AreaListProps) {
   if (areas.length === 0) {
     return <p className="text-muted text-sm">{emptyMessage}</p>;
+  }
+
+  if (variant === "search") {
+    return (
+      <div className="flex flex-col divide-y divide-separator">
+        {areas.map((area, index) => (
+          <ListRow
+            key={area.id}
+            leading={
+              <span className="w-6 shrink-0 text-sm tabular-nums text-muted">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+            }
+            title={<Link href={`/areas/${area.id}`}>{area.name}</Link>}
+            subtitle={area.ancestorPath}
+          />
+        ))}
+      </div>
+    );
   }
 
   if (variant === "link") {
