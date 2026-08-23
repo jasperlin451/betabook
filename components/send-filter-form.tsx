@@ -46,9 +46,9 @@ function NameSearchFields({
   onAreaNameChange,
 }: NameSearchFieldsProps) {
   return (
-    <div className="flex flex-wrap items-end gap-4">
+    <div className="flex flex-col gap-4">
       {onNameChange && (
-        <TextField value={name} onChange={onNameChange} className="min-w-56 flex-1">
+        <TextField value={name} onChange={onNameChange}>
           <Label>Route Name</Label>
           <InputGroup>
             <InputGroup.Prefix>
@@ -59,7 +59,7 @@ function NameSearchFields({
         </TextField>
       )}
       {onAreaNameChange && (
-        <TextField value={areaName} onChange={onAreaNameChange} className="min-w-56 flex-1">
+        <TextField value={areaName} onChange={onAreaNameChange}>
           <Label>Area Name</Label>
           <InputGroup>
             <InputGroup.Prefix>
@@ -87,9 +87,9 @@ function DisciplinesFields({
   const showTrad = value.disciplines.includes("trad");
 
   return (
-    <div className={clsx("flex items-center justify-start gap-3", className)}>
+    <div className={clsx("flex flex-wrap items-center justify-start gap-3", className)}>
       <span className="text-sm font-medium text-foreground">Disciplines</span>
-      <div className="flex items-center justify-start gap-4">
+      <div className="flex flex-wrap items-center justify-start gap-4">
         <Checkbox
           isSelected={showBoulder}
           onChange={(checked) =>
@@ -288,34 +288,30 @@ export function DisciplineFilterForm({
               />
             )}
 
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
-              <DisciplinesFields value={value} onChange={onChange} className="flex-1" />
+            <DisciplinesFields value={value} onChange={onChange} />
 
-              {!isExpanded && (
-                <div className="flex sm:flex-col sm:justify-end">
-                  <div className="flex items-end justify-end gap-4">
-                    <Button variant="ghost" onPress={onReset}>
-                      Reset Filters
-                    </Button>
+            {!isExpanded && (
+              <div className="flex items-center justify-center gap-4">
+                <Button variant="ghost" onPress={onReset}>
+                  Reset Filters
+                </Button>
 
-                    <Disclosure.Heading className="contents">
-                      <Disclosure.Trigger className={buttonVariants({ variant: "ghost" })}>
-                        More Options
-                      </Disclosure.Trigger>
-                    </Disclosure.Heading>
-                  </div>
-                </div>
-              )}
-            </div>
+                <Disclosure.Heading className="contents">
+                  <Disclosure.Trigger className={buttonVariants({ variant: "ghost" })}>
+                    More Options
+                  </Disclosure.Trigger>
+                </Disclosure.Heading>
+              </div>
+            )}
           </div>
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch">
-            <Disclosure.Content className="min-w-0 flex-1">
-              {/* Disclosure.Body's own p-2 comes from an outer wrapper div this
-               * component doesn't expose a className for — style is the only
-               * prop that reaches it, to align this with the visible row above
-               * (pt-4 matches that row's own gap-4; pl-0 removes the built-in
-               * left inset so content lines up with the card's own padding). */}
+          <div className="flex flex-col gap-4">
+            {/* Disclosure.Body's own p-2 comes from an outer wrapper div this
+             * component doesn't expose a className for — style is the only
+             * prop that reaches it, to align this with the visible row above
+             * (pt-4 matches that row's own gap-4; pl-0 removes the built-in
+             * left inset so content lines up with the card's own padding). */}
+            <Disclosure.Content className="min-w-0">
               <Disclosure.Body
                 className="flex flex-col gap-6"
                 style={{ paddingTop: "1rem", paddingLeft: 0 }}
@@ -326,18 +322,16 @@ export function DisciplineFilterForm({
             </Disclosure.Content>
 
             {isExpanded && (
-              <div className="flex sm:flex-col sm:justify-end">
-                <div className="flex items-end justify-end gap-4">
-                  <Button variant="ghost" onPress={onReset}>
-                    Reset Filters
-                  </Button>
+              <div className="flex items-center justify-center gap-4">
+                <Button variant="ghost" onPress={onReset}>
+                  Reset Filters
+                </Button>
 
-                  <Disclosure.Heading className="contents">
-                    <Disclosure.Trigger className={buttonVariants({ variant: "ghost" })}>
-                      Less Options
-                    </Disclosure.Trigger>
-                  </Disclosure.Heading>
-                </div>
+                <Disclosure.Heading className="contents">
+                  <Disclosure.Trigger className={buttonVariants({ variant: "ghost" })}>
+                    Less Options
+                  </Disclosure.Trigger>
+                </Disclosure.Heading>
               </div>
             )}
           </div>

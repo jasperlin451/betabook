@@ -2,6 +2,7 @@ import { Link } from "@heroui/react";
 import { AreaSearchForm, ClimbSearchForm } from "@/components/search-form";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
+import { PageWithStats } from "@/components/ui/page-shell";
 import { getDb } from "@/db/client";
 import {
   getAreaBreadcrumbs,
@@ -86,24 +87,32 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   return (
     <div className="flex flex-col gap-6">
       <ModeSwitch mode={mode} />
-      <ClimbSearchForm
-        defaultName={name}
-        defaultAreaName={areaName}
-        defaultDisciplines={disciplines.length > 0 ? disciplines : undefined}
-        defaultBoulderRange={params.boulderRange !== undefined ? boulderRange : undefined}
-        defaultSportRange={params.sportRange !== undefined ? sportRange : undefined}
-        defaultTradRange={params.tradRange !== undefined ? tradRange : undefined}
-      />
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-medium">Results</h2>
-        <ClimbList
-          climbs={results}
-          variant="search"
-          sendStats={sendStats}
-          areaBreadcrumbs={areaBreadcrumbs}
-          emptyMessage="No climbs match your search."
-        />
-      </section>
+      <PageWithStats
+        statsPosition="before"
+        stats={
+          <div className="lg:w-96 lg:shrink-0">
+            <ClimbSearchForm
+              defaultName={name}
+              defaultAreaName={areaName}
+              defaultDisciplines={disciplines.length > 0 ? disciplines : undefined}
+              defaultBoulderRange={params.boulderRange !== undefined ? boulderRange : undefined}
+              defaultSportRange={params.sportRange !== undefined ? sportRange : undefined}
+              defaultTradRange={params.tradRange !== undefined ? tradRange : undefined}
+            />
+          </div>
+        }
+      >
+        <section className="flex flex-col gap-2">
+          <h2 className="text-lg font-medium">Results</h2>
+          <ClimbList
+            climbs={results}
+            variant="search"
+            sendStats={sendStats}
+            areaBreadcrumbs={areaBreadcrumbs}
+            emptyMessage="No climbs match your search."
+          />
+        </section>
+      </PageWithStats>
     </div>
   );
 }

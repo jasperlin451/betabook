@@ -29,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Providers>
-          <header className="flex items-center justify-between border-b border-separator px-4 py-3">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-separator px-4 py-3">
             <Link
               href="/"
               className="flex items-center gap-2 text-lg font-semibold text-foreground no-underline"
@@ -37,7 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <Mountain className="size-5" />
               Senderoni
             </Link>
-            <nav className="flex items-center gap-6 text-sm">
+            <nav className="flex flex-wrap items-center gap-6 text-sm">
               <Link href="/">Search</Link>
               <AuthNav />
             </nav>

@@ -6,10 +6,10 @@ type PageWithStatsProps = {
   stats?: ReactNode;
   children: ReactNode;
   className?: string;
-  /** Where the stats land relative to the content on narrow screens, where
-   * they stack into a single column (desktop is always a side-by-side row
-   * regardless of this setting). Default "after" puts stats below the
-   * content, like a footer summary. */
+  /** Where the stats land relative to the content, both stacked (narrow
+   * screens) and side-by-side (wide screens) — "before" puts stats above/
+   * left of the content, "after" (default) puts them below/right, like a
+   * footer summary. */
   statsPosition?: "before" | "after";
 };
 
@@ -30,12 +30,12 @@ export function PageWithStats({
       <div
         className={clsx(
           "flex min-w-0 flex-1 flex-col gap-6",
-          reordered && "order-2 lg:order-1",
+          reordered && "order-2",
         )}
       >
         {children}
       </div>
-      <div className={clsx(reordered && "order-1 lg:order-2")}>{stats}</div>
+      <div className={clsx(reordered && "order-1")}>{stats}</div>
     </div>
   );
 }

@@ -163,10 +163,14 @@ export function ClimbList({
 }
 
 /** Posted grade, plus a hint when logged sends' suggested grades diverge from
- * it. Grades are ordinal indices, not numbers you can average and display
- * directly (a fractional rope grade like "5.10a.8" is nonsense) — so the
- * average is floored to a real grade index, and the discarded fraction is
- * shown as a trend arrow instead of a decimal. */
+ * it. The average suggested grade is always compared to *this climb's own*
+ * posted grade (never across grading systems) as a step offset: `offset` is
+ * the nearest whole grade-step the average centers on, and `remainder` is
+ * how far it leans past that — a stand-in for a decimal that wouldn't make
+ * sense on a non-numeric scale like "5.10a". A single send always lands
+ * exactly on a whole offset with zero remainder, so it can only ever show
+ * "matches" or "differs", never a spurious lean — leans only emerge once
+ * multiple sends' suggestions genuinely average out to a fractional pull. */
 function GradeWithTrend({
   type,
   grade,
@@ -179,11 +183,12 @@ function GradeWithTrend({
   const postedLabel = formatGrade(type, grade);
   if (avgSuggestedGrade == null || grade == null) return <>{postedLabel}</>;
 
-  const floored = Math.floor(avgSuggestedGrade);
-  const fraction = avgSuggestedGrade - floored;
-  const arrow = fraction >= 0.7 ? "↑" : fraction <= 0.3 ? "↓" : null;
+  const delta = avgSuggestedGrade - grade;
+  const offset = Math.round(delta);
+  const remainder = delta - offset;
+  const arrow = Math.abs(remainder) > 0.25 ? (remainder > 0 ? "↑" : "↓") : null;
 
-  if (floored === grade) {
+  if (offset === 0) {
     return arrow == null ? (
       <>{postedLabel}</>
     ) : (
@@ -193,7 +198,7 @@ function GradeWithTrend({
     );
   }
 
-  const suggestedLabel = formatGrade(type, floored);
+  const suggestedLabel = formatGrade(type, grade + offset);
   return (
     <>
       {postedLabel} ({suggestedLabel}
