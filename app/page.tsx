@@ -33,7 +33,7 @@ function toRange(
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
-  const mode = params.mode === "climb" ? "climb" : "area";
+  const mode = params.mode === "area" ? "area" : "climb";
   const db = await getDb();
 
   if (mode === "area") {
@@ -121,16 +121,6 @@ function ModeSwitch({ mode }: { mode: "area" | "climb" }) {
   return (
     <div className="inline-flex gap-1 self-start rounded-full bg-surface-secondary p-1">
       <Link
-        href="/?mode=area"
-        className={
-          mode === "area"
-            ? "rounded-full bg-background px-4 py-1.5 text-sm font-semibold text-foreground no-underline"
-            : "rounded-full px-4 py-1.5 text-sm text-muted no-underline"
-        }
-      >
-        Search by area
-      </Link>
-      <Link
         href="/?mode=climb"
         className={
           mode === "climb"
@@ -138,7 +128,17 @@ function ModeSwitch({ mode }: { mode: "area" | "climb" }) {
             : "rounded-full px-4 py-1.5 text-sm text-muted no-underline"
         }
       >
-        Search by climb
+        Search climbs
+      </Link>
+      <Link
+        href="/?mode=area"
+        className={
+          mode === "area"
+            ? "rounded-full bg-background px-4 py-1.5 text-sm font-semibold text-foreground no-underline"
+            : "rounded-full px-4 py-1.5 text-sm text-muted no-underline"
+        }
+      >
+        Search areas
       </Link>
     </div>
   );
