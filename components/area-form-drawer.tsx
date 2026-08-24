@@ -15,7 +15,7 @@ export function AreaFormDrawer({ area, state }: AreaFormDrawerProps) {
     <Drawer.Root state={state}>
       <Drawer.Backdrop>
         <Drawer.Content>
-          <Drawer.Dialog>
+          <Drawer.Dialog className="mx-auto w-full max-w-6xl">
             <Drawer.Header>
               <Drawer.Heading>Edit Area</Drawer.Heading>
               <Drawer.CloseTrigger />

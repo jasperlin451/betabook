@@ -16,7 +16,7 @@ export function DeleteSendDrawer({ state, onConfirm, isPending }: DeleteSendDraw
     <Drawer.Root state={state}>
       <Drawer.Backdrop>
         <Drawer.Content>
-          <Drawer.Dialog>
+          <Drawer.Dialog className="mx-auto w-full max-w-6xl">
             <Drawer.Header>
               <Drawer.Heading>Delete this send?</Drawer.Heading>
               <Drawer.CloseTrigger />

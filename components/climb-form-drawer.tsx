@@ -16,7 +16,7 @@ export function ClimbFormDrawer({ areaId, climb, state }: ClimbFormDrawerProps) 
     <Drawer.Root state={state}>
       <Drawer.Backdrop>
         <Drawer.Content>
-          <Drawer.Dialog>
+          <Drawer.Dialog className="mx-auto w-full max-w-6xl">
             <Drawer.Header>
               <Drawer.Heading>{climb ? "Edit Climb" : "Add Climb"}</Drawer.Heading>
               <Drawer.CloseTrigger />

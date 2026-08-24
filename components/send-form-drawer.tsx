@@ -19,7 +19,7 @@ export function SendFormDrawer({ climb, existingSend, state }: SendFormDrawerPro
     <Drawer.Root state={state}>
       <Drawer.Backdrop>
         <Drawer.Content>
-          <Drawer.Dialog>
+          <Drawer.Dialog className="mx-auto w-full max-w-6xl">
             <Drawer.Header>
               <Drawer.Heading>{existingSend ? "Edit Send" : "Log a Send"}</Drawer.Heading>
               <Drawer.CloseTrigger />
