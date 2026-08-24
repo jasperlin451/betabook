@@ -5,7 +5,7 @@ import { createDb, type Database } from "@/db/client";
 import { climbs } from "@/db/schema";
 import { getArea } from "./areas";
 import { findClimbsByNameAndArea, getClimb, getSubtreeClimbs, searchClimbs } from "./climbs";
-import { seedFixtureTree, seedManyAreas } from "@/test/fixtures";
+import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyAreas } from "@/test/fixtures";
 
 let db: Database;
 
@@ -50,17 +50,210 @@ describe("getSubtreeClimbs", () => {
     expect(climbs.map((c) => c.name).sort()).toEqual(["Test Crack", "Test Crimper"]);
   });
 
-  it("groups boulder before rope, without interleaving, then sorts by grade within each group", async () => {
-    const root = await getArea(db, 1);
-    const { climbs } = await getSubtreeClimbs(db, root!);
-    // boulder: Test Slab (grade 2) then Test Highball (grade 5)
-    // rope: Test Crack (grade 6) then Test Crimper (grade 10) — sport and trad interleaved by grade
-    expect(climbs.map((c) => c.name)).toEqual([
-      "Test Slab",
-      "Test Highball",
-      "Test Crack",
-      "Test Crimper",
-    ]);
+  describe("sort", () => {
+    beforeAll(async () => {
+      // A user can only send a given climb once (sends.user_id/climb_id is
+      // unique), so each send below needs its own distinct user.
+      for (let i = 1; i <= 6; i++) {
+        await seedFixtureUser(db, { id: `test-user-climbs-sort-${i}`, name: `Climbs Sort Tester ${i}` });
+      }
+
+      // Test Slab (climb 2): 2 sends, ratings 5 and 3 -> avg 4.
+      await seedFixtureSend(db, {
+        userId: "test-user-climbs-sort-1",
+        climbId: 2,
+        dateSent: "2026-01-01",
+        rating: 5,
+      });
+      await seedFixtureSend(db, {
+        userId: "test-user-climbs-sort-2",
+        climbId: 2,
+        dateSent: "2026-01-02",
+        rating: 3,
+      });
+      // Test Highball (climb 1): 1 send, no rating.
+      await seedFixtureSend(db, {
+        userId: "test-user-climbs-sort-3",
+        climbId: 1,
+        dateSent: "2026-01-03",
+      });
+      // Test Crimper (climb 3): 3 sends, only one rated (1).
+      await seedFixtureSend(db, {
+        userId: "test-user-climbs-sort-4",
+        climbId: 3,
+        dateSent: "2026-01-04",
+      });
+      await seedFixtureSend(db, {
+        userId: "test-user-climbs-sort-5",
+        climbId: 3,
+        dateSent: "2026-01-05",
+      });
+      await seedFixtureSend(db, {
+        userId: "test-user-climbs-sort-6",
+        climbId: 3,
+        dateSent: "2026-01-06",
+        rating: 1,
+      });
+      // Test Crack (climb 4): no sends at all.
+    });
+
+    it("sorts alphabetically by name ascending", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "name_asc");
+      expect(climbs.map((c) => c.name)).toEqual([
+        "Test Crack",
+        "Test Crimper",
+        "Test Highball",
+        "Test Slab",
+      ]);
+    });
+
+    it("sorts alphabetically by name descending", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "name_desc");
+      expect(climbs.map((c) => c.name)).toEqual([
+        "Test Slab",
+        "Test Highball",
+        "Test Crimper",
+        "Test Crack",
+      ]);
+    });
+
+    it("sorts by grade ascending", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "grade_asc");
+      expect(climbs.map((c) => c.name)).toEqual([
+        "Test Slab", // grade 2
+        "Test Highball", // grade 5
+        "Test Crack", // grade 6
+        "Test Crimper", // grade 10
+      ]);
+    });
+
+    it("sorts by grade descending", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "grade_desc");
+      expect(climbs.map((c) => c.name)).toEqual([
+        "Test Crimper",
+        "Test Crack",
+        "Test Highball",
+        "Test Slab",
+      ]);
+    });
+
+    it("sorts by rating ascending, with unrated climbs last (tie-broken by id)", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "rating_asc");
+      expect(climbs.map((c) => c.name)).toEqual([
+        "Test Crimper", // avg 1
+        "Test Slab", // avg 4
+        "Test Highball", // unrated (id 1)
+        "Test Crack", // unrated, no sends at all (id 4)
+      ]);
+    });
+
+    it("sorts by rating descending, with unrated climbs last (tie-broken by id)", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "rating_desc");
+      expect(climbs.map((c) => c.name)).toEqual([
+        "Test Slab", // avg 4
+        "Test Crimper", // avg 1
+        "Test Highball",
+        "Test Crack",
+      ]);
+    });
+
+    it("sorts by ascent count ascending, treating no sends as zero (not last-via-null)", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_asc");
+      expect(climbs.map((c) => c.name)).toEqual([
+        "Test Crack", // 0 sends
+        "Test Highball", // 1 send
+        "Test Slab", // 2 sends
+        "Test Crimper", // 3 sends
+      ]);
+    });
+
+    it("sorts by ascent count descending — the page's default sort", async () => {
+      const root = await getArea(db, 1);
+      const explicit = await getSubtreeClimbs(db, root!, 1, "ascents_desc");
+      const usingDefault = await getSubtreeClimbs(db, root!);
+      const expected = ["Test Crimper", "Test Slab", "Test Highball", "Test Crack"];
+      expect(explicit.climbs.map((c) => c.name)).toEqual(expected);
+      expect(usingDefault.climbs.map((c) => c.name)).toEqual(expected);
+    });
+  });
+
+  describe("filter", () => {
+    // Test Highball: boulder, grade 5. Test Slab: boulder, grade 2.
+    // Test Crimper: sport, grade 10. Test Crack: trad, grade 6.
+    it("returns every climb when no disciplines are checked", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", { disciplines: [] });
+      expect(climbs.map((c) => c.name).sort()).toEqual([
+        "Test Crack",
+        "Test Crimper",
+        "Test Highball",
+        "Test Slab",
+      ]);
+    });
+
+    it("filters down to a single checked discipline", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: ["boulder"],
+        boulderRange: [0, 20],
+      });
+      expect(climbs.map((c) => c.name).sort()).toEqual(["Test Highball", "Test Slab"]);
+    });
+
+    it("excludes climbs outside the checked discipline's grade range", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: ["boulder"],
+        boulderRange: [0, 3],
+      });
+      expect(climbs.map((c) => c.name)).toEqual(["Test Slab"]);
+    });
+
+    it("filters by multiple disciplines independently, excluding the unchecked one", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: ["boulder", "trad"],
+        boulderRange: [0, 20],
+        tradRange: [0, 20],
+      });
+      expect(climbs.map((c) => c.name).sort()).toEqual(["Test Crack", "Test Highball", "Test Slab"]);
+    });
+
+    it("fuzzy-matches by partial climb name", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        name: "Crim",
+      });
+      expect(climbs.map((c) => c.name)).toEqual(["Test Crimper"]);
+    });
+
+    it("combines a name search with a discipline/grade filter", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: ["boulder"],
+        boulderRange: [0, 20],
+        name: "Test",
+      });
+      expect(climbs.map((c) => c.name).sort()).toEqual(["Test Highball", "Test Slab"]);
+    });
+
+    it("returns nothing when the name matches no climb", async () => {
+      const root = await getArea(db, 1);
+      const { climbs, hasNextPage } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        name: "NoSuchClimbNameAtAll",
+      });
+      expect(climbs).toEqual([]);
+      expect(hasNextPage).toBe(false);
+    });
   });
 });
 
