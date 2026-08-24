@@ -4,6 +4,7 @@ import {
   HUECO_TO_FONT,
   ROPE_YDS,
   YDS_TO_FRENCH,
+  describeGradeTrend,
   formatGrade,
   nativeGradeArray,
   parseGrade,
@@ -103,5 +104,57 @@ describe("parseGrade", () => {
   it("returns null for blank text", () => {
     expect(parseGrade("boulder", "")).toBeNull();
     expect(parseGrade("boulder", "   ")).toBeNull();
+  });
+});
+
+describe("describeGradeTrend", () => {
+  it("shows only the posted grade when there's no suggested-grade data", () => {
+    expect(describeGradeTrend("boulder", 5, null)).toEqual({
+      postedLabel: "V4",
+      suggestedLabel: null,
+      arrow: null,
+    });
+    expect(describeGradeTrend("boulder", null, 5)).toEqual({
+      postedLabel: "Grade unknown",
+      suggestedLabel: null,
+      arrow: null,
+    });
+  });
+
+  it("shows no arrow or suggested label when the average matches the posted grade exactly", () => {
+    expect(describeGradeTrend("boulder", 5, 5)).toEqual({
+      postedLabel: "V4",
+      suggestedLabel: null,
+      arrow: null,
+    });
+  });
+
+  it("shows a bare arrow (no suggested label) for a lean under the rounding threshold", () => {
+    expect(describeGradeTrend("boulder", 5, 5.3)).toEqual({
+      postedLabel: "V4",
+      suggestedLabel: null,
+      arrow: "up",
+    });
+    expect(describeGradeTrend("boulder", 5, 4.7)).toEqual({
+      postedLabel: "V4",
+      suggestedLabel: null,
+      arrow: "down",
+    });
+  });
+
+  it("shows a suggested label once the average rounds to a different grade step", () => {
+    expect(describeGradeTrend("boulder", 5, 6)).toEqual({
+      postedLabel: "V4",
+      suggestedLabel: "V5",
+      arrow: null,
+    });
+  });
+
+  it("shows both a suggested label and an arrow when the average leans past the rounded step", () => {
+    expect(describeGradeTrend("boulder", 5, 6.3)).toEqual({
+      postedLabel: "V4",
+      suggestedLabel: "V5",
+      arrow: "up",
+    });
   });
 });

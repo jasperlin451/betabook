@@ -1,14 +1,14 @@
 "use client";
 
-import { Button, Chip, Link, useOverlayState } from "@heroui/react";
-import { CircleCheck, CirclePlus } from "lucide-react";
-import { formatGrade } from "@/lib/grades";
+import { Chip, Link } from "@heroui/react";
+import { describeGradeTrend } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
 import type { Climb } from "@/db/queries";
 import { ListRow } from "@/components/ui/list-row";
 import { RatingStars } from "@/components/ui/rating-stars";
+import { LoadMoreButton } from "@/components/ui/load-more-button";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
-import { SendFormDrawer } from "@/components/send-form-drawer";
+import { ClimbSentIndicator } from "@/components/climb-sent-indicator";
 
 // success/warning/danger are reserved for ascent-style chips (AscentStyle), and
 // HeroUI's only other built-in tokens are accent/default — too few hues for
@@ -57,14 +57,7 @@ export function ClimbList({
   }
 
   const loadMoreBlock = pagination?.hasNextPage && (
-    <Button
-      variant="ghost"
-      className="self-center"
-      onPress={pagination.onLoadMore}
-      isDisabled={pagination.loadingMore}
-    >
-      {pagination.loadingMore ? "Loading…" : "Load more"}
-    </Button>
+    <LoadMoreButton onPress={pagination.onLoadMore} loading={pagination.loadingMore} />
   );
 
   return (
@@ -117,54 +110,6 @@ export function ClimbList({
   );
 }
 
-/** Leading-slot indicator: a static check if the viewer has already sent
- * this climb, or a compact trigger opening the same create-send drawer used
- * on the climb page (SendFormDrawer via LogSendButton's create-mode usage)
- * if not. Only ever rendered for a signed-in viewer (see `sentClimbIds` on
- * ClimbListProps) — instantiated as a real per-row component, not called as
- * a plain function in `.map()`, so useOverlayState here is a normal
- * one-hook-per-row-component pattern, not a hooks-in-a-loop violation. */
-function ClimbSentIndicator({ climb, sent }: { climb: Climb; sent: boolean }) {
-  const state = useOverlayState();
-
-  if (sent) {
-    return (
-      <span
-        title="You've sent this climb"
-        aria-label="You've sent this climb"
-        className="flex size-8 shrink-0 items-center justify-center"
-      >
-        <CircleCheck className="size-5 text-green-600" aria-hidden />
-      </span>
-    );
-  }
-
-  return (
-    <>
-      <Button
-        isIconOnly
-        variant="ghost"
-        size="sm"
-        aria-label="Log send"
-        onPress={state.open}
-        className="shrink-0"
-      >
-        <CirclePlus className="size-5" />
-      </Button>
-      <SendFormDrawer climb={climb} state={state} />
-    </>
-  );
-}
-
-/** Posted grade, plus a hint when logged sends' suggested grades diverge from
- * it. The average suggested grade is always compared to *this climb's own*
- * posted grade (never across grading systems) as a step offset: `offset` is
- * the nearest whole grade-step the average centers on, and `remainder` is
- * how far it leans past that — a stand-in for a decimal that wouldn't make
- * sense on a non-numeric scale like "5.10a". A single send always lands
- * exactly on a whole offset with zero remainder, so it can only ever show
- * "matches" or "differs", never a spurious lean — leans only emerge once
- * multiple sends' suggestions genuinely average out to a fractional pull. */
 function GradeWithTrend({
   type,
   grade,
@@ -174,29 +119,23 @@ function GradeWithTrend({
   grade: number | null;
   avgSuggestedGrade: number | null;
 }) {
-  const postedLabel = formatGrade(type, grade);
-  if (avgSuggestedGrade == null || grade == null) return <>{postedLabel}</>;
+  const { postedLabel, suggestedLabel, arrow } = describeGradeTrend(type, grade, avgSuggestedGrade);
+  const arrowSymbol = arrow === "up" ? "↑" : arrow === "down" ? "↓" : null;
 
-  const delta = avgSuggestedGrade - grade;
-  const offset = Math.round(delta);
-  const remainder = delta - offset;
-  const arrow = Math.abs(remainder) > 0.25 ? (remainder > 0 ? "↑" : "↓") : null;
-
-  if (offset === 0) {
-    return arrow == null ? (
+  if (suggestedLabel == null) {
+    return arrowSymbol == null ? (
       <>{postedLabel}</>
     ) : (
       <>
-        {postedLabel} {arrow}
+        {postedLabel} {arrowSymbol}
       </>
     );
   }
 
-  const suggestedLabel = formatGrade(type, grade + offset);
   return (
     <>
       {postedLabel} ({suggestedLabel}
-      {arrow}
+      {arrowSymbol}
       )
     </>
   );

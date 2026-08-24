@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Button } from "@heroui/react";
+import { LoadMoreButton } from "@/components/ui/load-more-button";
 
 const PAGE_SIZE = 10;
 
@@ -33,13 +33,7 @@ export function SendListShell<T extends { id: number }>({
         ))}
       </div>
       {hasMore && (
-        <Button
-          variant="ghost"
-          className="self-center"
-          onPress={() => setVisibleCount((count) => count + PAGE_SIZE)}
-        >
-          Load more
-        </Button>
+        <LoadMoreButton onPress={() => setVisibleCount((count) => count + PAGE_SIZE)} loading={false} />
       )}
     </div>
   );

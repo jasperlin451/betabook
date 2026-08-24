@@ -1,4 +1,5 @@
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
+import { parseGradeIndex, requireTrimmed, trimOrNull } from "@/lib/validation";
 import type { Climb } from "@/db/queries";
 
 const CLIMB_TYPES = ["boulder", "sport", "trad"] as const;
@@ -22,29 +23,15 @@ function isClimbType(value: FormDataEntryValue | null): value is ClimbType {
 }
 
 function parseClimbFields(raw: RawClimbInput): ClimbInput {
-  const name = typeof raw.name === "string" ? raw.name.trim() : "";
-  if (!name) {
-    throw new Error("Name is required");
-  }
+  const name = requireTrimmed(raw.name, "Name");
 
   if (!isClimbType(raw.type)) {
     throw new Error("Invalid discipline");
   }
   const type = raw.type;
 
-  if (raw.grade === null || raw.grade === "") {
-    throw new Error("Grade is required");
-  }
-  const grade = Number(raw.grade);
-  const bounds = nativeGradeArray(type).length;
-  if (!Number.isInteger(grade) || grade < 0 || grade >= bounds) {
-    throw new Error("Invalid grade");
-  }
-
-  const description =
-    typeof raw.description === "string" && raw.description.trim()
-      ? raw.description.trim()
-      : null;
+  const grade = parseGradeIndex(raw.grade, nativeGradeArray(type).length, "Grade");
+  const description = trimOrNull(raw.description);
 
   return { name, type, grade, description };
 }

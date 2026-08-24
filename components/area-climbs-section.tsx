@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, ListBox, Select } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { ClimbList } from "@/components/climb-list";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
+import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
+import { useSortToggle } from "@/hooks/use-sort-toggle";
 import {
   areaClimbsFilterToSearchParams,
   DEFAULT_BOULDER_RANGE,
@@ -15,8 +17,6 @@ import {
 } from "@/lib/area-climbs-filter";
 import type { AreaBreadcrumbs, Climb, ClimbSendStats, SubtreeClimbsSort } from "@/db/queries";
 
-const FILTER_DEBOUNCE_MS = 400;
-
 /** Shared by the sort control, the filter panel, and "load more" — each
  * needs the other's current state to build a URL/request that doesn't
  * silently drop it. */
@@ -25,31 +25,18 @@ function buildClimbsHref(areaId: number, sort: SubtreeClimbsSort, filter: AreaCl
 }
 
 type SortField = "name" | "grade" | "rating" | "ascents";
-type SortDirection = "asc" | "desc";
 
 const SORT_FIELDS: SortField[] = ["name", "grade", "rating", "ascents"];
 
 // Alphabetical/hardest/highest-rated/most-sent first by default when a
 // field is picked fresh — direction only flips via the separate arrow
 // button once a field is already active.
-const DEFAULT_DIRECTION: Record<SortField, SortDirection> = {
+const DEFAULT_DIRECTION: Record<SortField, "asc" | "desc"> = {
   name: "asc",
   grade: "desc",
   rating: "desc",
   ascents: "desc",
 };
-
-function toSort(field: SortField, direction: SortDirection): SubtreeClimbsSort {
-  return `${field}_${direction}` as SubtreeClimbsSort;
-}
-
-function fieldOf(sort: SubtreeClimbsSort): SortField {
-  return SORT_FIELDS.find((field) => sort.startsWith(field)) ?? "ascents";
-}
-
-function directionOf(sort: SubtreeClimbsSort): SortDirection {
-  return sort.endsWith("_asc") ? "asc" : "desc";
-}
 
 type AreaClimbsSectionProps = {
   areaId: number;
@@ -118,24 +105,17 @@ export function AreaClimbsSection({
     }
   }
 
-  function navigateToSort(nextSort: SubtreeClimbsSort) {
-    // Preserves the active filter (see buildClimbsHref) — remounting this
-    // component (keyed on sort+filter by the caller) naturally resets back
-    // to page 1's accumulated state.
-    router.replace(buildClimbsHref(areaId, nextSort, filter), { scroll: false });
-  }
-
-  function handleFieldChange(field: SortField) {
-    // Picking the already-active field keeps its current direction —
-    // direction itself is controlled by the separate arrow button, not by
-    // reselecting the same dropdown item.
-    const direction = fieldOf(sort) === field ? directionOf(sort) : DEFAULT_DIRECTION[field];
-    navigateToSort(toSort(field, direction));
-  }
-
-  function toggleDirection() {
-    navigateToSort(toSort(fieldOf(sort), directionOf(sort) === "asc" ? "desc" : "asc"));
-  }
+  const { field, direction, handleFieldChange, toggleDirection } = useSortToggle({
+    sort,
+    fields: SORT_FIELDS,
+    defaultField: "ascents",
+    defaultDirection: DEFAULT_DIRECTION,
+    navigate: (nextSort) =>
+      // Preserves the active filter (see buildClimbsHref) — remounting this
+      // component (keyed on sort+filter by the caller) naturally resets back
+      // to page 1's accumulated state.
+      router.replace(buildClimbsHref(areaId, nextSort, filter), { scroll: false }),
+  });
 
   return (
     <section className="flex flex-col gap-2">
@@ -144,7 +124,7 @@ export function AreaClimbsSection({
         <div className="flex items-center gap-2">
           <Select
             aria-label="Sort by"
-            selectedKey={fieldOf(sort)}
+            selectedKey={field}
             onSelectionChange={(key) => handleFieldChange(key as SortField)}
           >
             <Select.Trigger className="w-32">
@@ -164,10 +144,10 @@ export function AreaClimbsSection({
             isIconOnly
             variant="ghost"
             size="sm"
-            aria-label={directionOf(sort) === "asc" ? "Sort ascending" : "Sort descending"}
+            aria-label={direction === "asc" ? "Sort ascending" : "Sort descending"}
             onPress={toggleDirection}
           >
-            {directionOf(sort) === "asc" ? (
+            {direction === "asc" ? (
               <ArrowUp className="size-4" />
             ) : (
               <ArrowDown className="size-4" />
@@ -204,7 +184,6 @@ export function AreaClimbsFilterPanel({
   sort: SubtreeClimbsSort;
   filter: AreaClimbsFilter;
 }) {
-  const router = useRouter();
   const [name, setName] = useState(filter.name ?? "");
   const [disciplineFilter, setDisciplineFilter] = useState<AreaClimbsFilter>({
     disciplines: filter.disciplines,
@@ -213,12 +192,7 @@ export function AreaClimbsFilterPanel({
     tradRange: filter.tradRange,
   });
 
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      router.replace(buildClimbsHref(areaId, sort, { ...disciplineFilter, name }), { scroll: false });
-    }, FILTER_DEBOUNCE_MS);
-    return () => clearTimeout(timeout);
-  }, [areaId, sort, disciplineFilter, name, router]);
+  useDebouncedReplace(buildClimbsHref(areaId, sort, { ...disciplineFilter, name }));
 
   function handleReset() {
     setName("");

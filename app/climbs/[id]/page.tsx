@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
@@ -14,7 +13,7 @@ import { getAncestors, getArea, getClimb, getSendsForClimb, getUserSendForClimb 
 import { formatGrade } from "@/lib/grades";
 import { missingDescriptionMessage } from "@/lib/descriptions";
 import { getDb } from "@/db/client";
-import { initAuth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 
 type ClimbPageProps = {
   params: Promise<{ id: string }>;
@@ -36,8 +35,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
 
   const ancestors = await getAncestors(db, area);
 
-  const auth = await initAuth();
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   const userSend = session
     ? ((await getUserSendForClimb(db, session.user.id, climb.id)) ?? null)
     : null;

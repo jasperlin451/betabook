@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import { Link } from "@heroui/react";
 import { AreaSearchForm, ClimbSearchForm } from "@/components/search-form";
 import { AreaList } from "@/components/area-list";
@@ -11,28 +10,14 @@ import {
   getUserSentClimbIds,
   searchAreas,
   searchClimbs,
-  type Discipline,
 } from "@/db/queries";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
-import { initAuth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
+import { parseDisciplines, toRange, type SearchParamsRecord } from "@/lib/search-params";
 
 type SearchPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<SearchParamsRecord>;
 };
-
-function toArray(value: string | string[] | undefined): string[] {
-  if (value === undefined) return [];
-  return Array.isArray(value) ? value : [value];
-}
-
-function toRange(
-  value: string | string[] | undefined,
-  fallback: [number, number],
-): [number, number] {
-  const values = toArray(value).map(Number).filter(Number.isFinite);
-  if (values.length < 2) return fallback;
-  return [Math.min(...values), Math.max(...values)];
-}
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
@@ -71,9 +56,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   const name = typeof params.name === "string" ? params.name : "";
   const areaName = typeof params.areaName === "string" ? params.areaName : "";
-  const disciplines = toArray(params.discipline).filter(
-    (d): d is Discipline => d === "boulder" || d === "sport" || d === "trad",
-  );
+  const disciplines = parseDisciplines(params);
   const boulderRange = toRange(params.boulderRange, [0, BOULDER_HUECO.length - 1]);
   const sportRange = toRange(params.sportRange, [0, ROPE_YDS.length - 1]);
   const tradRange = toRange(params.tradRange, [0, ROPE_YDS.length - 1]);
@@ -88,8 +71,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     sportRange: disciplines.includes("sport") ? sportRange : undefined,
     tradRange: disciplines.includes("trad") ? tradRange : undefined,
   });
-  const auth = await initAuth();
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
     getClimbSendStats(db, results.map((c) => c.id)),
     getAreaBreadcrumbs(db, results.map((c) => c.areaId)),

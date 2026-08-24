@@ -1,19 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { ListBox, Select, useTheme } from "@heroui/react";
+import { useMounted } from "@/hooks/use-mounted";
 
 export function ThemeToggle() {
   // `theme` is only known client-side (it reads localStorage), so we gate on
   // `mounted` to keep the server/first-client render identical and avoid a
   // hydration mismatch, matching the pattern in auth-nav.tsx.
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const { theme, setTheme } = useTheme("system");
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
 
   return (
     <Select

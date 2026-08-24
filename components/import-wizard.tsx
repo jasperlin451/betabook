@@ -6,10 +6,14 @@ import { importSends, type ImportResult } from "@/db/mutations";
 import { ASCENT_STYLES, type AscentStyle } from "@/lib/sends";
 import {
   buildFailedRowsCsv,
+  distinctValues,
+  guessAscentStyleMapping,
+  guessClimbTypeMapping,
   guessColumnMapping,
   normalizeImportRows,
   parseCsvText,
   detectDateFormat,
+  CLIMB_TYPES,
   IMPORT_BATCH_SIZE,
   type AscentStyleMapping,
   type ClimbTypeMapping,
@@ -19,8 +23,6 @@ import {
   type NormalizedImportRow,
   type ParsedCsv,
 } from "@/lib/sends-import";
-
-const CLIMB_TYPES = ["boulder", "sport", "trad"] as const;
 
 type Step = "upload" | "columns" | "values" | "review" | "result";
 
@@ -34,34 +36,6 @@ const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string; required: boolea
   { key: "rating", label: "Rating", required: false },
   { key: "comment", label: "Comment", required: false },
 ];
-
-function distinctValues(rows: Record<string, string>[], column: string | null): string[] {
-  if (!column) return [];
-  const seen = new Set<string>();
-  for (const row of rows) {
-    const value = (row[column] ?? "").trim();
-    if (value) seen.add(value);
-  }
-  return [...seen];
-}
-
-function guessAscentStyleMapping(values: string[]): AscentStyleMapping {
-  const mapping: AscentStyleMapping = {};
-  for (const value of values) {
-    const match = ASCENT_STYLES.find((t) => t === value.trim().toLowerCase());
-    mapping[value] = match ?? "skip";
-  }
-  return mapping;
-}
-
-function guessClimbTypeMapping(values: string[]): ClimbTypeMapping {
-  const mapping: ClimbTypeMapping = {};
-  for (const value of values) {
-    const match = CLIMB_TYPES.find((t) => t === value.trim().toLowerCase());
-    mapping[value] = match ?? "skip";
-  }
-  return mapping;
-}
 
 type ImportProgress = {
   completed: number;

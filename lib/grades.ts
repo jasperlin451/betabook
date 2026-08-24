@@ -189,3 +189,46 @@ export function formatGrade(
 
   return table[grade] ?? "Grade unknown";
 }
+
+export type GradeTrend = {
+  postedLabel: string;
+  /** Non-null only when the average suggested grade rounds to a whole
+   * grade-step away from the posted grade — a divergence worth calling out,
+   * as opposed to `arrow`-only "leans past the posted grade but not enough
+   * to round to a different step" cases. */
+  suggestedLabel: string | null;
+  arrow: "up" | "down" | null;
+};
+
+/**
+ * Posted grade, plus a hint when logged sends' suggested grades diverge from
+ * it. The average suggested grade is always compared to *this climb's own*
+ * posted grade (never across grading systems) as a step offset: `offset` is
+ * the nearest whole grade-step the average centers on, and `remainder` is
+ * how far it leans past that — a stand-in for a decimal that wouldn't make
+ * sense on a non-numeric scale like "5.10a". A single send always lands
+ * exactly on a whole offset with zero remainder, so it can only ever show
+ * "matches" or "differs", never a spurious lean — leans only emerge once
+ * multiple sends' suggestions genuinely average out to a fractional pull.
+ */
+export function describeGradeTrend(
+  type: ClimbType,
+  grade: number | null,
+  avgSuggestedGrade: number | null,
+): GradeTrend {
+  const postedLabel = formatGrade(type, grade);
+  if (avgSuggestedGrade == null || grade == null) {
+    return { postedLabel, suggestedLabel: null, arrow: null };
+  }
+
+  const delta = avgSuggestedGrade - grade;
+  const offset = Math.round(delta);
+  const remainder = delta - offset;
+  const arrow = Math.abs(remainder) > 0.25 ? (remainder > 0 ? "up" : "down") : null;
+
+  if (offset === 0) {
+    return { postedLabel, suggestedLabel: null, arrow };
+  }
+
+  return { postedLabel, suggestedLabel: formatGrade(type, grade + offset), arrow };
+}

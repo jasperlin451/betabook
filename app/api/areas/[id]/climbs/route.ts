@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { getArea, getAreaBreadcrumbs, getClimbSendStats, getSubtreeClimbs } from "@/db/queries";
 import { parseAreaClimbsFilter, parseAreaClimbsSort, toSubtreeQueryFilter } from "@/lib/area-climbs-filter";
+import { searchParamsToRecord } from "@/lib/search-params";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -12,11 +13,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   const { id } = await params;
   const areaId = Number(id);
   const url = new URL(request.url);
-
-  const searchParams: Record<string, string[]> = {};
-  for (const key of url.searchParams.keys()) {
-    searchParams[key] = url.searchParams.getAll(key);
-  }
+  const searchParams = searchParamsToRecord(url.searchParams);
 
   const sort = parseAreaClimbsSort(searchParams);
   const filter = parseAreaClimbsFilter(searchParams);

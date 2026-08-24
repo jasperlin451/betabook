@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { AreaActionsMenu } from "@/components/area-actions-menu";
@@ -18,10 +17,10 @@ import {
   parseAreaClimbsFilter,
   parseAreaClimbsSort,
   toSubtreeQueryFilter,
-  type SearchParamsRecord,
 } from "@/lib/area-climbs-filter";
-import { initAuth } from "@/lib/auth";
 import { missingDescriptionMessage } from "@/lib/descriptions";
+import { getSession } from "@/lib/session";
+import type { SearchParamsRecord } from "@/lib/search-params";
 
 type AreaPageProps = {
   params: Promise<{ id: string }>;
@@ -50,8 +49,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
     getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter)),
   ]);
 
-  const auth = await initAuth();
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
     getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),

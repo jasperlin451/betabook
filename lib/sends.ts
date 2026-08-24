@@ -1,4 +1,5 @@
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
+import { parseGradeIndex, trimOrNull } from "@/lib/validation";
 
 export const ASCENT_STYLES = ["redpoint", "flash", "onsight"] as const;
 export type AscentStyle = (typeof ASCENT_STYLES)[number];
@@ -50,8 +51,7 @@ export function validateSendInput(
     throw new Error("Send date can't be in the future");
   }
 
-  const comment =
-    typeof raw.comment === "string" && raw.comment.trim() ? raw.comment.trim() : null;
+  const comment = trimOrNull(raw.comment);
   if (comment && comment.length > MAX_COMMENT_LENGTH) {
     throw new Error(`Comment must be ${MAX_COMMENT_LENGTH} characters or fewer`);
   }
@@ -61,14 +61,11 @@ export function validateSendInput(
     throw new Error("Rating must be between 1 and 5");
   }
 
-  if (raw.suggestedGrade === null || raw.suggestedGrade === "") {
-    throw new Error("Suggested grade is required");
-  }
-  const suggestedGrade = Number(raw.suggestedGrade);
-  const bounds = nativeGradeArray(climbType).length;
-  if (!Number.isInteger(suggestedGrade) || suggestedGrade < 0 || suggestedGrade >= bounds) {
-    throw new Error("Invalid suggested grade");
-  }
+  const suggestedGrade = parseGradeIndex(
+    raw.suggestedGrade,
+    nativeGradeArray(climbType).length,
+    "Suggested grade",
+  );
 
   return {
     ascentStyle: raw.ascentStyle,

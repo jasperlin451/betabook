@@ -5,10 +5,10 @@ import { Button, Label, TextArea, TextField } from "@heroui/react";
 import { createSend, updateSend } from "@/db/mutations";
 import { ASCENT_STYLES, MAX_COMMENT_LENGTH, type AscentStyle } from "@/lib/sends";
 import { nativeGradeArray } from "@/lib/grades";
-import type { Climb, EditableSend } from "@/db/queries";
+import type { EditableSend, SendableClimb } from "@/db/queries";
 
 type SendFormProps = {
-  climb: Climb;
+  climb: SendableClimb;
   existingSend?: EditableSend;
   onDone?: () => void;
 };

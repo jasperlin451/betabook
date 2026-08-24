@@ -1,51 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Input, Label, ListBox, Select, TextField } from "@heroui/react";
+import { useState } from "react";
+import { Input, Label, TextField } from "@heroui/react";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
+import { IndexRangeSelect } from "@/components/ui/index-select";
+import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
 import type { Discipline, UserSendsFilter } from "@/db/queries";
-
-const SEARCH_DEBOUNCE_MS = 400;
 
 const MIN_RATING_OPTIONS = ["0", "1", "2", "3", "4", "5"];
 const MAX_RATING_OPTIONS = ["Any", "1", "2", "3", "4", "5"];
 const DEFAULT_RATING_RANGE: [number, number] = [0, MAX_RATING_OPTIONS.length - 1];
-
-function RatingSelect({
-  label,
-  options,
-  index,
-  onChange,
-}: {
-  label: string;
-  options: string[];
-  index: number;
-  onChange: (index: number) => void;
-}) {
-  return (
-    <Select
-      aria-label={label}
-      selectedKey={String(index)}
-      onSelectionChange={(key) => onChange(Number(key))}
-    >
-      <Select.Trigger className="w-20">
-        <Select.Value />
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover>
-        <ListBox>
-          {options.map((option, i) => (
-            <ListBox.Item key={i} id={String(i)}>
-              {option}
-            </ListBox.Item>
-          ))}
-        </ListBox>
-      </Select.Popover>
-    </Select>
-  );
-}
 
 function RatingRangeSelect({
   range,
@@ -55,42 +20,27 @@ function RatingRangeSelect({
   onChange: (range: [number, number]) => void;
 }) {
   return (
-    <div className="flex items-end gap-3">
-      <span className="shrink-0 pb-2.5 text-sm font-medium">Rating</span>
-      <RatingSelect
-        label="Min Rating"
-        options={MIN_RATING_OPTIONS}
-        index={range[0]}
-        onChange={(min) => onChange([min, Math.max(min, range[1])])}
-      />
-      <span className="pb-2.5 text-muted">–</span>
-      <RatingSelect
-        label="Max Rating"
-        options={MAX_RATING_OPTIONS}
-        index={range[1]}
-        onChange={(max) => onChange([Math.min(range[0], max), max])}
-      />
-    </div>
+    <IndexRangeSelect
+      label="Rating"
+      minOptions={MIN_RATING_OPTIONS}
+      maxOptions={MAX_RATING_OPTIONS}
+      minLabel="Min Rating"
+      maxLabel="Max Rating"
+      range={range}
+      onChange={onChange}
+    />
   );
 }
 
 export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
-  const router = useRouter();
   const [name, setName] = useState(defaultName);
 
   // Auto-search: debounce every field change (including the initial render)
   // into a single navigation, same as the climb search form.
-  useEffect(() => {
-    const params = new URLSearchParams();
-    params.set("mode", "area");
-    if (name) params.set("name", name);
-
-    const timeout = setTimeout(() => {
-      router.replace(`/?${params.toString()}`, { scroll: false });
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => clearTimeout(timeout);
-  }, [name, router]);
+  const params = new URLSearchParams();
+  params.set("mode", "area");
+  if (name) params.set("name", name);
+  useDebouncedReplace(`/?${params.toString()}`);
 
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6">
@@ -123,8 +73,6 @@ export function ClimbSearchForm({
   defaultSportRange = DEFAULT_SPORT_RANGE,
   defaultTradRange = DEFAULT_TRAD_RANGE,
 }: ClimbSearchFormProps) {
-  const router = useRouter();
-
   const [name, setName] = useState(defaultName);
   const [areaName, setAreaName] = useState(defaultAreaName);
   // Rating isn't backed by real data yet — it's a UI placeholder for now and
@@ -144,42 +92,24 @@ export function ClimbSearchForm({
 
   // Auto-search: debounce every field change (including the initial render)
   // into a single navigation instead of requiring an explicit submit.
-  useEffect(() => {
-    const params = new URLSearchParams();
-    params.set("mode", "climb");
-    if (name) params.set("name", name);
-    if (areaName) params.set("areaName", areaName);
-    disciplines.forEach((d) => params.append("discipline", d));
-    if (showBoulder) {
-      params.append("boulderRange", String(boulderRange[0]));
-      params.append("boulderRange", String(boulderRange[1]));
-    }
-    if (showSport) {
-      params.append("sportRange", String(sportRange[0]));
-      params.append("sportRange", String(sportRange[1]));
-    }
-    if (showTrad) {
-      params.append("tradRange", String(tradRange[0]));
-      params.append("tradRange", String(tradRange[1]));
-    }
-
-    const timeout = setTimeout(() => {
-      router.replace(`/?${params.toString()}`, { scroll: false });
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => clearTimeout(timeout);
-  }, [
-    name,
-    areaName,
-    disciplines,
-    showBoulder,
-    showSport,
-    showTrad,
-    boulderRange,
-    sportRange,
-    tradRange,
-    router,
-  ]);
+  const params = new URLSearchParams();
+  params.set("mode", "climb");
+  if (name) params.set("name", name);
+  if (areaName) params.set("areaName", areaName);
+  disciplines.forEach((d) => params.append("discipline", d));
+  if (showBoulder) {
+    params.append("boulderRange", String(boulderRange[0]));
+    params.append("boulderRange", String(boulderRange[1]));
+  }
+  if (showSport) {
+    params.append("sportRange", String(sportRange[0]));
+    params.append("sportRange", String(sportRange[1]));
+  }
+  if (showTrad) {
+    params.append("tradRange", String(tradRange[0]));
+    params.append("tradRange", String(tradRange[1]));
+  }
+  useDebouncedReplace(`/?${params.toString()}`);
 
   function clearFilters() {
     setName("");

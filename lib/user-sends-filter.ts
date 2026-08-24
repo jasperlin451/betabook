@@ -1,5 +1,6 @@
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
-import type { Discipline, UserSendsFilter, UserSendsSort } from "@/db/queries";
+import { parseDisciplines, toArray, toRange, type SearchParamsRecord } from "@/lib/search-params";
+import type { UserSendsFilter, UserSendsSort } from "@/db/queries";
 
 const USER_SENDS_SORTS: UserSendsSort[] = [
   "date_desc",
@@ -21,28 +22,10 @@ export const DEFAULT_USER_SENDS_FILTER: UserSendsFilter = {
   sort: "date_desc",
 };
 
-export type SearchParamsRecord = Record<string, string | string[] | undefined>;
-
-function toArray(value: string | string[] | undefined): string[] {
-  if (value === undefined) return [];
-  return Array.isArray(value) ? value : [value];
-}
-
-function toRange(
-  value: string | string[] | undefined,
-  fallback: [number, number],
-): [number, number] {
-  const values = toArray(value).map(Number).filter(Number.isFinite);
-  if (values.length < 2) return fallback;
-  return [Math.min(...values), Math.max(...values)];
-}
-
 /** No `discipline` params means no disciplines are checked — an unfiltered
  * view, not "match nothing" (see DEFAULT_USER_SENDS_FILTER). */
 export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilter {
-  const disciplines = toArray(params.discipline).filter(
-    (d): d is Discipline => d === "boulder" || d === "sport" || d === "trad",
-  );
+  const disciplines = parseDisciplines(params);
 
   const rawSort = toArray(params.sort)[0];
   const sort = USER_SENDS_SORTS.includes(rawSort as UserSendsSort)

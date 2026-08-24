@@ -1,20 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  Button,
-  buttonVariants,
-  Checkbox,
-  Disclosure,
-  InputGroup,
-  Label,
-  ListBox,
-  Select,
-  TextField,
-} from "@heroui/react";
+import { Button, buttonVariants, Checkbox, Disclosure, InputGroup, Label, TextField } from "@heroui/react";
 import clsx from "clsx";
 import { Search } from "lucide-react";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
+import { IndexRangeSelect } from "@/components/ui/index-select";
 import type { Discipline, UserSendsFilter } from "@/db/queries";
 
 function toggleDiscipline(
@@ -131,74 +122,6 @@ function DisciplinesFields({
   );
 }
 
-// Grades are discrete steps (V4, V5, V6, ...), not a continuum — two "Min
-// Grade"/"Max Grade" dropdowns are a couple of clicks; a drag-based range
-// slider is fiddly for selecting exact discrete values.
-function GradeSelect({
-  label,
-  grades,
-  index,
-  onChange,
-}: {
-  label: string;
-  grades: readonly string[];
-  index: number;
-  onChange: (index: number) => void;
-}) {
-  return (
-    <Select
-      aria-label={label}
-      selectedKey={String(index)}
-      onSelectionChange={(key) => onChange(Number(key))}
-    >
-      <Select.Trigger className="w-20">
-        <Select.Value />
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover>
-        <ListBox>
-          {grades.map((grade, i) => (
-            <ListBox.Item key={i} id={String(i)}>
-              {grade}
-            </ListBox.Item>
-          ))}
-        </ListBox>
-      </Select.Popover>
-    </Select>
-  );
-}
-
-function DisciplineGradeRange({
-  label,
-  grades,
-  range,
-  onChange,
-}: {
-  label: string;
-  grades: readonly string[];
-  range: [number, number];
-  onChange: (range: [number, number]) => void;
-}) {
-  return (
-    <div className="flex items-end gap-3">
-      <span className="shrink-0 pb-2.5 text-sm font-medium">{label}</span>
-      <GradeSelect
-        label="Min Grade"
-        grades={grades}
-        index={range[0]}
-        onChange={(min) => onChange([min, Math.max(min, range[1])])}
-      />
-      <span className="pb-2.5 text-muted">–</span>
-      <GradeSelect
-        label="Max Grade"
-        grades={grades}
-        index={range[1]}
-        onChange={(max) => onChange([Math.min(range[0], max), max])}
-      />
-    </div>
-  );
-}
-
 function DisciplineGradeSliders({
   value,
   onChange,
@@ -213,27 +136,36 @@ function DisciplineGradeSliders({
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:gap-6">
       {showBoulder && (
-        <DisciplineGradeRange
+        <IndexRangeSelect
           label="Boulder"
-          grades={BOULDER_HUECO}
+          minOptions={BOULDER_HUECO}
+          maxOptions={BOULDER_HUECO}
+          minLabel="Min Grade"
+          maxLabel="Max Grade"
           range={value.boulderRange}
           onChange={(boulderRange) => onChange({ ...value, boulderRange })}
         />
       )}
 
       {showSport && (
-        <DisciplineGradeRange
+        <IndexRangeSelect
           label="Sport"
-          grades={ROPE_YDS}
+          minOptions={ROPE_YDS}
+          maxOptions={ROPE_YDS}
+          minLabel="Min Grade"
+          maxLabel="Max Grade"
           range={value.sportRange}
           onChange={(sportRange) => onChange({ ...value, sportRange })}
         />
       )}
 
       {showTrad && (
-        <DisciplineGradeRange
+        <IndexRangeSelect
           label="Trad"
-          grades={ROPE_YDS}
+          minOptions={ROPE_YDS}
+          maxOptions={ROPE_YDS}
+          minLabel="Min Grade"
+          maxLabel="Max Grade"
           range={value.tradRange}
           onChange={(tradRange) => onChange({ ...value, tradRange })}
         />

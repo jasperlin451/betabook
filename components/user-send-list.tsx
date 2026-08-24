@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Link, ListBox, Select } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
-import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter, UserSendsSort } from "@/db/queries";
+import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { AscentStyle } from "@/components/ascent-style";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
 import { SendActionsMenu } from "@/components/send-actions-menu";
+import { LoadMoreButton } from "@/components/ui/load-more-button";
+import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
+import { useSortToggle } from "@/hooks/use-sort-toggle";
 
 type UserSendListProps = {
   userId: string;
@@ -29,33 +32,18 @@ type UserSendListProps = {
   currentUserId?: string | null;
 };
 
-const SEARCH_DEBOUNCE_MS = 400;
-
 type SortField = "date" | "grade" | "rating";
-type SortDirection = "asc" | "desc";
 
 const SORT_FIELDS: SortField[] = ["date", "grade", "rating"];
 
 // Latest/hardest/highest-rated first by default when a field is picked
 // fresh — direction only flips via the separate arrow button once a field
 // is already active.
-const DEFAULT_DIRECTION: Record<SortField, SortDirection> = {
+const DEFAULT_DIRECTION: Record<SortField, "asc" | "desc"> = {
   date: "desc",
   grade: "desc",
   rating: "desc",
 };
-
-function toSort(field: SortField, direction: SortDirection): UserSendsSort {
-  return `${field}_${direction}` as UserSendsSort;
-}
-
-function fieldOf(sort: UserSendsSort): SortField {
-  return SORT_FIELDS.find((field) => sort.startsWith(field)) ?? "date";
-}
-
-function directionOf(sort: UserSendsSort): SortDirection {
-  return sort.endsWith("_asc") ? "asc" : "desc";
-}
 
 /** The name/area search + discipline/grade filter for a user's send history
  * — split out from <UserSendList> so the page can place it in a sidebar
@@ -75,8 +63,6 @@ export function UserSendsFilterPanel({
   userId: string;
   filter: UserSendsFilter;
 }) {
-  const router = useRouter();
-
   const [name, setName] = useState(filter.name ?? "");
   const [areaName, setAreaName] = useState(filter.areaName ?? "");
   const [disciplineFilter, setDisciplineFilter] = useState<UserSendsFilter>({
@@ -86,13 +72,8 @@ export function UserSendsFilterPanel({
     tradRange: filter.tradRange,
   });
 
-  useEffect(() => {
-    const params = userSendsFilterToSearchParams({ ...disciplineFilter, name, areaName });
-    const timeout = setTimeout(() => {
-      router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
-    }, SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timeout);
-  }, [disciplineFilter, name, areaName, userId, router]);
+  const params = userSendsFilterToSearchParams({ ...disciplineFilter, name, areaName });
+  useDebouncedReplace(`/users/${userId}?${params.toString()}`);
 
   function handleReset() {
     setName("");
@@ -155,22 +136,16 @@ export function UserSendList({
 
   const currentSort = filter.sort ?? "date_desc";
 
-  function navigateToSort(sort: UserSendsSort) {
-    const params = userSendsFilterToSearchParams({ ...filter, sort });
-    router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
-  }
-
-  function handleFieldChange(field: SortField) {
-    // Picking the already-active field keeps its current direction —
-    // direction itself is controlled by the separate arrow button, not by
-    // reselecting the same dropdown item.
-    const direction = fieldOf(currentSort) === field ? directionOf(currentSort) : DEFAULT_DIRECTION[field];
-    navigateToSort(toSort(field, direction));
-  }
-
-  function toggleDirection() {
-    navigateToSort(toSort(fieldOf(currentSort), directionOf(currentSort) === "asc" ? "desc" : "asc"));
-  }
+  const { field, direction, handleFieldChange, toggleDirection } = useSortToggle({
+    sort: currentSort,
+    fields: SORT_FIELDS,
+    defaultField: "date",
+    defaultDirection: DEFAULT_DIRECTION,
+    navigate: (nextSort) => {
+      const params = userSendsFilterToSearchParams({ ...filter, sort: nextSort });
+      router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
+    },
+  });
 
   if (!hasAnySends) {
     return (
@@ -188,7 +163,7 @@ export function UserSendList({
         <div className="flex items-center gap-2">
           <Select
             aria-label="Sort by"
-            selectedKey={fieldOf(currentSort)}
+            selectedKey={field}
             onSelectionChange={(key) => handleFieldChange(key as SortField)}
           >
             <Select.Trigger className="w-32">
@@ -207,10 +182,10 @@ export function UserSendList({
             isIconOnly
             variant="ghost"
             size="sm"
-            aria-label={directionOf(currentSort) === "asc" ? "Sort ascending" : "Sort descending"}
+            aria-label={direction === "asc" ? "Sort ascending" : "Sort descending"}
             onPress={toggleDirection}
           >
-            {directionOf(currentSort) === "asc" ? (
+            {direction === "asc" ? (
               <ArrowUp className="size-4" />
             ) : (
               <ArrowDown className="size-4" />
@@ -261,19 +236,8 @@ export function UserSendList({
                       climb={{
                         id: send.climbId,
                         areaId: send.areaId,
-                        name: send.climbName,
                         type: send.climbType,
                         grade: send.climbGrade,
-                        description: null,
-                        // Denormalized fields not carried by UserSendRow —
-                        // SendActionsMenu's chain only reads id/type/grade,
-                        // so these placeholders are never actually used.
-                        lft: 0,
-                        rght: 0,
-                        sendCount: 0,
-                        ratingSum: 0,
-                        ratingCount: 0,
-                        avgRating: null,
                       }}
                       send={send}
                     />
@@ -283,16 +247,7 @@ export function UserSendList({
               />
             ))}
           </div>
-          {hasMore && (
-            <Button
-              variant="ghost"
-              className="self-center"
-              onPress={handleLoadMore}
-              isDisabled={loadingMore}
-            >
-              {loadingMore ? "Loading…" : "Load more"}
-            </Button>
-          )}
+          {hasMore && <LoadMoreButton onPress={handleLoadMore} loading={loadingMore} />}
         </>
       )}
     </div>

@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildFailedRowsCsv,
   detectDateFormat,
+  distinctValues,
+  guessAscentStyleMapping,
+  guessClimbTypeMapping,
   guessColumnMapping,
   normalizeImportRows,
   parseCsvText,
@@ -442,5 +445,42 @@ describe("buildFailedRowsCsv", () => {
   it("returns just a header row when there's nothing to export", () => {
     const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], [], []);
     expect(csvText.trim().split("\n")).toHaveLength(1);
+  });
+});
+
+describe("distinctValues", () => {
+  it("returns an empty array when the column is null", () => {
+    expect(distinctValues([{ Type: "flash" }], null)).toEqual([]);
+  });
+
+  it("returns each distinct, trimmed, non-blank value in the column", () => {
+    const rows = [{ Type: "flash" }, { Type: " redpoint " }, { Type: "flash" }, { Type: "  " }];
+    expect(distinctValues(rows, "Type")).toEqual(["flash", "redpoint"]);
+  });
+});
+
+describe("guessAscentStyleMapping", () => {
+  it("maps values that match a known ascent style, case-insensitively", () => {
+    expect(guessAscentStyleMapping(["Flash", "redpoint"])).toEqual({
+      Flash: "flash",
+      redpoint: "redpoint",
+    });
+  });
+
+  it("maps unrecognized values to 'skip'", () => {
+    expect(guessAscentStyleMapping(["nonsense"])).toEqual({ nonsense: "skip" });
+  });
+});
+
+describe("guessClimbTypeMapping", () => {
+  it("maps values that match a known climb type, case-insensitively", () => {
+    expect(guessClimbTypeMapping(["Boulder", "sport"])).toEqual({
+      Boulder: "boulder",
+      sport: "sport",
+    });
+  });
+
+  it("maps unrecognized values to 'skip'", () => {
+    expect(guessClimbTypeMapping(["nonsense"])).toEqual({ nonsense: "skip" });
   });
 });

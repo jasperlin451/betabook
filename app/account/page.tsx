@@ -1,13 +1,11 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Link } from "@heroui/react";
-import { initAuth } from "@/lib/auth";
+import { getSession } from "@/lib/session";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default async function AccountPage() {
-  const auth = await initAuth();
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
 
   if (!session) {
     redirect("/sign-in");

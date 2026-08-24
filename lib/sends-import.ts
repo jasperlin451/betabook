@@ -1,8 +1,23 @@
 import Papa from "papaparse";
-import { MAX_COMMENT_LENGTH, type AscentStyle } from "@/lib/sends";
+import { ASCENT_STYLES, MAX_COMMENT_LENGTH, type AscentStyle } from "@/lib/sends";
 import type { ClimbType } from "@/lib/grades";
 
 export type ParsedCsv = { headers: string[]; rows: Record<string, string>[] };
+
+export const CLIMB_TYPES = ["boulder", "sport", "trad"] as const;
+
+/** Every distinct, trimmed, non-blank value in `column` across `rows` — used
+ * to build the value-mapping step's list of ascent-style/climb-type values
+ * the user needs to map. */
+export function distinctValues(rows: Record<string, string>[], column: string | null): string[] {
+  if (!column) return [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const value = (row[column] ?? "").trim();
+    if (value) seen.add(value);
+  }
+  return [...seen];
+}
 
 // Cloudflare Workers cap a single invocation at 50 subrequests (Free plan).
 // Per db/mutations.ts's importSends: ~2 for the session/auth lookup, 1 for
@@ -180,6 +195,29 @@ export function detectDateFormat(sampleValues: string[]): DateFormat {
 
 export type AscentStyleMapping = Record<string, AscentStyle | "skip">;
 export type ClimbTypeMapping = Record<string, ClimbType | "skip">;
+
+/** Pre-fills the value-mapping step's ascent-style dropdowns by matching
+ * each distinct CSV value against a known ascent style; anything that
+ * doesn't match defaults to "skip" for the user to resolve manually. */
+export function guessAscentStyleMapping(values: string[]): AscentStyleMapping {
+  const mapping: AscentStyleMapping = {};
+  for (const value of values) {
+    const match = ASCENT_STYLES.find((t) => t === value.trim().toLowerCase());
+    mapping[value] = match ?? "skip";
+  }
+  return mapping;
+}
+
+/** Same as guessAscentStyleMapping, but for the (optional, tiebreaker-only)
+ * climb-type column. */
+export function guessClimbTypeMapping(values: string[]): ClimbTypeMapping {
+  const mapping: ClimbTypeMapping = {};
+  for (const value of values) {
+    const match = CLIMB_TYPES.find((t) => t === value.trim().toLowerCase());
+    mapping[value] = match ?? "skip";
+  }
+  return mapping;
+}
 
 export type NormalizedImportRow = {
   climbName: string;

@@ -1,4 +1,5 @@
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
+import { parseDisciplines, toArray, toRange, type SearchParamsRecord } from "@/lib/search-params";
 import type { Discipline, DisciplineGradeFilter, SubtreeClimbsSort } from "@/db/queries";
 
 const SUBTREE_CLIMBS_SORTS: SubtreeClimbsSort[] = [
@@ -30,22 +31,6 @@ export type AreaClimbsFilter = {
   tradRange: [number, number];
 };
 
-export type SearchParamsRecord = Record<string, string | string[] | undefined>;
-
-function toArray(value: string | string[] | undefined): string[] {
-  if (value === undefined) return [];
-  return Array.isArray(value) ? value : [value];
-}
-
-function toRange(
-  value: string | string[] | undefined,
-  fallback: [number, number],
-): [number, number] {
-  const values = toArray(value).map(Number).filter(Number.isFinite);
-  if (values.length < 2) return fallback;
-  return [Math.min(...values), Math.max(...values)];
-}
-
 export function parseAreaClimbsSort(params: SearchParamsRecord): SubtreeClimbsSort {
   const rawSort = toArray(params.sort)[0];
   return SUBTREE_CLIMBS_SORTS.includes(rawSort as SubtreeClimbsSort)
@@ -54,9 +39,7 @@ export function parseAreaClimbsSort(params: SearchParamsRecord): SubtreeClimbsSo
 }
 
 export function parseAreaClimbsFilter(params: SearchParamsRecord): AreaClimbsFilter {
-  const disciplines = toArray(params.discipline).filter(
-    (d): d is Discipline => d === "boulder" || d === "sport" || d === "trad",
-  );
+  const disciplines = parseDisciplines(params);
 
   return {
     name: toArray(params.name)[0],

@@ -5,7 +5,7 @@ import { formatGrade, type ClimbType } from "@/lib/grades";
 import type { AscentStyle } from "@/lib/sends";
 import { areaNameCondition } from "./areas";
 import { toFtsPrefixQuery } from "./shared";
-import type { Discipline } from "./climbs";
+import type { Climb, Discipline } from "./climbs";
 
 export type Send = typeof sends.$inferSelect;
 export type SendWithUserName = Send & { userName: string };
@@ -18,6 +18,13 @@ export type EditableSend = Pick<
   Send,
   "id" | "ascentStyle" | "dateSent" | "comment" | "rating" | "suggestedGrade"
 >;
+
+/** The subset of a Climb the create/edit-send chain (SendActionsMenu ->
+ * SendFormDrawer -> SendForm) actually reads — same "narrow to what's
+ * used" reasoning as EditableSend, so a flattened row (e.g. UserSendRow)
+ * can build one honestly instead of fabricating the rest of Climb's
+ * denormalized fields. */
+export type SendableClimb = Pick<Climb, "id" | "areaId" | "type" | "grade">;
 
 export async function getUserSendForClimb(
   db: Database,
