@@ -3,6 +3,7 @@
 import { Drawer } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
 import { AreaForm } from "@/components/area-form";
+import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import type { Area } from "@/db/queries";
 
 type AreaFormDrawerProps = {
@@ -15,7 +16,7 @@ export function AreaFormDrawer({ area, state }: AreaFormDrawerProps) {
     <Drawer.Root state={state}>
       <Drawer.Backdrop>
         <Drawer.Content>
-          <Drawer.Dialog className="mx-auto w-full max-w-6xl">
+          <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
             <Drawer.Header>
               <Drawer.Heading>Edit Area</Drawer.Heading>
               <Drawer.CloseTrigger />

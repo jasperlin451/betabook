@@ -3,6 +3,7 @@
 import { Drawer } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
 import { SendForm } from "@/components/send-form";
+import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import type { EditableSend, SendableClimb } from "@/db/queries";
 
 type SendFormDrawerProps = {
@@ -19,7 +20,7 @@ export function SendFormDrawer({ climb, existingSend, state }: SendFormDrawerPro
     <Drawer.Root state={state}>
       <Drawer.Backdrop>
         <Drawer.Content>
-          <Drawer.Dialog className="mx-auto w-full max-w-6xl">
+          <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
             <Drawer.Header>
               <Drawer.Heading>{existingSend ? "Edit Send" : "Log a Send"}</Drawer.Heading>
               <Drawer.CloseTrigger />
