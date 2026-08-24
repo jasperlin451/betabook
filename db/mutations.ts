@@ -2,17 +2,24 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { initAuth } from "@/lib/auth";
 import { getDb } from "@/db/client";
-import { sends } from "@/db/schema";
+import { areas, climbs, sends } from "@/db/schema";
 import {
   findClimbsByNameAndArea,
+  getArea,
   getClimb,
   getUserSendForClimb,
   getUserSentClimbIds,
 } from "@/db/queries";
 import { validateSendInput, type RawSendInput } from "@/lib/sends";
+import {
+  validateClimbInput,
+  validateNewClimbInput,
+  type RawClimbInput,
+} from "@/lib/climbs";
+import { validateAreaInput, type RawAreaInput } from "@/lib/areas";
 import { parseGrade } from "@/lib/grades";
 import type { NormalizedImportRow } from "@/lib/sends-import";
 
@@ -33,6 +40,66 @@ function readSendFormData(formData: FormData): RawSendInput {
   };
 }
 
+function readClimbFormData(formData: FormData): RawClimbInput {
+  return {
+    name: formData.get("name"),
+    type: formData.get("type"),
+    grade: formData.get("grade"),
+    description: formData.get("description"),
+  };
+}
+
+function readAreaFormData(formData: FormData): RawAreaInput {
+  return {
+    name: formData.get("name"),
+    description: formData.get("description"),
+  };
+}
+
+export async function updateClimb(climbId: number, formData: FormData) {
+  await requireSession();
+  const db = await getDb();
+
+  const existing = await getClimb(db, climbId);
+  if (!existing) throw new Error("Climb not found");
+
+  const input = validateClimbInput(existing, readClimbFormData(formData));
+  await db.update(climbs).set(input).where(eq(climbs.id, climbId));
+
+  revalidatePath(`/climbs/${climbId}`);
+  revalidatePath(`/areas/${existing.areaId}`);
+  revalidatePath("/");
+}
+
+export async function createClimb(areaId: number, formData: FormData) {
+  await requireSession();
+  const db = await getDb();
+
+  const area = await getArea(db, areaId);
+  if (!area) throw new Error("Area not found");
+
+  const input = validateNewClimbInput(readClimbFormData(formData));
+  await db.insert(climbs).values({ areaId, lft: area.lft, rght: area.rght, ...input });
+
+  revalidatePath(`/areas/${areaId}`);
+  revalidatePath("/");
+}
+
+export async function updateArea(areaId: number, formData: FormData) {
+  await requireSession();
+  const db = await getDb();
+
+  const existing = await getArea(db, areaId);
+  if (!existing) throw new Error("Area not found");
+
+  const input = validateAreaInput(readAreaFormData(formData));
+  await db.update(areas).set(input).where(eq(areas.id, areaId));
+
+  revalidatePath(`/areas/${areaId}`);
+  if (existing.parentId != null) revalidatePath(`/areas/${existing.parentId}`);
+  revalidatePath("/");
+}
+
 export async function createSend(climbId: number, formData: FormData) {
   const session = await requireSession();
   const db = await getDb();
@@ -46,7 +113,22 @@ export async function createSend(climbId: number, formData: FormData) {
   }
 
   const input = validateSendInput(climb.type, readSendFormData(formData));
-  await db.insert(sends).values({ userId: session.user.id, climbId, ...input });
+  // db.batch, not a transaction — D1 doesn't give real transaction semantics
+  // via drizzle-orm/d1's db.transaction(); batch is D1's actual atomic
+  // primitive. Keeps climbs.sendCount/ratingSum/ratingCount (denormalized
+  // for getSubtreeClimbs's sort — see drizzle/schema/climbs.ts) in sync with
+  // every sends write.
+  await db.batch([
+    db.insert(sends).values({ userId: session.user.id, climbId, ...input }),
+    db
+      .update(climbs)
+      .set({
+        sendCount: sql`${climbs.sendCount} + 1`,
+        ratingSum: sql`${climbs.ratingSum} + ${input.rating ?? 0}`,
+        ratingCount: sql`${climbs.ratingCount} + ${input.rating != null ? 1 : 0}`,
+      })
+      .where(eq(climbs.id, climbId)),
+  ]);
 
   revalidatePath(`/climbs/${climbId}`);
   revalidatePath(`/users/${session.user.id}`);
@@ -65,7 +147,23 @@ export async function updateSend(sendId: number, formData: FormData) {
   if (!climb) throw new Error("Climb not found");
 
   const input = validateSendInput(climb.type, readSendFormData(formData));
-  await db.update(sends).set(input).where(eq(sends.id, sendId));
+
+  // sendCount is unchanged by an edit — only the rating can move. Delta
+  // covers all four null/non-null transitions (see createSend for why this
+  // is a batch, not a transaction).
+  const ratingSumDelta = (input.rating ?? 0) - (existing.rating ?? 0);
+  const ratingCountDelta = (input.rating != null ? 1 : 0) - (existing.rating != null ? 1 : 0);
+
+  await db.batch([
+    db.update(sends).set(input).where(eq(sends.id, sendId)),
+    db
+      .update(climbs)
+      .set({
+        ratingSum: sql`${climbs.ratingSum} + ${ratingSumDelta}`,
+        ratingCount: sql`${climbs.ratingCount} + ${ratingCountDelta}`,
+      })
+      .where(eq(climbs.id, climb.id)),
+  ]);
 
   revalidatePath(`/climbs/${existing.climbId}`);
   revalidatePath(`/users/${session.user.id}`);
@@ -80,7 +178,18 @@ export async function deleteSend(sendId: number) {
   const existing = await db.select().from(sends).where(eq(sends.id, sendId)).get();
   if (!existing || existing.userId !== session.user.id) throw new Error("Send not found");
 
-  await db.delete(sends).where(eq(sends.id, sendId));
+  // See createSend for why this is a batch, not a transaction.
+  await db.batch([
+    db.delete(sends).where(eq(sends.id, sendId)),
+    db
+      .update(climbs)
+      .set({
+        sendCount: sql`${climbs.sendCount} - 1`,
+        ratingSum: sql`${climbs.ratingSum} - ${existing.rating ?? 0}`,
+        ratingCount: sql`${climbs.ratingCount} - ${existing.rating != null ? 1 : 0}`,
+      })
+      .where(eq(climbs.id, existing.climbId)),
+  ]);
 
   revalidatePath(`/climbs/${existing.climbId}`);
   revalidatePath(`/users/${session.user.id}`);
@@ -161,8 +270,26 @@ export async function importSends(
     });
   }
 
+  // Each chunk's rows are all distinct climbs (alreadySent.add above
+  // dedupes climbId across the whole CSV), so one climbs update per row is
+  // one update per distinct climb — no in-chunk aggregation needed. Batched
+  // with the insert per createSend's reasoning (D1 batch, not a
+  // transaction).
   for (let i = 0; i < toInsert.length; i += INSERT_CHUNK_SIZE) {
-    await db.insert(sends).values(toInsert.slice(i, i + INSERT_CHUNK_SIZE));
+    const chunk = toInsert.slice(i, i + INSERT_CHUNK_SIZE);
+    await db.batch([
+      db.insert(sends).values(chunk),
+      ...chunk.map((row) =>
+        db
+          .update(climbs)
+          .set({
+            sendCount: sql`${climbs.sendCount} + 1`,
+            ratingSum: sql`${climbs.ratingSum} + ${row.rating ?? 0}`,
+            ratingCount: sql`${climbs.ratingCount} + ${row.rating != null ? 1 : 0}`,
+          })
+          .where(eq(climbs.id, row.climbId)),
+      ),
+    ]);
   }
 
   revalidatePath(`/users/${session.user.id}`);

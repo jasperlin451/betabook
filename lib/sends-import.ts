@@ -7,8 +7,10 @@ export type ParsedCsv = { headers: string[]; rows: Record<string, string>[] };
 // Cloudflare Workers cap a single invocation at 50 subrequests (Free plan).
 // Per db/mutations.ts's importSends: ~2 for the session/auth lookup, 1 for
 // getUserSentClimbIds, up to IMPORT_BATCH_SIZE for climb resolution (one
-// query per row), and a couple more for the chunked insert. 25 rows -> ~31
-// subrequests, comfortable margin under 50. The import wizard calls
+// query per row), and a couple more for the chunked insert+climbs-aggregate
+// db.batch (one subrequest per chunk regardless of how many statements ride
+// in that batch). 25 rows -> ~31 subrequests, comfortable margin under 50.
+// The import wizard calls
 // importSends once per batch of this size, sequentially, rather than
 // passing the whole CSV in one call. Lives here (not in db/mutations.ts)
 // because a "use server" file can only export async functions.

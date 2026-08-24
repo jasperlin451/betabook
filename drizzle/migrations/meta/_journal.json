@@ -64,6 +64,27 @@
       "when": 1787550361534,
       "tag": "0008_add_climbs_description",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1787551885752,
+      "tag": "0009_add_climb_denormalized_aggregates",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1787551885754,
+      "tag": "0010_climb_sort_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1787553463664,
+      "tag": "0011_areas_climbs_autoincrement_ids",
+      "breakpoints": true
     }
   ]
 }

@@ -264,6 +264,16 @@ export function UserSendList({
                         name: send.climbName,
                         type: send.climbType,
                         grade: send.climbGrade,
+                        description: null,
+                        // Denormalized fields not carried by UserSendRow —
+                        // SendActionsMenu's chain only reads id/type/grade,
+                        // so these placeholders are never actually used.
+                        lft: 0,
+                        rght: 0,
+                        sendCount: 0,
+                        ratingSum: 0,
+                        ratingCount: 0,
+                        avgRating: null,
                       }}
                       send={send}
                     />

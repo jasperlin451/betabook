@@ -22,17 +22,25 @@ export type SubtreeClimbsSort =
 
 // NULLS LAST on the ascending variants keeps unknown-grade/unrated climbs at
 // the bottom regardless of direction (same reasoning as getSendsForUserPage).
-// Ascent count is COALESCEd to 0 (a LEFT JOIN with no sends yields NULL, not
-// 0) so a never-sent climb sorts as a real zero, not last-via-NULL.
+// rating_asc's `(climbs.avg_rating IS NULL), climbs.avg_rating` must match
+// climbs_avg_rating_asc_idx's expression text structurally for SQLite to
+// recognize the index as satisfying this ORDER BY (see
+// drizzle/migrations/0012_climb_sort_indexes.sql) — CREATE INDEX has no
+// NULLS FIRST/LAST syntax, so this expression idiom stands in for it.
+// send_count/avg_rating are denormalized onto climbs (see
+// drizzle/schema/climbs.ts) specifically so every one of these sorts can be
+// satisfied by an index scan on climbs alone, with climbs.lft/rght as a
+// residual filter, instead of joining an unscoped GROUP BY over all of
+// `sends` on every query.
 const SUBTREE_CLIMBS_ORDER_BY: Record<SubtreeClimbsSort, SQL> = {
   name_asc: sql`climbs.name ASC`,
   name_desc: sql`climbs.name DESC`,
-  grade_asc: sql`climbs.grade ASC NULLS LAST`,
+  grade_asc: sql`(climbs.grade IS NULL), climbs.grade ASC`,
   grade_desc: sql`climbs.grade DESC`,
-  rating_asc: sql`send_stats.avgRating ASC NULLS LAST`,
-  rating_desc: sql`send_stats.avgRating DESC`,
-  ascents_asc: sql`COALESCE(send_stats.sendCount, 0) ASC`,
-  ascents_desc: sql`COALESCE(send_stats.sendCount, 0) DESC`,
+  rating_asc: sql`(climbs.avg_rating IS NULL), climbs.avg_rating ASC`,
+  rating_desc: sql`climbs.avg_rating DESC`,
+  ascents_asc: sql`climbs.send_count ASC`,
+  ascents_desc: sql`climbs.send_count DESC`,
 };
 
 export type Discipline = "boulder" | "sport" | "trad";
@@ -65,6 +73,37 @@ function disciplineGradeConditions(filter: DisciplineGradeFilter): SQL[] {
   return clauses;
 }
 
+// SQLite commits to one query plan per prepared-statement SHAPE, not per
+// call — it never sees bound host-parameter values at plan time, only the
+// SQL text. Verified empirically: without a forced index, the exact same
+// plan gets chosen for a tiny leaf area and a huge root area, whichever way
+// the cost estimate happens to lean, so it's cheap for one extreme and does
+// a near-full-table scan for the other. There's no query shape that lets
+// the planner adapt per `area` the way this function is called with wildly
+// different subtree sizes — INDEXED BY forces the right access path from a
+// signal we DO know at query-build time: the area's own nested-set span
+// (already loaded, no extra query).
+//
+// Below LARGE_AREA_SUBTREE_SPAN, climbs.lft/rght range-scans a small enough
+// candidate set to sort in memory cheaply. At or above it, the sort-column
+// index lets SQLite scan in the needed order and stop at LIMIT without ever
+// reading the full subtree. Tuned from this dataset's actual area sizes:
+// state/country-level areas (e.g. Alberta, ~8.8k climbs) top out around a
+// span of 1200; continent-level areas (Europe, Canada, North America —
+// tens of thousands of climbs each) start above 3500. 2000 sits in that gap.
+const LARGE_AREA_SUBTREE_SPAN = 2000;
+
+const SUBTREE_CLIMBS_SORT_INDEX: Record<SubtreeClimbsSort, string> = {
+  name_asc: "climbs_name_asc_idx",
+  name_desc: "climbs_name_desc_idx",
+  grade_asc: "climbs_grade_asc_idx",
+  grade_desc: "climbs_grade_desc_idx",
+  rating_asc: "climbs_avg_rating_asc_idx",
+  rating_desc: "climbs_avg_rating_desc_idx",
+  ascents_asc: "climbs_send_count_asc_idx",
+  ascents_desc: "climbs_send_count_desc_idx",
+};
+
 /** Rating and ascent count aren't columns on `climbs` — they're aggregates
  * over `sends` — so sorting by them means computing that aggregate before
  * paginating, in the same query, rather than as a separate post-pagination
@@ -79,7 +118,14 @@ export async function getSubtreeClimbs(
   sort: SubtreeClimbsSort = "ascents_desc",
   filter?: DisciplineGradeFilter & { name?: string },
 ): Promise<{ climbs: Climb[]; page: number; pageSize: number; hasNextPage: boolean }> {
-  const conditions: SQL[] = [sql`areas.lft >= ${area.lft} AND areas.rght <= ${area.rght}`];
+  // Both bounds on lft (not just the lower one) so the forced range index
+  // can seek a bounded scan instead of an open-ended one — redundant given
+  // rght <= area.rght already implies it for a valid nested-set descendant,
+  // but SQLite's index-range-seek needs it spelled out on the indexed column
+  // itself to stop early.
+  const conditions: SQL[] = [
+    sql`climbs.lft >= ${area.lft} AND climbs.lft <= ${area.rght} AND climbs.rght <= ${area.rght}`,
+  ];
 
   if (filter?.name) {
     const nameQuery = toFtsPrefixQuery(filter.name);
@@ -94,17 +140,16 @@ export async function getSubtreeClimbs(
     }
   }
 
+  const indexName =
+    area.rght - area.lft >= LARGE_AREA_SUBTREE_SPAN
+      ? SUBTREE_CLIMBS_SORT_INDEX[sort]
+      : "climbs_lft_rght_idx";
+
   // Fetch one extra row to detect a next page without a separate COUNT query.
   const rows = await db.all<Climb>(sql`
     SELECT climbs.id AS id, climbs.area_id AS areaId, climbs.name AS name,
            climbs.type AS type, climbs.grade AS grade
-    FROM climbs
-    JOIN areas ON areas.id = climbs.area_id
-    LEFT JOIN (
-      SELECT climb_id, COUNT(*) AS sendCount, AVG(rating) AS avgRating
-      FROM sends
-      GROUP BY climb_id
-    ) send_stats ON send_stats.climb_id = climbs.id
+    FROM climbs INDEXED BY ${sql.raw(indexName)}
     WHERE ${sql.join(conditions, sql` AND `)}
     ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[sort]}, climbs.id
     LIMIT ${PAGE_SIZE + 1}

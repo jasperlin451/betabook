@@ -9,7 +9,7 @@ import {
 export const areas = sqliteTable(
   "areas",
   {
-    id: integer("id").primaryKey({ autoIncrement: false }),
+    id: integer("id").primaryKey({ autoIncrement: true }),
     parentId: integer("parent_id").references(
       (): AnySQLiteColumn => areas.id,
       { onDelete: "restrict" },

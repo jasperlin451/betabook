@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { LogSendButton } from "@/components/log-send-button";
+import { ClimbActionsMenu } from "@/components/climb-actions-menu";
 import { ClimbSendList } from "@/components/climb-send-list";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageWithStats } from "@/components/ui/page-shell";
@@ -11,6 +12,7 @@ import { RatingStars } from "@/components/ui/rating-stars";
 import { averageRating, ascentStyleBreakdown, suggestedGradeRange } from "@/lib/send-stats";
 import { getAncestors, getArea, getClimb, getSendsForClimb, getUserSendForClimb } from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
+import { missingDescriptionMessage } from "@/lib/descriptions";
 import { getDb } from "@/db/client";
 import { initAuth } from "@/lib/auth";
 
@@ -52,14 +54,17 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
         <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
       </Eyebrow>
 
-      <div>
-        <h1 className="text-2xl font-semibold">{climb.name}</h1>
-        <p className="text-muted mt-1 capitalize">
-          {climb.type} &middot; {formatGrade(climb.type, climb.grade)}
-        </p>
-        {climb.description && (
-          <p className="text-muted mt-1">{climb.description}</p>
-        )}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold">{climb.name}</h1>
+          <p className="text-muted mt-1 capitalize">
+            {climb.type} &middot; {formatGrade(climb.type, climb.grade)}
+          </p>
+          <p className="text-muted mt-1">
+            {climb.description || missingDescriptionMessage("climb")}
+          </p>
+        </div>
+        {session && <ClimbActionsMenu climb={climb} />}
       </div>
 
       <PageWithStats

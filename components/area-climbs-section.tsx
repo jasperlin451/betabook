@@ -6,38 +6,22 @@ import { Button, ListBox, Select } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { ClimbList } from "@/components/climb-list";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
-import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
-import type { SubtreeClimbsSort, UserSendsFilter } from "@/db/queries";
+import {
+  areaClimbsFilterToSearchParams,
+  DEFAULT_BOULDER_RANGE,
+  DEFAULT_SPORT_RANGE,
+  DEFAULT_TRAD_RANGE,
+  type AreaClimbsFilter,
+} from "@/lib/area-climbs-filter";
+import type { AreaBreadcrumbs, Climb, ClimbSendStats, SubtreeClimbsSort } from "@/db/queries";
 
 const FILTER_DEBOUNCE_MS = 400;
 
-const DEFAULT_BOULDER_RANGE: [number, number] = [0, BOULDER_HUECO.length - 1];
-const DEFAULT_SPORT_RANGE: [number, number] = [0, ROPE_YDS.length - 1];
-const DEFAULT_TRAD_RANGE: [number, number] = [0, ROPE_YDS.length - 1];
-
-/** Serializes both the sort and the discipline/grade filter into one query
- * string, shared by the sort control and the filter panel below — each
- * needs to preserve the other's current state when it navigates, or one
- * would silently clear the other. Ranges are only included for checked
- * disciplines, same convention as the climb search page. */
-function buildClimbsHref(areaId: number, sort: SubtreeClimbsSort, filter: UserSendsFilter): string {
-  const params = new URLSearchParams();
-  params.set("sort", sort);
-  if (filter.name) params.set("name", filter.name);
-  filter.disciplines.forEach((discipline) => params.append("discipline", discipline));
-  if (filter.disciplines.includes("boulder")) {
-    params.append("boulderRange", String(filter.boulderRange[0]));
-    params.append("boulderRange", String(filter.boulderRange[1]));
-  }
-  if (filter.disciplines.includes("sport")) {
-    params.append("sportRange", String(filter.sportRange[0]));
-    params.append("sportRange", String(filter.sportRange[1]));
-  }
-  if (filter.disciplines.includes("trad")) {
-    params.append("tradRange", String(filter.tradRange[0]));
-    params.append("tradRange", String(filter.tradRange[1]));
-  }
-  return `/areas/${areaId}?${params.toString()}`;
+/** Shared by the sort control, the filter panel, and "load more" — each
+ * needs the other's current state to build a URL/request that doesn't
+ * silently drop it. */
+function buildClimbsHref(areaId: number, sort: SubtreeClimbsSort, filter: AreaClimbsFilter): string {
+  return `/areas/${areaId}?${areaClimbsFilterToSearchParams(sort, filter).toString()}`;
 }
 
 type SortField = "name" | "grade" | "rating" | "ascents";
@@ -70,28 +54,74 @@ function directionOf(sort: SubtreeClimbsSort): SortDirection {
 type AreaClimbsSectionProps = {
   areaId: number;
   sort: SubtreeClimbsSort;
-  filter: UserSendsFilter;
-} & Omit<Parameters<typeof ClimbList>[0], "pagination"> & {
-    pagination?: { page: number; hasNextPage: boolean };
-  };
+  filter: AreaClimbsFilter;
+  initialClimbs: Climb[];
+  initialHasNextPage: boolean;
+  initialSendStats: Record<number, ClimbSendStats>;
+  initialAreaBreadcrumbs: AreaBreadcrumbs;
+  sentClimbIds?: Set<number>;
+  emptyMessage?: string;
+};
 
-/** Owns the climbs sort control (inline with the "Climbs" heading) for the
+/** Owns the climbs sort control (inline with the "Climbs" heading), the
+ * accumulated "load more" list state, and the fetch that backs it, for the
  * area page — separate from ClimbList itself since ClimbList is also used
- * by climb search, which doesn't have this sort. Same field-dropdown +
- * shared direction-arrow-button UX as the user send list's sort. */
+ * by climb search, which doesn't have any of this. Same field-dropdown +
+ * shared direction-arrow-button sort UX, and the same "load more" pattern
+ * (server-rendered first page, client-fetched rest), as the user send list.
+ *
+ * The caller keys this component on `{ sort, filter }` (see
+ * app/areas/[id]/page.tsx) so a sort/filter change remounts it with fresh
+ * initial state, rather than this component syncing accumulated state to
+ * changed props via an effect. */
 export function AreaClimbsSection({
   areaId,
   sort,
   filter,
-  pagination,
-  ...climbListProps
+  initialClimbs,
+  initialHasNextPage,
+  initialSendStats,
+  initialAreaBreadcrumbs,
+  sentClimbIds,
+  emptyMessage,
 }: AreaClimbsSectionProps) {
   const router = useRouter();
+  const [climbs, setClimbs] = useState(initialClimbs);
+  const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
+  const [sendStats, setSendStats] = useState(initialSendStats);
+  const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
+  const [loadingMore, setLoadingMore] = useState(false);
+  // Climbs are fetched PAGE_SIZE at a time (see db/queries/shared.ts), so the
+  // next page to request is however many full pages are already loaded —
+  // not climbs.length, which would be wrong after any dedup/filter change.
+  const [loadedPages, setLoadedPages] = useState(1);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    try {
+      const params = areaClimbsFilterToSearchParams(sort, filter);
+      params.set("page", String(loadedPages + 1));
+      const res = await fetch(`/api/areas/${areaId}/climbs?${params.toString()}`);
+      const data: {
+        climbs: Climb[];
+        hasNextPage: boolean;
+        sendStats: Record<number, ClimbSendStats>;
+        areaBreadcrumbs: AreaBreadcrumbs;
+      } = await res.json();
+      setClimbs((prev) => [...prev, ...data.climbs]);
+      setHasNextPage(data.hasNextPage);
+      setSendStats((prev) => ({ ...prev, ...data.sendStats }));
+      setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
+      setLoadedPages((prev) => prev + 1);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   function navigateToSort(nextSort: SubtreeClimbsSort) {
-    // Reset to page 1 — the current page number may no longer make sense
-    // under a different order. Preserves the active filter (see
-    // buildClimbsHref).
+    // Preserves the active filter (see buildClimbsHref) — remounting this
+    // component (keyed on sort+filter by the caller) naturally resets back
+    // to page 1's accumulated state.
     router.replace(buildClimbsHref(areaId, nextSort, filter), { scroll: false });
   }
 
@@ -146,14 +176,12 @@ export function AreaClimbsSection({
         </div>
       </div>
       <ClimbList
-        {...climbListProps}
-        pagination={
-          pagination && {
-            page: pagination.page,
-            hasNextPage: pagination.hasNextPage,
-            basePath: buildClimbsHref(areaId, sort, filter),
-          }
-        }
+        climbs={climbs}
+        emptyMessage={emptyMessage}
+        sendStats={sendStats}
+        areaBreadcrumbs={areaBreadcrumbs}
+        sentClimbIds={sentClimbIds}
+        pagination={{ hasNextPage, loadingMore, onLoadMore: handleLoadMore }}
       />
     </section>
   );
@@ -174,11 +202,11 @@ export function AreaClimbsFilterPanel({
 }: {
   areaId: number;
   sort: SubtreeClimbsSort;
-  filter: UserSendsFilter;
+  filter: AreaClimbsFilter;
 }) {
   const router = useRouter();
   const [name, setName] = useState(filter.name ?? "");
-  const [disciplineFilter, setDisciplineFilter] = useState<UserSendsFilter>({
+  const [disciplineFilter, setDisciplineFilter] = useState<AreaClimbsFilter>({
     disciplines: filter.disciplines,
     boulderRange: filter.boulderRange,
     sportRange: filter.sportRange,

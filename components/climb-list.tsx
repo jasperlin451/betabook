@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { Button, Chip, Link, Pagination, useOverlayState } from "@heroui/react";
+import { Button, Chip, Link, useOverlayState } from "@heroui/react";
 import { CircleCheck, CirclePlus } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
@@ -21,20 +20,15 @@ const STYLE_CHIP_CLASSNAME: Record<ClimbType, string> = {
   trad: "bg-teal-100! text-teal-700!",
 };
 
-/** Appends a `page` param to `basePath`, which may already carry its own
- * query string (e.g. `/areas/12?sort=name`) — appends with `&` in that case
- * instead of producing an invalid second `?`. */
-function pageHref(basePath: string, page: number): string {
-  return `${basePath}${basePath.includes("?") ? "&" : "?"}page=${page}`;
-}
-
 type ClimbListProps = {
   climbs: (Climb & { areaName?: string })[];
   emptyMessage?: string;
+  /** A "load more" button shown at the bottom of the list, in place of
+   * numbered pagination — same pattern as the user send list. */
   pagination?: {
-    page: number;
     hasNextPage: boolean;
-    basePath: string; // e.g. `/areas/12` — page links append `?page=N`
+    loadingMore: boolean;
+    onLoadMore: () => void;
   };
   /** Average rating, logged-ascent count, and average suggested grade per
    * climb, keyed by climb id. */
@@ -58,35 +52,19 @@ export function ClimbList({
   areaBreadcrumbs,
   sentClimbIds,
 }: ClimbListProps) {
-  const router = useRouter();
-
   if (climbs.length === 0) {
     return <p className="text-muted text-sm">{emptyMessage}</p>;
   }
 
-  const paginationBlock = pagination && (pagination.page > 1 || pagination.hasNextPage) && (
-    <Pagination>
-      <Pagination.Content>
-        {pagination.page > 1 && (
-          <Pagination.Item>
-            <Pagination.Previous
-              onPress={() => router.push(pageHref(pagination.basePath, pagination.page - 1))}
-            >
-              Previous
-            </Pagination.Previous>
-          </Pagination.Item>
-        )}
-        {pagination.hasNextPage && (
-          <Pagination.Item>
-            <Pagination.Next
-              onPress={() => router.push(pageHref(pagination.basePath, pagination.page + 1))}
-            >
-              Next
-            </Pagination.Next>
-          </Pagination.Item>
-        )}
-      </Pagination.Content>
-    </Pagination>
+  const loadMoreBlock = pagination?.hasNextPage && (
+    <Button
+      variant="ghost"
+      className="self-center"
+      onPress={pagination.onLoadMore}
+      isDisabled={pagination.loadingMore}
+    >
+      {pagination.loadingMore ? "Loading…" : "Load more"}
+    </Button>
   );
 
   return (
@@ -134,7 +112,7 @@ export function ClimbList({
           />
         ))}
       </div>
-      {paginationBlock}
+      {loadMoreBlock}
     </div>
   );
 }

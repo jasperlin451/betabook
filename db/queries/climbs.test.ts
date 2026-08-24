@@ -7,6 +7,10 @@ import { getArea } from "./areas";
 import { findClimbsByNameAndArea, getClimb, getSubtreeClimbs, searchClimbs } from "./climbs";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyAreas } from "@/test/fixtures";
 
+// getSubtreeClimbs forces climbs_lft_rght_idx below LARGE_AREA_SUBTREE_SPAN
+// (see climbs.ts) — this fixture tree's spans are tiny, so it always takes
+// that path; climbs.large-area.test.ts covers the other (sort-index) path.
+
 let db: Database;
 
 beforeAll(async () => {
@@ -182,6 +186,18 @@ describe("getSubtreeClimbs", () => {
       expect(explicit.climbs.map((c) => c.name)).toEqual(expected);
       expect(usingDefault.climbs.map((c) => c.name)).toEqual(expected);
     });
+
+    it("uses the lft/rght range index, not the sort-column index, for a small area", async () => {
+      const root = await getArea(db, 1);
+      const plan = await db.all<{ detail: string }>(sql`
+        EXPLAIN QUERY PLAN
+        SELECT climbs.id FROM climbs INDEXED BY climbs_lft_rght_idx
+        WHERE climbs.lft >= ${root!.lft} AND climbs.lft <= ${root!.rght} AND climbs.rght <= ${root!.rght}
+        ORDER BY climbs.send_count DESC, climbs.id
+        LIMIT 51 OFFSET 0
+      `);
+      expect(plan.some((row) => row.detail.includes("climbs_lft_rght_idx"))).toBe(true);
+    });
   });
 
   describe("filter", () => {
@@ -344,7 +360,9 @@ describe("searchClimbs", () => {
       type: "boulder" as const,
       grade: i % 19,
     }));
-    const CHUNK_SIZE = 20;
+    // 10 bound columns per row now (drizzle binds every defaulted column
+    // explicitly), so a smaller chunk stays under D1's bound-parameter limit.
+    const CHUNK_SIZE = 10;
     for (let i = 0; i < climbRows.length; i += CHUNK_SIZE) {
       await db.insert(climbs).values(climbRows.slice(i, i + CHUNK_SIZE));
     }

@@ -1,7 +1,12 @@
 /**
  * Phase B reindex: computes real Nested Set lft/rght values for every area
  * in the LOCAL D1 database, from the parentId relationships already loaded
- * by climbs_data/build-seed.ts (Phase A), and applies them.
+ * by climbs_data/build-seed.ts (Phase A), and applies them. Then resyncs
+ * every climb's denormalized lft/rght/send_count/rating_sum/rating_count
+ * from that fresh areas.lft/rght and from sends — this used to be a one-off
+ * migration (0011_backfill_climb_aggregates.sql) but is really a "run again
+ * every time areas get reindexed" step, since climbs.lft/rght only make
+ * sense relative to their owning area's current lft/rght.
  *
  * Phase A deliberately writes lft=0, rght=0 placeholders for every area —
  * this script is what replaces those with real values via a DFS over the
@@ -152,7 +157,36 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Verify
+// 6. Resync climbs.lft/rght/send_count/rating_sum/rating_count
+// ---------------------------------------------------------------------------
+//
+// Correlated-subquery UPDATEs with zero bound parameters, so — unlike the
+// area lft/rght batches above — D1's per-statement bound-parameter/request
+// limits don't apply regardless of table size; no chunking needed.
+
+console.log("Resyncing climb lft/rght and send aggregates...");
+const resyncTmpDir = mkdtempSync(join(tmpdir(), "reindex-areas-resync-"));
+try {
+  const resyncFile = join(resyncTmpDir, "resync.sql");
+  writeFileSync(
+    resyncFile,
+    [
+      `UPDATE climbs SET
+  lft = (SELECT areas.lft FROM areas WHERE areas.id = climbs.area_id),
+  rght = (SELECT areas.rght FROM areas WHERE areas.id = climbs.area_id);`,
+      `UPDATE climbs SET
+  send_count = (SELECT COUNT(*) FROM sends WHERE sends.climb_id = climbs.id),
+  rating_sum = (SELECT COALESCE(SUM(rating), 0) FROM sends WHERE sends.climb_id = climbs.id AND rating IS NOT NULL),
+  rating_count = (SELECT COUNT(*) FROM sends WHERE sends.climb_id = climbs.id AND rating IS NOT NULL);`,
+    ].join("\n\n") + "\n",
+  );
+  execSync(`pnpm wrangler d1 execute DB --local --file=${resyncFile}`, { stdio: "inherit" });
+} finally {
+  rmSync(resyncTmpDir, { recursive: true, force: true });
+}
+
+// ---------------------------------------------------------------------------
+// 7. Verify
 // ---------------------------------------------------------------------------
 
 const stillZero = runD1Query<{ count: number }>(

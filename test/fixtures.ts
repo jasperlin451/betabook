@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas, climbs, user, sends } from "@/db/schema";
 
@@ -23,11 +23,15 @@ export async function seedFixtureTree(db: Database) {
     { id: 5, parentId: 2, lft: 5, rght: 6, name: "Test Slab Area" },
   ]);
 
+  // lft/rght mirror each climb's owning area (4, 5, 3, 3 respectively above)
+  // — getSubtreeClimbs filters/sorts on climbs.lft/rght directly now, not
+  // via a join to areas, so these must match or subtree queries return
+  // nothing.
   await db.insert(climbs).values([
-    { id: 1, areaId: 4, name: "Test Highball", type: "boulder", grade: 5 }, // V4
-    { id: 2, areaId: 5, name: "Test Slab", type: "boulder", grade: 2 }, // V1
-    { id: 3, areaId: 3, name: "Test Crimper", type: "sport", grade: 10 }, // 5.10a
-    { id: 4, areaId: 3, name: "Test Crack", type: "trad", grade: 6 }, // 5.6
+    { id: 1, areaId: 4, name: "Test Highball", type: "boulder", grade: 5, lft: 3, rght: 4 }, // V4
+    { id: 2, areaId: 5, name: "Test Slab", type: "boulder", grade: 2, lft: 5, rght: 6 }, // V1
+    { id: 3, areaId: 3, name: "Test Crimper", type: "sport", grade: 10, lft: 8, rght: 9 }, // 5.10a
+    { id: 4, areaId: 3, name: "Test Crack", type: "trad", grade: 6, lft: 8, rght: 9 }, // 5.6
   ]);
 
   await db.run(sql`INSERT INTO areas_fts(rowid, name) SELECT id, name FROM areas`);
@@ -41,15 +45,26 @@ export async function seedManyClimbs(
   count: number,
   startId: number,
 ) {
+  // lft/rght must match the owning area — getSubtreeClimbs filters/sorts on
+  // climbs.lft/rght directly, not via a join to areas.
+  const area = await db.select().from(areas).where(eq(areas.id, areaId)).get();
+  if (!area) throw new Error(`seedManyClimbs: no area with id ${areaId}`);
+
   const rows = Array.from({ length: count }, (_, i) => ({
     id: startId + i,
     areaId,
     name: `Bulk Climb ${i}`,
     type: "boulder" as const,
     grade: i % 19,
+    lft: area.lft,
+    rght: area.rght,
   }));
-  // D1 has a bound-parameter limit per statement, so chunk the insert.
-  const CHUNK_SIZE = 20;
+  // D1 has a bound-parameter limit per statement, so chunk the insert. 10
+  // bound columns per row now (id/areaId/name/type/grade/lft/rght/
+  // sendCount/ratingSum/ratingCount — drizzle binds every column with a
+  // default explicitly rather than omitting it), so 10 rows/chunk stays
+  // safely under the limit.
+  const CHUNK_SIZE = 10;
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
     await db.insert(climbs).values(rows.slice(i, i + CHUNK_SIZE));
   }
@@ -97,7 +112,12 @@ type FixtureSendOverrides = Partial<typeof sends.$inferInsert> & {
   dateSent: string | null;
 };
 
-/** Inserts a `sends` row referencing an existing fixture user/climb. */
+/** Inserts a `sends` row referencing an existing fixture user/climb. Also
+ * keeps climbs.sendCount/ratingSum/ratingCount in sync, mirroring what
+ * db/mutations.ts's createSend does for a real write — tests that seed sends
+ * directly (bypassing that mutation) would otherwise leave those
+ * denormalized columns at 0, breaking any getSubtreeClimbs sort/rating
+ * assertion. */
 export async function seedFixtureSend(db: Database, overrides: FixtureSendOverrides) {
   const row = {
     ascentStyle: "redpoint" as const,
@@ -107,5 +127,13 @@ export async function seedFixtureSend(db: Database, overrides: FixtureSendOverri
     ...overrides,
   };
   await db.insert(sends).values(row);
+  await db
+    .update(climbs)
+    .set({
+      sendCount: sql`${climbs.sendCount} + 1`,
+      ratingSum: sql`${climbs.ratingSum} + ${row.rating ?? 0}`,
+      ratingCount: sql`${climbs.ratingCount} + ${row.rating != null ? 1 : 0}`,
+    })
+    .where(eq(climbs.id, row.climbId));
   return row;
 }
