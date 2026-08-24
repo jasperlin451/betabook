@@ -1,0 +1,1 @@
+ALTER TABLE `climbs` ADD `description` text;

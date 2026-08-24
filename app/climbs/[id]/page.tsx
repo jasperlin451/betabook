@@ -57,6 +57,9 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
         <p className="text-muted mt-1 capitalize">
           {climb.type} &middot; {formatGrade(climb.type, climb.grade)}
         </p>
+        {climb.description && (
+          <p className="text-muted mt-1">{climb.description}</p>
+        )}
       </div>
 
       <PageWithStats

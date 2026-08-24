@@ -11,6 +11,7 @@ export const climbs = sqliteTable(
     name: text("name").notNull(),
     type: text("type", { enum: ["boulder", "sport", "trad"] }).notNull(),
     grade: integer("grade"),
+    description: text("description"),
   },
   (t) => [
     index("climbs_area_idx").on(t.areaId),

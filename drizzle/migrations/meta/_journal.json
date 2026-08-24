@@ -57,6 +57,13 @@
       "when": 1787549481854,
       "tag": "0007_rename_completion_type_to_ascent_style",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1787550361534,
+      "tag": "0008_add_climbs_description",
+      "breakpoints": true
     }
   ]
 }
