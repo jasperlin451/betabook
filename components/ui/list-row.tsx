@@ -12,6 +12,10 @@ type ListRowProps = {
   subtitle?: ReactNode;
   tags?: ReactNode;
   trailing?: ReactNode;
+  /** Rendered to the right of `trailing`, e.g. a "..." actions menu —
+   * separate from `trailing` so it never gets pulled into that column's
+   * own vertical stack. */
+  actions?: ReactNode;
   comment?: string | null;
   className?: string;
 };
@@ -23,6 +27,7 @@ export function ListRow({
   subtitle,
   tags,
   trailing,
+  actions,
   comment,
   className,
 }: ListRowProps) {
@@ -64,6 +69,7 @@ export function ListRow({
         )}
       </div>
       {trailing && <div className="shrink-0 text-right">{trailing}</div>}
+      {actions && <div className="shrink-0">{actions}</div>}
     </div>
   );
 }

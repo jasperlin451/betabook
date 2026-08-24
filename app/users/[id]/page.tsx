@@ -1,9 +1,11 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { UserSendList, UserSendsFilterPanel } from "@/components/user-send-list";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { getAreaBreadcrumbs, getSendsForUserPage, getUser, getUserSendsSummary } from "@/db/queries";
 import { getDb } from "@/db/client";
 import { parseUserSendsFilter } from "@/lib/user-sends-filter";
+import { initAuth } from "@/lib/auth";
 
 type UserPageProps = {
   params: Promise<{ id: string }>;
@@ -17,6 +19,9 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   const db = await getDb();
   const user = await getUser(db, id);
   if (!user) notFound();
+
+  const auth = await initAuth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   // The stats card reflects the user's whole history — computed via small
   // aggregate queries, independent of the list's current filter/page.
@@ -94,6 +99,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
             initialHasMore={firstPage.hasMore}
             initialAreaBreadcrumbs={areaBreadcrumbs}
             hasAnySends={summary.sendCount > 0}
+            currentUserId={session?.user.id}
           />
         </div>
 

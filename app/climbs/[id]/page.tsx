@@ -2,7 +2,6 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
-import { SendPanel } from "@/components/send-panel";
 import { LogSendButton } from "@/components/log-send-button";
 import { ClimbSendList } from "@/components/climb-send-list";
 import { Eyebrow } from "@/components/ui/eyebrow";
@@ -103,10 +102,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
       >
         <div className="flex flex-col gap-4">
           <h2 className="text-lg font-semibold">Sends</h2>
-
-          {session && <SendPanel climb={climb} existingSend={userSend} />}
-
-          <ClimbSendList sends={climbSends} climbType={climb.type} />
+          <ClimbSendList sends={climbSends} climb={climb} currentUserId={session?.user.id} />
         </div>
       </PageWithStats>
     </div>

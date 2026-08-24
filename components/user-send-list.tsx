@@ -11,6 +11,7 @@ import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
+import { SendActionsMenu } from "@/components/send-actions-menu";
 
 type UserSendListProps = {
   userId: string;
@@ -21,6 +22,10 @@ type UserSendListProps = {
   /** Whether the user has any sends at all, regardless of the current
    * filter — distinguishes "no sends logged yet" from "none match". */
   hasAnySends: boolean;
+  /** The signed-in viewer's own user id, if any — every row here belongs
+   * to `userId` (whose profile this is), so the actions menu shows on every
+   * row when the viewer is that same user, none otherwise. */
+  currentUserId?: string | null;
 };
 
 const SEARCH_DEBOUNCE_MS = 400;
@@ -97,6 +102,7 @@ export function UserSendList({
   initialHasMore,
   initialAreaBreadcrumbs,
   hasAnySends,
+  currentUserId,
 }: UserSendListProps) {
   const [sends, setSends] = useState(initialSends);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -161,6 +167,20 @@ export function UserSendList({
                     <AscentType type={send.completionType} />
                     <div className="text-xs text-muted/70">{send.dateSent ?? "Date unknown"}</div>
                   </div>
+                }
+                actions={
+                  currentUserId === userId && (
+                    <SendActionsMenu
+                      climb={{
+                        id: send.climbId,
+                        areaId: send.areaId,
+                        name: send.climbName,
+                        type: send.climbType,
+                        grade: send.climbGrade,
+                      }}
+                      send={send}
+                    />
+                  )
                 }
                 comment={send.comment}
               />

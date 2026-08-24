@@ -10,6 +10,15 @@ import type { Discipline } from "./climbs";
 export type Send = typeof sends.$inferSelect;
 export type SendWithUserName = Send & { userName: string };
 
+/** The subset of a Send that SendForm actually needs to prefill an edit —
+ * lets a flattened row (e.g. UserSendRow) be passed in without requiring
+ * the full Send shape (userId/climbId/createdAt/updatedAt aren't used
+ * for editing). */
+export type EditableSend = Pick<
+  Send,
+  "id" | "completionType" | "dateSent" | "comment" | "rating" | "suggestedGrade"
+>;
+
 export async function getUserSendForClimb(
   db: Database,
   userId: string,

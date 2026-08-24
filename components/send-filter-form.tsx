@@ -5,9 +5,7 @@ import {
   Button,
   buttonVariants,
   Checkbox,
-  CheckboxGroup,
   Disclosure,
-  Fieldset,
   InputGroup,
   Label,
   ListBox,
@@ -17,8 +15,7 @@ import {
 import clsx from "clsx";
 import { Search } from "lucide-react";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
-import { COMPLETION_TYPES, type CompletionType } from "@/lib/sends";
-import type { Discipline, SendWithUserName, UserSendsFilter } from "@/db/queries";
+import type { Discipline, UserSendsFilter } from "@/db/queries";
 
 function toggleDiscipline(
   disciplines: Discipline[],
@@ -341,79 +338,3 @@ export function DisciplineFilterForm({
   );
 }
 
-// Ascent type is the one filter dimension every climb's send list already
-// has data for. Richer climb-specific filters (rating threshold, date
-// range, etc.) are deferred until that's designed.
-export type ClimbSendFilters = {
-  ascentTypes: CompletionType[];
-};
-
-export const DEFAULT_CLIMB_SEND_FILTERS: ClimbSendFilters = {
-  ascentTypes: [...COMPLETION_TYPES],
-};
-
-export function filterClimbSends(
-  sends: SendWithUserName[],
-  filters: ClimbSendFilters,
-): SendWithUserName[] {
-  return sends.filter((send) => filters.ascentTypes.includes(send.completionType));
-}
-
-export function AscentTypeFilterForm({
-  value,
-  onChange,
-}: {
-  value: ClimbSendFilters;
-  onChange: (value: ClimbSendFilters) => void;
-}) {
-  return (
-    <Disclosure className="rounded-xl bg-surface-secondary px-4">
-      {({ isExpanded }) => (
-        <>
-          <div className="flex flex-wrap items-end gap-4 py-2">
-            <Disclosure.Heading className="contents">
-              <Disclosure.Trigger className={buttonVariants({ variant: "ghost" })}>
-                {isExpanded ? "Hide Filters" : "Filters"}
-              </Disclosure.Trigger>
-            </Disclosure.Heading>
-          </div>
-
-          <Disclosure.Content>
-            <Disclosure.Body className="flex flex-col gap-6 pb-4">
-              <Fieldset>
-                <Fieldset.Legend>Ascent type</Fieldset.Legend>
-                <CheckboxGroup
-                  aria-label="Ascent type"
-                  value={value.ascentTypes}
-                  onChange={(ascentTypes) =>
-                    onChange({ ...value, ascentTypes: ascentTypes as CompletionType[] })
-                  }
-                  className="flex flex-row gap-4"
-                >
-                  {COMPLETION_TYPES.map((type) => (
-                    <Checkbox key={type} value={type}>
-                      <Checkbox.Content>
-                        <Checkbox.Control>
-                          <Checkbox.Indicator />
-                        </Checkbox.Control>
-                        <span className="capitalize">{type}</span>
-                      </Checkbox.Content>
-                    </Checkbox>
-                  ))}
-                </CheckboxGroup>
-              </Fieldset>
-
-              <Button
-                variant="ghost"
-                className="self-start"
-                onPress={() => onChange(DEFAULT_CLIMB_SEND_FILTERS)}
-              >
-                Reset Filters
-              </Button>
-            </Disclosure.Body>
-          </Disclosure.Content>
-        </>
-      )}
-    </Disclosure>
-  );
-}

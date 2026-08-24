@@ -3,11 +3,11 @@
 import { Drawer } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
 import { SendForm } from "@/components/send-form";
-import type { Climb, Send } from "@/db/queries";
+import type { Climb, EditableSend } from "@/db/queries";
 
 type SendFormDrawerProps = {
   climb: Climb;
-  existingSend?: Send;
+  existingSend?: EditableSend;
   state: UseOverlayStateReturn;
 };
 
