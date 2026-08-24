@@ -1,4 +1,5 @@
 import type { Discipline } from "@/db/queries";
+import { ASCENT_STYLES, type AscentStyle } from "@/lib/sends";
 
 export type SearchParamsRecord = Record<string, string | string[] | undefined>;
 
@@ -19,6 +20,12 @@ export function toRange(
 export function parseDisciplines(params: SearchParamsRecord, key = "discipline"): Discipline[] {
   return toArray(params[key]).filter(
     (d): d is Discipline => d === "boulder" || d === "sport" || d === "trad",
+  );
+}
+
+export function parseAscentStyles(params: SearchParamsRecord, key = "ascentStyle"): AscentStyle[] {
+  return toArray(params[key]).filter((s): s is AscentStyle =>
+    (ASCENT_STYLES as readonly string[]).includes(s),
   );
 }
 

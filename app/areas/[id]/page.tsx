@@ -94,7 +94,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
           />
         </div>
 
-        <div className="order-1 lg:order-2 lg:w-72 lg:shrink-0">
+        <div className="order-1 lg:order-2 lg:w-80 lg:shrink-0">
           <AreaClimbsFilterPanel areaId={area.id} sort={sort} filter={filter} />
         </div>
       </div>

@@ -81,7 +81,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
        * so the stats card renders twice (cheap, pure) and each copy is
        * shown/hidden per breakpoint via Tailwind's responsive display. */}
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-        <div className="order-1 flex flex-col gap-6 lg:order-2 lg:w-72 lg:shrink-0">
+        <div className="order-1 flex flex-col gap-6 lg:order-2 lg:w-80 lg:shrink-0">
           {summary.sendCount > 0 && <UserSendsFilterPanel userId={id} filter={filter} />}
           <div className="hidden lg:block">
             <StatStrip cards={statCards} />

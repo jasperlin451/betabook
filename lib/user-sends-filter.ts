@@ -1,5 +1,9 @@
-import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
-import { parseDisciplines, toArray, toRange, type SearchParamsRecord } from "@/lib/search-params";
+import {
+  DEFAULT_DISCIPLINE_FILTER,
+  appendDisciplineFilterParams,
+  parseDisciplineFilter,
+} from "@/lib/discipline-filter";
+import { parseAscentStyles, toArray, type SearchParamsRecord } from "@/lib/search-params";
 import type { UserSendsFilter, UserSendsSort } from "@/db/queries";
 
 const USER_SENDS_SORTS: UserSendsSort[] = [
@@ -13,47 +17,45 @@ const USER_SENDS_SORTS: UserSendsSort[] = [
 
 // No disciplines checked means "don't filter on discipline or grade at
 // all" — not "match nothing". Checking one activates that filter (and
-// reveals its grade-range dropdowns when the panel is expanded).
+// reveals its grade-range dropdowns when the panel is expanded). Same
+// convention for ascentStyles (empty = unfiltered) and minRating (0 = "Any").
 export const DEFAULT_USER_SENDS_FILTER: UserSendsFilter = {
-  disciplines: [],
-  boulderRange: [0, BOULDER_HUECO.length - 1],
-  sportRange: [0, ROPE_YDS.length - 1],
-  tradRange: [0, ROPE_YDS.length - 1],
+  ...DEFAULT_DISCIPLINE_FILTER,
   sort: "date_desc",
+  ascentStyles: [],
+  minRating: 0,
 };
 
 /** No `discipline` params means no disciplines are checked — an unfiltered
  * view, not "match nothing" (see DEFAULT_USER_SENDS_FILTER). */
 export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilter {
-  const disciplines = parseDisciplines(params);
-
   const rawSort = toArray(params.sort)[0];
   const sort = USER_SENDS_SORTS.includes(rawSort as UserSendsSort)
     ? (rawSort as UserSendsSort)
     : DEFAULT_USER_SENDS_FILTER.sort;
 
+  const minRating = Number(toArray(params.minRating)[0]);
+
   return {
-    disciplines,
-    boulderRange: toRange(params.boulderRange, DEFAULT_USER_SENDS_FILTER.boulderRange),
-    sportRange: toRange(params.sportRange, DEFAULT_USER_SENDS_FILTER.sportRange),
-    tradRange: toRange(params.tradRange, DEFAULT_USER_SENDS_FILTER.tradRange),
+    ...parseDisciplineFilter(params),
     name: toArray(params.name)[0],
     areaName: toArray(params.areaName)[0],
     sort,
+    ascentStyles: parseAscentStyles(params),
+    minRating:
+      Number.isFinite(minRating) && minRating >= 0 && minRating <= 5
+        ? minRating
+        : DEFAULT_USER_SENDS_FILTER.minRating,
   };
 }
 
 export function userSendsFilterToSearchParams(filter: UserSendsFilter): URLSearchParams {
   const params = new URLSearchParams();
-  filter.disciplines.forEach((discipline) => params.append("discipline", discipline));
-  params.append("boulderRange", String(filter.boulderRange[0]));
-  params.append("boulderRange", String(filter.boulderRange[1]));
-  params.append("sportRange", String(filter.sportRange[0]));
-  params.append("sportRange", String(filter.sportRange[1]));
-  params.append("tradRange", String(filter.tradRange[0]));
-  params.append("tradRange", String(filter.tradRange[1]));
+  appendDisciplineFilterParams(params, filter);
   if (filter.name) params.set("name", filter.name);
   if (filter.areaName) params.set("areaName", filter.areaName);
   params.set("sort", filter.sort ?? "date_desc");
+  filter.ascentStyles.forEach((style) => params.append("ascentStyle", style));
+  if (filter.minRating) params.set("minRating", String(filter.minRating));
   return params;
 }

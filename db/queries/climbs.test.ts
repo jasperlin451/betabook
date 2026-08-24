@@ -270,6 +270,37 @@ describe("getSubtreeClimbs", () => {
       expect(climbs).toEqual([]);
       expect(hasNextPage).toBe(false);
     });
+
+    // Reuses the ratings/ascent counts seeded in the "sort" describe above:
+    // Slab (2 sends, avg 4), Highball (1 send, unrated), Crimper (3 sends,
+    // avg 1), Crack (0 sends, unrated).
+    it("filters by minimum ascent count", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        minAscents: 2,
+      });
+      expect(climbs.map((c) => c.name).sort()).toEqual(["Test Crimper", "Test Slab"]);
+    });
+
+    it("filters by rating range, excluding unrated climbs and climbs outside the range", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        ratingRange: [3, 5],
+      });
+      expect(climbs.map((c) => c.name)).toEqual(["Test Slab"]);
+    });
+
+    it("combines a min-ascents filter with a discipline filter", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: ["boulder"],
+        boulderRange: [0, 20],
+        minAscents: 2,
+      });
+      expect(climbs.map((c) => c.name)).toEqual(["Test Slab"]);
+    });
   });
 });
 
@@ -341,6 +372,19 @@ describe("searchClimbs", () => {
     const results = await searchClimbs(db, { name: "Test Highball", disciplines: [] });
     expect(results).toHaveLength(1);
     expect(results[0].areaId).toBe(4); // Test Highball Alcove
+  });
+
+  // Reuses the ratings/ascent counts seeded in getSubtreeClimbs's "sort"
+  // describe above: Slab (2 sends, avg 4), Highball (1 send, unrated),
+  // Crimper (3 sends, avg 1), Crack (0 sends, unrated).
+  it("filters by minimum ascent count", async () => {
+    const results = await searchClimbs(db, { disciplines: [], minAscents: 2 });
+    expect(results.map((c) => c.name).sort()).toEqual(["Test Crimper", "Test Slab"]);
+  });
+
+  it("filters by rating range, excluding unrated climbs and climbs outside the range", async () => {
+    const results = await searchClimbs(db, { disciplines: [], ratingRange: [3, 5] });
+    expect(results.map((c) => c.name)).toEqual(["Test Slab"]);
   });
 
   it("doesn't choke when an area name matches far more areas than one statement's bound-parameter limit allows", async () => {

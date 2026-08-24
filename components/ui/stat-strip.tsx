@@ -16,7 +16,7 @@ export function StatStrip({ cards, className }: StatStripProps) {
   if (cards.length === 0) return null;
 
   return (
-    <div className={clsx("flex flex-row flex-wrap gap-4 lg:w-72 lg:shrink-0 lg:flex-col", className)}>
+    <div className={clsx("flex flex-row flex-wrap gap-4 lg:w-full lg:flex-col", className)}>
       {cards.map((card) => (
         <div
           key={card.key}

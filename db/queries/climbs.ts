@@ -111,12 +111,36 @@ const SUBTREE_CLIMBS_SORT_INDEX: Record<SubtreeClimbsSort, string> = {
  * for the resulting page's climbs). `climbs.id` is a final deterministic
  * tie-break, replacing the old boulder-before-rope grouping now that an
  * explicit user-chosen sort supersedes it. */
+export type ClimbStatsFilter = {
+  ratingRange?: [number, number];
+  minAscents?: number;
+};
+
+/** Adds the rating-range/min-ascents WHERE fragments shared by `searchClimbs`
+ * and `getSubtreeClimbs` — both filter on climbs.avg_rating/send_count,
+ * real denormalized columns (see drizzle/schema/climbs.ts), so this is a
+ * plain predicate, no join or HAVING needed. A range at its full default
+ * (or minAscents of 0) means the filter isn't active. A climb with no sends
+ * has avg_rating IS NULL and send_count = 0, so it naturally fails either
+ * condition once actually narrowed — no NULL special-casing required. */
+function climbStatsConditions(filter: ClimbStatsFilter): SQL[] {
+  const clauses: SQL[] = [];
+  if (filter.ratingRange && (filter.ratingRange[0] > 0 || filter.ratingRange[1] < 5)) {
+    const [min, max] = filter.ratingRange;
+    clauses.push(sql`climbs.avg_rating BETWEEN ${min} AND ${max}`);
+  }
+  if (filter.minAscents) {
+    clauses.push(sql`climbs.send_count >= ${filter.minAscents}`);
+  }
+  return clauses;
+}
+
 export async function getSubtreeClimbs(
   db: Database,
   area: Area,
   page = 1,
   sort: SubtreeClimbsSort = "ascents_desc",
-  filter?: DisciplineGradeFilter & { name?: string },
+  filter?: DisciplineGradeFilter & { name?: string } & ClimbStatsFilter,
 ): Promise<{ climbs: Climb[]; page: number; pageSize: number; hasNextPage: boolean }> {
   // Both bounds on lft (not just the lower one) so the forced range index
   // can seek a bounded scan instead of an open-ended one — redundant given
@@ -138,6 +162,7 @@ export async function getSubtreeClimbs(
     if (disciplineClauses.length > 0) {
       conditions.push(sql`(${sql.join(disciplineClauses, sql` OR `)})`);
     }
+    conditions.push(...climbStatsConditions(filter));
   }
 
   const indexName =
@@ -186,10 +211,11 @@ export async function findClimbsByNameAndArea(
   `);
 }
 
-export type SearchClimbsParams = DisciplineGradeFilter & {
-  name?: string;
-  areaName?: string;
-};
+export type SearchClimbsParams = DisciplineGradeFilter &
+  ClimbStatsFilter & {
+    name?: string;
+    areaName?: string;
+  };
 
 export type ClimbWithAreaName = Climb & { areaName: string };
 
@@ -214,6 +240,7 @@ export async function searchClimbs(
   if (disciplineClauses.length > 0) {
     conditions.push(sql`(${sql.join(disciplineClauses, sql` OR `)})`);
   }
+  conditions.push(...climbStatsConditions(params));
 
   const whereClause =
     conditions.length > 0

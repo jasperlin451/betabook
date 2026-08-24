@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, ListBox, Select } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { ClimbList } from "@/components/climb-list";
+import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
 import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
 import { useSortToggle } from "@/hooks/use-sort-toggle";
@@ -15,6 +16,7 @@ import {
   DEFAULT_TRAD_RANGE,
   type AreaClimbsFilter,
 } from "@/lib/area-climbs-filter";
+import { DEFAULT_MIN_ASCENTS, DEFAULT_RATING_RANGE } from "@/lib/climb-stats-filter";
 import type { AreaBreadcrumbs, Climb, ClimbSendStats, SubtreeClimbsSort } from "@/db/queries";
 
 /** Shared by the sort control, the filter panel, and "load more" — each
@@ -190,6 +192,8 @@ export function AreaClimbsFilterPanel({
     boulderRange: filter.boulderRange,
     sportRange: filter.sportRange,
     tradRange: filter.tradRange,
+    ratingRange: filter.ratingRange,
+    minAscents: filter.minAscents,
   });
 
   useDebouncedReplace(buildClimbsHref(areaId, sort, { ...disciplineFilter, name }));
@@ -201,6 +205,8 @@ export function AreaClimbsFilterPanel({
       boulderRange: DEFAULT_BOULDER_RANGE,
       sportRange: DEFAULT_SPORT_RANGE,
       tradRange: DEFAULT_TRAD_RANGE,
+      ratingRange: DEFAULT_RATING_RANGE,
+      minAscents: DEFAULT_MIN_ASCENTS,
     });
   }
 
@@ -212,6 +218,18 @@ export function AreaClimbsFilterPanel({
       showNameSearch
       name={name}
       onNameChange={setName}
+      extraOptions={
+        <ClimbStatsFields
+          ratingRange={disciplineFilter.ratingRange}
+          onRatingRangeChange={(ratingRange) =>
+            setDisciplineFilter({ ...disciplineFilter, ratingRange })
+          }
+          minAscents={disciplineFilter.minAscents}
+          onMinAscentsChange={(minAscents) =>
+            setDisciplineFilter({ ...disciplineFilter, minAscents })
+          }
+        />
+      }
     />
   );
 }

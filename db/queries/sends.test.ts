@@ -18,6 +18,8 @@ const ALL_SENDS_FILTER: UserSendsFilter = {
   boulderRange: [0, BOULDER_HUECO.length - 1],
   sportRange: [0, ROPE_YDS.length - 1],
   tradRange: [0, ROPE_YDS.length - 1],
+  ascentStyles: [],
+  minRating: 0,
 };
 
 let db: Database;
@@ -435,5 +437,86 @@ describe("getClimbSendStats", () => {
 
     const stats = await getClimbSendStats(db, [2]);
     expect(stats[2]).toEqual({ avgRating: 4, sendCount: 3, avgSuggestedGrade: null });
+  });
+});
+
+// Placed last in the file, as its own top-level describe rather than nested
+// inside getSendsForUserPage's — every other describe block above asserts
+// exact cumulative send counts/averages for climbs 1-3 "by this point" in
+// the file's fixture history, so adding more sends to those climbs anywhere
+// earlier would shift those hardcoded numbers. Nothing runs after this.
+describe("getSendsForUserPage ascentStyles/minRating filtering", () => {
+  beforeAll(async () => {
+    await seedFixtureUser(db, { id: "test-user-12", name: "Style Rating Tester" });
+    await seedFixtureSend(db, {
+      userId: "test-user-12",
+      climbId: 1, // Test Highball
+      dateSent: "2026-07-01",
+      ascentStyle: "flash",
+      rating: 5,
+    });
+    await seedFixtureSend(db, {
+      userId: "test-user-12",
+      climbId: 2, // Test Slab
+      dateSent: "2026-07-02",
+      ascentStyle: "redpoint",
+      rating: 2,
+    });
+    await seedFixtureSend(db, {
+      userId: "test-user-12",
+      climbId: 3, // Test Crimper
+      dateSent: "2026-07-03",
+      ascentStyle: "onsight",
+      // no rating
+    });
+  });
+
+  it("returns every ascent style when none are selected (unfiltered, not empty)", async () => {
+    const results = await getSendsForUserPage(db, "test-user-12", ALL_SENDS_FILTER, 0);
+    expect(results.sends.map((s) => s.climbName).sort()).toEqual([
+      "Test Crimper",
+      "Test Highball",
+      "Test Slab",
+    ]);
+  });
+
+  it("filters down to a single selected ascent style", async () => {
+    const results = await getSendsForUserPage(
+      db,
+      "test-user-12",
+      { ...ALL_SENDS_FILTER, ascentStyles: ["flash"] },
+      0,
+    );
+    expect(results.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
+  });
+
+  it("filters by multiple selected ascent styles", async () => {
+    const results = await getSendsForUserPage(
+      db,
+      "test-user-12",
+      { ...ALL_SENDS_FILTER, ascentStyles: ["flash", "onsight"] },
+      0,
+    );
+    expect(results.sends.map((s) => s.climbName).sort()).toEqual(["Test Crimper", "Test Highball"]);
+  });
+
+  it("filters by a minimum rating, excluding unrated sends", async () => {
+    const results = await getSendsForUserPage(
+      db,
+      "test-user-12",
+      { ...ALL_SENDS_FILTER, minRating: 3 },
+      0,
+    );
+    expect(results.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
+  });
+
+  it("combines ascent-style and minimum-rating filters", async () => {
+    const results = await getSendsForUserPage(
+      db,
+      "test-user-12",
+      { ...ALL_SENDS_FILTER, ascentStyles: ["redpoint", "onsight"], minRating: 1 },
+      0,
+    );
+    expect(results.sends.map((s) => s.climbName)).toEqual(["Test Slab"]);
   });
 });

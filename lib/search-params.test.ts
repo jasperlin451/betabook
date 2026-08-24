@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDisciplines, searchParamsToRecord, toArray, toRange } from "./search-params";
+import { parseAscentStyles, parseDisciplines, searchParamsToRecord, toArray, toRange } from "./search-params";
 
 describe("toArray", () => {
   it("returns an empty array for undefined", () => {
@@ -43,6 +43,23 @@ describe("parseDisciplines", () => {
 
   it("supports a custom key", () => {
     expect(parseDisciplines({ style: "sport" }, "style")).toEqual(["sport"]);
+  });
+});
+
+describe("parseAscentStyles", () => {
+  it("filters to only valid ascent styles", () => {
+    expect(parseAscentStyles({ ascentStyle: ["flash", "invalid", "onsight"] })).toEqual([
+      "flash",
+      "onsight",
+    ]);
+  });
+
+  it("returns an empty array when the key is absent", () => {
+    expect(parseAscentStyles({})).toEqual([]);
+  });
+
+  it("supports a custom key", () => {
+    expect(parseAscentStyles({ style: "redpoint" }, "style")).toEqual(["redpoint"]);
   });
 });
 

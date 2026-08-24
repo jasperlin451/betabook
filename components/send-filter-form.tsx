@@ -6,7 +6,8 @@ import clsx from "clsx";
 import { Search } from "lucide-react";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 import { IndexRangeSelect } from "@/components/ui/index-select";
-import type { Discipline, UserSendsFilter } from "@/db/queries";
+import type { Discipline } from "@/db/queries";
+import type { DisciplineFilter } from "@/lib/discipline-filter";
 
 function toggleDiscipline(
   disciplines: Discipline[],
@@ -16,9 +17,10 @@ function toggleDiscipline(
   return checked ? [...disciplines, value] : disciplines.filter((d) => d !== value);
 }
 
-// Shared by climb search (route/area name search + disciplines + grade
-// ranges) and the user sends filter (disciplines + grade ranges only, via
-// showNameSearch={false}) — one set of fields, not two near-duplicates.
+// Shared by climb search and the area page (route/area name search +
+// disciplines + grade ranges) and the user sends filter (disciplines + grade
+// ranges only, via showNameSearch={false}) — one set of fields, not three
+// near-duplicates.
 
 type NameSearchFieldsProps = {
   name?: string;
@@ -61,13 +63,13 @@ function NameSearchFields({
   );
 }
 
-function DisciplinesFields({
+function DisciplinesFields<T extends DisciplineFilter>({
   value,
   onChange,
   className,
 }: {
-  value: UserSendsFilter;
-  onChange: (value: UserSendsFilter) => void;
+  value: T;
+  onChange: (value: T) => void;
   className?: string;
 }) {
   const showBoulder = value.disciplines.includes("boulder");
@@ -122,12 +124,12 @@ function DisciplinesFields({
   );
 }
 
-function DisciplineGradeSliders({
+function DisciplineGradeSliders<T extends DisciplineFilter>({
   value,
   onChange,
 }: {
-  value: UserSendsFilter;
-  onChange: (value: UserSendsFilter) => void;
+  value: T;
+  onChange: (value: T) => void;
 }) {
   const showBoulder = value.disciplines.includes("boulder");
   const showSport = value.disciplines.includes("sport");
@@ -174,9 +176,9 @@ function DisciplineGradeSliders({
   );
 }
 
-export type DisciplineFilterFormProps = {
-  value: UserSendsFilter;
-  onChange: (value: UserSendsFilter) => void;
+export type DisciplineFilterFormProps<T extends DisciplineFilter> = {
+  value: T;
+  onChange: (value: T) => void;
   onReset: () => void;
   showNameSearch?: boolean;
   name?: string;
@@ -184,15 +186,19 @@ export type DisciplineFilterFormProps = {
   areaName?: string;
   onAreaNameChange?: (value: string) => void;
   /** Extra fields rendered inside "More Options", above the grade sliders —
-   * e.g. climb search's (placeholder, not yet wired to real data) rating
-   * slider. Not part of `value` since it isn't a discipline/grade filter. */
+   * e.g. the rating-range/min-ascents fields shared by climb search and the
+   * area page. Not part of `value` since it isn't a discipline/grade filter. */
   extraOptions?: ReactNode;
 };
 
 /** The one filter form for discipline + grade-range filtering — climb
- * search and the user sends list render this exact component, differing
- * only in `showNameSearch` and `extraOptions`. */
-export function DisciplineFilterForm({
+ * search, the area page, and the user sends list render this exact
+ * component, differing only in `showNameSearch` and `extraOptions`. Generic
+ * over `T` since each caller's filter type carries its own extra fields
+ * (rating range/min ascents, ascent styles/min rating, ...) that `onChange`
+ * must round-trip through the `{ ...value, disciplines: ... }` spreads in
+ * DisciplinesFields/DisciplineGradeSliders below without losing them. */
+export function DisciplineFilterForm<T extends DisciplineFilter>({
   value,
   onChange,
   onReset,
@@ -202,7 +208,7 @@ export function DisciplineFilterForm({
   areaName,
   onAreaNameChange,
   extraOptions,
-}: DisciplineFilterFormProps) {
+}: DisciplineFilterFormProps<T>) {
   return (
     <Disclosure className="rounded-xl bg-surface-secondary p-6">
       {({ isExpanded }) => (

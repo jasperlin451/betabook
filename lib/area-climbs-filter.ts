@@ -1,6 +1,13 @@
-import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
-import { parseDisciplines, toArray, toRange, type SearchParamsRecord } from "@/lib/search-params";
-import type { Discipline, DisciplineGradeFilter, SubtreeClimbsSort } from "@/db/queries";
+import { DEFAULT_MIN_ASCENTS, DEFAULT_RATING_RANGE } from "@/lib/climb-stats-filter";
+import {
+  DEFAULT_DISCIPLINE_FILTER,
+  appendDisciplineFilterParams,
+  parseDisciplineFilter,
+  toDisciplineGradeFilter,
+  type DisciplineFilter,
+} from "@/lib/discipline-filter";
+import { toArray, type SearchParamsRecord } from "@/lib/search-params";
+import type { ClimbStatsFilter, DisciplineGradeFilter, SubtreeClimbsSort } from "@/db/queries";
 
 const SUBTREE_CLIMBS_SORTS: SubtreeClimbsSort[] = [
   "name_asc",
@@ -15,20 +22,26 @@ const SUBTREE_CLIMBS_SORTS: SubtreeClimbsSort[] = [
 
 export const DEFAULT_AREA_CLIMBS_SORT: SubtreeClimbsSort = "ascents_desc";
 
-export const DEFAULT_BOULDER_RANGE: [number, number] = [0, BOULDER_HUECO.length - 1];
-export const DEFAULT_SPORT_RANGE: [number, number] = [0, ROPE_YDS.length - 1];
-export const DEFAULT_TRAD_RANGE: [number, number] = [0, ROPE_YDS.length - 1];
+export {
+  DEFAULT_BOULDER_RANGE,
+  DEFAULT_SPORT_RANGE,
+  DEFAULT_TRAD_RANGE,
+} from "@/lib/discipline-filter";
 
 /** Ranges are always present (unlike DisciplineGradeFilter's, which are
  * optional) — a range slider needs a default position to render even for an
  * unchecked discipline. Only when this is handed to the query layer
  * (toSubtreeQueryFilter) does an unchecked discipline's range get dropped. */
-export type AreaClimbsFilter = {
+export type AreaClimbsFilter = DisciplineFilter & {
   name?: string;
-  disciplines: Discipline[];
-  boulderRange: [number, number];
-  sportRange: [number, number];
-  tradRange: [number, number];
+  ratingRange: [number, number];
+  minAscents: number;
+};
+
+export const DEFAULT_AREA_CLIMBS_FILTER: AreaClimbsFilter = {
+  ...DEFAULT_DISCIPLINE_FILTER,
+  ratingRange: DEFAULT_RATING_RANGE,
+  minAscents: DEFAULT_MIN_ASCENTS,
 };
 
 export function parseAreaClimbsSort(params: SearchParamsRecord): SubtreeClimbsSort {
@@ -39,28 +52,32 @@ export function parseAreaClimbsSort(params: SearchParamsRecord): SubtreeClimbsSo
 }
 
 export function parseAreaClimbsFilter(params: SearchParamsRecord): AreaClimbsFilter {
-  const disciplines = parseDisciplines(params);
+  const [minRating, maxRating] = toArray(params.ratingRange).map(Number);
+  const minAscents = Number(toArray(params.minAscents)[0]);
 
   return {
+    ...parseDisciplineFilter(params),
     name: toArray(params.name)[0],
-    disciplines,
-    boulderRange: toRange(params.boulderRange, DEFAULT_BOULDER_RANGE),
-    sportRange: toRange(params.sportRange, DEFAULT_SPORT_RANGE),
-    tradRange: toRange(params.tradRange, DEFAULT_TRAD_RANGE),
+    ratingRange: Number.isFinite(minRating) && Number.isFinite(maxRating)
+      ? [minRating, maxRating]
+      : DEFAULT_RATING_RANGE,
+    minAscents: Number.isFinite(minAscents) && minAscents >= 0 ? minAscents : DEFAULT_MIN_ASCENTS,
   };
 }
 
 /** getSubtreeClimbs's filter param — same "only pass a range for a checked
  * discipline" convention as the climb search page, so an unchecked
  * discipline's (possibly stale, from before it was unchecked) range can't
- * smuggle in a filter. */
-export function toSubtreeQueryFilter(filter: AreaClimbsFilter): DisciplineGradeFilter & { name?: string } {
+ * smuggle in a filter. Rating range/min ascents are passed through as-is —
+ * they're not discipline-scoped, so "no filter" is just their own default. */
+export function toSubtreeQueryFilter(
+  filter: AreaClimbsFilter,
+): DisciplineGradeFilter & ClimbStatsFilter & { name?: string } {
   return {
+    ...toDisciplineGradeFilter(filter),
     name: filter.name || undefined,
-    disciplines: filter.disciplines,
-    boulderRange: filter.disciplines.includes("boulder") ? filter.boulderRange : undefined,
-    sportRange: filter.disciplines.includes("sport") ? filter.sportRange : undefined,
-    tradRange: filter.disciplines.includes("trad") ? filter.tradRange : undefined,
+    ratingRange: filter.ratingRange,
+    minAscents: filter.minAscents,
   };
 }
 
@@ -75,18 +92,9 @@ export function areaClimbsFilterToSearchParams(
   const params = new URLSearchParams();
   params.set("sort", sort);
   if (filter.name) params.set("name", filter.name);
-  filter.disciplines.forEach((discipline) => params.append("discipline", discipline));
-  if (filter.disciplines.includes("boulder")) {
-    params.append("boulderRange", String(filter.boulderRange[0]));
-    params.append("boulderRange", String(filter.boulderRange[1]));
-  }
-  if (filter.disciplines.includes("sport")) {
-    params.append("sportRange", String(filter.sportRange[0]));
-    params.append("sportRange", String(filter.sportRange[1]));
-  }
-  if (filter.disciplines.includes("trad")) {
-    params.append("tradRange", String(filter.tradRange[0]));
-    params.append("tradRange", String(filter.tradRange[1]));
-  }
+  appendDisciplineFilterParams(params, filter);
+  params.append("ratingRange", String(filter.ratingRange[0]));
+  params.append("ratingRange", String(filter.ratingRange[1]));
+  if (filter.minAscents) params.set("minAscents", String(filter.minAscents));
   return params;
 }

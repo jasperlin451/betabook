@@ -5,7 +5,8 @@ import { formatGrade, type ClimbType } from "@/lib/grades";
 import type { AscentStyle } from "@/lib/sends";
 import { areaNameCondition } from "./areas";
 import { toFtsPrefixQuery } from "./shared";
-import type { Climb, Discipline } from "./climbs";
+import type { Climb } from "./climbs";
+import type { DisciplineFilter } from "@/lib/discipline-filter";
 
 export type Send = typeof sends.$inferSelect;
 export type SendWithUserName = Send & { userName: string };
@@ -86,14 +87,12 @@ export type UserSendsSort =
   | "rating_desc"
   | "rating_asc";
 
-export type UserSendsFilter = {
-  disciplines: Discipline[];
-  boulderRange: [number, number];
-  sportRange: [number, number];
-  tradRange: [number, number];
+export type UserSendsFilter = DisciplineFilter & {
   name?: string;
   areaName?: string;
   sort?: UserSendsSort;
+  ascentStyles: AscentStyle[];
+  minRating: number;
 };
 
 // NULLS LAST on the ascending variants keeps unknown-date/unknown-grade
@@ -142,6 +141,18 @@ function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
     disciplineClauses.length > 0 ? sql`(${sql.join(disciplineClauses, sql` OR `)})` : sql`1`;
 
   const conditions: SQL[] = [sql`sends.user_id = ${userId}`, disciplineWhere];
+
+  if (filter.ascentStyles.length > 0) {
+    conditions.push(
+      sql`sends.ascent_style IN (${sql.join(filter.ascentStyles.map((s) => sql`${s}`), sql`, `)})`,
+    );
+  }
+
+  // A null rating naturally fails this once a minimum is actually set — no
+  // special-case NULL handling needed.
+  if (filter.minRating > 0) {
+    conditions.push(sql`sends.rating >= ${filter.minRating}`);
+  }
 
   if (filter.name) {
     const nameQuery = toFtsPrefixQuery(filter.name);

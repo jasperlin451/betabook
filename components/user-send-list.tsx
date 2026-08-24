@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Link, ListBox, Select } from "@heroui/react";
+import { Button, Checkbox, Link, ListBox, Select } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
+import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { AscentStyle } from "@/components/ascent-style";
@@ -12,10 +13,54 @@ import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
+import { LabeledIndexSelect } from "@/components/ui/index-select";
 import { SendActionsMenu } from "@/components/send-actions-menu";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
 import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
 import { useSortToggle } from "@/hooks/use-sort-toggle";
+
+const MIN_RATING_OPTIONS = ["Any", "1", "2", "3", "4", "5"];
+
+/** Ascent-style checkboxes for the user sends filter — same structure as
+ * DisciplinesFields in send-filter-form.tsx, but not shared there since it's
+ * specific to sends, not disciplines/grades. */
+function AscentStyleFields({
+  value,
+  onChange,
+}: {
+  value: AscentStyleType[];
+  onChange: (value: AscentStyleType[]) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-start gap-3">
+      <span className="text-sm font-medium text-foreground">Ascent Style</span>
+      <div className="flex flex-wrap items-center justify-start gap-4">
+        {ASCENT_STYLES.map((style) => (
+          <Checkbox
+            key={style}
+            isSelected={value.includes(style)}
+            onChange={(checked) =>
+              onChange(checked ? [...value, style] : value.filter((s) => s !== style))
+            }
+          >
+            <Checkbox.Content>
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              {style.charAt(0).toUpperCase() + style.slice(1)}
+            </Checkbox.Content>
+          </Checkbox>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MinRatingSelect({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  return (
+    <LabeledIndexSelect label="Min Rating" options={MIN_RATING_OPTIONS} index={value} onChange={onChange} />
+  );
+}
 
 type UserSendListProps = {
   userId: string;
@@ -70,6 +115,8 @@ export function UserSendsFilterPanel({
     boulderRange: filter.boulderRange,
     sportRange: filter.sportRange,
     tradRange: filter.tradRange,
+    ascentStyles: filter.ascentStyles,
+    minRating: filter.minRating,
   });
 
   const params = userSendsFilterToSearchParams({ ...disciplineFilter, name, areaName });
@@ -90,6 +137,18 @@ export function UserSendsFilterPanel({
       onNameChange={setName}
       areaName={areaName}
       onAreaNameChange={setAreaName}
+      extraOptions={
+        <>
+          <AscentStyleFields
+            value={disciplineFilter.ascentStyles}
+            onChange={(ascentStyles) => setDisciplineFilter({ ...disciplineFilter, ascentStyles })}
+          />
+          <MinRatingSelect
+            value={disciplineFilter.minRating}
+            onChange={(minRating) => setDisciplineFilter({ ...disciplineFilter, minRating })}
+          />
+        </>
+      }
     />
   );
 }
