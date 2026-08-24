@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
 import { getDb } from "@/db/client";
@@ -28,4 +28,5 @@ export async function updateArea(areaId: number, formData: FormData) {
   revalidatePath(`/areas/${areaId}`);
   if (existing.parentId != null) revalidatePath(`/areas/${existing.parentId}`);
   revalidatePath("/");
+  refresh();
 }

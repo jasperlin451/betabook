@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
 import { getDb } from "@/db/client";
@@ -32,6 +32,7 @@ export async function updateClimb(climbId: number, formData: FormData) {
   revalidatePath(`/climbs/${climbId}`);
   revalidatePath(`/areas/${existing.areaId}`);
   revalidatePath("/");
+  refresh();
 }
 
 export async function createClimb(areaId: number, formData: FormData) {
@@ -46,4 +47,5 @@ export async function createClimb(areaId: number, formData: FormData) {
 
   revalidatePath(`/areas/${areaId}`);
   revalidatePath("/");
+  refresh();
 }

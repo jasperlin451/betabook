@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { eq, sql } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
 import { getDb } from "@/db/client";
@@ -104,5 +104,6 @@ export async function importSends(
   }
 
   revalidatePath(`/users/${session.user.id}`);
+  refresh();
   return { imported: toInsert.length, alreadyLogged, notFound };
 }

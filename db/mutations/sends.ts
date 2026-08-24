@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
 import { eq, sql } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
 import { getDb } from "@/db/client";
@@ -49,6 +49,7 @@ export async function createSend(climbId: number, formData: FormData) {
   revalidatePath(`/users/${session.user.id}`);
   revalidatePath("/");
   revalidatePath(`/areas/${climb.areaId}`);
+  refresh();
 }
 
 export async function updateSend(sendId: number, formData: FormData) {
@@ -84,6 +85,7 @@ export async function updateSend(sendId: number, formData: FormData) {
   revalidatePath(`/users/${session.user.id}`);
   revalidatePath("/");
   revalidatePath(`/areas/${climb.areaId}`);
+  refresh();
 }
 
 export async function deleteSend(sendId: number) {
@@ -111,4 +113,5 @@ export async function deleteSend(sendId: number) {
   revalidatePath("/");
   const climb = await getClimb(db, existing.climbId);
   if (climb) revalidatePath(`/areas/${climb.areaId}`);
+  refresh();
 }
