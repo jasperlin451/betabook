@@ -65,22 +65,51 @@ export function areaNameCondition(areaName: string | undefined): SQL | null {
 
 export type AreaBreadcrumbs = Record<number, { id: number; name: string }[]>;
 
+type BreadcrumbRow = {
+  targetId: number;
+  ancestorId: number | null;
+  ancestorName: string | null;
+};
+
 /** Up to `depth` ancestors for each of `areaIds`, keyed by area id — one
- * lookup per distinct area, not per caller-side row. */
+ * query for the whole batch, not one round trip per distinct area.
+ *
+ * Each target area is matched (via the standard nested-set ancestor
+ * condition) against every ancestor whose own ancestor-count back up to
+ * that target is under `depth` — i.e. its "distance" from the target,
+ * counted via a correlated subquery rather than a second round trip. A
+ * LEFT JOIN keeps one row per target even when it has zero (nearby)
+ * ancestors, which is what lets an existing root-level area come back as
+ * `[]` rather than being silently omitted like a nonexistent id is. */
 export async function getAreaBreadcrumbs(
   db: Database,
   areaIds: number[],
   depth = 2,
 ): Promise<AreaBreadcrumbs> {
+  const ids = [...new Set(areaIds)];
+  if (ids.length === 0) return {};
+
+  const rows = await db.all<BreadcrumbRow>(sql`
+    SELECT target.id AS targetId, ancestor.id AS ancestorId, ancestor.name AS ancestorName
+    FROM areas target
+    LEFT JOIN areas ancestor
+      ON ancestor.lft < target.lft AND ancestor.rght > target.rght
+      AND (
+        SELECT COUNT(*) FROM areas closer
+        WHERE closer.lft < target.lft AND closer.rght > target.rght
+          AND closer.lft > ancestor.lft
+      ) < ${depth}
+    WHERE target.id IN (${sql.join(ids, sql`, `)})
+    ORDER BY target.id ASC, ancestor.lft ASC
+  `);
+
   const breadcrumbs: AreaBreadcrumbs = {};
-  await Promise.all(
-    [...new Set(areaIds)].map(async (areaId) => {
-      const area = await getArea(db, areaId);
-      if (!area) return;
-      const ancestors = await getNearestAncestors(db, area, depth);
-      breadcrumbs[areaId] = ancestors.map((a) => ({ id: a.id, name: a.name }));
-    }),
-  );
+  for (const row of rows) {
+    if (!(row.targetId in breadcrumbs)) breadcrumbs[row.targetId] = [];
+    if (row.ancestorId != null && row.ancestorName != null) {
+      breadcrumbs[row.targetId].push({ id: row.ancestorId, name: row.ancestorName });
+    }
+  }
   return breadcrumbs;
 }
 

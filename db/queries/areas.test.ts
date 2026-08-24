@@ -97,6 +97,28 @@ describe("getAreaBreadcrumbs", () => {
     const breadcrumbs = await getAreaBreadcrumbs(db, [999999]);
     expect(breadcrumbs).toEqual({});
   });
+
+  it("returns an empty array (not an omitted key) for an area with no ancestors", async () => {
+    const breadcrumbs = await getAreaBreadcrumbs(db, [1]);
+    expect(breadcrumbs[1]).toEqual([]);
+    expect(Object.keys(breadcrumbs)).toHaveLength(1);
+  });
+
+  it("handles sibling areas independently", async () => {
+    const breadcrumbs = await getAreaBreadcrumbs(db, [2, 3]);
+    expect(breadcrumbs[2].map((a) => a.name)).toEqual(["Test Crag"]);
+    expect(breadcrumbs[3].map((a) => a.name)).toEqual(["Test Crag"]);
+  });
+
+  it("respects a custom depth", async () => {
+    const breadcrumbs = await getAreaBreadcrumbs(db, [4], 1);
+    expect(breadcrumbs[4].map((a) => a.name)).toEqual(["Test Boulders"]);
+  });
+
+  it("returns an empty result for an empty input array", async () => {
+    const breadcrumbs = await getAreaBreadcrumbs(db, []);
+    expect(breadcrumbs).toEqual({});
+  });
 });
 
 describe("searchAreas", () => {
