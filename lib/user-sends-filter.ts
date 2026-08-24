@@ -7,6 +7,7 @@ const USER_SENDS_SORTS: UserSendsSort[] = [
   "grade_desc",
   "grade_asc",
   "rating_desc",
+  "rating_asc",
 ];
 
 // No disciplines checked means "don't filter on discipline or grade at

@@ -5,7 +5,7 @@ const TODAY = "2026-08-19";
 
 function raw(overrides: Partial<RawSendInput> = {}): RawSendInput {
   return {
-    completionType: "redpoint",
+    ascentStyle: "redpoint",
     dateSent: TODAY,
     comment: null,
     rating: null,
@@ -18,7 +18,7 @@ describe("validateSendInput", () => {
   it("accepts a minimal valid input for a boulder climb", () => {
     const result = validateSendInput("boulder", raw(), TODAY);
     expect(result).toEqual({
-      completionType: "redpoint",
+      ascentStyle: "redpoint",
       dateSent: TODAY,
       comment: null,
       rating: null,
@@ -26,18 +26,18 @@ describe("validateSendInput", () => {
     });
   });
 
-  it("accepts each completion type", () => {
-    for (const completionType of ["redpoint", "flash", "onsight"]) {
-      expect(validateSendInput("sport", raw({ completionType }), TODAY).completionType).toBe(
-        completionType,
+  it("accepts each ascent style", () => {
+    for (const ascentStyle of ["redpoint", "flash", "onsight"]) {
+      expect(validateSendInput("sport", raw({ ascentStyle }), TODAY).ascentStyle).toBe(
+        ascentStyle,
       );
     }
   });
 
-  it("rejects an invalid completion type", () => {
+  it("rejects an invalid ascent style", () => {
     expect(() =>
-      validateSendInput("boulder", raw({ completionType: "attempt" }), TODAY),
-    ).toThrow("Invalid completion type");
+      validateSendInput("boulder", raw({ ascentStyle: "attempt" }), TODAY),
+    ).toThrow("Invalid ascent style");
   });
 
   it("rejects a malformed send date", () => {

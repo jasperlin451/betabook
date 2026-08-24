@@ -3,7 +3,7 @@
 import { Link } from "@heroui/react";
 import { formatGrade } from "@/lib/grades";
 import type { Climb, SendWithUserName } from "@/db/queries";
-import { AscentType } from "@/components/ascent-type";
+import { AscentStyle } from "@/components/ascent-style";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
 import { SendListShell } from "@/components/send-list-shell";
@@ -37,7 +37,7 @@ export function ClimbSendList({ sends, climb, currentUserId }: ClimbSendListProp
                 </span>
                 <RatingStars rating={send.rating} />
               </div>
-              <AscentType type={send.completionType} />
+              <AscentStyle type={send.ascentStyle} />
             </div>
           }
           actions={

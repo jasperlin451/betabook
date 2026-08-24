@@ -11,7 +11,7 @@ import { RatingStars } from "@/components/ui/rating-stars";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { SendFormDrawer } from "@/components/send-form-drawer";
 
-// success/warning/danger are reserved for ascent-type chips (AscentType), and
+// success/warning/danger are reserved for ascent-style chips (AscentStyle), and
 // HeroUI's only other built-in tokens are accent/default — too few hues for
 // three disciplines that need to read as distinct from each other and from
 // gray. Overriding background/text directly gives each one its own color.
@@ -20,6 +20,13 @@ const STYLE_CHIP_CLASSNAME: Record<ClimbType, string> = {
   sport: "bg-violet-100! text-violet-700!",
   trad: "bg-teal-100! text-teal-700!",
 };
+
+/** Appends a `page` param to `basePath`, which may already carry its own
+ * query string (e.g. `/areas/12?sort=name`) — appends with `&` in that case
+ * instead of producing an invalid second `?`. */
+function pageHref(basePath: string, page: number): string {
+  return `${basePath}${basePath.includes("?") ? "&" : "?"}page=${page}`;
+}
 
 type ClimbListProps = {
   climbs: (Climb & { areaName?: string })[];
@@ -63,9 +70,7 @@ export function ClimbList({
         {pagination.page > 1 && (
           <Pagination.Item>
             <Pagination.Previous
-              onPress={() =>
-                router.push(`${pagination.basePath}?page=${pagination.page - 1}`)
-              }
+              onPress={() => router.push(pageHref(pagination.basePath, pagination.page - 1))}
             >
               Previous
             </Pagination.Previous>
@@ -74,9 +79,7 @@ export function ClimbList({
         {pagination.hasNextPage && (
           <Pagination.Item>
             <Pagination.Next
-              onPress={() =>
-                router.push(`${pagination.basePath}?page=${pagination.page + 1}`)
-              }
+              onPress={() => router.push(pageHref(pagination.basePath, pagination.page + 1))}
             >
               Next
             </Pagination.Next>

@@ -6,10 +6,10 @@ import {
   normalizeImportRows,
   parseCsvText,
   parseDateWithFormat,
+  type AscentStyleMapping,
   type BatchErrorRow,
   type ClimbTypeMapping,
   type ColumnMapping,
-  type CompletionTypeMapping,
   type InvalidImportRow,
   type NotFoundRow,
   type ParsedCsv,
@@ -29,7 +29,7 @@ const SAMPLE_HEADERS = [
 
 const FULL_MAPPING: ColumnMapping = {
   date: "Date",
-  completionType: "Send Type",
+  ascentStyle: "Send Type",
   climbName: "Climb",
   areaName: "Area",
   climbType: "Climb Type",
@@ -38,7 +38,7 @@ const FULL_MAPPING: ColumnMapping = {
   comment: "Comments",
 };
 
-const COMPLETION_TYPE_MAPPING: CompletionTypeMapping = {
+const ASCENT_STYLE_MAPPING: AscentStyleMapping = {
   redpoint: "redpoint",
   flash: "flash",
   onsight: "onsight",
@@ -121,7 +121,7 @@ describe("guessColumnMapping", () => {
     const mapping = guessColumnMapping(headers);
     expect(mapping).toEqual({
       date: "Ascent Date",
-      completionType: "Style",
+      ascentStyle: "Style",
       climbName: "Route",
       areaName: "Crag",
       climbType: "Discipline",
@@ -137,9 +137,9 @@ describe("guessColumnMapping", () => {
     expect(mapping.climbName).toBeNull();
   });
 
-  it("doesn't let completionType's generic 'type' alias steal the Climb Type column", () => {
+  it("doesn't let ascentStyle's generic 'type' alias steal the Climb Type column", () => {
     const mapping = guessColumnMapping(["Send Type", "Climb Type"]);
-    expect(mapping.completionType).toBe("Send Type");
+    expect(mapping.ascentStyle).toBe("Send Type");
     expect(mapping.climbType).toBe("Climb Type");
   });
 });
@@ -192,7 +192,7 @@ describe("normalizeImportRows", () => {
     const { valid, invalid } = normalizeImportRows(
       csv([row()]),
       FULL_MAPPING,
-      COMPLETION_TYPE_MAPPING,
+      ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       "iso",
       TODAY,
@@ -203,7 +203,7 @@ describe("normalizeImportRows", () => {
         climbName: "I'll Burn the Building Down",
         areaName: "Office Space",
         climbTypeHint: "sport",
-        completionType: "onsight",
+        ascentStyle: "onsight",
         dateSent: "2026-08-12",
         rating: 4,
         comment: "Very fun climbing",
@@ -217,7 +217,7 @@ describe("normalizeImportRows", () => {
     const { valid, invalid } = normalizeImportRows(
       csv([row({ Date: "" })]),
       FULL_MAPPING,
-      COMPLETION_TYPE_MAPPING,
+      ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       "iso",
       TODAY,
@@ -230,7 +230,7 @@ describe("normalizeImportRows", () => {
     const { valid, invalid } = normalizeImportRows(
       csv([row({ Date: "not-a-date" })]),
       FULL_MAPPING,
-      COMPLETION_TYPE_MAPPING,
+      ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       "iso",
       TODAY,
@@ -243,7 +243,7 @@ describe("normalizeImportRows", () => {
     const { valid, invalid } = normalizeImportRows(
       csv([row({ Date: "2026-08-20" })]),
       FULL_MAPPING,
-      COMPLETION_TYPE_MAPPING,
+      ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       "iso",
       TODAY,
@@ -252,24 +252,24 @@ describe("normalizeImportRows", () => {
     expect(invalid[0].reason).toMatch(/future/i);
   });
 
-  it("rejects an unmapped completion-type value", () => {
+  it("rejects an unmapped ascent-style value", () => {
     const { valid, invalid } = normalizeImportRows(
       csv([row({ "Send Type": "attempt" })]),
       FULL_MAPPING,
-      COMPLETION_TYPE_MAPPING,
+      ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       "iso",
       TODAY,
     );
     expect(valid).toEqual([]);
-    expect(invalid[0].reason).toMatch(/unmapped completion type/i);
+    expect(invalid[0].reason).toMatch(/unmapped ascent style/i);
   });
 
-  it("rejects a completion-type value explicitly mapped to skip", () => {
+  it("rejects an ascent-style value explicitly mapped to skip", () => {
     const { valid, invalid } = normalizeImportRows(
       csv([row({ "Send Type": "attempt" })]),
       FULL_MAPPING,
-      { ...COMPLETION_TYPE_MAPPING, attempt: "skip" },
+      { ...ASCENT_STYLE_MAPPING, attempt: "skip" },
       CLIMB_TYPE_MAPPING,
       "iso",
       TODAY,
@@ -283,7 +283,7 @@ describe("normalizeImportRows", () => {
     const { valid, invalid } = normalizeImportRows(
       csv([row({ Comments: longComment })]),
       FULL_MAPPING,
-      COMPLETION_TYPE_MAPPING,
+      ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       "iso",
       TODAY,
@@ -296,7 +296,7 @@ describe("normalizeImportRows", () => {
     const { valid } = normalizeImportRows(
       csv([row({ Grade: "", Rating: "", Comments: "" })]),
       FULL_MAPPING,
-      COMPLETION_TYPE_MAPPING,
+      ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       "iso",
       TODAY,
@@ -310,7 +310,7 @@ describe("normalizeImportRows", () => {
     const { valid, invalid } = normalizeImportRows(
       csv([row()]),
       FULL_MAPPING,
-      COMPLETION_TYPE_MAPPING,
+      ASCENT_STYLE_MAPPING,
       { ...CLIMB_TYPE_MAPPING, sport: "skip" },
       "iso",
       TODAY,
@@ -323,7 +323,7 @@ describe("normalizeImportRows", () => {
     const { valid, invalid } = normalizeImportRows(
       csv([row({ Climb: "" }), row({ Area: "" })]),
       FULL_MAPPING,
-      COMPLETION_TYPE_MAPPING,
+      ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       "iso",
       TODAY,
@@ -390,7 +390,7 @@ describe("buildFailedRowsCsv", () => {
             climbName: "Some Route",
             areaName: "Some Crag",
             climbTypeHint: null,
-            completionType: "redpoint",
+            ascentStyle: "redpoint",
             dateSent: "2026-01-01",
             rating: 5,
             comment: "Great",
@@ -424,7 +424,7 @@ describe("buildFailedRowsCsv", () => {
             climbName: "Batch Route",
             areaName: "Batch Crag",
             climbTypeHint: null,
-            completionType: "flash",
+            ascentStyle: "flash",
             dateSent: null,
             rating: null,
             comment: null,

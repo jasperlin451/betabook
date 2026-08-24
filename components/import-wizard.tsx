@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { Button, Label, TextField } from "@heroui/react";
 import { importSends, type ImportResult } from "@/db/mutations";
-import { COMPLETION_TYPES, type CompletionType } from "@/lib/sends";
+import { ASCENT_STYLES, type AscentStyle } from "@/lib/sends";
 import {
   buildFailedRowsCsv,
   guessColumnMapping,
@@ -11,9 +11,9 @@ import {
   parseCsvText,
   detectDateFormat,
   IMPORT_BATCH_SIZE,
+  type AscentStyleMapping,
   type ClimbTypeMapping,
   type ColumnMapping,
-  type CompletionTypeMapping,
   type DateFormat,
   type InvalidImportRow,
   type NormalizedImportRow,
@@ -26,7 +26,7 @@ type Step = "upload" | "columns" | "values" | "review" | "result";
 
 const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string; required: boolean }[] = [
   { key: "date", label: "Date Sent", required: false },
-  { key: "completionType", label: "Completion Type", required: true },
+  { key: "ascentStyle", label: "Ascent Style", required: true },
   { key: "climbName", label: "Climb Name", required: true },
   { key: "areaName", label: "Area Name", required: true },
   { key: "climbType", label: "Climb Type (tiebreaker only)", required: false },
@@ -45,10 +45,10 @@ function distinctValues(rows: Record<string, string>[], column: string | null): 
   return [...seen];
 }
 
-function guessCompletionTypeMapping(values: string[]): CompletionTypeMapping {
-  const mapping: CompletionTypeMapping = {};
+function guessAscentStyleMapping(values: string[]): AscentStyleMapping {
+  const mapping: AscentStyleMapping = {};
   for (const value of values) {
-    const match = COMPLETION_TYPES.find((t) => t === value.trim().toLowerCase());
+    const match = ASCENT_STYLES.find((t) => t === value.trim().toLowerCase());
     mapping[value] = match ?? "skip";
   }
   return mapping;
@@ -82,8 +82,8 @@ export function ImportWizard() {
 
   const [parsedCsv, setParsedCsv] = useState<ParsedCsv | null>(null);
   const [columnMapping, setColumnMapping] = useState<ColumnMapping | null>(null);
-  const [completionTypeMapping, setCompletionTypeMapping] =
-    useState<CompletionTypeMapping>({});
+  const [ascentStyleMapping, setAscentStyleMapping] =
+    useState<AscentStyleMapping>({});
   const [climbTypeMapping, setClimbTypeMapping] = useState<ClimbTypeMapping>({});
   const [dateFormat, setDateFormat] = useState<DateFormat>("iso");
   const [gradeScale, setGradeScale] = useState<"native" | "converted">("native");
@@ -95,8 +95,8 @@ export function ImportWizard() {
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [importResult, setImportResult] = useState<WizardResult | null>(null);
 
-  const completionTypeValues = useMemo(
-    () => (parsedCsv && columnMapping ? distinctValues(parsedCsv.rows, columnMapping.completionType) : []),
+  const ascentStyleValues = useMemo(
+    () => (parsedCsv && columnMapping ? distinctValues(parsedCsv.rows, columnMapping.ascentStyle) : []),
     [parsedCsv, columnMapping],
   );
   const climbTypeValues = useMemo(
@@ -124,9 +124,9 @@ export function ImportWizard() {
 
   function handleColumnsNext() {
     if (!parsedCsv || !columnMapping) return;
-    const completionValues = distinctValues(parsedCsv.rows, columnMapping.completionType);
+    const ascentStyleValues = distinctValues(parsedCsv.rows, columnMapping.ascentStyle);
     const climbValues = distinctValues(parsedCsv.rows, columnMapping.climbType);
-    setCompletionTypeMapping(guessCompletionTypeMapping(completionValues));
+    setAscentStyleMapping(guessAscentStyleMapping(ascentStyleValues));
     setClimbTypeMapping(guessClimbTypeMapping(climbValues));
     if (columnMapping.date) {
       const sample = distinctValues(parsedCsv.rows, columnMapping.date).slice(0, 25);
@@ -140,7 +140,7 @@ export function ImportWizard() {
     const result = normalizeImportRows(
       parsedCsv,
       columnMapping,
-      completionTypeMapping,
+      ascentStyleMapping,
       climbTypeMapping,
       dateFormat,
     );
@@ -209,7 +209,7 @@ export function ImportWizard() {
     setStep("upload");
     setParsedCsv(null);
     setColumnMapping(null);
-    setCompletionTypeMapping({});
+    setAscentStyleMapping({});
     setClimbTypeMapping({});
     setDateFormat("iso");
     setGradeScale("native");
@@ -268,23 +268,23 @@ export function ImportWizard() {
 
       {step === "values" && (
         <div className="flex flex-col gap-6">
-          {completionTypeValues.length > 0 && (
+          {ascentStyleValues.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium">Completion Type Values</p>
-              {completionTypeValues.map((value) => (
+              <p className="text-sm font-medium">Ascent Style Values</p>
+              {ascentStyleValues.map((value) => (
                 <div key={value} className="flex items-center gap-4">
                   <span className="w-40 shrink-0 truncate text-sm">{value}</span>
                   <select
-                    value={completionTypeMapping[value] ?? "skip"}
+                    value={ascentStyleMapping[value] ?? "skip"}
                     onChange={(e) =>
-                      setCompletionTypeMapping({
-                        ...completionTypeMapping,
-                        [value]: e.target.value as CompletionType | "skip",
+                      setAscentStyleMapping({
+                        ...ascentStyleMapping,
+                        [value]: e.target.value as AscentStyle | "skip",
                       })
                     }
                     className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
                   >
-                    {COMPLETION_TYPES.map((t) => (
+                    {ASCENT_STYLES.map((t) => (
                       <option key={t} value={t}>
                         {t}
                       </option>

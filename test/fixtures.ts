@@ -100,7 +100,7 @@ type FixtureSendOverrides = Partial<typeof sends.$inferInsert> & {
 /** Inserts a `sends` row referencing an existing fixture user/climb. */
 export async function seedFixtureSend(db: Database, overrides: FixtureSendOverrides) {
   const row = {
-    completionType: "redpoint" as const,
+    ascentStyle: "redpoint" as const,
     comment: null,
     rating: null,
     suggestedGrade: null,

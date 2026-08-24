@@ -1,0 +1,1 @@
+ALTER TABLE `sends` RENAME COLUMN "completion_type" TO "ascent_style";

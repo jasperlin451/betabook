@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button, Label, TextArea, TextField } from "@heroui/react";
 import { createSend, updateSend } from "@/db/mutations";
-import { COMPLETION_TYPES, MAX_COMMENT_LENGTH, type CompletionType } from "@/lib/sends";
+import { ASCENT_STYLES, MAX_COMMENT_LENGTH, type AscentStyle } from "@/lib/sends";
 import { nativeGradeArray } from "@/lib/grades";
 import type { Climb, EditableSend } from "@/db/queries";
 
@@ -13,7 +13,7 @@ type SendFormProps = {
   onDone?: () => void;
 };
 
-const COMPLETION_LABELS: Record<CompletionType, string> = {
+const ASCENT_STYLE_LABELS: Record<AscentStyle, string> = {
   redpoint: "Redpoint",
   flash: "Flash",
   onsight: "Onsight",
@@ -23,8 +23,8 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   const today = new Date().toISOString().slice(0, 10);
   const gradeOptions = nativeGradeArray(climb.type);
 
-  const [completionType, setCompletionType] = useState<CompletionType>(
-    existingSend?.completionType ?? "redpoint",
+  const [ascentStyle, setAscentStyle] = useState<AscentStyle>(
+    existingSend?.ascentStyle ?? "redpoint",
   );
   const [dateSent, setDateSent] = useState(existingSend?.dateSent ?? today);
   const [comment, setComment] = useState(existingSend?.comment ?? "");
@@ -42,7 +42,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
     setError(null);
 
     const formData = new FormData();
-    formData.set("completionType", completionType);
+    formData.set("ascentStyle", ascentStyle);
     formData.set("dateSent", dateSent);
     formData.set("comment", comment);
     formData.set("rating", rating === "abstain" ? "" : rating);
@@ -68,15 +68,15 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
       className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6"
     >
       <TextField>
-        <Label>Completion Type</Label>
+        <Label>Ascent Style</Label>
         <select
-          value={completionType}
-          onChange={(e) => setCompletionType(e.target.value as CompletionType)}
+          value={ascentStyle}
+          onChange={(e) => setAscentStyle(e.target.value as AscentStyle)}
           className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
         >
-          {COMPLETION_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {COMPLETION_LABELS[type]}
+          {ASCENT_STYLES.map((style) => (
+            <option key={style} value={style}>
+              {ASCENT_STYLE_LABELS[style]}
             </option>
           ))}
         </select>

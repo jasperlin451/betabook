@@ -41,13 +41,13 @@ beforeAll(async () => {
     userId: "test-user-2",
     climbId: 1,
     dateSent: "2026-02-01",
-    completionType: "flash",
+    ascentStyle: "flash",
   });
   await seedFixtureSend(db, {
     userId: "test-user-1",
     climbId: 2,
     dateSent: "2026-03-01",
-    completionType: "onsight",
+    ascentStyle: "onsight",
   });
 });
 
@@ -311,6 +311,21 @@ describe("getSendsForUserPage", () => {
         "Test Highball",
         "Test Slab",
         "Test Crack",
+        "Test Crimper",
+      ]);
+    });
+
+    it("sorts lowest rated first, with an unrated send last", async () => {
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-11",
+        { ...ALL_SENDS_FILTER, sort: "rating_asc" },
+        0,
+      );
+      expect(results.sends.map((s) => s.climbName)).toEqual([
+        "Test Crack",
+        "Test Slab",
+        "Test Highball",
         "Test Crimper",
       ]);
     });

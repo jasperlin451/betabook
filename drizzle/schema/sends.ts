@@ -19,7 +19,7 @@ export const sends = sqliteTable(
     climbId: integer("climb_id")
       .notNull()
       .references(() => climbs.id, { onDelete: "cascade" }),
-    completionType: text("completion_type", {
+    ascentStyle: text("ascent_style", {
       enum: ["redpoint", "flash", "onsight"],
     }).notNull(),
     // ISO date (YYYY-MM-DD) — when the climb was actually sent, not when

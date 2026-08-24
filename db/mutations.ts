@@ -25,7 +25,7 @@ async function requireSession() {
 
 function readSendFormData(formData: FormData): RawSendInput {
   return {
-    completionType: formData.get("completionType"),
+    ascentStyle: formData.get("ascentStyle"),
     dateSent: formData.get("dateSent"),
     comment: formData.get("comment"),
     rating: formData.get("rating"),
@@ -103,7 +103,7 @@ export type ImportResult = {
 };
 
 // D1 caps queries at 100 bound parameters. Each sends row binds 7 values
-// (userId, climbId, completionType, dateSent, comment, rating,
+// (userId, climbId, ascentStyle, dateSent, comment, rating,
 // suggestedGrade — id is auto-increment, createdAt/updatedAt use SQL
 // defaults, so those aren't bound). 10 rows × 7 = 70, safely under 100.
 const INSERT_CHUNK_SIZE = 10;
@@ -151,7 +151,7 @@ export async function importSends(
     toInsert.push({
       userId: session.user.id,
       climbId: resolved.id,
-      completionType: row.completionType,
+      ascentStyle: row.ascentStyle,
       dateSent: row.dateSent,
       comment: row.comment,
       rating: row.rating,

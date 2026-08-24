@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import { MAX_COMMENT_LENGTH, type CompletionType } from "@/lib/sends";
+import { MAX_COMMENT_LENGTH, type AscentStyle } from "@/lib/sends";
 import type { ClimbType } from "@/lib/grades";
 
 export type ParsedCsv = { headers: string[]; rows: Record<string, string>[] };
@@ -54,7 +54,7 @@ export function parseCsvText(text: string): ParsedCsv {
 
 export type ColumnMapping = {
   date: string | null;
-  completionType: string | null;
+  ascentStyle: string | null;
   climbName: string | null;
   areaName: string | null;
   climbType: string | null; // optional — tiebreaker only
@@ -66,12 +66,12 @@ export type ColumnMapping = {
 type FieldKey = keyof ColumnMapping;
 
 // Order matters: more specific aliases are matched first so, e.g., "Climb
-// Type" is claimed before completionType's generic "type" fallback would
+// Type" is claimed before ascentStyle's generic "type" fallback would
 // otherwise grab it.
 const FIELD_ORDER: FieldKey[] = [
   "date",
   "climbType",
-  "completionType",
+  "ascentStyle",
   "climbName",
   "areaName",
   "grade",
@@ -82,7 +82,7 @@ const FIELD_ORDER: FieldKey[] = [
 const HEADER_ALIASES: Record<FieldKey, string[]> = {
   date: ["date sent", "send date", "ascent date", "date"],
   climbType: ["climb type", "discipline"],
-  completionType: ["send type", "ascent type", "completion type", "style", "type"],
+  ascentStyle: ["send type", "ascent type", "ascent style", "completion type", "style", "type"],
   climbName: ["climb", "route", "problem", "name"],
   areaName: ["area", "crag", "location", "sector"],
   grade: ["grade", "difficulty"],
@@ -94,7 +94,7 @@ const HEADER_ALIASES: Record<FieldKey, string[]> = {
 export function guessColumnMapping(headers: string[]): ColumnMapping {
   const mapping: ColumnMapping = {
     date: null,
-    completionType: null,
+    ascentStyle: null,
     climbName: null,
     areaName: null,
     climbType: null,
@@ -176,14 +176,14 @@ export function detectDateFormat(sampleValues: string[]): DateFormat {
   return best;
 }
 
-export type CompletionTypeMapping = Record<string, CompletionType | "skip">;
+export type AscentStyleMapping = Record<string, AscentStyle | "skip">;
 export type ClimbTypeMapping = Record<string, ClimbType | "skip">;
 
 export type NormalizedImportRow = {
   climbName: string;
   areaName: string;
   climbTypeHint: ClimbType | null; // from ClimbTypeMapping, tiebreaker only
-  completionType: CompletionType;
+  ascentStyle: AscentStyle;
   dateSent: string | null; // ISO if present; blank in the CSV -> null, not a failure
   rating: number | null;
   comment: string | null; // truncated to MAX_COMMENT_LENGTH here, not rejected
@@ -206,7 +206,7 @@ export type InvalidImportRow = {
 export function normalizeImportRows(
   parsed: ParsedCsv,
   mapping: ColumnMapping,
-  completionTypeMapping: CompletionTypeMapping,
+  ascentStyleMapping: AscentStyleMapping,
   climbTypeMapping: ClimbTypeMapping,
   dateFormat: DateFormat,
   today: string = new Date().toISOString().slice(0, 10),
@@ -223,17 +223,17 @@ export function normalizeImportRows(
     const areaName = mapping.areaName ? (row[mapping.areaName] ?? "").trim() : "";
     if (!areaName) return fail("Missing area name");
 
-    const rawCompletionType = mapping.completionType
-      ? (row[mapping.completionType] ?? "").trim()
+    const rawAscentStyle = mapping.ascentStyle
+      ? (row[mapping.ascentStyle] ?? "").trim()
       : "";
-    const mappedCompletionType = rawCompletionType
-      ? completionTypeMapping[rawCompletionType]
+    const mappedAscentStyle = rawAscentStyle
+      ? ascentStyleMapping[rawAscentStyle]
       : undefined;
-    if (!mappedCompletionType || mappedCompletionType === "skip") {
+    if (!mappedAscentStyle || mappedAscentStyle === "skip") {
       return fail(
-        rawCompletionType
-          ? `Unmapped completion type value "${rawCompletionType}"`
-          : "Missing completion type",
+        rawAscentStyle
+          ? `Unmapped ascent style value "${rawAscentStyle}"`
+          : "Missing ascent style",
       );
     }
 
@@ -270,7 +270,7 @@ export function normalizeImportRows(
       climbName,
       areaName,
       climbTypeHint,
-      completionType: mappedCompletionType,
+      ascentStyle: mappedAscentStyle,
       dateSent,
       rating,
       comment,

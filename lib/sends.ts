@@ -1,11 +1,11 @@
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 
-export const COMPLETION_TYPES = ["redpoint", "flash", "onsight"] as const;
-export type CompletionType = (typeof COMPLETION_TYPES)[number];
+export const ASCENT_STYLES = ["redpoint", "flash", "onsight"] as const;
+export type AscentStyle = (typeof ASCENT_STYLES)[number];
 export const MAX_COMMENT_LENGTH = 280;
 
 export type SendInput = {
-  completionType: CompletionType;
+  ascentStyle: AscentStyle;
   dateSent: string | null;
   comment: string | null;
   rating: number | null;
@@ -13,7 +13,7 @@ export type SendInput = {
 };
 
 export type RawSendInput = {
-  completionType: FormDataEntryValue | null;
+  ascentStyle: FormDataEntryValue | null;
   dateSent: FormDataEntryValue | null;
   comment: FormDataEntryValue | null;
   rating: FormDataEntryValue | null;
@@ -22,10 +22,10 @@ export type RawSendInput = {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-function isCompletionType(value: FormDataEntryValue | null): value is CompletionType {
+function isAscentStyle(value: FormDataEntryValue | null): value is AscentStyle {
   return (
     typeof value === "string" &&
-    (COMPLETION_TYPES as readonly string[]).includes(value)
+    (ASCENT_STYLES as readonly string[]).includes(value)
   );
 }
 
@@ -38,8 +38,8 @@ export function validateSendInput(
   raw: RawSendInput,
   today: string = new Date().toISOString().slice(0, 10),
 ): SendInput {
-  if (!isCompletionType(raw.completionType)) {
-    throw new Error("Invalid completion type");
+  if (!isAscentStyle(raw.ascentStyle)) {
+    throw new Error("Invalid ascent style");
   }
 
   const dateSent = typeof raw.dateSent === "string" ? raw.dateSent.trim() : "";
@@ -71,7 +71,7 @@ export function validateSendInput(
   }
 
   return {
-    completionType: raw.completionType,
+    ascentStyle: raw.ascentStyle,
     dateSent: dateSent || null,
     comment,
     rating,

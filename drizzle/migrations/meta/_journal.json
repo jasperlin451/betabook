@@ -6,7 +6,7 @@
       "idx": 0,
       "version": "6",
       "when": 1787029783505,
-      "tag": "0000_slimy_toad",
+      "tag": "0000_create_areas_and_climbs",
       "breakpoints": true
     },
     {
@@ -20,28 +20,28 @@
       "idx": 2,
       "version": "6",
       "when": 1787094539246,
-      "tag": "0002_unusual_blacklash",
+      "tag": "0002_add_auth_tables",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "6",
       "when": 1787117317413,
-      "tag": "0003_chief_the_captain",
+      "tag": "0003_drop_user_image",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "6",
       "when": 1787120311195,
-      "tag": "0004_furry_puppet_master",
+      "tag": "0004_create_sends",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "6",
       "when": 1787122585509,
-      "tag": "0005_complete_franklin_storm",
+      "tag": "0005_make_sends_date_sent_nullable",
       "breakpoints": true
     },
     {
@@ -49,6 +49,13 @@
       "version": "6",
       "when": 1787125186509,
       "tag": "0006_expression_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1787549481854,
+      "tag": "0007_rename_completion_type_to_ascent_style",
       "breakpoints": true
     }
   ]

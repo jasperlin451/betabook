@@ -8,7 +8,7 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageWithStats } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { RatingStars } from "@/components/ui/rating-stars";
-import { averageRating, ascentTypeBreakdown, suggestedGradeRange } from "@/lib/send-stats";
+import { averageRating, ascentStyleBreakdown, suggestedGradeRange } from "@/lib/send-stats";
 import { getAncestors, getArea, getClimb, getSendsForClimb, getUserSendForClimb } from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
 import { getDb } from "@/db/client";
@@ -43,7 +43,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
 
   const rating = averageRating(climbSends);
   const gradeRange = suggestedGradeRange(climbSends, climb.type);
-  const breakdown = ascentTypeBreakdown(climbSends);
+  const breakdown = ascentStyleBreakdown(climbSends);
   const loggedBreakdown = Object.entries(breakdown).filter(([, count]) => count > 0);
 
   return (

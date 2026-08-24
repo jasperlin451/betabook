@@ -2,7 +2,7 @@ import { and, desc, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { sends, user } from "@/db/schema";
 import { formatGrade, type ClimbType } from "@/lib/grades";
-import type { CompletionType } from "@/lib/sends";
+import type { AscentStyle } from "@/lib/sends";
 import { areaNameCondition } from "./areas";
 import { toFtsPrefixQuery } from "./shared";
 import type { Discipline } from "./climbs";
@@ -16,7 +16,7 @@ export type SendWithUserName = Send & { userName: string };
  * for editing). */
 export type EditableSend = Pick<
   Send,
-  "id" | "completionType" | "dateSent" | "comment" | "rating" | "suggestedGrade"
+  "id" | "ascentStyle" | "dateSent" | "comment" | "rating" | "suggestedGrade"
 >;
 
 export async function getUserSendForClimb(
@@ -64,14 +64,20 @@ export type UserSendRow = {
   climbGrade: number | null;
   areaId: number;
   areaName: string;
-  completionType: CompletionType;
+  ascentStyle: AscentStyle;
   dateSent: string | null;
   rating: number | null;
   suggestedGrade: number | null;
   comment: string | null;
 };
 
-export type UserSendsSort = "date_desc" | "date_asc" | "grade_desc" | "grade_asc" | "rating_desc";
+export type UserSendsSort =
+  | "date_desc"
+  | "date_asc"
+  | "grade_desc"
+  | "grade_asc"
+  | "rating_desc"
+  | "rating_asc";
 
 export type UserSendsFilter = {
   disciplines: Discipline[];
@@ -93,6 +99,7 @@ const USER_SENDS_ORDER_BY: Record<UserSendsSort, SQL> = {
   grade_desc: sql`climbs.grade DESC`,
   grade_asc: sql`climbs.grade ASC NULLS LAST`,
   rating_desc: sql`sends.rating DESC`,
+  rating_asc: sql`sends.rating ASC NULLS LAST`,
 };
 
 export const USER_SENDS_PAGE_SIZE = 10;
@@ -163,7 +170,7 @@ export async function getSendsForUserPage(
       climbs.grade AS climbGrade,
       climbs.area_id AS areaId,
       areas.name AS areaName,
-      sends.completion_type AS completionType,
+      sends.ascent_style AS ascentStyle,
       sends.date_sent AS dateSent,
       sends.rating AS rating,
       sends.suggested_grade AS suggestedGrade,

@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Link, ListBox, Select } from "@heroui/react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter, UserSendsSort } from "@/db/queries";
-import { AscentType } from "@/components/ascent-type";
+import { AscentStyle } from "@/components/ascent-style";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
@@ -29,6 +30,32 @@ type UserSendListProps = {
 };
 
 const SEARCH_DEBOUNCE_MS = 400;
+
+type SortField = "date" | "grade" | "rating";
+type SortDirection = "asc" | "desc";
+
+const SORT_FIELDS: SortField[] = ["date", "grade", "rating"];
+
+// Latest/hardest/highest-rated first by default when a field is picked
+// fresh — direction only flips via the separate arrow button once a field
+// is already active.
+const DEFAULT_DIRECTION: Record<SortField, SortDirection> = {
+  date: "desc",
+  grade: "desc",
+  rating: "desc",
+};
+
+function toSort(field: SortField, direction: SortDirection): UserSendsSort {
+  return `${field}_${direction}` as UserSendsSort;
+}
+
+function fieldOf(sort: UserSendsSort): SortField {
+  return SORT_FIELDS.find((field) => sort.startsWith(field)) ?? "date";
+}
+
+function directionOf(sort: UserSendsSort): SortDirection {
+  return sort.endsWith("_asc") ? "asc" : "desc";
+}
 
 /** The name/area search + discipline/grade filter for a user's send history
  * — split out from <UserSendList> so the page can place it in a sidebar
@@ -126,9 +153,23 @@ export function UserSendList({
     }
   }
 
-  function handleSortChange(sort: UserSendsSort) {
+  const currentSort = filter.sort ?? "date_desc";
+
+  function navigateToSort(sort: UserSendsSort) {
     const params = userSendsFilterToSearchParams({ ...filter, sort });
     router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
+  }
+
+  function handleFieldChange(field: SortField) {
+    // Picking the already-active field keeps its current direction —
+    // direction itself is controlled by the separate arrow button, not by
+    // reselecting the same dropdown item.
+    const direction = fieldOf(currentSort) === field ? directionOf(currentSort) : DEFAULT_DIRECTION[field];
+    navigateToSort(toSort(field, direction));
+  }
+
+  function toggleDirection() {
+    navigateToSort(toSort(fieldOf(currentSort), directionOf(currentSort) === "asc" ? "desc" : "asc"));
   }
 
   if (!hasAnySends) {
@@ -144,25 +185,38 @@ export function UserSendList({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Sends</h2>
-        <Select
-          aria-label="Sort"
-          selectedKey={filter.sort ?? "date_desc"}
-          onSelectionChange={(key) => handleSortChange(key as UserSendsSort)}
-        >
-          <Select.Trigger className="w-48">
-            <Select.Value />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              <ListBox.Item id="date_desc">Latest</ListBox.Item>
-              <ListBox.Item id="date_asc">Oldest</ListBox.Item>
-              <ListBox.Item id="grade_desc">Hardest</ListBox.Item>
-              <ListBox.Item id="grade_asc">Easiest</ListBox.Item>
-              <ListBox.Item id="rating_desc">Top rated</ListBox.Item>
-            </ListBox>
-          </Select.Popover>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Select
+            aria-label="Sort by"
+            selectedKey={fieldOf(currentSort)}
+            onSelectionChange={(key) => handleFieldChange(key as SortField)}
+          >
+            <Select.Trigger className="w-32">
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id="date">Date</ListBox.Item>
+                <ListBox.Item id="grade">Grade</ListBox.Item>
+                <ListBox.Item id="rating">Rating</ListBox.Item>
+              </ListBox>
+            </Select.Popover>
+          </Select>
+          <Button
+            isIconOnly
+            variant="ghost"
+            size="sm"
+            aria-label={directionOf(currentSort) === "asc" ? "Sort ascending" : "Sort descending"}
+            onPress={toggleDirection}
+          >
+            {directionOf(currentSort) === "asc" ? (
+              <ArrowUp className="size-4" />
+            ) : (
+              <ArrowDown className="size-4" />
+            )}
+          </Button>
+        </div>
       </div>
       {sends.length === 0 ? (
         <p className="text-muted text-sm">No sends match these filters.</p>
@@ -197,7 +251,7 @@ export function UserSendList({
                       </span>
                       <RatingStars rating={send.rating} />
                     </div>
-                    <AscentType type={send.completionType} />
+                    <AscentStyle type={send.ascentStyle} />
                     <div className="text-xs text-muted/70">{send.dateSent ?? "Date unknown"}</div>
                   </div>
                 }

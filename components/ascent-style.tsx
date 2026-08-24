@@ -1,17 +1,17 @@
 import { Chip } from "@heroui/react";
-import type { CompletionType } from "@/lib/sends";
+import type { AscentStyle } from "@/lib/sends";
 
 // Ordered best-to-baseline: onsight (first try, no info) > flash (first
 // try, with info) > redpoint (after prior attempts).
-const COMPLETION_CHIP_COLOR: Record<CompletionType, "success" | "warning" | "danger"> = {
+const ASCENT_STYLE_CHIP_COLOR: Record<AscentStyle, "success" | "warning" | "danger"> = {
   onsight: "success",
   flash: "warning",
   redpoint: "danger",
 };
 
-export function AscentType({ type }: { type: CompletionType }) {
+export function AscentStyle({ type }: { type: AscentStyle }) {
   return (
-    <Chip color={COMPLETION_CHIP_COLOR[type]} variant="soft" size="sm">
+    <Chip color={ASCENT_STYLE_CHIP_COLOR[type]} variant="soft" size="sm">
       {type.toUpperCase()}
     </Chip>
   );
