@@ -1,15 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import {
-  Button,
-  Fieldset,
-  Label,
-  Radio,
-  RadioGroup,
-  TextArea,
-  TextField,
-} from "@heroui/react";
+import { Button, Label, TextArea, TextField } from "@heroui/react";
 import { createSend, updateSend } from "@/db/mutations";
 import { COMPLETION_TYPES, MAX_COMMENT_LENGTH, type CompletionType } from "@/lib/sends";
 import { nativeGradeArray } from "@/lib/grades";
@@ -34,19 +26,13 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   const [completionType, setCompletionType] = useState<CompletionType>(
     existingSend?.completionType ?? "redpoint",
   );
-  const [dateSent, setDateSent] = useState(
-    existingSend ? (existingSend.dateSent ?? "") : today,
-  );
+  const [dateSent, setDateSent] = useState(existingSend?.dateSent ?? today);
   const [comment, setComment] = useState(existingSend?.comment ?? "");
   const [rating, setRating] = useState(
     existingSend?.rating != null ? String(existingSend.rating) : "abstain",
   );
   const [suggestedGrade, setSuggestedGrade] = useState(
-    existingSend?.suggestedGrade != null
-      ? String(existingSend.suggestedGrade)
-      : climb.grade != null
-        ? String(climb.grade)
-        : "",
+    String(existingSend?.suggestedGrade ?? climb.grade ?? 0),
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -81,25 +67,20 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
       onSubmit={handleSubmit}
       className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6"
     >
-      <Fieldset>
-        <Fieldset.Legend>Completion Type</Fieldset.Legend>
-        <RadioGroup
+      <TextField>
+        <Label>Completion Type</Label>
+        <select
           value={completionType}
-          onChange={(value) => setCompletionType(value as CompletionType)}
-          className="flex gap-4"
+          onChange={(e) => setCompletionType(e.target.value as CompletionType)}
+          className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
         >
           {COMPLETION_TYPES.map((type) => (
-            <Radio key={type} value={type}>
-              <Radio.Content>
-                <Radio.Control>
-                  <Radio.Indicator />
-                </Radio.Control>
-                {COMPLETION_LABELS[type]}
-              </Radio.Content>
-            </Radio>
+            <option key={type} value={type}>
+              {COMPLETION_LABELS[type]}
+            </option>
           ))}
-        </RadioGroup>
-      </Fieldset>
+        </select>
+      </TextField>
 
       <TextField>
         <Label>Date Sent</Label>
@@ -112,29 +93,21 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         />
       </TextField>
 
-      <Fieldset>
-        <Fieldset.Legend>Rating</Fieldset.Legend>
-        <RadioGroup value={rating} onChange={setRating} className="flex flex-wrap gap-4">
-          <Radio value="abstain">
-            <Radio.Content>
-              <Radio.Control>
-                <Radio.Indicator />
-              </Radio.Control>
-              No rating
-            </Radio.Content>
-          </Radio>
+      <TextField>
+        <Label>Rating</Label>
+        <select
+          value={rating}
+          onChange={(e) => setRating(e.target.value)}
+          className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+        >
+          <option value="abstain">No rating</option>
           {[1, 2, 3, 4, 5].map((n) => (
-            <Radio key={n} value={String(n)}>
-              <Radio.Content>
-                <Radio.Control>
-                  <Radio.Indicator />
-                </Radio.Control>
-                {n}
-              </Radio.Content>
-            </Radio>
+            <option key={n} value={String(n)}>
+              {n}
+            </option>
           ))}
-        </RadioGroup>
-      </Fieldset>
+        </select>
+      </TextField>
 
       <TextField>
         <Label>Suggested Grade</Label>
@@ -143,7 +116,6 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
           onChange={(e) => setSuggestedGrade(e.target.value)}
           className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
         >
-          <option value="">Unknown</option>
           {gradeOptions.map((label, i) => (
             <option key={i} value={i}>
               {label}
@@ -165,7 +137,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
-      <Button type="submit" isDisabled={pending}>
+      <Button type="submit" isDisabled={pending} fullWidth>
         {existingSend ? "Save Changes" : "Log Send"}
       </Button>
     </form>

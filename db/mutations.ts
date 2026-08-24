@@ -150,7 +150,7 @@ export async function importSends(
       rating: row.rating,
       suggestedGrade: row.gradeText
         ? parseGrade(resolved.type, row.gradeText, gradeScalePreference)
-        : null,
+        : resolved.grade,
     });
   }
 

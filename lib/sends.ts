@@ -9,7 +9,7 @@ export type SendInput = {
   dateSent: string | null;
   comment: string | null;
   rating: number | null;
-  suggestedGrade: number | null;
+  suggestedGrade: number;
 };
 
 export type RawSendInput = {
@@ -61,15 +61,12 @@ export function validateSendInput(
     throw new Error("Rating must be between 1 and 5");
   }
 
-  const suggestedGrade =
-    raw.suggestedGrade !== null && raw.suggestedGrade !== ""
-      ? Number(raw.suggestedGrade)
-      : null;
+  if (raw.suggestedGrade === null || raw.suggestedGrade === "") {
+    throw new Error("Suggested grade is required");
+  }
+  const suggestedGrade = Number(raw.suggestedGrade);
   const bounds = nativeGradeArray(climbType).length;
-  if (
-    suggestedGrade !== null &&
-    (!Number.isInteger(suggestedGrade) || suggestedGrade < 0 || suggestedGrade >= bounds)
-  ) {
+  if (!Number.isInteger(suggestedGrade) || suggestedGrade < 0 || suggestedGrade >= bounds) {
     throw new Error("Invalid suggested grade");
   }
 

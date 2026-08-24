@@ -9,7 +9,7 @@ function raw(overrides: Partial<RawSendInput> = {}): RawSendInput {
     dateSent: TODAY,
     comment: null,
     rating: null,
-    suggestedGrade: null,
+    suggestedGrade: "5",
     ...overrides,
   };
 }
@@ -22,7 +22,7 @@ describe("validateSendInput", () => {
       dateSent: TODAY,
       comment: null,
       rating: null,
-      suggestedGrade: null,
+      suggestedGrade: 5,
     });
   });
 
@@ -107,10 +107,13 @@ describe("validateSendInput", () => {
     );
   });
 
-  it("accepts a null suggested grade", () => {
-    expect(
-      validateSendInput("boulder", raw({ suggestedGrade: null }), TODAY).suggestedGrade,
-    ).toBeNull();
+  it("rejects a missing suggested grade", () => {
+    expect(() => validateSendInput("boulder", raw({ suggestedGrade: null }), TODAY)).toThrow(
+      "Suggested grade is required",
+    );
+    expect(() => validateSendInput("boulder", raw({ suggestedGrade: "" }), TODAY)).toThrow(
+      "Suggested grade is required",
+    );
   });
 
   it("accepts a suggested grade within the climb type's native scale", () => {
