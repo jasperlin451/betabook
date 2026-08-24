@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { Link } from "@heroui/react";
 import { AreaSearchForm, ClimbSearchForm } from "@/components/search-form";
 import { AreaList } from "@/components/area-list";
@@ -7,11 +8,13 @@ import { getDb } from "@/db/client";
 import {
   getAreaBreadcrumbs,
   getClimbSendStats,
+  getUserSentClimbIds,
   searchAreas,
   searchClimbs,
   type Discipline,
 } from "@/db/queries";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
+import { initAuth } from "@/lib/auth";
 
 type SearchPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -39,6 +42,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   if (mode === "area") {
     const name = typeof params.name === "string" ? params.name : "";
     const results = name ? await searchAreas(db, name) : [];
+    const areaBreadcrumbs = await getAreaBreadcrumbs(db, results.map((a) => a.id));
 
     return (
       <div className="flex flex-col gap-6">
@@ -56,6 +60,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <AreaList
               areas={results}
               variant="search"
+              areaBreadcrumbs={areaBreadcrumbs}
               emptyMessage={name ? `No areas matching "${name}".` : "Search for an area by name."}
             />
           </section>
@@ -83,8 +88,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     sportRange: disciplines.includes("sport") ? sportRange : undefined,
     tradRange: disciplines.includes("trad") ? tradRange : undefined,
   });
-  const sendStats = await getClimbSendStats(db, results.map((c) => c.id));
-  const areaBreadcrumbs = await getAreaBreadcrumbs(db, results.map((c) => c.areaId));
+  const auth = await initAuth();
+  const session = await auth.api.getSession({ headers: await headers() });
+  const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
+    getClimbSendStats(db, results.map((c) => c.id)),
+    getAreaBreadcrumbs(db, results.map((c) => c.areaId)),
+    session ? getUserSentClimbIds(db, session.user.id) : Promise.resolve(undefined),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -108,9 +118,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <h2 className="text-lg font-medium">Results</h2>
           <ClimbList
             climbs={results}
-            variant="search"
             sendStats={sendStats}
             areaBreadcrumbs={areaBreadcrumbs}
+            sentClimbIds={sentClimbIds}
             emptyMessage="No climbs match your search."
           />
         </section>

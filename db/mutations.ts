@@ -50,6 +50,8 @@ export async function createSend(climbId: number, formData: FormData) {
 
   revalidatePath(`/climbs/${climbId}`);
   revalidatePath(`/users/${session.user.id}`);
+  revalidatePath("/");
+  revalidatePath(`/areas/${climb.areaId}`);
 }
 
 export async function updateSend(sendId: number, formData: FormData) {
@@ -67,6 +69,8 @@ export async function updateSend(sendId: number, formData: FormData) {
 
   revalidatePath(`/climbs/${existing.climbId}`);
   revalidatePath(`/users/${session.user.id}`);
+  revalidatePath("/");
+  revalidatePath(`/areas/${climb.areaId}`);
 }
 
 export async function deleteSend(sendId: number) {
@@ -80,6 +84,9 @@ export async function deleteSend(sendId: number) {
 
   revalidatePath(`/climbs/${existing.climbId}`);
   revalidatePath(`/users/${session.user.id}`);
+  revalidatePath("/");
+  const climb = await getClimb(db, existing.climbId);
+  if (climb) revalidatePath(`/areas/${climb.areaId}`);
 }
 
 export type ImportRowFailureReason = "climb-not-found" | "climb-ambiguous";

@@ -1,17 +1,22 @@
-import { Card, Link } from "@heroui/react";
+import { buttonVariants, Link } from "@heroui/react";
 import type { Area } from "@/db/queries";
 import { ListRow } from "@/components/ui/list-row";
+import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 
 type AreaListProps = {
   areas: (Area & { ancestorPath?: string | null })[];
   emptyMessage?: string;
   variant?: "card" | "link" | "search";
+  /** Up to two nearest ancestors per area, keyed by area id — only
+   * meaningful for `variant="search"`. */
+  areaBreadcrumbs?: Record<number, { id: number; name: string }[]>;
 };
 
 export function AreaList({
   areas,
   emptyMessage = "No areas found.",
   variant = "card",
+  areaBreadcrumbs,
 }: AreaListProps) {
   if (areas.length === 0) {
     return <p className="text-muted text-sm">{emptyMessage}</p>;
@@ -29,7 +34,7 @@ export function AreaList({
               </span>
             }
             title={<Link href={`/areas/${area.id}`}>{area.name}</Link>}
-            subtitle={area.ancestorPath}
+            subtitle={<AreaBreadcrumb ancestors={areaBreadcrumbs?.[area.id] ?? []} />}
           />
         ))}
       </div>
@@ -52,23 +57,14 @@ export function AreaList({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-wrap gap-2">
       {areas.map((area) => (
         <Link
           key={area.id}
           href={`/areas/${area.id}`}
-          className="text-foreground no-underline"
+          className={buttonVariants({ variant: "outline", size: "sm" })}
         >
-          <Card className="transition-colors hover:bg-surface-hover">
-            <Card.Content className="py-3">
-              <div className="font-medium">{area.name}</div>
-              {area.description && (
-                <p className="text-muted line-clamp-2 text-sm">
-                  {area.description}
-                </p>
-              )}
-            </Card.Content>
-          </Card>
+          {area.name}
         </Link>
       ))}
     </div>

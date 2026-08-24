@@ -1,9 +1,19 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
 import { getDb } from "@/db/client";
-import { getAncestors, getArea, getSubareas, getSubtreeClimbs } from "@/db/queries";
+import {
+  getAncestors,
+  getArea,
+  getAreaBreadcrumbs,
+  getClimbSendStats,
+  getSubareas,
+  getSubtreeClimbs,
+  getUserSentClimbIds,
+} from "@/db/queries";
+import { initAuth } from "@/lib/auth";
 
 type AreaPageProps = {
   params: Promise<{ id: string }>;
@@ -29,6 +39,14 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
     getSubtreeClimbs(db, area, page),
   ]);
 
+  const auth = await initAuth();
+  const session = await auth.api.getSession({ headers: await headers() });
+  const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
+    getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
+    getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),
+    session ? getUserSentClimbIds(db, session.user.id) : Promise.resolve(undefined),
+  ]);
+
   return (
     <div className="flex flex-col gap-6">
       <AreaBreadcrumbs ancestors={ancestors} current={area} />
@@ -49,6 +67,9 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
         <h2 className="text-lg font-medium">Climbs</h2>
         <ClimbList
           climbs={subtreeClimbs.climbs}
+          sendStats={sendStats}
+          areaBreadcrumbs={areaBreadcrumbs}
+          sentClimbIds={sentClimbIds}
           emptyMessage="No climbs found in this area or its sub-areas."
           pagination={{
             page: subtreeClimbs.page,

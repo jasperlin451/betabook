@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Chip, Link, Pagination, Table } from "@heroui/react";
+import { Button, Chip, Link, Pagination, useOverlayState } from "@heroui/react";
+import { CircleCheck, CirclePlus } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
 import type { Climb } from "@/db/queries";
 import { ListRow } from "@/components/ui/list-row";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
+import { SendFormDrawer } from "@/components/send-form-drawer";
 
 // success/warning/danger are reserved for ascent-type chips (AscentType), and
 // HeroUI's only other built-in tokens are accent/default — too few hues for
@@ -22,30 +24,32 @@ const STYLE_CHIP_CLASSNAME: Record<ClimbType, string> = {
 type ClimbListProps = {
   climbs: (Climb & { areaName?: string })[];
   emptyMessage?: string;
-  variant?: "table" | "search";
   pagination?: {
     page: number;
     hasNextPage: boolean;
     basePath: string; // e.g. `/areas/12` — page links append `?page=N`
   };
   /** Average rating, logged-ascent count, and average suggested grade per
-   * climb, keyed by climb id — only meaningful for `variant="search"`. */
+   * climb, keyed by climb id. */
   sendStats?: Record<
     number,
     { avgRating: number | null; sendCount: number; avgSuggestedGrade: number | null }
   >;
-  /** Up to two ancestor areas per climb's area, keyed by area id — only
-   * meaningful for `variant="search"`. */
+  /** Up to two ancestor areas per climb's area, keyed by area id. */
   areaBreadcrumbs?: Record<number, { id: number; name: string }[]>;
+  /** Every climb id the signed-in viewer has ever sent. `undefined` means no
+   * signed-in viewer — the leading sent/log-send indicator is omitted
+   * entirely rather than showing it for a viewer who couldn't act on it. */
+  sentClimbIds?: Set<number>;
 };
 
 export function ClimbList({
   climbs,
   emptyMessage = "No climbs found.",
-  variant = "table",
   pagination,
   sendStats,
   areaBreadcrumbs,
+  sentClimbIds,
 }: ClimbListProps) {
   const router = useRouter();
 
@@ -53,16 +57,45 @@ export function ClimbList({
     return <p className="text-muted text-sm">{emptyMessage}</p>;
   }
 
-  if (variant === "search") {
-    return (
+  const paginationBlock = pagination && (pagination.page > 1 || pagination.hasNextPage) && (
+    <Pagination>
+      <Pagination.Content>
+        {pagination.page > 1 && (
+          <Pagination.Item>
+            <Pagination.Previous
+              onPress={() =>
+                router.push(`${pagination.basePath}?page=${pagination.page - 1}`)
+              }
+            >
+              Previous
+            </Pagination.Previous>
+          </Pagination.Item>
+        )}
+        {pagination.hasNextPage && (
+          <Pagination.Item>
+            <Pagination.Next
+              onPress={() =>
+                router.push(`${pagination.basePath}?page=${pagination.page + 1}`)
+              }
+            >
+              Next
+            </Pagination.Next>
+          </Pagination.Item>
+        )}
+      </Pagination.Content>
+    </Pagination>
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col divide-y divide-separator">
-        {climbs.map((climb, index) => (
+        {climbs.map((climb) => (
           <ListRow
             key={climb.id}
             leading={
-              <span className="w-6 shrink-0 text-sm tabular-nums text-muted">
-                {String(index + 1).padStart(2, "0")}
-              </span>
+              sentClimbIds && (
+                <ClimbSentIndicator climb={climb} sent={sentClimbIds.has(climb.id)} />
+              )
             }
             title={<Link href={`/climbs/${climb.id}`}>{climb.name}</Link>}
             subtitle={
@@ -98,67 +131,47 @@ export function ClimbList({
           />
         ))}
       </div>
+      {paginationBlock}
+    </div>
+  );
+}
+
+/** Leading-slot indicator: a static check if the viewer has already sent
+ * this climb, or a compact trigger opening the same create-send drawer used
+ * on the climb page (SendFormDrawer via LogSendButton's create-mode usage)
+ * if not. Only ever rendered for a signed-in viewer (see `sentClimbIds` on
+ * ClimbListProps) — instantiated as a real per-row component, not called as
+ * a plain function in `.map()`, so useOverlayState here is a normal
+ * one-hook-per-row-component pattern, not a hooks-in-a-loop violation. */
+function ClimbSentIndicator({ climb, sent }: { climb: Climb; sent: boolean }) {
+  const state = useOverlayState();
+
+  if (sent) {
+    return (
+      <span
+        title="You've sent this climb"
+        aria-label="You've sent this climb"
+        className="flex size-8 shrink-0 items-center justify-center"
+      >
+        <CircleCheck className="size-5 text-green-600" aria-hidden />
+      </span>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <Table>
-        <Table.ScrollContainer>
-          <Table.Content aria-label="Climbs">
-            <Table.Header>
-              <Table.Column isRowHeader>Name</Table.Column>
-              <Table.Column>Type</Table.Column>
-              <Table.Column>Grade</Table.Column>
-            </Table.Header>
-            <Table.Body>
-              {climbs.map((climb) => (
-                <Table.Row key={climb.id} id={climb.id}>
-                  <Table.Cell>
-                    <Link href={`/climbs/${climb.id}`}>{climb.name}</Link>
-                  </Table.Cell>
-                  <Table.Cell className="capitalize">{climb.type}</Table.Cell>
-                  <Table.Cell>{formatGrade(climb.type, climb.grade)}</Table.Cell>
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </Table.Content>
-        </Table.ScrollContainer>
-      </Table>
-
-      {pagination && (pagination.page > 1 || pagination.hasNextPage) && (
-        <Pagination>
-          <Pagination.Content>
-            {pagination.page > 1 && (
-              <Pagination.Item>
-                <Pagination.Previous
-                  onPress={() =>
-                    router.push(
-                      `${pagination.basePath}?page=${pagination.page - 1}`,
-                    )
-                  }
-                >
-                  Previous
-                </Pagination.Previous>
-              </Pagination.Item>
-            )}
-            {pagination.hasNextPage && (
-              <Pagination.Item>
-                <Pagination.Next
-                  onPress={() =>
-                    router.push(
-                      `${pagination.basePath}?page=${pagination.page + 1}`,
-                    )
-                  }
-                >
-                  Next
-                </Pagination.Next>
-              </Pagination.Item>
-            )}
-          </Pagination.Content>
-        </Pagination>
-      )}
-    </div>
+    <>
+      <Button
+        isIconOnly
+        variant="ghost"
+        size="sm"
+        aria-label="Log send"
+        onPress={state.open}
+        className="shrink-0"
+      >
+        <CirclePlus className="size-5" />
+      </Button>
+      <SendFormDrawer climb={climb} state={state} />
+    </>
   );
 }
 
