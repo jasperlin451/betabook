@@ -1,5 +1,40 @@
 @import "@heroui/styles";
 
+@layer theme {
+  /* Deep-navy "night session" theme — layers the same brand teal/coral on
+     top of HeroUI's existing dark-mode neutrals (foreground, muted, field
+     colors, etc. are already tuned for a dark background, so only the
+     background/surface hierarchy and brand accents need overriding here). */
+  .dark,
+  [data-theme="dark"] {
+    --background: #0d1526;
+    --surface: #141d33;
+    --surface-secondary: #1b2540;
+    --surface-tertiary: #212c4a;
+    --overlay: #141d33;
+    --default: #1b2540;
+    --muted: #7d8aa8;
+    --border: #26314f;
+    --separator: #1c243c;
+    --field-background: #141d33;
+    /* HeroUI leaves this transparent and 0-width by default (--field-border-width
+       is hardcoded to 0px globally) and relies on --field-shadow for definition
+       instead, but a shadow reads as nothing against a dark background —
+       without a real border, unchecked checkboxes/selects disappear into the
+       surface behind them. */
+    --field-border: var(--border);
+    --field-border-width: 2px;
+    --accent: #2bcfce;
+    --accent-foreground: var(--eclipse);
+    --danger: #ec4d25;
+    --danger-foreground: var(--snow);
+    /* Vivid teal has plenty of contrast directly on this near-black
+       background, so unlike a light background it needs no darkening for
+       text/link use. */
+    --link: var(--accent);
+  }
+}
+
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

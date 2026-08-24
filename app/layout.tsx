@@ -12,13 +12,34 @@ export const metadata: Metadata = {
   description: "Climbing crag and route database",
 };
 
+// Runs before the browser paints, so the saved/system theme is applied to
+// <html> before any CSS renders — otherwise the page paints with the
+// un-attributed (light) styles first and flashes to the real theme once
+// @heroui/react's useTheme() hydrates and applies it. Mirrors that hook's own
+// storage key and resolution logic exactly (see use-theme.js).
+const SET_THEME_SCRIPT = `
+(function () {
+  try {
+    var theme = localStorage.getItem("heroui-theme") || "system";
+    var resolved =
+      theme === "system"
+        ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : theme;
+    document.documentElement.classList.add(resolved);
+    document.documentElement.setAttribute("data-theme", resolved);
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        <script dangerouslySetInnerHTML={{ __html: SET_THEME_SCRIPT }} />
         <Providers>
           <header className="border-b border-separator px-4 py-3">
             <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2">
