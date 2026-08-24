@@ -211,6 +211,110 @@ describe("getSendsForUserPage", () => {
       expect(results).toEqual({ sends: [], hasMore: false });
     });
   });
+
+  describe("sort", () => {
+    beforeAll(async () => {
+      await seedFixtureUser(db, { id: "test-user-11", name: "Sort Tester" });
+      // climbs.grade (ordinal index): Test Slab=2, Test Highball=5,
+      // Test Crack=6, Test Crimper=10 — deliberately mixed disciplines,
+      // since grade sort is documented as a raw-index sort, not a
+      // cross-discipline difficulty comparison.
+      await seedFixtureSend(db, {
+        userId: "test-user-11",
+        climbId: 2, // Test Slab, grade 2
+        dateSent: "2026-06-01",
+        rating: 3,
+      });
+      await seedFixtureSend(db, {
+        userId: "test-user-11",
+        climbId: 3, // Test Crimper, grade 10
+        dateSent: "2026-06-02",
+        rating: null,
+      });
+      await seedFixtureSend(db, {
+        userId: "test-user-11",
+        climbId: 1, // Test Highball, grade 5
+        dateSent: "2026-06-03",
+        rating: 5,
+      });
+      await seedFixtureSend(db, {
+        userId: "test-user-11",
+        climbId: 4, // Test Crack, grade 6
+        dateSent: null,
+        rating: 1,
+      });
+    });
+
+    it("defaults to newest send first", async () => {
+      const results = await getSendsForUserPage(db, "test-user-11", ALL_SENDS_FILTER, 0);
+      expect(results.sends.map((s) => s.climbName)).toEqual([
+        "Test Highball",
+        "Test Crimper",
+        "Test Slab",
+        "Test Crack",
+      ]);
+    });
+
+    it("sorts oldest first, with an unknown date last", async () => {
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-11",
+        { ...ALL_SENDS_FILTER, sort: "date_asc" },
+        0,
+      );
+      expect(results.sends.map((s) => s.climbName)).toEqual([
+        "Test Slab",
+        "Test Crimper",
+        "Test Highball",
+        "Test Crack",
+      ]);
+    });
+
+    it("sorts hardest grade first", async () => {
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-11",
+        { ...ALL_SENDS_FILTER, sort: "grade_desc" },
+        0,
+      );
+      expect(results.sends.map((s) => s.climbName)).toEqual([
+        "Test Crimper",
+        "Test Crack",
+        "Test Highball",
+        "Test Slab",
+      ]);
+    });
+
+    it("sorts easiest grade first", async () => {
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-11",
+        { ...ALL_SENDS_FILTER, sort: "grade_asc" },
+        0,
+      );
+      expect(results.sends.map((s) => s.climbName)).toEqual([
+        "Test Slab",
+        "Test Highball",
+        "Test Crack",
+        "Test Crimper",
+      ]);
+    });
+
+    it("sorts highest rated first, with an unrated send last", async () => {
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-11",
+        { ...ALL_SENDS_FILTER, sort: "rating_desc" },
+        0,
+      );
+      expect(results.sends.map((s) => s.climbName)).toEqual([
+        "Test Highball",
+        "Test Slab",
+        "Test Crack",
+        "Test Crimper",
+      ]);
+    });
+  });
 });
 
 describe("getUserSendsSummary", () => {
@@ -256,22 +360,22 @@ describe("getUserSentClimbIds", () => {
 
 describe("getClimbSendStats", () => {
   it("averages ratings (ignoring nulls) and counts every send for a climb", async () => {
-    // Test Highball (climb 1) has four sends by this point, from earlier
-    // describe blocks' fixture seeding: one rating of 4, the rest null.
+    // Test Highball (climb 1) has five sends by this point, from earlier
+    // describe blocks' fixture seeding: ratings of 4 and 5, the rest null.
     const stats = await getClimbSendStats(db, [1]);
-    expect(stats[1]).toEqual({ avgRating: 4, sendCount: 4, avgSuggestedGrade: null });
+    expect(stats[1]).toEqual({ avgRating: 4.5, sendCount: 5, avgSuggestedGrade: null });
   });
 
   it("returns a null average when no send on the climb has a rating", async () => {
-    // Test Slab (climb 2) has exactly one send, with no rating.
-    const stats = await getClimbSendStats(db, [2]);
-    expect(stats[2]).toEqual({ avgRating: null, sendCount: 1, avgSuggestedGrade: null });
+    // Test Crimper (climb 3) has three sends by this point, all with no rating.
+    const stats = await getClimbSendStats(db, [3]);
+    expect(stats[3]).toEqual({ avgRating: null, sendCount: 3, avgSuggestedGrade: null });
   });
 
   it("includes zero-send climbs in the requested ids rather than omitting them", async () => {
-    // Test Crack (climb 4) has no sends anywhere in this test file.
-    const stats = await getClimbSendStats(db, [4]);
-    expect(stats[4]).toEqual({ avgRating: null, sendCount: 0, avgSuggestedGrade: null });
+    // Id 999 doesn't match any send in this test file.
+    const stats = await getClimbSendStats(db, [999]);
+    expect(stats[999]).toEqual({ avgRating: null, sendCount: 0, avgSuggestedGrade: null });
   });
 
   it("returns an empty map for an empty id list, without querying", async () => {
@@ -281,9 +385,9 @@ describe("getClimbSendStats", () => {
   it("averages non-null suggested grades independently of rating", async () => {
     await seedFixtureUser(db, { id: "test-user-7", name: "Grade Suggester" });
     await seedFixtureUser(db, { id: "test-user-8", name: "Grade Suggester Two" });
-    // Test Crimper (climb 3) already has two sends from earlier describe
+    // Test Crimper (climb 3) already has three sends from earlier describe
     // blocks ("excludes disciplines not selected", "name/areaName
-    // filtering"), with no suggested grade.
+    // filtering", "sort"), with no suggested grade.
     await seedFixtureSend(db, {
       userId: "test-user-7",
       climbId: 3,
@@ -298,14 +402,15 @@ describe("getClimbSendStats", () => {
     });
 
     const stats = await getClimbSendStats(db, [3]);
-    expect(stats[3]).toEqual({ avgRating: null, sendCount: 4, avgSuggestedGrade: 9 });
+    expect(stats[3]).toEqual({ avgRating: null, sendCount: 5, avgSuggestedGrade: 9 });
   });
 
   it("returns a null suggested-grade average when sends are rated but not grade-suggested", async () => {
     await seedFixtureUser(db, { id: "test-user-9", name: "Rater Only" });
-    // Test Slab (climb 2) already has one send with no rating/suggestion;
-    // add a rated send with no suggested grade to confirm the two aggregates
-    // are computed independently.
+    // Test Slab (climb 2) already has a null-rating send and a rating-3
+    // send from earlier describe blocks; add a rating-5 send with no
+    // suggested grade to confirm the two aggregates are computed
+    // independently.
     await seedFixtureSend(db, {
       userId: "test-user-9",
       climbId: 2,
@@ -314,6 +419,6 @@ describe("getClimbSendStats", () => {
     });
 
     const stats = await getClimbSendStats(db, [2]);
-    expect(stats[2]).toEqual({ avgRating: 5, sendCount: 2, avgSuggestedGrade: null });
+    expect(stats[2]).toEqual({ avgRating: 4, sendCount: 3, avgSuggestedGrade: null });
   });
 });

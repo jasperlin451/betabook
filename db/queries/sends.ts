@@ -71,6 +71,8 @@ export type UserSendRow = {
   comment: string | null;
 };
 
+export type UserSendsSort = "date_desc" | "date_asc" | "grade_desc" | "grade_asc" | "rating_desc";
+
 export type UserSendsFilter = {
   disciplines: Discipline[];
   boulderRange: [number, number];
@@ -78,6 +80,19 @@ export type UserSendsFilter = {
   tradRange: [number, number];
   name?: string;
   areaName?: string;
+  sort?: UserSendsSort;
+};
+
+// NULLS LAST on the ascending variants keeps unknown-date/unknown-grade
+// sends at the bottom regardless of direction — SQLite otherwise treats
+// NULL as the smallest value, which would float them to the top of an ASC
+// sort. The descending variants already put NULLs last by default.
+const USER_SENDS_ORDER_BY: Record<UserSendsSort, SQL> = {
+  date_desc: sql`sends.date_sent DESC`,
+  date_asc: sql`sends.date_sent ASC NULLS LAST`,
+  grade_desc: sql`climbs.grade DESC`,
+  grade_asc: sql`climbs.grade ASC NULLS LAST`,
+  rating_desc: sql`sends.rating DESC`,
 };
 
 export const USER_SENDS_PAGE_SIZE = 10;
@@ -157,7 +172,7 @@ export async function getSendsForUserPage(
     JOIN climbs ON climbs.id = sends.climb_id
     JOIN areas ON areas.id = climbs.area_id
     WHERE ${where}
-    ORDER BY sends.date_sent DESC
+    ORDER BY ${USER_SENDS_ORDER_BY[filter.sort ?? "date_desc"]}
     LIMIT ${pageSize + 1}
     OFFSET ${offset}
   `);

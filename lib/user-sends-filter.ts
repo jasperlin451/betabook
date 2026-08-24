@@ -1,5 +1,13 @@
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
-import type { Discipline, UserSendsFilter } from "@/db/queries";
+import type { Discipline, UserSendsFilter, UserSendsSort } from "@/db/queries";
+
+const USER_SENDS_SORTS: UserSendsSort[] = [
+  "date_desc",
+  "date_asc",
+  "grade_desc",
+  "grade_asc",
+  "rating_desc",
+];
 
 // No disciplines checked means "don't filter on discipline or grade at
 // all" — not "match nothing". Checking one activates that filter (and
@@ -9,6 +17,7 @@ export const DEFAULT_USER_SENDS_FILTER: UserSendsFilter = {
   boulderRange: [0, BOULDER_HUECO.length - 1],
   sportRange: [0, ROPE_YDS.length - 1],
   tradRange: [0, ROPE_YDS.length - 1],
+  sort: "date_desc",
 };
 
 export type SearchParamsRecord = Record<string, string | string[] | undefined>;
@@ -34,6 +43,11 @@ export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilte
     (d): d is Discipline => d === "boulder" || d === "sport" || d === "trad",
   );
 
+  const rawSort = toArray(params.sort)[0];
+  const sort = USER_SENDS_SORTS.includes(rawSort as UserSendsSort)
+    ? (rawSort as UserSendsSort)
+    : DEFAULT_USER_SENDS_FILTER.sort;
+
   return {
     disciplines,
     boulderRange: toRange(params.boulderRange, DEFAULT_USER_SENDS_FILTER.boulderRange),
@@ -41,6 +55,7 @@ export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilte
     tradRange: toRange(params.tradRange, DEFAULT_USER_SENDS_FILTER.tradRange),
     name: toArray(params.name)[0],
     areaName: toArray(params.areaName)[0],
+    sort,
   };
 }
 
@@ -55,5 +70,6 @@ export function userSendsFilterToSearchParams(filter: UserSendsFilter): URLSearc
   params.append("tradRange", String(filter.tradRange[1]));
   if (filter.name) params.set("name", filter.name);
   if (filter.areaName) params.set("areaName", filter.areaName);
+  params.set("sort", filter.sort ?? "date_desc");
   return params;
 }

@@ -90,7 +90,6 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
         </div>
 
         <div className="order-2 flex min-w-0 flex-1 flex-col gap-4 lg:order-1">
-          <h2 className="text-lg font-semibold">Sends</h2>
           <UserSendList
             key={JSON.stringify(filter)}
             userId={id}

@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Link } from "@heroui/react";
+import { Button, Link, ListBox, Select } from "@heroui/react";
 import { formatGrade } from "@/lib/grades";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
-import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
+import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter, UserSendsSort } from "@/db/queries";
 import { AscentType } from "@/components/ascent-type";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { RatingStars } from "@/components/ui/rating-stars";
@@ -104,6 +104,7 @@ export function UserSendList({
   hasAnySends,
   currentUserId,
 }: UserSendListProps) {
+  const router = useRouter();
   const [sends, setSends] = useState(initialSends);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
@@ -125,12 +126,44 @@ export function UserSendList({
     }
   }
 
+  function handleSortChange(sort: UserSendsSort) {
+    const params = userSendsFilterToSearchParams({ ...filter, sort });
+    router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
+  }
+
   if (!hasAnySends) {
-    return <p className="text-muted text-sm">No sends yet.</p>;
+    return (
+      <div className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold">Sends</h2>
+        <p className="text-muted text-sm">No sends yet.</p>
+      </div>
+    );
   }
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Sends</h2>
+        <Select
+          aria-label="Sort"
+          selectedKey={filter.sort ?? "date_desc"}
+          onSelectionChange={(key) => handleSortChange(key as UserSendsSort)}
+        >
+          <Select.Trigger className="w-48">
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              <ListBox.Item id="date_desc">Latest</ListBox.Item>
+              <ListBox.Item id="date_asc">Oldest</ListBox.Item>
+              <ListBox.Item id="grade_desc">Hardest</ListBox.Item>
+              <ListBox.Item id="grade_asc">Easiest</ListBox.Item>
+              <ListBox.Item id="rating_desc">Top rated</ListBox.Item>
+            </ListBox>
+          </Select.Popover>
+        </Select>
+      </div>
       {sends.length === 0 ? (
         <p className="text-muted text-sm">No sends match these filters.</p>
       ) : (

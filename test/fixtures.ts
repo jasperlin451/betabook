@@ -94,7 +94,7 @@ export async function seedFixtureUser(db: Database, overrides: FixtureUserOverri
 type FixtureSendOverrides = Partial<typeof sends.$inferInsert> & {
   userId: string;
   climbId: number;
-  dateSent: string;
+  dateSent: string | null;
 };
 
 /** Inserts a `sends` row referencing an existing fixture user/climb. */
