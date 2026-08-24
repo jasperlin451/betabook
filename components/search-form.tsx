@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Input, Label, TextField } from "@heroui/react";
+import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
 import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
 import {
   climbSearchFilterToSearchParams,
   DEFAULT_CLIMB_SEARCH_FILTER,
+  DEFAULT_CLIMB_SEARCH_SORT,
   type ClimbSearchFilter,
 } from "@/lib/climb-search-filter";
+import type { SubtreeClimbsSort } from "@/db/queries";
 
 export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
   const [name, setName] = useState(defaultName);
@@ -33,19 +37,22 @@ export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
 
 type ClimbSearchFormProps = {
   defaultFilter?: ClimbSearchFilter;
+  sort?: SubtreeClimbsSort;
 };
 
 export function ClimbSearchForm({
   defaultFilter = DEFAULT_CLIMB_SEARCH_FILTER,
+  sort = DEFAULT_CLIMB_SEARCH_SORT,
 }: ClimbSearchFormProps) {
   const [name, setName] = useState(defaultFilter.name ?? "");
   const [areaName, setAreaName] = useState(defaultFilter.areaName ?? "");
   const [filter, setFilter] = useState<ClimbSearchFilter>(defaultFilter);
 
   // Auto-search: debounce every field change (including the initial render)
-  // into a single navigation instead of requiring an explicit submit.
+  // into a single navigation instead of requiring an explicit submit. Sort
+  // is preserved as-is — it's owned by ClimbSearchSortControl, not this form.
   useDebouncedReplace(
-    `/?${climbSearchFilterToSearchParams({ ...filter, name, areaName }).toString()}`,
+    `/?${climbSearchFilterToSearchParams(sort, { ...filter, name, areaName }).toString()}`,
   );
 
   function clearFilters() {
@@ -70,6 +77,31 @@ export function ClimbSearchForm({
           minAscents={filter.minAscents}
           onMinAscentsChange={(minAscents) => setFilter({ ...filter, minAscents })}
         />
+      }
+    />
+  );
+}
+
+/** The "Results" heading's sort control for climb search — same
+ * <ClimbListSortControl> as the area page, navigating to `/?...` instead of
+ * `/areas/[id]?...`. Preserves the active filter (see `filter` param) so a
+ * sort change doesn't silently drop it. */
+export function ClimbSearchSortControl({
+  sort,
+  filter,
+}: {
+  sort: SubtreeClimbsSort;
+  filter: ClimbSearchFilter;
+}) {
+  const router = useRouter();
+
+  return (
+    <ClimbListSortControl
+      sort={sort}
+      onNavigate={(nextSort) =>
+        router.replace(`/?${climbSearchFilterToSearchParams(nextSort, filter).toString()}`, {
+          scroll: false,
+        })
       }
     />
   );

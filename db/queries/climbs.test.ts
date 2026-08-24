@@ -387,6 +387,26 @@ describe("searchClimbs", () => {
     expect(results.map((c) => c.name)).toEqual(["Test Slab"]);
   });
 
+  it("defaults to sorting by ascent count descending", async () => {
+    const results = await searchClimbs(db, { disciplines: [] });
+    expect(results.map((c) => c.name)).toEqual([
+      "Test Crimper", // 3 ascents
+      "Test Slab", // 2 ascents
+      "Test Highball", // 1 ascent
+      "Test Crack", // 0 ascents
+    ]);
+  });
+
+  it("sorts by an explicit field", async () => {
+    const results = await searchClimbs(db, { disciplines: [], sort: "name_asc" });
+    expect(results.map((c) => c.name)).toEqual([
+      "Test Crack",
+      "Test Crimper",
+      "Test Highball",
+      "Test Slab",
+    ]);
+  });
+
   it("doesn't choke when an area name matches far more areas than one statement's bound-parameter limit allows", async () => {
     // Regression test: area-name matching used to build one
     // `(lft >= ? AND rght <= ?)` OR-clause per matched area, so a name

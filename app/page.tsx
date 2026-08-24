@@ -1,5 +1,5 @@
 import { Link } from "@heroui/react";
-import { AreaSearchForm, ClimbSearchForm } from "@/components/search-form";
+import { AreaSearchForm, ClimbSearchForm, ClimbSearchSortControl } from "@/components/search-form";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
 import { PageWithStats } from "@/components/ui/page-shell";
@@ -11,7 +11,11 @@ import {
   searchAreas,
   searchClimbs,
 } from "@/db/queries";
-import { parseClimbSearchFilter, toSearchClimbsQueryParams } from "@/lib/climb-search-filter";
+import {
+  parseClimbSearchFilter,
+  parseClimbSearchSort,
+  toSearchClimbsQueryParams,
+} from "@/lib/climb-search-filter";
 import { getSession } from "@/lib/session";
 import type { SearchParamsRecord } from "@/lib/search-params";
 
@@ -54,11 +58,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     );
   }
 
+  const sort = parseClimbSearchSort(params);
   const filter = parseClimbSearchFilter(params);
 
   // No disciplines checked means the discipline/grade filter isn't active —
   // searchClimbs already matches everything when `disciplines` is empty.
-  const results = await searchClimbs(db, toSearchClimbsQueryParams(filter));
+  const results = await searchClimbs(db, toSearchClimbsQueryParams(filter, sort));
   const session = await getSession();
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
     getClimbSendStats(db, results.map((c) => c.id)),
@@ -73,12 +78,15 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         statsPosition="before"
         stats={
           <div className="lg:w-96 lg:shrink-0">
-            <ClimbSearchForm defaultFilter={filter} />
+            <ClimbSearchForm defaultFilter={filter} sort={sort} />
           </div>
         }
       >
         <section className="flex flex-col gap-2">
-          <h2 className="text-lg font-medium">Results</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-medium">Results</h2>
+            <ClimbSearchSortControl sort={sort} filter={filter} />
+          </div>
           <ClimbList
             climbs={results}
             sendStats={sendStats}

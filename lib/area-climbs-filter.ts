@@ -7,20 +7,10 @@ import {
   type DisciplineFilter,
 } from "@/lib/discipline-filter";
 import { toArray, type SearchParamsRecord } from "@/lib/search-params";
+import { DEFAULT_CLIMB_LIST_SORT, parseClimbListSort } from "@/lib/climb-list-sort";
 import type { ClimbStatsFilter, DisciplineGradeFilter, SubtreeClimbsSort } from "@/db/queries";
 
-const SUBTREE_CLIMBS_SORTS: SubtreeClimbsSort[] = [
-  "name_asc",
-  "name_desc",
-  "grade_asc",
-  "grade_desc",
-  "rating_asc",
-  "rating_desc",
-  "ascents_asc",
-  "ascents_desc",
-];
-
-export const DEFAULT_AREA_CLIMBS_SORT: SubtreeClimbsSort = "ascents_desc";
+export const DEFAULT_AREA_CLIMBS_SORT = DEFAULT_CLIMB_LIST_SORT;
 
 export {
   DEFAULT_BOULDER_RANGE,
@@ -44,12 +34,7 @@ export const DEFAULT_AREA_CLIMBS_FILTER: AreaClimbsFilter = {
   minAscents: DEFAULT_MIN_ASCENTS,
 };
 
-export function parseAreaClimbsSort(params: SearchParamsRecord): SubtreeClimbsSort {
-  const rawSort = toArray(params.sort)[0];
-  return SUBTREE_CLIMBS_SORTS.includes(rawSort as SubtreeClimbsSort)
-    ? (rawSort as SubtreeClimbsSort)
-    : DEFAULT_AREA_CLIMBS_SORT;
-}
+export const parseAreaClimbsSort = parseClimbListSort;
 
 export function parseAreaClimbsFilter(params: SearchParamsRecord): AreaClimbsFilter {
   const [minRating, maxRating] = toArray(params.ratingRange).map(Number);

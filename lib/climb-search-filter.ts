@@ -1,4 +1,5 @@
 import { DEFAULT_MIN_ASCENTS, DEFAULT_RATING_RANGE } from "@/lib/climb-stats-filter";
+import { DEFAULT_CLIMB_LIST_SORT, parseClimbListSort } from "@/lib/climb-list-sort";
 import {
   DEFAULT_DISCIPLINE_FILTER,
   appendDisciplineFilterParams,
@@ -7,7 +8,10 @@ import {
   type DisciplineFilter,
 } from "@/lib/discipline-filter";
 import { toArray, type SearchParamsRecord } from "@/lib/search-params";
-import type { SearchClimbsParams } from "@/db/queries";
+import type { SearchClimbsParams, SubtreeClimbsSort } from "@/db/queries";
+
+export const DEFAULT_CLIMB_SEARCH_SORT = DEFAULT_CLIMB_LIST_SORT;
+export const parseClimbSearchSort = parseClimbListSort;
 
 export type ClimbSearchFilter = DisciplineFilter & {
   name?: string;
@@ -38,11 +42,17 @@ export function parseClimbSearchFilter(params: SearchParamsRecord): ClimbSearchF
   };
 }
 
-/** Builds the `mode=climb` query string the homepage's climb search reads
- * back via `parseClimbSearchFilter` — same shape as `areaClimbsFilterToSearchParams`. */
-export function climbSearchFilterToSearchParams(filter: ClimbSearchFilter): URLSearchParams {
+/** Serializes both the sort and the discipline/grade/stats filter into one
+ * `mode=climb` query string — shared by the sort control, the filter panel,
+ * and parseClimbSearchSort/parseClimbSearchFilter, so all three build the
+ * exact same param shape. */
+export function climbSearchFilterToSearchParams(
+  sort: SubtreeClimbsSort,
+  filter: ClimbSearchFilter,
+): URLSearchParams {
   const params = new URLSearchParams();
   params.set("mode", "climb");
+  params.set("sort", sort);
   if (filter.name) params.set("name", filter.name);
   if (filter.areaName) params.set("areaName", filter.areaName);
   appendDisciplineFilterParams(params, filter);
@@ -54,12 +64,16 @@ export function climbSearchFilterToSearchParams(filter: ClimbSearchFilter): URLS
 
 /** searchClimbs's query param — same "drop a range for an unchecked
  * discipline" convention as toSubtreeQueryFilter. */
-export function toSearchClimbsQueryParams(filter: ClimbSearchFilter): SearchClimbsParams {
+export function toSearchClimbsQueryParams(
+  filter: ClimbSearchFilter,
+  sort: SubtreeClimbsSort,
+): SearchClimbsParams {
   return {
     ...toDisciplineGradeFilter(filter),
     name: filter.name || undefined,
     areaName: filter.areaName || undefined,
     ratingRange: filter.ratingRange,
     minAscents: filter.minAscents,
+    sort,
   };
 }

@@ -215,6 +215,7 @@ export type SearchClimbsParams = DisciplineGradeFilter &
   ClimbStatsFilter & {
     name?: string;
     areaName?: string;
+    sort?: SubtreeClimbsSort;
   };
 
 export type ClimbWithAreaName = Climb & { areaName: string };
@@ -261,7 +262,7 @@ export async function searchClimbs(
     FROM climbs
     JOIN areas ON areas.id = climbs.area_id
     ${whereClause}
-    ORDER BY (CASE WHEN climbs.type = 'boulder' THEN 0 ELSE 1 END), climbs.grade
+    ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[params.sort ?? "ascents_desc"]}, climbs.id
     LIMIT 25
   `);
 }

@@ -2,13 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, ListBox, Select } from "@heroui/react";
-import { ArrowDown, ArrowUp } from "lucide-react";
 import { ClimbList } from "@/components/climb-list";
+import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
 import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
-import { useSortToggle } from "@/hooks/use-sort-toggle";
 import {
   areaClimbsFilterToSearchParams,
   DEFAULT_BOULDER_RANGE,
@@ -25,20 +23,6 @@ import type { AreaBreadcrumbs, Climb, ClimbSendStats, SubtreeClimbsSort } from "
 function buildClimbsHref(areaId: number, sort: SubtreeClimbsSort, filter: AreaClimbsFilter): string {
   return `/areas/${areaId}?${areaClimbsFilterToSearchParams(sort, filter).toString()}`;
 }
-
-type SortField = "name" | "grade" | "rating" | "ascents";
-
-const SORT_FIELDS: SortField[] = ["name", "grade", "rating", "ascents"];
-
-// Alphabetical/hardest/highest-rated/most-sent first by default when a
-// field is picked fresh — direction only flips via the separate arrow
-// button once a field is already active.
-const DEFAULT_DIRECTION: Record<SortField, "asc" | "desc"> = {
-  name: "asc",
-  grade: "desc",
-  rating: "desc",
-  ascents: "desc",
-};
 
 type AreaClimbsSectionProps = {
   areaId: number;
@@ -107,55 +91,19 @@ export function AreaClimbsSection({
     }
   }
 
-  const { field, direction, handleFieldChange, toggleDirection } = useSortToggle({
-    sort,
-    fields: SORT_FIELDS,
-    defaultField: "ascents",
-    defaultDirection: DEFAULT_DIRECTION,
-    navigate: (nextSort) =>
-      // Preserves the active filter (see buildClimbsHref) — remounting this
-      // component (keyed on sort+filter by the caller) naturally resets back
-      // to page 1's accumulated state.
-      router.replace(buildClimbsHref(areaId, nextSort, filter), { scroll: false }),
-  });
-
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-medium">Climbs</h2>
-        <div className="flex items-center gap-2">
-          <Select
-            aria-label="Sort by"
-            selectedKey={field}
-            onSelectionChange={(key) => handleFieldChange(key as SortField)}
-          >
-            <Select.Trigger className="w-32">
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
-                <ListBox.Item id="name">Name</ListBox.Item>
-                <ListBox.Item id="grade">Grade</ListBox.Item>
-                <ListBox.Item id="rating">Rating</ListBox.Item>
-                <ListBox.Item id="ascents">Ascents</ListBox.Item>
-              </ListBox>
-            </Select.Popover>
-          </Select>
-          <Button
-            isIconOnly
-            variant="ghost"
-            size="sm"
-            aria-label={direction === "asc" ? "Sort ascending" : "Sort descending"}
-            onPress={toggleDirection}
-          >
-            {direction === "asc" ? (
-              <ArrowUp className="size-4" />
-            ) : (
-              <ArrowDown className="size-4" />
-            )}
-          </Button>
-        </div>
+        <ClimbListSortControl
+          sort={sort}
+          onNavigate={(nextSort) =>
+            // Preserves the active filter (see buildClimbsHref) — remounting
+            // this component (keyed on sort+filter by the caller) naturally
+            // resets back to page 1's accumulated state.
+            router.replace(buildClimbsHref(areaId, nextSort, filter), { scroll: false })
+          }
+        />
       </div>
       <ClimbList
         climbs={climbs}
