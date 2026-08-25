@@ -35,6 +35,21 @@ export async function updateClimb(climbId: number, formData: FormData) {
   refresh();
 }
 
+export async function deleteClimb(climbId: number) {
+  await requireSession();
+  const db = await getDb();
+
+  const existing = await getClimb(db, climbId);
+  if (!existing) throw new Error("Climb not found");
+  if (existing.sendCount > 0) throw new Error("Can't delete a climb with logged sends");
+
+  await db.delete(climbs).where(eq(climbs.id, climbId));
+
+  revalidatePath(`/areas/${existing.areaId}`);
+  revalidatePath("/");
+  refresh();
+}
+
 export async function createClimb(areaId: number, formData: FormData) {
   await requireSession();
   const db = await getDb();
