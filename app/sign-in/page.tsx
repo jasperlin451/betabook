@@ -57,6 +57,9 @@ export default function SignInPage() {
         <Label>Password</Label>
         <Input className="bg-surface" />
       </TextField>
+      <Link href="/forgot-password" className="text-sm text-muted">
+        Forgot password?
+      </Link>
       {error && <p className="text-sm text-danger">{error}</p>}
       {unverified && (
         <div className="flex flex-col gap-2 text-sm text-danger">

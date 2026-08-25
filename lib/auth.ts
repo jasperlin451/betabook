@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getDb } from "@/db/client";
-import { sendVerificationEmail } from "@/lib/email";
+import { sendResetPasswordEmail, sendVerificationEmail } from "@/lib/email";
 import * as schema from "@/db/schema";
 
 async function authBuilder() {
@@ -25,6 +25,8 @@ async function authBuilder() {
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
+      sendResetPassword: ({ user, url }) =>
+        sendResetPasswordEmail(user.email, url),
     },
     emailVerification: {
       sendVerificationEmail: ({ user, url }) =>

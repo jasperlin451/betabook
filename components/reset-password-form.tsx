@@ -1,33 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { Link } from "@heroui/react";
-import { Button, Input, Label, TextField } from "@heroui/react";
+import { Button, Input, Label, Link, TextField } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
 
-export default function SignUpPage() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export function ResetPasswordForm({ token }: { token: string | undefined }) {
+  const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [done, setDone] = useState(false);
 
-  const passwordMismatch = submitAttempted && password !== confirmPassword;
+  const passwordMismatch = submitAttempted && newPassword !== confirmPassword;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitAttempted(true);
-    if (password !== confirmPassword) return;
+    if (!token) {
+      setError("This reset link is invalid or has expired.");
+      return;
+    }
+    if (newPassword !== confirmPassword) return;
     setPending(true);
-    authClient.signUp.email(
-      { name, email, password, callbackURL: "/sign-in" },
+    authClient.resetPassword(
+      { newPassword, token },
       {
         onSuccess: () => setDone(true),
-        onError: (ctx) => setError(ctx.error.message ?? "Sign up failed"),
+        onError: (ctx) => setError(ctx.error.message ?? "Reset failed"),
         onResponse: () => setPending(false),
       },
     );
@@ -36,10 +37,10 @@ export default function SignUpPage() {
   if (done) {
     return (
       <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
-        <h1 className="text-lg font-semibold">Check your email</h1>
+        <h1 className="text-lg font-semibold">Password reset</h1>
         <p className="text-sm text-muted">
-          We sent a verification link to {email}. Verify your address, then{" "}
-          <Link href="/sign-in">sign in</Link>.
+          Your password has been reset. <Link href="/sign-in">Sign in</Link>{" "}
+          with your new password.
         </p>
       </div>
     );
@@ -50,17 +51,14 @@ export default function SignUpPage() {
       onSubmit={handleSubmit}
       className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6"
     >
-      <h1 className="text-lg font-semibold">Sign Up</h1>
-      <TextField value={name} onChange={setName} isRequired>
-        <Label>Name</Label>
-        <Input placeholder="Your name" className="bg-surface" />
-      </TextField>
-      <TextField value={email} onChange={setEmail} type="email" isRequired>
-        <Label>Email</Label>
-        <Input placeholder="you@example.com" className="bg-surface" />
-      </TextField>
-      <TextField value={password} onChange={setPassword} type="password" isRequired>
-        <Label>Password</Label>
+      <h1 className="text-lg font-semibold">Reset Password</h1>
+      <TextField
+        value={newPassword}
+        onChange={setNewPassword}
+        type="password"
+        isRequired
+      >
+        <Label>New Password</Label>
         <Input className="bg-surface" />
       </TextField>
       <TextField
@@ -69,7 +67,7 @@ export default function SignUpPage() {
         type="password"
         isRequired
       >
-        <Label>Confirm Password</Label>
+        <Label>Confirm New Password</Label>
         <Input className="bg-surface" />
       </TextField>
       {passwordMismatch && (
@@ -77,11 +75,8 @@ export default function SignUpPage() {
       )}
       {error && <p className="text-sm text-danger">{error}</p>}
       <Button type="submit" fullWidth isDisabled={pending}>
-        Sign Up
+        Reset Password
       </Button>
-      <p className="text-sm text-muted">
-        Already have an account? <Link href="/sign-in">Sign in</Link>
-      </p>
     </form>
   );
 }
