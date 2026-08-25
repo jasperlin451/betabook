@@ -2,6 +2,7 @@
 
 import { Drawer } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
+import { useRouter } from "next/navigation";
 import { ClimbForm } from "@/components/climb-form";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import type { Climb } from "@/db/queries";
@@ -13,6 +14,15 @@ type ClimbFormDrawerProps = {
 };
 
 export function ClimbFormDrawer({ areaId, climb, state }: ClimbFormDrawerProps) {
+  const router = useRouter();
+
+  function handleDone(climbId: number) {
+    state.close();
+    // Editing an existing climb just closes the drawer in place; creating a
+    // new one lands the viewer on it, same as the standalone /climbs/new page.
+    if (!climb) router.push(`/climbs/${climbId}`);
+  }
+
   return (
     <Drawer.Root state={state}>
       <Drawer.Backdrop>
@@ -23,7 +33,7 @@ export function ClimbFormDrawer({ areaId, climb, state }: ClimbFormDrawerProps) 
               <Drawer.CloseTrigger />
             </Drawer.Header>
             <Drawer.Body>
-              <ClimbForm areaId={areaId} climb={climb} onDone={state.close} />
+              <ClimbForm areaId={areaId} climb={climb} onDone={handleDone} />
             </Drawer.Body>
           </Drawer.Dialog>
         </Drawer.Content>

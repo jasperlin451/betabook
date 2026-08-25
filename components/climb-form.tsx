@@ -2,14 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { Button, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
+import { AreaPicker, type PickedArea } from "@/components/area-picker";
 import { createClimb, updateClimb } from "@/db/mutations";
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 import type { Climb } from "@/db/queries";
 
 type ClimbFormProps = {
-  areaId: number;
+  /** The climb's area, when already known (editing, or creating from a
+   * specific area's page). `null` renders an area picker instead, for
+   * creating a climb with no area yet in context. */
+  areaId: number | null;
   climb?: Climb;
-  onDone?: () => void;
+  onDone?: (climbId: number) => void;
 };
 
 const CLIMB_TYPE_LABELS: Record<ClimbType, string> = {
@@ -18,18 +22,23 @@ const CLIMB_TYPE_LABELS: Record<ClimbType, string> = {
   trad: "Trad",
 };
 
-export function ClimbForm({ areaId, climb, onDone }: ClimbFormProps) {
+export function ClimbForm({ areaId: fixedAreaId, climb, onDone }: ClimbFormProps) {
   const disciplineLocked = (climb?.sendCount ?? 0) > 0;
 
   const [name, setName] = useState(climb?.name ?? "");
   const [type, setType] = useState<ClimbType>(climb?.type ?? "boulder");
   const [grade, setGrade] = useState(String(climb?.grade ?? 0));
   const [description, setDescription] = useState(climb?.description ?? "");
+  const [pickedArea, setPickedArea] = useState<PickedArea | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  const areaId = fixedAreaId ?? pickedArea?.id ?? null;
   const gradeOptions = nativeGradeArray(type);
   const trimmedName = name.trim();
+  const nameInvalid = submitAttempted && !trimmedName;
+  const areaInvalid = submitAttempted && !climb && areaId == null;
 
   function handleTypeChange(next: ClimbType) {
     setType(next);
@@ -39,6 +48,9 @@ export function ClimbForm({ areaId, climb, onDone }: ClimbFormProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSubmitAttempted(true);
+
+    if (!trimmedName || (!climb && areaId == null)) return;
 
     const formData = new FormData();
     formData.set("name", trimmedName);
@@ -50,10 +62,11 @@ export function ClimbForm({ areaId, climb, onDone }: ClimbFormProps) {
       try {
         if (climb) {
           await updateClimb(climb.id, formData);
+          onDone?.(climb.id);
         } else {
-          await createClimb(areaId, formData);
+          const climbId = await createClimb(areaId as number, formData);
+          onDone?.(climbId);
         }
-        onDone?.();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
       }
@@ -65,14 +78,28 @@ export function ClimbForm({ areaId, climb, onDone }: ClimbFormProps) {
       onSubmit={handleSubmit}
       className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6"
     >
+      {fixedAreaId == null && (
+        <TextField>
+          <Label>Area</Label>
+          <AreaPicker
+            selected={pickedArea}
+            onSelectedChange={setPickedArea}
+            isInvalid={areaInvalid}
+          />
+          {areaInvalid && <p className="text-sm text-danger">Select an area.</p>}
+        </TextField>
+      )}
+
       <TextField>
         <Label>Name</Label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          required
-          className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+          className={`rounded-md border bg-surface px-3 py-2 text-sm ${
+            nameInvalid ? "border-danger" : "border-separator"
+          }`}
         />
+        {nameInvalid && <p className="text-sm text-danger">Name is required.</p>}
       </TextField>
 
       <TextField>
@@ -127,7 +154,7 @@ export function ClimbForm({ areaId, climb, onDone }: ClimbFormProps) {
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
-      <Button type="submit" isDisabled={pending || !trimmedName} fullWidth>
+      <Button type="submit" isDisabled={pending} fullWidth>
         {climb ? "Save Changes" : "Add Climb"}
       </Button>
     </form>

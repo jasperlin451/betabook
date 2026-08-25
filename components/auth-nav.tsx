@@ -19,6 +19,7 @@ export function AuthNav() {
   if (session) {
     return (
       <span className="flex items-center gap-6">
+        <Link href="/climbs/new">New Climb</Link>
         <Link href={`/users/${session.user.id}`}>My sends</Link>
         <Link href="/account">Account</Link>
       </span>

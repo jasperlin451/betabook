@@ -43,9 +43,13 @@ export async function createClimb(areaId: number, formData: FormData) {
   if (!area) throw new Error("Area not found");
 
   const input = validateNewClimbInput(readClimbFormData(formData));
-  await db.insert(climbs).values({ areaId, lft: area.lft, rght: area.rght, ...input });
+  const [{ id }] = await db
+    .insert(climbs)
+    .values({ areaId, lft: area.lft, rght: area.rght, ...input })
+    .returning({ id: climbs.id });
 
   revalidatePath(`/areas/${areaId}`);
   revalidatePath("/");
   refresh();
+  return id;
 }
