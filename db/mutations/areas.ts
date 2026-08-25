@@ -8,6 +8,7 @@ import { areas } from "@/db/schema";
 import { getArea } from "@/db/queries";
 import { validateAreaInput, type RawAreaInput } from "@/lib/areas";
 import { pickFormFields } from "@/lib/validation";
+import { parseId } from "@/lib/parse-id";
 
 const AREA_FORM_FIELDS = ["name", "description"] as const;
 
@@ -19,7 +20,7 @@ export async function updateArea(areaId: number, formData: FormData) {
   await requireSession();
   const db = await getDb();
 
-  const existing = await getArea(db, areaId);
+  const existing = parseId(areaId) === null ? undefined : await getArea(db, areaId);
   if (!existing) throw new Error("Area not found");
 
   const input = validateAreaInput(readAreaFormData(formData));

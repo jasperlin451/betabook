@@ -169,6 +169,13 @@ export async function getSubtreeClimbs(
     area.rght - area.lft >= LARGE_AREA_SUBTREE_SPAN
       ? SUBTREE_CLIMBS_SORT_INDEX[sort]
       : "climbs_lft_rght_idx";
+  // sql.raw inlines this as literal SQL text with no parameter binding, so
+  // it must never carry anything but one of these known index names —
+  // callers are expected to validate `sort` first, but this guard keeps the
+  // function safe even if a future caller doesn't.
+  if (indexName !== "climbs_lft_rght_idx" && !Object.values(SUBTREE_CLIMBS_SORT_INDEX).includes(indexName)) {
+    throw new Error(`Invalid index name: ${indexName}`);
+  }
 
   // Fetch one extra row to detect a next page without a separate COUNT query.
   const rows = await db.all<Climb>(sql`

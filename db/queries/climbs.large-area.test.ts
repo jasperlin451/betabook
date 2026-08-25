@@ -145,6 +145,13 @@ describe("getSubtreeClimbs on a large-area-shaped subtree", () => {
     ]);
   });
 
+  it("rejects a sort value with no matching index instead of inlining it into SQL", async () => {
+    const area = await getArea(db, AREA_ID);
+    await expect(
+      getSubtreeClimbs(db, area!, 1, "not_a_real_sort" as never),
+    ).rejects.toThrow("Invalid index name");
+  });
+
   it("the query plan uses the sort-column index, not a full sort of the subtree", async () => {
     const area = await getArea(db, AREA_ID);
     const plan = await db.all<{ detail: string }>(sql`

@@ -3,6 +3,7 @@ import { getDb } from "@/db/client";
 import { getArea, getAreaBreadcrumbs, getClimbSendStats, getSubtreeClimbs } from "@/db/queries";
 import { parseAreaClimbsFilter, parseAreaClimbsSort, toSubtreeQueryFilter } from "@/lib/area-climbs-filter";
 import { searchParamsToRecord } from "@/lib/search-params";
+import { parseId } from "@/lib/parse-id";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -11,7 +12,7 @@ type RouteParams = { params: Promise<{ id: string }> };
  * the client never has to hold more than what's actually been scrolled to. */
 export async function GET(request: Request, { params }: RouteParams) {
   const { id } = await params;
-  const areaId = Number(id);
+  const areaId = parseId(id);
   const url = new URL(request.url);
   const searchParams = searchParamsToRecord(url.searchParams);
 
@@ -20,7 +21,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
 
   const db = await getDb();
-  const area = await getArea(db, areaId);
+  const area = areaId === null ? undefined : await getArea(db, areaId);
   if (!area) {
     return NextResponse.json(
       { climbs: [], page, pageSize: 0, hasNextPage: false, sendStats: {}, areaBreadcrumbs: {} },

@@ -16,9 +16,10 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const filter = parseUserSendsFilter(searchParams);
   const offset = Number(url.searchParams.get("offset") ?? 0);
+  const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
 
   const db = await getDb();
-  const page = await getSendsForUserPage(db, userId, filter, Number.isFinite(offset) ? offset : 0);
+  const page = await getSendsForUserPage(db, userId, filter, safeOffset);
   const areaBreadcrumbs = await getAreaBreadcrumbs(
     db,
     page.sends.map((send) => send.areaId),

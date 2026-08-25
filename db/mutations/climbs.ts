@@ -12,6 +12,7 @@ import {
   type RawClimbInput,
 } from "@/lib/climbs";
 import { pickFormFields } from "@/lib/validation";
+import { parseId } from "@/lib/parse-id";
 
 const CLIMB_FORM_FIELDS = ["name", "type", "grade", "description"] as const;
 
@@ -23,7 +24,7 @@ export async function updateClimb(climbId: number, formData: FormData) {
   await requireSession();
   const db = await getDb();
 
-  const existing = await getClimb(db, climbId);
+  const existing = parseId(climbId) === null ? undefined : await getClimb(db, climbId);
   if (!existing) throw new Error("Climb not found");
 
   const input = validateClimbInput(existing, readClimbFormData(formData));
@@ -39,7 +40,7 @@ export async function deleteClimb(climbId: number) {
   await requireSession();
   const db = await getDb();
 
-  const existing = await getClimb(db, climbId);
+  const existing = parseId(climbId) === null ? undefined : await getClimb(db, climbId);
   if (!existing) throw new Error("Climb not found");
   if (existing.sendCount > 0) throw new Error("Can't delete a climb with logged sends");
 
@@ -54,7 +55,7 @@ export async function createClimb(areaId: number, formData: FormData) {
   await requireSession();
   const db = await getDb();
 
-  const area = await getArea(db, areaId);
+  const area = parseId(areaId) === null ? undefined : await getArea(db, areaId);
   if (!area) throw new Error("Area not found");
 
   const input = validateNewClimbInput(readClimbFormData(formData));
