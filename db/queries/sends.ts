@@ -206,6 +206,32 @@ export async function getSendsForUserPage(
   return { sends: hasMore ? rows.slice(0, pageSize) : rows, hasMore };
 }
 
+/** Unbounded variant of getSendsForUserPage for a full CSV export — same
+ * row shape/join, but no filter/pagination to satisfy, so it always
+ * returns everything, most recent first. */
+export async function getAllSendsForUser(db: Database, userId: string): Promise<UserSendRow[]> {
+  return db.all<UserSendRow>(sql`
+    SELECT
+      sends.id AS id,
+      sends.climb_id AS climbId,
+      climbs.name AS climbName,
+      climbs.type AS climbType,
+      climbs.grade AS climbGrade,
+      climbs.area_id AS areaId,
+      areas.name AS areaName,
+      sends.ascent_style AS ascentStyle,
+      sends.date_sent AS dateSent,
+      sends.rating AS rating,
+      sends.suggested_grade AS suggestedGrade,
+      sends.comment AS comment
+    FROM sends
+    JOIN climbs ON climbs.id = sends.climb_id
+    JOIN areas ON areas.id = climbs.area_id
+    WHERE sends.user_id = ${userId}
+    ORDER BY sends.date_sent DESC
+  `);
+}
+
 export type UserStatsSummary = {
   sendCount: number;
   areaCount: number;

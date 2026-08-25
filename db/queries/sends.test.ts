@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
 import {
+  getAllSendsForUser,
   getClimbSendStats,
   getSendsForClimb,
   getSendsForUserPage,
@@ -331,6 +332,24 @@ describe("getSendsForUserPage", () => {
         "Test Crimper",
       ]);
     });
+  });
+});
+
+describe("getAllSendsForUser", () => {
+  it("returns every send for the user, newest dateSent first, unpaginated", async () => {
+    const results = await getAllSendsForUser(db, "test-user-1");
+    expect(results.map((s) => s.climbName)).toEqual(["Test Slab", "Test Highball"]);
+  });
+
+  it("doesn't leak another user's sends", async () => {
+    const results = await getAllSendsForUser(db, "test-user-2");
+    expect(results.map((s) => s.climbName)).toEqual(["Test Highball"]);
+  });
+
+  it("returns an empty array for a user with no sends", async () => {
+    await seedFixtureUser(db, { id: "test-user-13", name: "No Sends For Export" });
+    const results = await getAllSendsForUser(db, "test-user-13");
+    expect(results).toEqual([]);
   });
 });
 
