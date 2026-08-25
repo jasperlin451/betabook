@@ -1,12 +1,13 @@
 /**
  * Phase B reindex: computes real Nested Set lft/rght values for every area
- * in the LOCAL D1 database, from the parentId relationships already loaded
- * by climbs_data/build-seed.ts (Phase A), and applies them. Then resyncs
- * every climb's denormalized lft/rght/send_count/rating_sum/rating_count
- * from that fresh areas.lft/rght and from sends — this used to be a one-off
- * migration (0011_backfill_climb_aggregates.sql) but is really a "run again
- * every time areas get reindexed" step, since climbs.lft/rght only make
- * sense relative to their owning area's current lft/rght.
+ * in the target D1 database (local or remote), from the parentId
+ * relationships already loaded by climbs_data/build-seed.ts (Phase A), and
+ * applies them. Then resyncs every climb's denormalized
+ * lft/rght/send_count/rating_sum/rating_count from that fresh
+ * areas.lft/rght and from sends — this used to be a one-off migration
+ * (0011_backfill_climb_aggregates.sql) but is really a "run again every time
+ * areas get reindexed" step, since climbs.lft/rght only make sense relative
+ * to their owning area's current lft/rght.
  *
  * Phase A deliberately writes lft=0, rght=0 placeholders for every area —
  * this script is what replaces those with real values via a DFS over the
@@ -18,7 +19,7 @@
  * app's queries (getAncestors, getSubtreeClimbs) assumes a single global
  * root — each area's own lft/rght range is self-contained.
  *
- * Run with: pnpm exec tsx scripts/reindex-areas.ts
+ * Run with: pnpm run db:reindex:local  (or db:reindex:remote)
  */
 
 import { execSync } from "node:child_process";
@@ -26,6 +27,7 @@ import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+const TARGET = process.argv.includes("--remote") ? "--remote" : "--local";
 const OUT_FILE = join(import.meta.dirname, "reindex-areas.sql");
 const ROWS_PER_STATEMENT = 20;
 
@@ -33,7 +35,7 @@ type AreaNode = { id: number; parentId: number | null; name: string };
 
 function runD1Query<T>(sql: string): T[] {
   const output = execSync(
-    `pnpm wrangler d1 execute DB --local --command=${JSON.stringify(sql)} --json`,
+    `pnpm wrangler d1 execute DB ${TARGET} --command=${JSON.stringify(sql)} --json`,
     { encoding: "utf8", maxBuffer: 1024 * 1024 * 64 },
   );
   const parsed = JSON.parse(output) as { results: T[] }[];
@@ -41,10 +43,10 @@ function runD1Query<T>(sql: string): T[] {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Read the current area tree from local D1
+// 1. Read the current area tree from D1
 // ---------------------------------------------------------------------------
 
-console.log("Reading areas from local D1...");
+console.log(`Reading areas from ${TARGET === "--remote" ? "remote" : "local"} D1...`);
 const rows = runD1Query<{ id: number; parent_id: number | null; name: string }>(
   "SELECT id, parent_id, name FROM areas",
 );
@@ -130,7 +132,7 @@ writeFileSync(OUT_FILE, statements.join("\n\n") + "\n");
 console.log(`Wrote ${statements.length} UPDATE statement(s) to ${OUT_FILE}`);
 
 // ---------------------------------------------------------------------------
-// 5. Apply to local D1
+// 5. Apply to D1
 // ---------------------------------------------------------------------------
 //
 // `wrangler d1 execute --file` fails with SQLITE_TOOBIG somewhere between
@@ -142,14 +144,14 @@ console.log(`Wrote ${statements.length} UPDATE statement(s) to ${OUT_FILE}`);
 const STATEMENTS_PER_APPLY = 80;
 const applyBatches = chunk(statements, STATEMENTS_PER_APPLY);
 console.log(
-  `Applying to local D1 in ${applyBatches.length} batch(es) of up to ${STATEMENTS_PER_APPLY} statements...`,
+  `Applying to ${TARGET === "--remote" ? "remote" : "local"} D1 in ${applyBatches.length} batch(es) of up to ${STATEMENTS_PER_APPLY} statements...`,
 );
 const tmpDir = mkdtempSync(join(tmpdir(), "reindex-areas-"));
 try {
   applyBatches.forEach((batch, i) => {
     const batchFile = join(tmpDir, `part${i}.sql`);
     writeFileSync(batchFile, batch.join("\n\n") + "\n");
-    execSync(`pnpm wrangler d1 execute DB --local --file=${batchFile}`, { stdio: "inherit" });
+    execSync(`pnpm wrangler d1 execute DB ${TARGET} --file=${batchFile}`, { stdio: "inherit" });
     console.log(`  applied batch ${i + 1}/${applyBatches.length}`);
   });
 } finally {
@@ -180,7 +182,7 @@ try {
   rating_count = (SELECT COUNT(*) FROM sends WHERE sends.climb_id = climbs.id AND rating IS NOT NULL);`,
     ].join("\n\n") + "\n",
   );
-  execSync(`pnpm wrangler d1 execute DB --local --file=${resyncFile}`, { stdio: "inherit" });
+  execSync(`pnpm wrangler d1 execute DB ${TARGET} --file=${resyncFile}`, { stdio: "inherit" });
 } finally {
   rmSync(resyncTmpDir, { recursive: true, force: true });
 }

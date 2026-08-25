@@ -6,16 +6,39 @@
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": ".open-next/assets",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+  },
+  "routes": [
+    {
+      "pattern": "senderoni.cowsgomwoo.com",
+      "custom_domain": true,
+    },
+  ],
+  "vars": {
+    "BETTER_AUTH_URL": "https://senderoni.cowsgomwoo.com",
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "senderoni-db",
-      // TODO: placeholder — run `pnpm wrangler d1 create senderoni-db` (requires Cloudflare auth)
-      // and replace with the real database_id before deploying or running --remote commands.
-      "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "drizzle/migrations"
-    }
-  ]
+      "database_id": "6fa2c847-efb1-4e96-bfd7-968dc82a80fd",
+      "migrations_dir": "drizzle/migrations",
+    },
+  ],
+  "observability": {
+    "enabled": false,
+    "head_sampling_rate": 1,
+    "redact_query_string": false,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true,
+    },
+    "traces": {
+      "enabled": true,
+      "persist": true,
+      "head_sampling_rate": 1,
+    },
+  },
 }
