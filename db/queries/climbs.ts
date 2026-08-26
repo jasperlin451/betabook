@@ -141,7 +141,7 @@ export async function getSubtreeClimbs(
   page = 1,
   sort: SubtreeClimbsSort = "ascents_desc",
   filter?: DisciplineGradeFilter & { name?: string } & ClimbStatsFilter,
-): Promise<{ climbs: Climb[]; page: number; pageSize: number; hasNextPage: boolean }> {
+): Promise<{ climbs: ClimbWithAreaName[]; page: number; pageSize: number; hasNextPage: boolean }> {
   // Both bounds on lft (not just the lower one) so the forced range index
   // can seek a bounded scan instead of an open-ended one — redundant given
   // rght <= area.rght already implies it for a valid nested-set descendant,
@@ -178,10 +178,11 @@ export async function getSubtreeClimbs(
   }
 
   // Fetch one extra row to detect a next page without a separate COUNT query.
-  const rows = await db.all<Climb>(sql`
+  const rows = await db.all<ClimbWithAreaName>(sql`
     SELECT climbs.id AS id, climbs.area_id AS areaId, climbs.name AS name,
-           climbs.type AS type, climbs.grade AS grade
+           climbs.type AS type, climbs.grade AS grade, areas.name AS areaName
     FROM climbs INDEXED BY ${sql.raw(indexName)}
+    JOIN areas ON areas.id = climbs.area_id
     WHERE ${sql.join(conditions, sql` AND `)}
     ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[sort]}, climbs.id
     LIMIT ${PAGE_SIZE + 1}

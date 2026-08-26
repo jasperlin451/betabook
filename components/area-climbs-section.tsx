@@ -15,7 +15,7 @@ import {
   type AreaClimbsFilter,
 } from "@/lib/area-climbs-filter";
 import { DEFAULT_MIN_ASCENTS, DEFAULT_RATING_RANGE } from "@/lib/climb-stats-filter";
-import type { AreaBreadcrumbs, Climb, ClimbSendStats, SubtreeClimbsSort } from "@/db/queries";
+import type { AreaBreadcrumbs, ClimbSendStats, ClimbWithAreaName, SubtreeClimbsSort } from "@/db/queries";
 
 /** Shared by the sort control, the filter panel, and "load more" — each
  * needs the other's current state to build a URL/request that doesn't
@@ -28,7 +28,7 @@ type AreaClimbsSectionProps = {
   areaId: number;
   sort: SubtreeClimbsSort;
   filter: AreaClimbsFilter;
-  initialClimbs: Climb[];
+  initialClimbs: ClimbWithAreaName[];
   initialHasNextPage: boolean;
   initialSendStats: Record<number, ClimbSendStats>;
   initialAreaBreadcrumbs: AreaBreadcrumbs;
@@ -76,7 +76,7 @@ export function AreaClimbsSection({
       params.set("page", String(loadedPages + 1));
       const res = await fetch(`/api/areas/${areaId}/climbs?${params.toString()}`);
       const data: {
-        climbs: Climb[];
+        climbs: ClimbWithAreaName[];
         hasNextPage: boolean;
         sendStats: Record<number, ClimbSendStats>;
         areaBreadcrumbs: AreaBreadcrumbs;

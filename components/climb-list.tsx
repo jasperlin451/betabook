@@ -3,7 +3,7 @@
 import { Chip, Link } from "@heroui/react";
 import { describeGradeTrend } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
-import type { Climb } from "@/db/queries";
+import type { ClimbWithAreaName } from "@/db/queries";
 import { ListRow } from "@/components/ui/list-row";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
@@ -21,7 +21,7 @@ const STYLE_CHIP_CLASSNAME: Record<ClimbType, string> = {
 };
 
 type ClimbListProps = {
-  climbs: (Climb & { areaName?: string })[];
+  climbs: ClimbWithAreaName[];
   emptyMessage?: string;
   /** A "load more" button shown at the bottom of the list, in place of
    * numbered pagination — same pattern as the user send list. */
@@ -75,7 +75,7 @@ export function ClimbList({
             subtitle={
               <AreaBreadcrumb
                 areaId={climb.areaId}
-                areaName={climb.areaName ?? ""}
+                areaName={climb.areaName}
                 ancestors={areaBreadcrumbs?.[climb.areaId] ?? []}
               />
             }
