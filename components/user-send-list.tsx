@@ -243,7 +243,11 @@ export function UserSendList({
         loadingMore={loadingMore}
         renderRow={(send) => (
           <ListRow
-            title={<Link href={`/climbs/${send.climbId}`}>{send.climbName}</Link>}
+            title={
+              <Link href={`/climbs/${send.climbId}`} className="block w-full truncate">
+                {send.climbName}
+              </Link>
+            }
             subtitle={
               <AreaBreadcrumb
                 areaId={send.areaId}

@@ -39,9 +39,9 @@ export function ListRow({
       {leading}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div>
-          <div className="flex flex-wrap items-baseline gap-2">
-            <span className="font-medium text-foreground">{title}</span>
-            {meta && <span className="text-muted text-sm">{meta}</span>}
+          <div className="flex items-baseline gap-2">
+            <span className="min-w-0 flex-1 truncate font-medium text-foreground">{title}</span>
+            {meta && <span className="shrink-0 text-muted text-sm">{meta}</span>}
           </div>
           {subtitle && <div className="text-muted text-sm">{subtitle}</div>}
           {tags && <div className="mt-1 flex flex-wrap gap-2">{tags}</div>}
