@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Checkbox, Link, ListBox, Select } from "@heroui/react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { Checkbox, Link } from "@heroui/react";
 import { formatGrade } from "@/lib/grades";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
@@ -15,9 +14,9 @@ import { ListRow } from "@/components/ui/list-row";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
 import { LabeledIndexSelect } from "@/components/ui/index-select";
 import { SendActionsMenu } from "@/components/send-actions-menu";
-import { LoadMoreButton } from "@/components/ui/load-more-button";
-import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
-import { useSortToggle } from "@/hooks/use-sort-toggle";
+import { SendListShell } from "@/components/send-list-shell";
+import { SortSelect } from "@/components/ui/sort-select";
+import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 
 const MIN_RATING_OPTIONS = ["Any", "1", "2", "3", "4", "5"];
 
@@ -79,7 +78,11 @@ type UserSendListProps = {
 
 type SortField = "date" | "grade" | "rating";
 
-const SORT_FIELDS: SortField[] = ["date", "grade", "rating"];
+const SORT_FIELDS: { id: SortField; label: string }[] = [
+  { id: "date", label: "Date" },
+  { id: "grade", label: "Grade" },
+  { id: "rating", label: "Rating" },
+];
 
 // Latest/hardest/highest-rated first by default when a field is picked
 // fresh — direction only flips via the separate arrow button once a field
@@ -108,31 +111,35 @@ export function UserSendsFilterPanel({
   userId: string;
   filter: UserSendsFilter;
 }) {
-  const [name, setName] = useState(filter.name ?? "");
-  const [areaName, setAreaName] = useState(filter.areaName ?? "");
-  const [disciplineFilter, setDisciplineFilter] = useState<UserSendsFilter>({
-    disciplines: filter.disciplines,
-    boulderRange: filter.boulderRange,
-    sportRange: filter.sportRange,
-    tradRange: filter.tradRange,
-    ascentStyles: filter.ascentStyles,
-    minRating: filter.minRating,
+  const {
+    name,
+    setName,
+    areaName,
+    setAreaName,
+    filter: disciplineFilter,
+    setFilter: setDisciplineFilter,
+    reset,
+  } = useFilterFormNavigation({
+    initialFilter: {
+      disciplines: filter.disciplines,
+      boulderRange: filter.boulderRange,
+      sportRange: filter.sportRange,
+      tradRange: filter.tradRange,
+      ascentStyles: filter.ascentStyles,
+      minRating: filter.minRating,
+    },
+    initialName: filter.name ?? "",
+    initialAreaName: filter.areaName ?? "",
+    defaultFilter: DEFAULT_USER_SENDS_FILTER,
+    buildHref: (disciplineFilter, name, areaName) =>
+      `/users/${userId}?${userSendsFilterToSearchParams({ ...disciplineFilter, name, areaName }).toString()}`,
   });
-
-  const params = userSendsFilterToSearchParams({ ...disciplineFilter, name, areaName });
-  useDebouncedReplace(`/users/${userId}?${params.toString()}`);
-
-  function handleReset() {
-    setName("");
-    setAreaName("");
-    setDisciplineFilter(DEFAULT_USER_SENDS_FILTER);
-  }
 
   return (
     <DisciplineFilterForm
       value={disciplineFilter}
       onChange={setDisciplineFilter}
-      onReset={handleReset}
+      onReset={reset}
       name={name}
       onNameChange={setName}
       areaName={areaName}
@@ -195,22 +202,19 @@ export function UserSendList({
 
   const currentSort = filter.sort ?? "date_desc";
 
-  const { field, direction, handleFieldChange, toggleDirection } = useSortToggle({
-    sort: currentSort,
-    fields: SORT_FIELDS,
-    defaultField: "date",
-    defaultDirection: DEFAULT_DIRECTION,
-    navigate: (nextSort) => {
-      const params = userSendsFilterToSearchParams({ ...filter, sort: nextSort });
-      router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
-    },
-  });
-
   if (!hasAnySends) {
     return (
       <div className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold">Sends</h2>
-        <p className="text-muted text-sm">No sends yet.</p>
+        <p className="text-muted text-sm">
+          {currentUserId === userId ? (
+            <>
+              No sends yet. <Link href="/account/import">Import your sends</Link> to add them here.
+            </>
+          ) : (
+            "No sends yet."
+          )}
+        </p>
       </div>
     );
   }
@@ -219,96 +223,71 @@ export function UserSendList({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Sends</h2>
-        <div className="flex items-center gap-2">
-          <Select
-            aria-label="Sort by"
-            selectedKey={field}
-            onSelectionChange={(key) => handleFieldChange(key as SortField)}
-          >
-            <Select.Trigger className="w-32">
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
-                <ListBox.Item id="date">Date</ListBox.Item>
-                <ListBox.Item id="grade">Grade</ListBox.Item>
-                <ListBox.Item id="rating">Rating</ListBox.Item>
-              </ListBox>
-            </Select.Popover>
-          </Select>
-          <Button
-            isIconOnly
-            variant="ghost"
-            size="sm"
-            aria-label={direction === "asc" ? "Sort ascending" : "Sort descending"}
-            onPress={toggleDirection}
-          >
-            {direction === "asc" ? (
-              <ArrowUp className="size-4" />
-            ) : (
-              <ArrowDown className="size-4" />
-            )}
-          </Button>
-        </div>
+        <SortSelect
+          sort={currentSort}
+          fields={SORT_FIELDS}
+          defaultField="date"
+          defaultDirection={DEFAULT_DIRECTION}
+          onNavigate={(nextSort) => {
+            const params = userSendsFilterToSearchParams({ ...filter, sort: nextSort });
+            router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
+          }}
+        />
       </div>
-      {sends.length === 0 ? (
-        <p className="text-muted text-sm">No sends match these filters.</p>
-      ) : (
-        <>
-          <div className="flex flex-col divide-y divide-separator">
-            {sends.map((send) => (
-              <ListRow
-                key={send.id}
-                title={<Link href={`/climbs/${send.climbId}`}>{send.climbName}</Link>}
-                subtitle={
-                  <AreaBreadcrumb
-                    areaId={send.areaId}
-                    areaName={send.areaName}
-                    ancestors={areaBreadcrumbs[send.areaId] ?? []}
-                  />
-                }
-                trailing={
-                  <div className="flex flex-col items-end gap-1 text-sm">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-medium text-foreground">
-                        {formatGrade(send.climbType, send.climbGrade)}
-                        {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
-                          <span className="font-normal text-muted">
-                            {" "}
-                            ({formatGrade(send.climbType, send.suggestedGrade)})
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-muted" aria-hidden>
-                        •
-                      </span>
-                      <RatingStars rating={send.rating} />
-                    </div>
-                    <AscentStyle type={send.ascentStyle} />
-                    <div className="text-xs text-muted/70">{send.dateSent ?? "Date unknown"}</div>
-                  </div>
-                }
-                actions={
-                  currentUserId === userId && (
-                    <SendActionsMenu
-                      climb={{
-                        id: send.climbId,
-                        areaId: send.areaId,
-                        type: send.climbType,
-                        grade: send.climbGrade,
-                      }}
-                      send={send}
-                    />
-                  )
-                }
-                comment={send.comment}
+      <SendListShell
+        sends={sends}
+        emptyState={<p className="text-muted text-sm">No sends match these filters.</p>}
+        hasMore={hasMore}
+        onLoadMore={handleLoadMore}
+        loadingMore={loadingMore}
+        renderRow={(send) => (
+          <ListRow
+            title={<Link href={`/climbs/${send.climbId}`}>{send.climbName}</Link>}
+            subtitle={
+              <AreaBreadcrumb
+                areaId={send.areaId}
+                areaName={send.areaName}
+                ancestors={areaBreadcrumbs[send.areaId] ?? []}
               />
-            ))}
-          </div>
-          {hasMore && <LoadMoreButton onPress={handleLoadMore} loading={loadingMore} />}
-        </>
-      )}
+            }
+            trailing={
+              <div className="flex flex-col items-end gap-1 text-sm">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-foreground">
+                    {formatGrade(send.climbType, send.climbGrade)}
+                    {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
+                      <span className="font-normal text-muted">
+                        {" "}
+                        ({formatGrade(send.climbType, send.suggestedGrade)})
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-muted" aria-hidden>
+                    •
+                  </span>
+                  <RatingStars rating={send.rating} />
+                </div>
+                <AscentStyle type={send.ascentStyle} />
+                <div className="text-xs text-muted/70">{send.dateSent ?? "Date unknown"}</div>
+              </div>
+            }
+            actions={
+              currentUserId === userId && (
+                <SendActionsMenu
+                  climb={{
+                    id: send.climbId,
+                    areaId: send.areaId,
+                    type: send.climbType,
+                    grade: send.climbGrade,
+                  }}
+                  send={send}
+                />
+              )
+            }
+            comment={send.comment}
+          />
+        )}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
 import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
+import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import {
   climbSearchFilterToSearchParams,
   DEFAULT_CLIMB_SEARCH_FILTER,
@@ -44,28 +45,24 @@ export function ClimbSearchForm({
   defaultFilter = DEFAULT_CLIMB_SEARCH_FILTER,
   sort = DEFAULT_CLIMB_SEARCH_SORT,
 }: ClimbSearchFormProps) {
-  const [name, setName] = useState(defaultFilter.name ?? "");
-  const [areaName, setAreaName] = useState(defaultFilter.areaName ?? "");
-  const [filter, setFilter] = useState<ClimbSearchFilter>(defaultFilter);
-
   // Auto-search: debounce every field change (including the initial render)
   // into a single navigation instead of requiring an explicit submit. Sort
   // is preserved as-is — it's owned by ClimbSearchSortControl, not this form.
-  useDebouncedReplace(
-    `/?${climbSearchFilterToSearchParams(sort, { ...filter, name, areaName }).toString()}`,
-  );
-
-  function clearFilters() {
-    setName("");
-    setAreaName("");
-    setFilter(DEFAULT_CLIMB_SEARCH_FILTER);
-  }
+  const { name, setName, areaName, setAreaName, filter, setFilter, reset } =
+    useFilterFormNavigation({
+      initialFilter: defaultFilter,
+      initialName: defaultFilter.name ?? "",
+      initialAreaName: defaultFilter.areaName ?? "",
+      defaultFilter: DEFAULT_CLIMB_SEARCH_FILTER,
+      buildHref: (filter, name, areaName) =>
+        `/?${climbSearchFilterToSearchParams(sort, { ...filter, name, areaName }).toString()}`,
+    });
 
   return (
     <DisciplineFilterForm
       value={filter}
       onChange={setFilter}
-      onReset={clearFilters}
+      onReset={reset}
       name={name}
       onNameChange={setName}
       areaName={areaName}

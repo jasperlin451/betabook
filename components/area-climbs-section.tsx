@@ -6,7 +6,7 @@ import { ClimbList } from "@/components/climb-list";
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
-import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
+import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import {
   areaClimbsFilterToSearchParams,
   DEFAULT_BOULDER_RANGE,
@@ -134,35 +134,33 @@ export function AreaClimbsFilterPanel({
   sort: SubtreeClimbsSort;
   filter: AreaClimbsFilter;
 }) {
-  const [name, setName] = useState(filter.name ?? "");
-  const [disciplineFilter, setDisciplineFilter] = useState<AreaClimbsFilter>({
-    disciplines: filter.disciplines,
-    boulderRange: filter.boulderRange,
-    sportRange: filter.sportRange,
-    tradRange: filter.tradRange,
-    ratingRange: filter.ratingRange,
-    minAscents: filter.minAscents,
-  });
-
-  useDebouncedReplace(buildClimbsHref(areaId, sort, { ...disciplineFilter, name }));
-
-  function handleReset() {
-    setName("");
-    setDisciplineFilter({
-      disciplines: [],
-      boulderRange: DEFAULT_BOULDER_RANGE,
-      sportRange: DEFAULT_SPORT_RANGE,
-      tradRange: DEFAULT_TRAD_RANGE,
-      ratingRange: DEFAULT_RATING_RANGE,
-      minAscents: DEFAULT_MIN_ASCENTS,
+  const { name, setName, filter: disciplineFilter, setFilter: setDisciplineFilter, reset } =
+    useFilterFormNavigation({
+      initialFilter: {
+        disciplines: filter.disciplines,
+        boulderRange: filter.boulderRange,
+        sportRange: filter.sportRange,
+        tradRange: filter.tradRange,
+        ratingRange: filter.ratingRange,
+        minAscents: filter.minAscents,
+      },
+      initialName: filter.name ?? "",
+      defaultFilter: {
+        disciplines: [],
+        boulderRange: DEFAULT_BOULDER_RANGE,
+        sportRange: DEFAULT_SPORT_RANGE,
+        tradRange: DEFAULT_TRAD_RANGE,
+        ratingRange: DEFAULT_RATING_RANGE,
+        minAscents: DEFAULT_MIN_ASCENTS,
+      },
+      buildHref: (disciplineFilter, name) => buildClimbsHref(areaId, sort, { ...disciplineFilter, name }),
     });
-  }
 
   return (
     <DisciplineFilterForm
       value={disciplineFilter}
       onChange={setDisciplineFilter}
-      onReset={handleReset}
+      onReset={reset}
       showNameSearch
       name={name}
       onNameChange={setName}

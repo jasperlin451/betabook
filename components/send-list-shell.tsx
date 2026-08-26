@@ -8,22 +8,34 @@ const PAGE_SIZE = 10;
 type SendListShellProps<T extends { id: number }> = {
   sends: T[];
   renderRow: (send: T) => ReactNode;
+  emptyState?: ReactNode;
+  /** Server-driven pagination: when `onLoadMore` is provided, `sends` is
+   * treated as already the current page and `hasMore`/`loadingMore` drive
+   * the button directly, instead of slicing `sends` by `visibleCount`. */
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  loadingMore?: boolean;
 };
 
 /** Shared empty-state + pagination + row-list structure for a list of
- * sends. Used by ClimbSendList. */
+ * sends. Used by ClimbSendList (client-side slice of a fully loaded array)
+ * and UserSendList (server-driven paging via `onLoadMore`). */
 export function SendListShell<T extends { id: number }>({
   sends,
   renderRow,
+  emptyState = <p className="text-muted text-sm">No sends yet.</p>,
+  hasMore,
+  onLoadMore,
+  loadingMore = false,
 }: SendListShellProps<T>) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   if (sends.length === 0) {
-    return <p className="text-muted text-sm">No sends yet.</p>;
+    return emptyState;
   }
 
-  const shown = sends.slice(0, visibleCount);
-  const hasMore = shown.length < sends.length;
+  const shown = onLoadMore ? sends : sends.slice(0, visibleCount);
+  const showMore = onLoadMore ? (hasMore ?? false) : shown.length < sends.length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -32,8 +44,11 @@ export function SendListShell<T extends { id: number }>({
           <div key={send.id}>{renderRow(send)}</div>
         ))}
       </div>
-      {hasMore && (
-        <LoadMoreButton onPress={() => setVisibleCount((count) => count + PAGE_SIZE)} loading={false} />
+      {showMore && (
+        <LoadMoreButton
+          onPress={onLoadMore ?? (() => setVisibleCount((count) => count + PAGE_SIZE))}
+          loading={loadingMore}
+        />
       )}
     </div>
   );
