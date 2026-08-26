@@ -9,7 +9,14 @@ import { getClimb, getUserSendForClimb } from "@/db/queries";
 import { validateSendInput, type RawSendInput } from "@/lib/sends";
 import { pickFormFields } from "@/lib/validation";
 
-const SEND_FORM_FIELDS = ["ascentStyle", "dateSent", "comment", "rating", "suggestedGrade"] as const;
+const SEND_FORM_FIELDS = [
+  "ascentStyle",
+  "dateSent",
+  "comment",
+  "rating",
+  "suggestedGrade",
+  "gradeFeel",
+] as const;
 
 function readSendFormData(formData: FormData): RawSendInput {
   return pickFormFields(formData, SEND_FORM_FIELDS);

@@ -10,6 +10,7 @@ function raw(overrides: Partial<RawSendInput> = {}): RawSendInput {
     comment: null,
     rating: null,
     suggestedGrade: "5",
+    gradeFeel: "solid",
     ...overrides,
   };
 }
@@ -23,6 +24,7 @@ describe("validateSendInput", () => {
       comment: null,
       rating: null,
       suggestedGrade: 5,
+      gradeFeel: "solid",
     });
   });
 
@@ -138,5 +140,21 @@ describe("validateSendInput", () => {
     expect(() =>
       validateSendInput("boulder", raw({ suggestedGrade: "2.5" }), TODAY),
     ).toThrow("Invalid suggested grade");
+  });
+
+  it("accepts each grade feel value", () => {
+    for (const gradeFeel of ["low", "solid", "high"]) {
+      expect(validateSendInput("boulder", raw({ gradeFeel }), TODAY).gradeFeel).toBe(gradeFeel);
+    }
+  });
+
+  it("defaults grade feel to solid when missing", () => {
+    expect(validateSendInput("boulder", raw({ gradeFeel: null }), TODAY).gradeFeel).toBe("solid");
+  });
+
+  it("defaults grade feel to solid for an unrecognized value, without throwing", () => {
+    expect(validateSendInput("boulder", raw({ gradeFeel: "medium" }), TODAY).gradeFeel).toBe(
+      "solid",
+    );
   });
 });

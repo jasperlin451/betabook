@@ -5,12 +5,26 @@ export const ASCENT_STYLES = ["redpoint", "flash", "onsight"] as const;
 export type AscentStyle = (typeof ASCENT_STYLES)[number];
 export const MAX_COMMENT_LENGTH = 280;
 
+export const GRADE_FEEL_VALUES = ["low", "solid", "high"] as const;
+export type GradeFeel = (typeof GRADE_FEEL_VALUES)[number];
+
+// Consensus math: a "low" send nudges the community average a third of a
+// grade-step easier, "high" a third harder, so the aggregate can land
+// between whole grades (1, 2, 3 -> .7, 1, 1.3, 1.7, 2, 2.3...) instead of
+// only ever landing on one.
+export const GRADE_FEEL_OFFSET: Record<GradeFeel, number> = {
+  low: -0.3,
+  solid: 0,
+  high: 0.3,
+};
+
 export type SendInput = {
   ascentStyle: AscentStyle;
   dateSent: string | null;
   comment: string | null;
   rating: number | null;
   suggestedGrade: number;
+  gradeFeel: GradeFeel;
 };
 
 export type RawSendInput = {
@@ -19,6 +33,7 @@ export type RawSendInput = {
   comment: FormDataEntryValue | null;
   rating: FormDataEntryValue | null;
   suggestedGrade: FormDataEntryValue | null;
+  gradeFeel: FormDataEntryValue | null;
 };
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -67,11 +82,18 @@ export function validateSendInput(
     "Suggested grade",
   );
 
+  const gradeFeel: GradeFeel =
+    typeof raw.gradeFeel === "string" &&
+    (GRADE_FEEL_VALUES as readonly string[]).includes(raw.gradeFeel)
+      ? (raw.gradeFeel as GradeFeel)
+      : "solid";
+
   return {
     ascentStyle: raw.ascentStyle,
     dateSent: dateSent || null,
     comment,
     rating,
     suggestedGrade,
+    gradeFeel,
   };
 }

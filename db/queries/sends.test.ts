@@ -457,6 +457,45 @@ describe("getClimbSendStats", () => {
     const stats = await getClimbSendStats(db, [2]);
     expect(stats[2]).toEqual({ avgRating: 4, sendCount: 3, avgSuggestedGrade: null });
   });
+
+  it("weighs a high gradeFeel by +0.3 when averaging suggested grades", async () => {
+    await seedFixtureUser(db, { id: "test-user-14", name: "High End" });
+    // Test Crack (climb 4) already has one send with no suggested grade
+    // from the "sort" describe block above, which doesn't count toward this
+    // average either way. A plain (unweighted) average of the one
+    // suggested grade added here would be exactly 4; a "high" gradeFeel
+    // should instead land on 4.3, proving the offset is actually applied
+    // rather than the CASE expression silently being a no-op.
+    await seedFixtureSend(db, {
+      userId: "test-user-14",
+      climbId: 4,
+      dateSent: "2026-08-01",
+      suggestedGrade: 4,
+      gradeFeel: "high",
+    });
+
+    const stats = await getClimbSendStats(db, [4]);
+    expect(stats[4].sendCount).toBe(2);
+    expect(stats[4].avgSuggestedGrade).toBeCloseTo(4.3, 5);
+  });
+
+  it("weighs a low gradeFeel by -0.3 when averaging suggested grades", async () => {
+    await seedFixtureUser(db, { id: "test-user-15", name: "Low End" });
+    // Continues from the previous test: climb 4 now has the no-suggestion
+    // send plus the "high" 4.3 one; this adds a "low" 4 -> 3.7, so the
+    // average of the two suggested grades becomes (4.3 + 3.7) / 2 = 4.
+    await seedFixtureSend(db, {
+      userId: "test-user-15",
+      climbId: 4,
+      dateSent: "2026-08-02",
+      suggestedGrade: 4,
+      gradeFeel: "low",
+    });
+
+    const stats = await getClimbSendStats(db, [4]);
+    expect(stats[4].sendCount).toBe(3);
+    expect(stats[4].avgSuggestedGrade).toBeCloseTo(4, 5);
+  });
 });
 
 // Placed last in the file, as its own top-level describe rather than nested

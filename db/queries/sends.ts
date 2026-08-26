@@ -2,7 +2,7 @@ import { and, desc, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { sends, user } from "@/db/schema";
 import { formatGrade, type ClimbType } from "@/lib/grades";
-import type { AscentStyle } from "@/lib/sends";
+import { GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
 import { areaNameCondition } from "./areas";
 import { toFtsPrefixQuery } from "./shared";
 import type { Climb } from "./climbs";
@@ -17,7 +17,7 @@ export type SendWithUserName = Send & { userName: string };
  * for editing). */
 export type EditableSend = Pick<
   Send,
-  "id" | "ascentStyle" | "dateSent" | "comment" | "rating" | "suggestedGrade"
+  "id" | "ascentStyle" | "dateSent" | "comment" | "rating" | "suggestedGrade" | "gradeFeel"
 >;
 
 /** The subset of a Climb the create/edit-send chain (SendActionsMenu ->
@@ -76,6 +76,7 @@ export type UserSendRow = {
   dateSent: string | null;
   rating: number | null;
   suggestedGrade: number | null;
+  gradeFeel: GradeFeel;
   comment: string | null;
 };
 
@@ -192,6 +193,7 @@ export async function getSendsForUserPage(
       sends.date_sent AS dateSent,
       sends.rating AS rating,
       sends.suggested_grade AS suggestedGrade,
+      sends.grade_feel AS gradeFeel,
       sends.comment AS comment
     FROM sends
     JOIN climbs ON climbs.id = sends.climb_id
@@ -223,6 +225,7 @@ export async function getAllSendsForUser(db: Database, userId: string): Promise<
       sends.date_sent AS dateSent,
       sends.rating AS rating,
       sends.suggested_grade AS suggestedGrade,
+      sends.grade_feel AS gradeFeel,
       sends.comment AS comment
     FROM sends
     JOIN climbs ON climbs.id = sends.climb_id
@@ -306,7 +309,10 @@ export async function getClimbSendStats(
     avgSuggestedGrade: number | null;
   }>(sql`
     SELECT climb_id AS climbId, AVG(rating) AS avgRating, COUNT(*) AS sendCount,
-           AVG(suggested_grade) AS avgSuggestedGrade
+           AVG(suggested_grade + CASE grade_feel
+                 WHEN 'low' THEN ${GRADE_FEEL_OFFSET.low}
+                 WHEN 'high' THEN ${GRADE_FEEL_OFFSET.high}
+                 ELSE 0 END) AS avgSuggestedGrade
     FROM sends
     WHERE climb_id IN (${sql.join(climbIds.map((id) => sql`${id}`), sql`, `)})
     GROUP BY climb_id

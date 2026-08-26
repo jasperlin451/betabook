@@ -110,7 +110,7 @@ export function ClimbList({
   );
 }
 
-function GradeWithTrend({
+export function GradeWithTrend({
   type,
   grade,
   avgSuggestedGrade,

@@ -1,9 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Button, Label, TextArea, TextField } from "@heroui/react";
+import { Button, ButtonGroup, Label, TextArea, TextField } from "@heroui/react";
 import { createSend, updateSend } from "@/db/mutations";
-import { ASCENT_STYLES, MAX_COMMENT_LENGTH, type AscentStyle } from "@/lib/sends";
+import {
+  ASCENT_STYLES,
+  GRADE_FEEL_VALUES,
+  MAX_COMMENT_LENGTH,
+  type AscentStyle,
+  type GradeFeel,
+} from "@/lib/sends";
 import { nativeGradeArray } from "@/lib/grades";
 import type { EditableSend, SendableClimb } from "@/db/queries";
 
@@ -17,6 +23,12 @@ const ASCENT_STYLE_LABELS: Record<AscentStyle, string> = {
   redpoint: "Redpoint",
   flash: "Flash",
   onsight: "Onsight",
+};
+
+const GRADE_FEEL_LABELS: Record<GradeFeel, string> = {
+  low: "Low end",
+  solid: "Solid",
+  high: "High end",
 };
 
 export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
@@ -34,6 +46,9 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   const [suggestedGrade, setSuggestedGrade] = useState(
     String(existingSend?.suggestedGrade ?? climb.grade ?? 0),
   );
+  const [gradeFeel, setGradeFeel] = useState<GradeFeel>(
+    existingSend?.gradeFeel ?? "solid",
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -47,6 +62,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
     formData.set("comment", comment);
     formData.set("rating", rating === "abstain" ? "" : rating);
     formData.set("suggestedGrade", suggestedGrade);
+    formData.set("gradeFeel", gradeFeel);
 
     startTransition(async () => {
       try {
@@ -122,6 +138,23 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
             </option>
           ))}
         </select>
+      </TextField>
+
+      <TextField>
+        <Label>Grade Feel</Label>
+        <ButtonGroup className="w-full lg:w-auto lg:self-start">
+          {GRADE_FEEL_VALUES.map((value) => (
+            <Button
+              key={value}
+              type="button"
+              variant={gradeFeel === value ? undefined : "outline"}
+              onPress={() => setGradeFeel(value)}
+              className="flex-1 lg:flex-none"
+            >
+              {GRADE_FEEL_LABELS[value]}
+            </Button>
+          ))}
+        </ButtonGroup>
       </TextField>
 
       <TextField value={comment} onChange={setComment}>

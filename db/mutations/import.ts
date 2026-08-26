@@ -22,10 +22,10 @@ export type ImportResult = {
   }>;
 };
 
-// D1 caps queries at 100 bound parameters. Each sends row binds 7 values
+// D1 caps queries at 100 bound parameters. Each sends row binds 8 values
 // (userId, climbId, ascentStyle, dateSent, comment, rating,
-// suggestedGrade — id is auto-increment, createdAt/updatedAt use SQL
-// defaults, so those aren't bound). 10 rows × 7 = 70, safely under 100.
+// suggestedGrade, gradeFeel — id is auto-increment, createdAt/updatedAt use
+// SQL defaults, so those aren't bound). 10 rows × 8 = 80, safely under 100.
 const INSERT_CHUNK_SIZE = 10;
 
 export async function importSends(
@@ -78,6 +78,7 @@ export async function importSends(
       suggestedGrade: row.gradeText
         ? parseGrade(resolved.type, row.gradeText, gradeScalePreference)
         : resolved.grade,
+      gradeFeel: row.gradeFeel,
     });
   }
 

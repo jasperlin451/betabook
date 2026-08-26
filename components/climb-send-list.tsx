@@ -1,6 +1,7 @@
 "use client";
 
 import { Link } from "@heroui/react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import type { Climb, SendWithUserName } from "@/db/queries";
 import { AscentStyle } from "@/components/ascent-style";
@@ -29,8 +30,14 @@ export function ClimbSendList({ sends, climb, currentUserId }: ClimbSendListProp
           trailing={
             <div className="flex flex-col items-end gap-1 text-sm">
               <div className="flex items-center gap-1.5">
-                <span className="font-medium text-foreground">
+                <span className="inline-flex items-center gap-0.5 font-medium text-foreground">
                   {formatGrade(climb.type, send.suggestedGrade)}
+                  {send.gradeFeel === "high" && (
+                    <ArrowUp className="size-3.5 text-muted" aria-label="High end of the grade" />
+                  )}
+                  {send.gradeFeel === "low" && (
+                    <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
+                  )}
                 </span>
                 <span className="text-muted" aria-hidden>
                   •

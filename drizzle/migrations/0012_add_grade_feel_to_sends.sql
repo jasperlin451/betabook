@@ -1,0 +1,1 @@
+ALTER TABLE `sends` ADD `grade_feel` text DEFAULT 'solid' NOT NULL;

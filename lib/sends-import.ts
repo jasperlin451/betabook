@@ -1,5 +1,11 @@
 import Papa from "papaparse";
-import { ASCENT_STYLES, MAX_COMMENT_LENGTH, type AscentStyle } from "@/lib/sends";
+import {
+  ASCENT_STYLES,
+  GRADE_FEEL_VALUES,
+  MAX_COMMENT_LENGTH,
+  type AscentStyle,
+  type GradeFeel,
+} from "@/lib/sends";
 import type { ClimbType } from "@/lib/grades";
 
 export type ParsedCsv = { headers: string[]; rows: Record<string, string>[] };
@@ -76,6 +82,7 @@ export type ColumnMapping = {
   areaName: string | null;
   climbType: string | null; // optional — tiebreaker only
   grade: string | null; // optional
+  gradeFeel: string | null; // optional
   rating: string | null; // optional
   comment: string | null; // optional
 };
@@ -92,6 +99,7 @@ const FIELD_ORDER: FieldKey[] = [
   "climbName",
   "areaName",
   "grade",
+  "gradeFeel",
   "rating",
   "comment",
 ];
@@ -103,6 +111,7 @@ const HEADER_ALIASES: Record<FieldKey, string[]> = {
   climbName: ["climb", "route", "problem", "name"],
   areaName: ["area", "crag", "location", "sector"],
   grade: ["grade", "difficulty"],
+  gradeFeel: ["grade feel", "feel"],
   rating: ["rating", "stars"],
   comment: ["comments", "comment", "notes"],
 };
@@ -116,6 +125,7 @@ export function guessColumnMapping(headers: string[]): ColumnMapping {
     areaName: null,
     climbType: null,
     grade: null,
+    gradeFeel: null,
     rating: null,
     comment: null,
   };
@@ -228,6 +238,7 @@ export type NormalizedImportRow = {
   rating: number | null;
   comment: string | null; // truncated to MAX_COMMENT_LENGTH here, not rejected
   gradeText: string | null;
+  gradeFeel: GradeFeel; // optional CSV column; defaults to "solid" if absent/unrecognized
   raw: Record<string, string>; // the original CSV row, kept for a failed-rows export identical to the source
 };
 
@@ -306,6 +317,13 @@ export function normalizeImportRows(
 
     const gradeText = mapping.grade ? (row[mapping.grade] ?? "").trim() || null : null;
 
+    const rawGradeFeel = mapping.gradeFeel
+      ? (row[mapping.gradeFeel] ?? "").trim().toLowerCase()
+      : "";
+    const gradeFeel: GradeFeel = (GRADE_FEEL_VALUES as readonly string[]).includes(rawGradeFeel)
+      ? (rawGradeFeel as GradeFeel)
+      : "solid";
+
     valid.push({
       climbName,
       areaName,
@@ -315,6 +333,7 @@ export function normalizeImportRows(
       rating,
       comment,
       gradeText,
+      gradeFeel,
       raw: row,
     });
   });

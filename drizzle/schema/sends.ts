@@ -29,6 +29,9 @@ export const sends = sqliteTable(
     comment: text("comment"),
     rating: integer("rating"), // 1-5, nullable = abstained
     suggestedGrade: integer("suggested_grade"), // same ordinal space as climbs.grade, scoped by climb.type
+    gradeFeel: text("grade_feel", { enum: ["low", "solid", "high"] })
+      .notNull()
+      .default("solid"),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
       .notNull(),

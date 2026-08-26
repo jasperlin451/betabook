@@ -15,6 +15,7 @@ function row(overrides: Partial<UserSendRow> = {}): UserSendRow {
     dateSent: "2026-01-01",
     rating: 4,
     suggestedGrade: null,
+    gradeFeel: "solid",
     comment: null,
     ...overrides,
   };
@@ -33,6 +34,7 @@ describe("buildSendsExportCsv", () => {
         "Climb Type",
         "Grade",
         "Suggested Grade",
+        "Grade Feel",
         "Rating",
         "Comment",
       ].join(","),
@@ -56,11 +58,22 @@ describe("buildSendsExportCsv", () => {
       row({ suggestedGrade: null, rating: null, comment: null }),
     ]);
     const [, dataLine] = csvText.trim().split("\n");
-    expect(dataLine.endsWith(",,,")).toBe(true);
+    expect(dataLine.endsWith(",Solid,,")).toBe(true);
   });
 
   it("formats a non-null suggested grade through formatGrade", () => {
     const csvText = buildSendsExportCsv([row({ climbType: "boulder", suggestedGrade: 6 })]);
     expect(csvText).toContain("V5");
+  });
+
+  it("capitalizes the grade feel", () => {
+    for (const [gradeFeel, expected] of [
+      ["low", "Low"],
+      ["solid", "Solid"],
+      ["high", "High"],
+    ] as const) {
+      const csvText = buildSendsExportCsv([row({ gradeFeel })]);
+      expect(csvText).toContain(expected);
+    }
   });
 });

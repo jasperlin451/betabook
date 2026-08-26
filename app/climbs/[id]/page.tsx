@@ -4,11 +4,12 @@ import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { LogSendButton } from "@/components/log-send-button";
 import { ClimbActionsMenu } from "@/components/climb-actions-menu";
 import { ClimbSendList } from "@/components/climb-send-list";
+import { GradeWithTrend } from "@/components/climb-list";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageWithStats } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { RatingStars } from "@/components/ui/rating-stars";
-import { averageRating, ascentStyleBreakdown, suggestedGradeRange } from "@/lib/send-stats";
+import { averageRating, ascentStyleBreakdown, averageSuggestedGrade } from "@/lib/send-stats";
 import { getAncestors, getArea, getClimb, getSendsForClimb, getUserSendForClimb } from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
 import { missingDescriptionMessage } from "@/lib/descriptions";
@@ -42,7 +43,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   const climbSends = await getSendsForClimb(db, climb.id);
 
   const rating = averageRating(climbSends);
-  const gradeRange = suggestedGradeRange(climbSends, climb.type);
+  const avgSuggestedGrade = averageSuggestedGrade(climbSends);
   const breakdown = ascentStyleBreakdown(climbSends);
   const loggedBreakdown = Object.entries(breakdown).filter(([, count]) => count > 0);
 
@@ -79,8 +80,19 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                       value: <RatingStars rating={rating} precision="decimal" />,
                     },
                     { label: "Logged ascents", value: climbSends.length },
-                    ...(gradeRange
-                      ? [{ label: "Suggested grade", value: `${gradeRange.min}–${gradeRange.max}` }]
+                    ...(avgSuggestedGrade != null
+                      ? [
+                          {
+                            label: "Suggested grade",
+                            value: (
+                              <GradeWithTrend
+                                type={climb.type}
+                                grade={climb.grade}
+                                avgSuggestedGrade={avgSuggestedGrade}
+                              />
+                            ),
+                          },
+                        ]
                       : []),
                   ],
                 },

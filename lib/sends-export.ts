@@ -10,6 +10,7 @@ const EXPORT_FIELDS = [
   "Climb Type",
   "Grade",
   "Suggested Grade",
+  "Grade Feel",
   "Rating",
   "Comment",
 ];
@@ -27,6 +28,7 @@ export function buildSendsExportCsv(rows: UserSendRow[]): string {
     capitalize(row.climbType),
     formatGrade(row.climbType, row.climbGrade),
     row.suggestedGrade != null ? formatGrade(row.climbType, row.suggestedGrade) : "",
+    capitalize(row.gradeFeel),
     row.rating ?? "",
     row.comment ?? "",
   ]);

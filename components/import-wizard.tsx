@@ -33,6 +33,7 @@ const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string; required: boolea
   { key: "areaName", label: "Area Name", required: true },
   { key: "climbType", label: "Climb Type (tiebreaker only)", required: false },
   { key: "grade", label: "Grade", required: false },
+  { key: "gradeFeel", label: "Grade Feel", required: false },
   { key: "rating", label: "Rating", required: false },
   { key: "comment", label: "Comment", required: false },
 ];

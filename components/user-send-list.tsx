@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Checkbox, Link } from "@heroui/react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
@@ -253,13 +254,19 @@ export function UserSendList({
             trailing={
               <div className="flex flex-col items-end gap-1 text-sm">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-foreground">
+                  <span className="inline-flex items-center gap-0.5 font-medium text-foreground">
                     {formatGrade(send.climbType, send.climbGrade)}
                     {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
                       <span className="font-normal text-muted">
                         {" "}
                         ({formatGrade(send.climbType, send.suggestedGrade)})
                       </span>
+                    )}
+                    {send.gradeFeel === "high" && (
+                      <ArrowUp className="size-3.5 text-muted" aria-label="High end of the grade" />
+                    )}
+                    {send.gradeFeel === "low" && (
+                      <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
                     )}
                   </span>
                   <span className="text-muted" aria-hidden>

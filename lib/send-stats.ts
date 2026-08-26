@@ -1,5 +1,4 @@
-import { formatGrade, type ClimbType } from "@/lib/grades";
-import { ASCENT_STYLES, type AscentStyle } from "@/lib/sends";
+import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
 import type { Send } from "@/db/queries";
 
 export function averageRating(sends: Pick<Send, "rating">[]): number | null {
@@ -8,18 +7,17 @@ export function averageRating(sends: Pick<Send, "rating">[]): number | null {
   return rated.reduce((sum, r) => sum + r, 0) / rated.length;
 }
 
-export type SuggestedGradeRange = { min: string; max: string };
-
-export function suggestedGradeRange(
-  sends: Pick<Send, "suggestedGrade">[],
-  climbType: ClimbType,
-): SuggestedGradeRange | null {
-  const grades = sends.map((s) => s.suggestedGrade).filter((g): g is number => g != null);
-  if (grades.length === 0) return null;
-  return {
-    min: formatGrade(climbType, Math.min(...grades)),
-    max: formatGrade(climbType, Math.max(...grades)),
-  };
+/** Same gradeFeel-weighted consensus as getClimbSendStats's SQL aggregate
+ * (db/queries/sends.ts), computed in memory here since the caller (the climb
+ * detail page) already has every Send row loaded via getSendsForClimb. */
+export function averageSuggestedGrade(
+  sends: Pick<Send, "suggestedGrade" | "gradeFeel">[],
+): number | null {
+  const values = sends
+    .filter((s): s is { suggestedGrade: number; gradeFeel: GradeFeel } => s.suggestedGrade != null)
+    .map((s) => s.suggestedGrade + GRADE_FEEL_OFFSET[s.gradeFeel]);
+  if (values.length === 0) return null;
+  return values.reduce((sum, v) => sum + v, 0) / values.length;
 }
 
 export function ascentStyleBreakdown(

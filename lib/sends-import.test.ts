@@ -37,6 +37,7 @@ const FULL_MAPPING: ColumnMapping = {
   areaName: "Area",
   climbType: "Climb Type",
   grade: "Grade",
+  gradeFeel: null,
   rating: "Rating",
   comment: "Comments",
 };
@@ -129,6 +130,7 @@ describe("guessColumnMapping", () => {
       areaName: "Crag",
       climbType: "Discipline",
       grade: "Difficulty",
+      gradeFeel: null,
       rating: "Stars",
       comment: "Notes",
     });
@@ -144,6 +146,11 @@ describe("guessColumnMapping", () => {
     const mapping = guessColumnMapping(["Send Type", "Climb Type"]);
     expect(mapping.ascentStyle).toBe("Send Type");
     expect(mapping.climbType).toBe("Climb Type");
+  });
+
+  it("maps a 'Grade Feel' or 'Feel' header to gradeFeel", () => {
+    expect(guessColumnMapping(["Grade Feel"]).gradeFeel).toBe("Grade Feel");
+    expect(guessColumnMapping(["Feel"]).gradeFeel).toBe("Feel");
   });
 });
 
@@ -211,6 +218,7 @@ describe("normalizeImportRows", () => {
         rating: 4,
         comment: "Very fun climbing",
         gradeText: "5.11c",
+        gradeFeel: "solid",
         raw: row(),
       },
     ]);
@@ -322,6 +330,38 @@ describe("normalizeImportRows", () => {
     expect(valid[0].climbTypeHint).toBeNull();
   });
 
+  it("maps a mapped Grade Feel column's value, case-insensitively", () => {
+    const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
+    const { valid } = normalizeImportRows(
+      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "High" })] },
+      mappingWithFeel,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      "iso",
+      TODAY,
+    );
+    expect(valid[0].gradeFeel).toBe("high");
+  });
+
+  it("defaults gradeFeel to solid when the CSV has no matching column", () => {
+    const { valid } = normalizeImportRows(csv([row()]), FULL_MAPPING, ASCENT_STYLE_MAPPING, CLIMB_TYPE_MAPPING, "iso", TODAY);
+    expect(valid[0].gradeFeel).toBe("solid");
+  });
+
+  it("defaults gradeFeel to solid for an unrecognized value, without invalidating the row", () => {
+    const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
+    const { valid, invalid } = normalizeImportRows(
+      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "medium" })] },
+      mappingWithFeel,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      "iso",
+      TODAY,
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].gradeFeel).toBe("solid");
+  });
+
   it("rejects a row missing climb name or area name", () => {
     const { valid, invalid } = normalizeImportRows(
       csv([row({ Climb: "" }), row({ Area: "" })]),
@@ -398,6 +438,7 @@ describe("buildFailedRowsCsv", () => {
             rating: 5,
             comment: "Great",
             gradeText: "5.10a",
+            gradeFeel: "solid",
             raw: row({ Climb: "Some Route", Area: "Some Crag" }),
           },
         ],
@@ -432,6 +473,7 @@ describe("buildFailedRowsCsv", () => {
             rating: null,
             comment: null,
             gradeText: null,
+            gradeFeel: "solid",
             raw: row({ Climb: "Batch Route", Area: "Batch Crag" }),
           },
         ],
