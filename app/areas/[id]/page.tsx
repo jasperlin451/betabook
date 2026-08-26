@@ -3,6 +3,7 @@ import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { AreaActionsMenu } from "@/components/area-actions-menu";
 import { AreaList } from "@/components/area-list";
 import { AreaClimbsFilterPanel, AreaClimbsSection } from "@/components/area-climbs-section";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { getDb } from "@/db/client";
 import {
   getAncestors,
@@ -70,10 +71,9 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
         {session && <AreaActionsMenu area={area} />}
       </div>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-medium">Sub-areas</h2>
+      <CollapsibleSection title="Sub-areas">
         <AreaList areas={subareas} emptyMessage="No sub-areas." />
-      </section>
+      </CollapsibleSection>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
         <div className="order-2 flex min-w-0 flex-1 flex-col gap-2 lg:order-1">
@@ -95,7 +95,12 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
         </div>
 
         <div className="order-1 lg:order-2 lg:w-80 lg:shrink-0">
-          <AreaClimbsFilterPanel areaId={area.id} sort={sort} filter={filter} />
+          {/* Gated on lg, not CollapsibleSection's md default, to match
+           * where this column switches from a stacked mobile block to the
+           * sidebar (see the lg:flex-row container below). */}
+          <CollapsibleSection title="Filters" breakpoint="lg" showTitleOnDesktop={false}>
+            <AreaClimbsFilterPanel areaId={area.id} sort={sort} filter={filter} />
+          </CollapsibleSection>
         </div>
       </div>
     </div>
