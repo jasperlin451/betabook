@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Link } from "@heroui/react";
 import { Mountain } from "lucide-react";
+import Script from "next/script";
 import { Providers } from "./providers";
 import { AuthNav } from "@/components/auth-nav";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
@@ -40,7 +41,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <script dangerouslySetInnerHTML={{ __html: SET_THEME_SCRIPT }} />
+        <Script
+          id="theme-script"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: SET_THEME_SCRIPT }}
+        />
         <Providers>
           <header className="border-b border-separator px-4 py-3">
             <div className={`mx-auto flex w-full ${PAGE_MAX_WIDTH_CLASS} flex-wrap items-center justify-between gap-2`}>
