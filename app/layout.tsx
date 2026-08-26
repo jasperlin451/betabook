@@ -6,6 +6,7 @@ import { Mountain } from "lucide-react";
 import Script from "next/script";
 import { Providers } from "./providers";
 import { AuthNav } from "@/components/auth-nav";
+import { MobileNav } from "@/components/mobile-nav";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import "./globals.css";
 
@@ -56,10 +57,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <Mountain className="size-5" />
                 Senderoni
               </Link>
-              <nav className="flex flex-wrap items-center gap-6 text-sm">
+              <nav className="hidden items-center gap-6 text-sm md:flex">
                 <Link href="/">Search</Link>
                 <AuthNav />
               </nav>
+              <MobileNav />
             </div>
           </header>
           <main className="flex-1 p-4">
@@ -68,10 +70,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <footer className="border-t border-separator px-4 py-4 text-sm text-muted">
             <div className={`mx-auto flex w-full ${PAGE_MAX_WIDTH_CLASS} items-center justify-between`}>
               <span>&copy; {new Date().getFullYear()} Senderoni</span>
-              <nav className="flex items-center gap-6">
+              <nav className="hidden items-center gap-6 md:flex">
                 <Link href="/">Search</Link>
                 <AuthNav />
               </nav>
+              <MobileNav />
             </div>
           </footer>
         </Providers>
