@@ -1,9 +1,5 @@
-"use client";
-
-import { type ReactNode, useState } from "react";
+import { type ReactNode } from "react";
 import clsx from "clsx";
-
-const COMMENT_PREVIEW_LENGTH = 140;
 
 type ListRowProps = {
   leading?: ReactNode;
@@ -31,9 +27,6 @@ export function ListRow({
   comment,
   className,
 }: ListRowProps) {
-  const [expanded, setExpanded] = useState(false);
-  const truncated = comment != null && comment.length > COMMENT_PREVIEW_LENGTH;
-
   return (
     <div className={clsx("flex items-center gap-4 rounded-xl p-4", className)}>
       {leading}
@@ -47,25 +40,7 @@ export function ListRow({
           {tags && <div className="mt-1 flex flex-wrap gap-2">{tags}</div>}
         </div>
         {comment != null && (
-          <p className="text-[0.925rem] leading-relaxed text-foreground">
-            {expanded || !truncated ? comment : `${comment.slice(0, COMMENT_PREVIEW_LENGTH)}…`}
-            {truncated && (
-              <>
-                {" "}
-                <button
-                  type="button"
-                  className="cursor-pointer text-sm text-muted underline"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setExpanded((value) => !value);
-                  }}
-                >
-                  {expanded ? "Show less" : "Read comment"}
-                </button>
-              </>
-            )}
-          </p>
+          <p className="line-clamp-3 text-[0.925rem] leading-relaxed text-foreground">{comment}</p>
         )}
       </div>
       {trailing && <div className="shrink-0 text-right">{trailing}</div>}
