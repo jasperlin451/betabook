@@ -13,6 +13,7 @@ import {
   getSubareas,
   getSubtreeClimbs,
   getUserSentClimbIds,
+  hasClimbsInArea,
 } from "@/db/queries";
 import {
   parseAreaClimbsFilter,
@@ -44,11 +45,13 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
 
   // Only the first page is server-rendered — AreaClimbsSection fetches
   // subsequent pages itself via "load more" (see app/api/areas/[id]/climbs).
-  const [ancestors, subareas, subtreeClimbs] = await Promise.all([
+  const [ancestors, subareas, subtreeClimbs, hasClimbs] = await Promise.all([
     getAncestors(db, area),
     getSubareas(db, area.id),
     getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter)),
+    hasClimbsInArea(db, area.id),
   ]);
+  const canDeleteArea = subareas.length === 0 && !hasClimbs;
 
   const session = await getSession();
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
@@ -68,7 +71,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
             {area.description || missingDescriptionMessage("area")}
           </p>
         </div>
-        {session && <AreaActionsMenu area={area} />}
+        {session && <AreaActionsMenu area={area} canDelete={canDeleteArea} />}
       </div>
 
       <CollapsibleSection title="Sub-areas">

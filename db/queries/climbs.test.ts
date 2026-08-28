@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
 import { climbs } from "@/db/schema";
 import { getArea } from "./areas";
-import { findClimbsByNameAndArea, getClimb, getSubtreeClimbs, searchClimbs } from "./climbs";
+import { findClimbsByNameAndArea, getClimb, getSubtreeClimbs, hasClimbsInArea, searchClimbs } from "./climbs";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyAreas } from "@/test/fixtures";
 
 // getSubtreeClimbs forces climbs_lft_rght_idx below LARGE_AREA_SUBTREE_SPAN
@@ -27,6 +27,20 @@ describe("getClimb", () => {
   it("returns undefined for an unknown id", async () => {
     const climb = await getClimb(db, 999999);
     expect(climb).toBeUndefined();
+  });
+});
+
+describe("hasClimbsInArea", () => {
+  it("returns true for an area with climbs directly in it", async () => {
+    expect(await hasClimbsInArea(db, 3)).toBe(true); // Test Sport Wall
+  });
+
+  it("returns false for an area with no climbs of its own, even if its sub-areas have some", async () => {
+    expect(await hasClimbsInArea(db, 2)).toBe(false); // Test Boulders — climbs live on its children
+  });
+
+  it("returns false for a leaf area with no climbs", async () => {
+    expect(await hasClimbsInArea(db, 1)).toBe(false); // Test Crag itself has no direct climbs
   });
 });
 

@@ -10,6 +10,16 @@ export async function getClimb(db: Database, id: number): Promise<Climb | undefi
   return db.select().from(climbs).where(eq(climbs.id, id)).get();
 }
 
+/** Whether any climb is directly in `areaId` — an existence check (indexed
+ * via climbs_area_idx), not a count. Deliberately not derived from
+ * getSubtreeClimbs's result: that list is paginated and filtered by the
+ * viewer's current sort/filter query params, so it can come back empty even
+ * when the area has climbs. */
+export async function hasClimbsInArea(db: Database, areaId: number): Promise<boolean> {
+  const row = await db.select({ id: climbs.id }).from(climbs).where(eq(climbs.areaId, areaId)).limit(1).get();
+  return row != null;
+}
+
 export type SubtreeClimbsSort =
   | "name_asc"
   | "name_desc"
