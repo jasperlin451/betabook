@@ -17,6 +17,7 @@ import {
   type NotFoundRow,
   type ParsedCsv,
 } from "./sends-import";
+import { MAX_COMMENT_LENGTH } from "./sends";
 
 const SAMPLE_HEADERS = [
   "Date",
@@ -290,7 +291,7 @@ describe("normalizeImportRows", () => {
   });
 
   it("truncates an over-length comment instead of rejecting the row", () => {
-    const longComment = "a".repeat(300);
+    const longComment = "a".repeat(MAX_COMMENT_LENGTH + 20);
     const { valid, invalid } = normalizeImportRows(
       csv([row({ Comments: longComment })]),
       FULL_MAPPING,
@@ -300,7 +301,7 @@ describe("normalizeImportRows", () => {
       TODAY,
     );
     expect(invalid).toEqual([]);
-    expect(valid[0].comment).toHaveLength(280);
+    expect(valid[0].comment).toHaveLength(MAX_COMMENT_LENGTH);
   });
 
   it("treats blank optional fields as null", () => {

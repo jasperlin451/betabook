@@ -3,7 +3,7 @@ import { parseGradeIndex, trimOrNull } from "@/lib/validation";
 
 export const ASCENT_STYLES = ["redpoint", "flash", "onsight"] as const;
 export type AscentStyle = (typeof ASCENT_STYLES)[number];
-export const MAX_COMMENT_LENGTH = 280;
+export const MAX_COMMENT_LENGTH = 1000;
 
 export const GRADE_FEEL_VALUES = ["low", "solid", "high"] as const;
 export type GradeFeel = (typeof GRADE_FEEL_VALUES)[number];
