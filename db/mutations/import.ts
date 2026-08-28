@@ -77,9 +77,17 @@ export async function importSends(
         dateSent: row.dateSent,
         comment: row.comment,
         rating: row.rating,
+        // With grade text, parse it (null if unrecognized). Without it, the
+        // fallback depends on which column the text came from: a mapped
+        // Suggested Grade column with a blank cell means the send genuinely
+        // has no suggestion (betabook exports round-trip losslessly), while
+        // a Grade-column-only mapping keeps the old fallback to the climb's
+        // posted grade. See NormalizedImportRow.blankGradeMeans.
         suggestedGrade: row.gradeText
           ? parseGrade(resolved.type, row.gradeText, gradeScalePreference)
-          : resolved.grade,
+          : row.blankGradeMeans === "no-suggestion"
+            ? null
+            : resolved.grade,
         gradeFeel: row.gradeFeel,
       });
     }
