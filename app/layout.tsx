@@ -11,7 +11,7 @@ import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Senderoni",
+  title: "Betabook",
   description: "Climbing crag and route database",
 };
 
@@ -55,7 +55,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 className="flex items-center gap-2 text-lg font-semibold text-foreground no-underline"
               >
                 <Mountain className="size-5" />
-                Senderoni
+                Betabook
               </Link>
               <nav className="hidden items-center gap-6 text-sm md:flex">
                 <Link href="/">Search</Link>
@@ -69,7 +69,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </main>
           <footer className="border-t border-separator px-4 py-4 text-sm text-muted">
             <div className={`mx-auto flex w-full ${PAGE_MAX_WIDTH_CLASS} items-center justify-between`}>
-              <span>&copy; {new Date().getFullYear()} Senderoni</span>
+              <span>&copy; {new Date().getFullYear()} Betabook</span>
               <nav className="hidden items-center gap-6 md:flex">
                 <Link href="/">Search</Link>
                 <AuthNav />

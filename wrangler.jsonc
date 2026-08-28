@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "senderoni",
+  "name": "betabook",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-08-17",
   "compatibility_flags": ["nodejs_compat"],
@@ -10,18 +10,18 @@
   },
   "routes": [
     {
-      "pattern": "senderoni.cowsgomwoo.com",
+      "pattern": "betabook.ca",
       "custom_domain": true,
     },
   ],
   "vars": {
-    "BETTER_AUTH_URL": "https://senderoni.cowsgomwoo.com",
+    "BETTER_AUTH_URL": "https://betabook.ca",
   },
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "senderoni-db",
-      "database_id": "6fa2c847-efb1-4e96-bfd7-968dc82a80fd",
+      "database_name": "betabook-db",
+      "database_id": "15af4a85-e36f-4cb6-a310-a0b2cdfe126e",
       "migrations_dir": "drizzle/migrations",
     },
   ],

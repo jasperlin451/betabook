@@ -21,7 +21,7 @@ async function authBuilder() {
       "http://localhost:3001",
       "http://localhost:3002",
       "http://localhost:3003",
-      "https://senderoni.cowsgomwoo.com",
+      "https://betabook.ca",
     ],
     emailAndPassword: {
       enabled: true,
