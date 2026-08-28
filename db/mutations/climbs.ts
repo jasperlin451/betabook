@@ -1,11 +1,12 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
-import { getDb } from "@/db/client";
+import { getDb, getDbAndContext } from "@/db/client";
 import { climbs } from "@/db/schema";
 import { getArea, getClimb } from "@/db/queries";
+import { recomputeAreaTree } from "@/db/reindex-areas";
 import {
   validateClimbInput,
   validateNewClimbInput,
@@ -53,7 +54,7 @@ export async function deleteClimb(climbId: number) {
 
 export async function createClimb(areaId: number, formData: FormData) {
   await requireSession();
-  const db = await getDb();
+  const { db, ctx } = await getDbAndContext();
 
   const area = parseId(areaId) === null ? undefined : await getArea(db, areaId);
   if (!area) throw new Error("Area not found");
@@ -63,6 +64,20 @@ export async function createClimb(areaId: number, formData: FormData) {
     .insert(climbs)
     .values({ areaId, lft: area.lft, rght: area.rght, ...input })
     .returning({ id: climbs.id });
+  await db.run(sql`INSERT INTO climbs_fts(rowid, name) VALUES (${id}, ${input.name})`);
+
+  // The area's own createArea call already triggers a recompute, but if this
+  // climb landed in the gap before that job committed (or after it already
+  // exhausted its retries), it would otherwise be stuck at lft=0/rght=0
+  // forever unless some unrelated area happens to be created later — so
+  // give it another chance here rather than relying on that.
+  if (area.lft === 0 && area.rght === 0) {
+    ctx.waitUntil(
+      recomputeAreaTree(db, { revalidatePaths: [`/areas/${areaId}`] }).catch((err) =>
+        console.error(`recomputeAreaTree failed after createClimb(${id}) into stale area ${areaId}`, err),
+      ),
+    );
+  }
 
   revalidatePath(`/areas/${areaId}`);
   revalidatePath("/");

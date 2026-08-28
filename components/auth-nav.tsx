@@ -25,6 +25,7 @@ export function AuthNav({ direction = "row" }: AuthNavProps) {
     return (
       <span className={clsx("flex", direction === "col" ? "flex-col items-start gap-4" : "items-center gap-6")}>
         <Link href="/climbs/new">Create Climb</Link>
+        <Link href="/areas/new">Create Area</Link>
         <Link href={`/users/${session.user.id}`}>My sends</Link>
         <Link href="/account">Account</Link>
       </span>

@@ -12,3 +12,8 @@ export async function getDb(): Promise<Database> {
   const { env } = await getCloudflareContext({ async: true });
   return createDb(env.DB);
 }
+
+export async function getDbAndContext(): Promise<{ db: Database; ctx: ExecutionContext }> {
+  const { env, ctx } = await getCloudflareContext({ async: true });
+  return { db: createDb(env.DB), ctx };
+}

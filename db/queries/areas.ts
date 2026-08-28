@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, lt, sql, type SQL } from "drizzle-orm";
+import { asc, eq, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas } from "@/db/schema";
 import { toFtsPrefixQuery } from "./shared";
@@ -17,13 +17,33 @@ export async function getSubareas(db: Database, areaId: number): Promise<Area[]>
     .orderBy(asc(areas.lft));
 }
 
-/** Root-first, immediate-parent-last. Does not include `area` itself. */
+/** Root-first, immediate-parent-last. Does not include `area` itself.
+ *
+ * Walks `parentId` via a recursive CTE rather than the lft/rght nested-set
+ * range — unlike subtree/descendant enumeration (getSubtreeClimbs,
+ * areaNameCondition), which is what lft/rght actually exists to make cheap
+ * for a potentially huge subtree, an ancestor chain is bounded by tree depth
+ * (a handful of levels) regardless of subtree size, so there's no
+ * performance reason to depend on it here. The upside: this is correct
+ * immediately for a freshly created area, with zero dependency on the async
+ * lft/rght recompute (see db/reindex-areas.ts) — parentId is written
+ * synchronously at insert time and never needs fixing up. */
 export async function getAncestors(db: Database, area: Area): Promise<Area[]> {
-  return db
-    .select()
-    .from(areas)
-    .where(and(lt(areas.lft, area.lft), gt(areas.rght, area.rght)))
-    .orderBy(asc(areas.lft));
+  if (area.parentId == null) return [];
+
+  return db.all<Area>(sql`
+    WITH RECURSIVE ancestors(id, depth) AS (
+      SELECT id, 0 FROM areas WHERE id = ${area.parentId}
+      UNION ALL
+      SELECT areas.parent_id, ancestors.depth + 1
+      FROM ancestors
+      JOIN areas ON areas.id = ancestors.id
+      WHERE areas.parent_id IS NOT NULL
+    )
+    SELECT areas.* FROM areas
+    JOIN ancestors ON areas.id = ancestors.id
+    ORDER BY ancestors.depth DESC
+  `);
 }
 
 /** The `depth` ancestors closest to `area` (root-first among themselves), for
@@ -74,13 +94,13 @@ type BreadcrumbRow = {
 /** Up to `depth` ancestors for each of `areaIds`, keyed by area id — one
  * query for the whole batch, not one round trip per distinct area.
  *
- * Each target area is matched (via the standard nested-set ancestor
- * condition) against every ancestor whose own ancestor-count back up to
- * that target is under `depth` — i.e. its "distance" from the target,
- * counted via a correlated subquery rather than a second round trip. A
- * LEFT JOIN keeps one row per target even when it has zero (nearby)
- * ancestors, which is what lets an existing root-level area come back as
- * `[]` rather than being silently omitted like a nonexistent id is. */
+ * Walks `parentId` (see getAncestors's doc comment for why — ancestor
+ * chains don't need the nested-set range the way subtree queries do) via a
+ * recursive CTE, capped at `depth` levels per target, batched across every
+ * requested id in one query. A LEFT JOIN back to the target-id list keeps
+ * one row per target even when it has zero (nearby) ancestors, which is
+ * what lets an existing root-level area come back as `[]` rather than
+ * being silently omitted like a nonexistent id is. */
 export async function getAreaBreadcrumbs(
   db: Database,
   areaIds: number[],
@@ -90,17 +110,20 @@ export async function getAreaBreadcrumbs(
   if (ids.length === 0) return {};
 
   const rows = await db.all<BreadcrumbRow>(sql`
+    WITH RECURSIVE chain(target_id, ancestor_id, dist) AS (
+      SELECT id, parent_id, 1 FROM areas
+      WHERE id IN (${sql.join(ids, sql`, `)}) AND parent_id IS NOT NULL
+      UNION ALL
+      SELECT chain.target_id, areas.parent_id, chain.dist + 1
+      FROM chain
+      JOIN areas ON areas.id = chain.ancestor_id
+      WHERE areas.parent_id IS NOT NULL AND chain.dist < ${depth}
+    )
     SELECT target.id AS targetId, ancestor.id AS ancestorId, ancestor.name AS ancestorName
-    FROM areas target
-    LEFT JOIN areas ancestor
-      ON ancestor.lft < target.lft AND ancestor.rght > target.rght
-      AND (
-        SELECT COUNT(*) FROM areas closer
-        WHERE closer.lft < target.lft AND closer.rght > target.rght
-          AND closer.lft > ancestor.lft
-      ) < ${depth}
-    WHERE target.id IN (${sql.join(ids, sql`, `)})
-    ORDER BY target.id ASC, ancestor.lft ASC
+    FROM (SELECT id FROM areas WHERE id IN (${sql.join(ids, sql`, `)})) target
+    LEFT JOIN chain ON chain.target_id = target.id
+    LEFT JOIN areas ancestor ON ancestor.id = chain.ancestor_id
+    ORDER BY target.id ASC, chain.dist DESC
   `);
 
   const breadcrumbs: AreaBreadcrumbs = {};
@@ -115,7 +138,11 @@ export async function getAreaBreadcrumbs(
 
 export type AreaWithAncestorPath = Area & { ancestorPath: string | null };
 
-/** `ancestorPath` reads immediate-parent-first, e.g. "Squamish > British Columbia > Canada". */
+/** `ancestorPath` reads immediate-parent-first, e.g. "Squamish > British Columbia > Canada".
+ *
+ * Walks `parentId` (see getAncestors's doc comment) rather than lft/rght, so
+ * a freshly created area's ancestor path is correct immediately, with no
+ * dependency on the async lft/rght recompute. */
 export async function searchAreas(
   db: Database,
   name: string,
@@ -124,12 +151,20 @@ export async function searchAreas(
   if (!query) return [];
 
   return db.all<AreaWithAncestorPath>(sql`
+    WITH RECURSIVE ancestor_chain(area_id, ancestor_id, dist) AS (
+      SELECT id, parent_id, 1 FROM areas WHERE parent_id IS NOT NULL
+      UNION ALL
+      SELECT ancestor_chain.area_id, areas.parent_id, ancestor_chain.dist + 1
+      FROM ancestor_chain
+      JOIN areas ON areas.id = ancestor_chain.ancestor_id
+      WHERE areas.parent_id IS NOT NULL
+    )
     SELECT areas.*, (
-      SELECT GROUP_CONCAT(ancestor.name, ' > ') FROM (
-        SELECT name FROM areas ancestor
-        WHERE ancestor.lft < areas.lft AND ancestor.rght > areas.rght
-        ORDER BY ancestor.lft DESC
-      ) ancestor
+      SELECT GROUP_CONCAT(ancestor.name, ' > ')
+      FROM ancestor_chain
+      JOIN areas ancestor ON ancestor.id = ancestor_chain.ancestor_id
+      WHERE ancestor_chain.area_id = areas.id
+      ORDER BY ancestor_chain.dist ASC
     ) AS ancestorPath
     FROM areas
     JOIN areas_fts ON areas_fts.rowid = areas.id
