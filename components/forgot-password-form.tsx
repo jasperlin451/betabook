@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Input, Label, Link, TextField } from "@heroui/react";
+import { Button, Input, Label, TextField } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
+import { AppLink } from "@/components/ui/app-link";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
@@ -30,7 +31,7 @@ export function ForgotPasswordForm() {
         <h1 className="text-lg font-semibold">Check your email</h1>
         <p className="text-sm text-muted">
           If an account exists for {email}, we sent a link to reset your
-          password. <Link href="/sign-in">Back to sign in</Link>.
+          password. <AppLink href="/sign-in">Back to sign in</AppLink>.
         </p>
       </div>
     );
@@ -55,7 +56,7 @@ export function ForgotPasswordForm() {
         Send Reset Link
       </Button>
       <p className="text-sm text-muted">
-        Remembered your password? <Link href="/sign-in">Sign in</Link>
+        Remembered your password? <AppLink href="/sign-in">Sign in</AppLink>
       </p>
     </form>
   );

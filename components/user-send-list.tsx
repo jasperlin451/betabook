@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Checkbox, Link } from "@heroui/react";
+import { Checkbox } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
+import { AppLink } from "@/components/ui/app-link";
 import { AscentStyle } from "@/components/ascent-style";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { RatingStars } from "@/components/ui/rating-stars";
@@ -210,7 +211,7 @@ export function UserSendList({
         <p className="text-muted text-sm">
           {currentUserId === userId ? (
             <>
-              No sends yet. <Link href="/account/import">Import your sends</Link> to add them here.
+              No sends yet. <AppLink href="/account/import">Import your sends</AppLink> to add them here.
             </>
           ) : (
             "No sends yet."
@@ -244,9 +245,9 @@ export function UserSendList({
         renderRow={(send) => (
           <ListRow
             title={
-              <Link href={`/climbs/${send.climbId}`} className="block w-full truncate">
+              <AppLink href={`/climbs/${send.climbId}`} className="block w-full truncate">
                 {send.climbName}
-              </Link>
+              </AppLink>
             }
             subtitle={
               <AreaBreadcrumb

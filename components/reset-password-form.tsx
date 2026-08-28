@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Input, Label, Link, TextField } from "@heroui/react";
+import { Button, Input, Label, TextField } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
+import { AppLink } from "@/components/ui/app-link";
 
 export function ResetPasswordForm({ token }: { token: string | undefined }) {
   const [newPassword, setNewPassword] = useState("");
@@ -39,7 +40,7 @@ export function ResetPasswordForm({ token }: { token: string | undefined }) {
       <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
         <h1 className="text-lg font-semibold">Password reset</h1>
         <p className="text-sm text-muted">
-          Your password has been reset. <Link href="/sign-in">Sign in</Link>{" "}
+          Your password has been reset. <AppLink href="/sign-in">Sign in</AppLink>{" "}
           with your new password.
         </p>
       </div>

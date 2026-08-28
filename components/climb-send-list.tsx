@@ -1,9 +1,9 @@
 "use client";
 
-import { Link } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import type { Climb, SendWithUserName } from "@/db/queries";
+import { AppLink } from "@/components/ui/app-link";
 import { AscentStyle } from "@/components/ascent-style";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
@@ -25,7 +25,7 @@ export function ClimbSendList({ sends, climb, currentUserId }: ClimbSendListProp
       sends={sends}
       renderRow={(send) => (
         <ListRow
-          title={<Link href={`/users/${send.userId}`}>{send.userName}</Link>}
+          title={<AppLink href={`/users/${send.userId}`}>{send.userName}</AppLink>}
           subtitle={send.dateSent ?? "Date unknown"}
           trailing={
             <div className="flex flex-col items-end gap-1 text-sm">

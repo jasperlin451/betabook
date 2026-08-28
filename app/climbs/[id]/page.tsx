@@ -52,21 +52,21 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
 
   if (!Number.isInteger(climbId)) notFound();
 
-  const db = await getDb();
-  const climb = await getClimbById(climbId);
-
+  // Grouped by dependency tier so independent fetches overlap instead of
+  // waterfalling: the db handle, the climb row, and the session don't depend
+  // on each other; the sends queries need only the climb; and the ancestor
+  // chain needs the area row's parentId.
+  const [db, climb, session] = await Promise.all([getDb(), getClimbById(climbId), getSession()]);
   if (!climb) notFound();
 
-  const area = await getArea(db, climb.areaId);
+  const [area, userSend, climbSends] = await Promise.all([
+    getArea(db, climb.areaId),
+    session ? getUserSendForClimb(db, session.user.id, climb.id).then((s) => s ?? null) : null,
+    getSendsForClimb(db, climb.id),
+  ]);
   if (!area) notFound();
 
   const ancestors = await getAncestors(db, area);
-
-  const session = await getSession();
-  const userSend = session
-    ? ((await getUserSendForClimb(db, session.user.id, climb.id)) ?? null)
-    : null;
-  const climbSends = await getSendsForClimb(db, climb.id);
 
   const rating = averageRating(climbSends);
   const avgSuggestedGrade = averageSuggestedGrade(climbSends);

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Input, Label, Link, TextField } from "@heroui/react";
+import { Button, Input, Label, TextField } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
+import { AppLink } from "@/components/ui/app-link";
 
 export function SignInForm() {
   const router = useRouter();
@@ -57,9 +58,9 @@ export function SignInForm() {
         <Label>Password</Label>
         <Input className="bg-surface" />
       </TextField>
-      <Link href="/forgot-password" className="text-sm text-muted">
+      <AppLink href="/forgot-password" className="text-sm text-muted">
         Forgot password?
-      </Link>
+      </AppLink>
       {error && <p className="text-sm text-danger">{error}</p>}
       {unverified && (
         <div className="flex flex-col gap-2 text-sm text-danger">
@@ -73,7 +74,7 @@ export function SignInForm() {
         Sign In
       </Button>
       <p className="text-sm text-muted">
-        Don&apos;t have an account? <Link href="/sign-up">Sign up</Link>
+        Don&apos;t have an account? <AppLink href="/sign-up">Sign up</AppLink>
       </p>
     </form>
   );

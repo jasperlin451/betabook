@@ -1,13 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Link } from "@heroui/react";
 import { Mountain } from "lucide-react";
 import Script from "next/script";
 import { Providers } from "./providers";
 import { AuthNav } from "@/components/auth-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { NavLink } from "@/components/nav-link";
+import { AppLink } from "@/components/ui/app-link";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import "./globals.css";
 
@@ -70,13 +70,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Providers>
           <header className="border-b border-separator px-4 py-3">
             <div className={`mx-auto flex w-full ${PAGE_MAX_WIDTH_CLASS} flex-wrap items-center justify-between gap-2`}>
-              <Link
+              <AppLink
                 href="/"
                 className="flex items-center gap-2 text-lg font-semibold text-foreground no-underline"
               >
                 <Mountain className="size-5" />
                 Betabook
-              </Link>
+              </AppLink>
               <nav aria-label="Primary" className="hidden items-center gap-6 text-sm md:flex">
                 <NavLink href="/">Search</NavLink>
                 <AuthNav />

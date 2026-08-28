@@ -1,5 +1,5 @@
-import { Link } from "@heroui/react";
 import { AreaSearchForm, ClimbSearchForm, ClimbSearchSortControl } from "@/components/search-form";
+import { AppLink } from "@/components/ui/app-link";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
 import { PageWithStats } from "@/components/ui/page-shell";
@@ -63,8 +63,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   // No disciplines checked means the discipline/grade filter isn't active —
   // searchClimbs already matches everything when `disciplines` is empty.
-  const results = await searchClimbs(db, toSearchClimbsQueryParams(filter, sort));
-  const session = await getSession();
+  // The search and the session lookup don't depend on each other.
+  const [results, session] = await Promise.all([
+    searchClimbs(db, toSearchClimbsQueryParams(filter, sort)),
+    getSession(),
+  ]);
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
     getClimbSendStats(db, results.map((c) => c.id)),
     getAreaBreadcrumbs(db, results.map((c) => c.areaId)),
@@ -103,7 +106,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 function ModeSwitch({ mode }: { mode: "area" | "climb" }) {
   return (
     <div className="inline-flex gap-1 self-start rounded-full bg-surface-secondary p-1">
-      <Link
+      <AppLink
         href="/?mode=climb"
         className={
           mode === "climb"
@@ -112,8 +115,8 @@ function ModeSwitch({ mode }: { mode: "area" | "climb" }) {
         }
       >
         Search climbs
-      </Link>
-      <Link
+      </AppLink>
+      <AppLink
         href="/?mode=area"
         className={
           mode === "area"
@@ -122,7 +125,7 @@ function ModeSwitch({ mode }: { mode: "area" | "climb" }) {
         }
       >
         Search areas
-      </Link>
+      </AppLink>
     </div>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Link } from "@heroui/react";
 import { Button, Input, Label, TextField } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
+import { AppLink } from "@/components/ui/app-link";
 
 export function SignUpForm() {
   const [name, setName] = useState("");
@@ -39,7 +39,7 @@ export function SignUpForm() {
         <h1 className="text-lg font-semibold">Check your email</h1>
         <p className="text-sm text-muted">
           We sent a verification link to {email}. Verify your address, then{" "}
-          <Link href="/sign-in">sign in</Link>.
+          <AppLink href="/sign-in">sign in</AppLink>.
         </p>
       </div>
     );
@@ -80,7 +80,7 @@ export function SignUpForm() {
         Sign Up
       </Button>
       <p className="text-sm text-muted">
-        Already have an account? <Link href="/sign-in">Sign in</Link>
+        Already have an account? <AppLink href="/sign-in">Sign in</AppLink>
       </p>
     </form>
   );
