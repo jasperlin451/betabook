@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { NewClimbForm } from "@/components/new-climb-form";
 import { getSession } from "@/lib/session";
+
+export const metadata: Metadata = {
+  title: "New Climb",
+};
 
 export default async function NewClimbPage() {
   const session = await getSession();

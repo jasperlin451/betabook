@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
@@ -20,6 +22,30 @@ type ClimbPageProps = {
   params: Promise<{ id: string }>;
 };
 
+// Shared between generateMetadata and the page — see the identical pattern in
+// app/areas/[id]/page.tsx for why the whole id -> climb lookup is memoized
+// rather than the (db, id)-keyed query helper.
+const getClimbById = cache(async (id: number) => {
+  const db = await getDb();
+  return getClimb(db, id);
+});
+
+export async function generateMetadata({ params }: ClimbPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const climbId = Number(id);
+  if (!Number.isInteger(climbId)) notFound();
+
+  const climb = await getClimbById(climbId);
+  if (!climb) notFound();
+
+  return {
+    title:
+      climb.grade == null
+        ? climb.name
+        : `${climb.name} (${formatGrade(climb.type, climb.grade)})`,
+  };
+}
+
 export default async function ClimbPage({ params }: ClimbPageProps) {
   const { id } = await params;
   const climbId = Number(id);
@@ -27,7 +53,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   if (!Number.isInteger(climbId)) notFound();
 
   const db = await getDb();
-  const climb = await getClimb(db, climbId);
+  const climb = await getClimbById(climbId);
 
   if (!climb) notFound();
 

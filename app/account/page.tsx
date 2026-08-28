@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Link } from "@heroui/react";
 import { getSession } from "@/lib/session";
@@ -5,6 +6,10 @@ import { ExportSendsButton } from "@/components/export-sends-button";
 import { ResetPasswordButton } from "@/components/reset-password-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+
+export const metadata: Metadata = {
+  title: "Account",
+};
 
 export default async function AccountPage() {
   const session = await getSession();

@@ -2,9 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { Button, Drawer, Link, useOverlayState } from "@heroui/react";
+import { Button, Drawer, useOverlayState } from "@heroui/react";
 import { Menu as MenuIcon } from "lucide-react";
 import { AuthNav } from "@/components/auth-nav";
+import { NavLink } from "@/components/nav-link";
 
 export function MobileNav() {
   const state = useOverlayState();
@@ -40,8 +41,8 @@ export function MobileNav() {
                 <Drawer.CloseTrigger />
               </Drawer.Header>
               <Drawer.Body>
-                <nav className="flex flex-col items-start gap-4 text-sm">
-                  <Link href="/">Search</Link>
+                <nav aria-label="Primary" className="flex flex-col items-start gap-4 text-sm">
+                  <NavLink href="/">Search</NavLink>
                   <AuthNav direction="col" />
                 </nav>
               </Drawer.Body>

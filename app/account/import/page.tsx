@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { ImportWizard } from "@/components/import-wizard";
+
+export const metadata: Metadata = {
+  title: "Import Sends",
+};
 
 export default async function ImportPage() {
   const session = await getSession();

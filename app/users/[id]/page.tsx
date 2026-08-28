@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { UserSendList, UserSendsFilterPanel } from "@/components/user-send-list";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
@@ -13,12 +15,28 @@ type UserPageProps = {
   searchParams: Promise<SearchParamsRecord>;
 };
 
+// Shared between generateMetadata and the page — see the identical pattern in
+// app/areas/[id]/page.tsx for why the whole id -> user lookup is memoized
+// rather than the (db, id)-keyed query helper.
+const getUserById = cache(async (id: string) => {
+  const db = await getDb();
+  return getUser(db, id);
+});
+
+export async function generateMetadata({ params }: UserPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const user = await getUserById(id);
+  if (!user) notFound();
+
+  return { title: user.name };
+}
+
 export default async function UserPage({ params, searchParams }: UserPageProps) {
   const { id } = await params;
   const filter = parseUserSendsFilter(await searchParams);
 
   const db = await getDb();
-  const user = await getUser(db, id);
+  const user = await getUserById(id);
   if (!user) notFound();
 
   const session = await getSession();

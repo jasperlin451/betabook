@@ -1,8 +1,8 @@
 "use client";
 
-import { Link } from "@heroui/react";
 import { clsx } from "clsx";
 import { authClient } from "@/lib/auth-client";
+import { NavLink } from "@/components/nav-link";
 import { useMounted } from "@/hooks/use-mounted";
 
 type AuthNavProps = {
@@ -24,18 +24,18 @@ export function AuthNav({ direction = "row" }: AuthNavProps) {
   if (session) {
     return (
       <span className={clsx("flex", direction === "col" ? "flex-col items-start gap-4" : "items-center gap-6")}>
-        <Link href="/climbs/new">Create Climb</Link>
-        <Link href="/areas/new">Create Area</Link>
-        <Link href={`/users/${session.user.id}`}>My sends</Link>
-        <Link href="/account">Account</Link>
+        <NavLink href="/climbs/new">Create Climb</NavLink>
+        <NavLink href="/areas/new">Create Area</NavLink>
+        <NavLink href={`/users/${session.user.id}`}>My sends</NavLink>
+        <NavLink href="/account">Account</NavLink>
       </span>
     );
   }
 
   return (
     <span className={clsx("flex gap-4", direction === "col" ? "flex-col items-start" : "items-center")}>
-      <Link href="/sign-in">Log In</Link>
-      <Link href="/sign-up">Sign Up</Link>
+      <NavLink href="/sign-in">Log In</NavLink>
+      <NavLink href="/sign-up">Sign Up</NavLink>
     </span>
   );
 }

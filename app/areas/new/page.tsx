@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { NewAreaForm } from "@/components/new-area-form";
 import { getSession } from "@/lib/session";
+
+export const metadata: Metadata = {
+  title: "New Area",
+};
 
 export default async function NewAreaPage() {
   const session = await getSession();

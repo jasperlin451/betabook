@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { AreaActionsMenu } from "@/components/area-actions-menu";
@@ -29,6 +31,26 @@ type AreaPageProps = {
   searchParams: Promise<SearchParamsRecord>;
 };
 
+// generateMetadata and the page both need the area. The query helpers are
+// plain async functions keyed on a per-call db handle, so memoizing them
+// directly would never hit — memoize the whole id -> area lookup with React
+// cache() instead, so the two consumers share one query per request.
+const getAreaById = cache(async (id: number) => {
+  const db = await getDb();
+  return getArea(db, id);
+});
+
+export async function generateMetadata({ params }: AreaPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const areaId = Number(id);
+  if (!Number.isInteger(areaId)) notFound();
+
+  const area = await getAreaById(areaId);
+  if (!area) notFound();
+
+  return { title: area.name };
+}
+
 export default async function AreaPage({ params, searchParams }: AreaPageProps) {
   const { id } = await params;
   const search = await searchParams;
@@ -37,7 +59,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   if (!Number.isInteger(areaId)) notFound();
 
   const db = await getDb();
-  const area = await getArea(db, areaId);
+  const area = await getAreaById(areaId);
   if (!area) notFound();
 
   const sort = parseAreaClimbsSort(search);
