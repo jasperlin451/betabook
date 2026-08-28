@@ -32,7 +32,9 @@ const GRADE_FEEL_LABELS: Record<GradeFeel, string> = {
 };
 
 export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
-  const today = new Date().toISOString().slice(0, 10);
+  // The user's local calendar date ("en-CA" formats as YYYY-MM-DD) — a UTC
+  // date (toISOString) can be a day off from the user's local today.
+  const today = new Intl.DateTimeFormat("en-CA").format(new Date());
   const gradeOptions = nativeGradeArray(climb.type);
 
   const [ascentStyle, setAscentStyle] = useState<AscentStyle>(

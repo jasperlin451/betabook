@@ -48,14 +48,29 @@ describe("validateSendInput", () => {
     ).toThrow("Invalid send date");
   });
 
-  it("rejects a send date in the future", () => {
+  it("rejects a send date two days past UTC today", () => {
     expect(() =>
-      validateSendInput("boulder", raw({ dateSent: "2026-08-20" }), TODAY),
+      validateSendInput("boulder", raw({ dateSent: "2026-08-21" }), TODAY),
     ).toThrow("can't be in the future");
   });
 
   it("accepts a send date equal to today", () => {
     expect(validateSendInput("boulder", raw({ dateSent: TODAY }), TODAY).dateSent).toBe(TODAY);
+  });
+
+  it("accepts a send date one day past UTC today (a UTC+14 client's local today)", () => {
+    expect(
+      validateSendInput("boulder", raw({ dateSent: "2026-08-20" }), TODAY).dateSent,
+    ).toBe("2026-08-20");
+  });
+
+  it("applies the one-day tolerance across a month boundary", () => {
+    expect(
+      validateSendInput("boulder", raw({ dateSent: "2026-09-01" }), "2026-08-31").dateSent,
+    ).toBe("2026-09-01");
+    expect(() =>
+      validateSendInput("boulder", raw({ dateSent: "2026-09-02" }), "2026-08-31"),
+    ).toThrow("can't be in the future");
   });
 
   it("accepts a null send date", () => {

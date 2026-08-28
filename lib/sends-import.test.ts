@@ -250,9 +250,9 @@ describe("normalizeImportRows", () => {
     expect(invalid[0].reason).toMatch(/unparseable date/i);
   });
 
-  it("rejects a date in the future", () => {
+  it("rejects a date two days past UTC today", () => {
     const { valid, invalid } = normalizeImportRows(
-      csv([row({ Date: "2026-08-20" })]),
+      csv([row({ Date: "2026-08-21" })]),
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
@@ -261,6 +261,32 @@ describe("normalizeImportRows", () => {
     );
     expect(valid).toEqual([]);
     expect(invalid[0].reason).toMatch(/future/i);
+  });
+
+  it("accepts a date equal to UTC today", () => {
+    const { valid, invalid } = normalizeImportRows(
+      csv([row({ Date: TODAY })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      "iso",
+      TODAY,
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].dateSent).toBe(TODAY);
+  });
+
+  it("accepts a date one day past UTC today (a UTC+14 client's local today)", () => {
+    const { valid, invalid } = normalizeImportRows(
+      csv([row({ Date: "2026-08-20" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      "iso",
+      TODAY,
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].dateSent).toBe("2026-08-20");
   });
 
   it("rejects an unmapped ascent-style value", () => {

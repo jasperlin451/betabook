@@ -38,6 +38,18 @@ export type RawSendInput = {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * Clients submit the user's local calendar date, but the server runs at UTC
+ * (Cloudflare) and can't know the client's timezone — a user's local today
+ * can be up to a day ahead of UTC today (UTC+14). Tolerate one day past UTC
+ * today so a valid local-today send isn't rejected; anything beyond that is
+ * clearly future.
+ */
+export function latestAcceptableSendDate(todayUtc: string): string {
+  const [year, month, day] = todayUtc.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+}
+
 function isAscentStyle(value: FormDataEntryValue | null): value is AscentStyle {
   return (
     typeof value === "string" &&
@@ -62,7 +74,7 @@ export function validateSendInput(
   if (dateSent && !ISO_DATE_RE.test(dateSent)) {
     throw new Error("Invalid send date");
   }
-  if (dateSent && dateSent > today) {
+  if (dateSent && dateSent > latestAcceptableSendDate(today)) {
     throw new Error("Send date can't be in the future");
   }
 
