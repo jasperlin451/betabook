@@ -1,29 +1,89 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useLayoutEffect, useState, type ReactNode } from "react";
+import clsx from "clsx";
 import { Disclosure } from "@heroui/react";
 
 type Breakpoint = "md" | "lg";
 
-// Tailwind only generates CSS for classes it finds as complete literal
-// strings in source — building one via `${breakpoint}:flex` wouldn't
-// generate the override, so each full class name is spelled out here and
-// looked up by `breakpoint` instead.
-const DESKTOP_CLASSNAME: Record<Breakpoint, string> = {
-  md: "hidden flex-col gap-2 md:flex",
-  lg: "hidden flex-col gap-2 lg:flex",
-};
-const MOBILE_CLASSNAME: Record<Breakpoint, string> = {
-  md: "flex flex-col gap-2 md:hidden",
-  lg: "flex flex-col gap-2 lg:hidden",
+// Tailwind v4's default md/lg breakpoints — matchMedia takes rem units and,
+// like Tailwind's own media queries, resolves them against the initial font
+// size, so these track the md:/lg: classes below exactly.
+const BREAKPOINT_QUERY: Record<Breakpoint, string> = {
+  md: "(min-width: 48rem)",
+  lg: "(min-width: 64rem)",
 };
 
+// Tailwind only generates CSS for classes it finds as complete literal
+// strings in source — building one via `${breakpoint}:hidden` wouldn't
+// generate the override, so each full class name is spelled out here and
+// looked up by `breakpoint` instead.
+const DESKTOP_TITLE_CLASSNAME: Record<Breakpoint, string> = {
+  md: "hidden md:block",
+  lg: "hidden lg:block",
+};
+// `sr-only` doesn't set `display`, so `hidden` needs an explicit
+// `block` override before the sr-only clipping applies at the breakpoint.
+const DESKTOP_SR_TITLE_CLASSNAME: Record<Breakpoint, string> = {
+  md: "hidden md:block md:sr-only",
+  lg: "hidden lg:block lg:sr-only",
+};
+const TRIGGER_HEADING_CLASSNAME: Record<Breakpoint, string> = {
+  md: "contents md:hidden",
+  lg: "contents lg:hidden",
+};
+// From the breakpoint up the panel is permanently expanded, so the collapse
+// animation's `overflow: clip` only costs (it clips focus outlines at the
+// panel edges, which the un-wrapped desktop markup never did).
+const CONTENT_CLASSNAME: Record<Breakpoint, string> = {
+  md: "md:overflow-visible",
+  lg: "lg:overflow-visible",
+};
+// First-paint fallback, applied only until `useIsDesktop` resolves: the
+// server renders the panel expanded (see below), and this class keeps it
+// visually collapsed below the breakpoint until then. It can't linger
+// longer, or it would override the user expanding the section on mobile.
+const PREHYDRATION_CONTENT_CLASSNAME: Record<Breakpoint, string> = {
+  md: "max-md:hidden",
+  lg: "max-lg:hidden",
+};
+
+/** `undefined` on the server and during hydration, then live viewport
+ * state. Resolved in a layout effect so the first client value commits
+ * before paint — no flash of the wrong variant. */
+function useIsDesktop(breakpoint: Breakpoint): boolean | undefined {
+  const [isDesktop, setIsDesktop] = useState<boolean | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    const mql = window.matchMedia(BREAKPOINT_QUERY[breakpoint]);
+    const update = () => setIsDesktop(mql.matches);
+    update();
+    mql.addEventListener("change", update);
+    return () => mql.removeEventListener("change", update);
+  }, [breakpoint]);
+
+  return isDesktop;
+}
+
 /** A section that's always open on desktop (from `breakpoint` up) and a
- * closed-by-default accordion below it. A `Disclosure`'s initial expanded
- * state is one render-time choice — it collapses via a native `hidden`
- * attribute, not a CSS class — so there's no single render that's "closed
- * on mobile, always open on desktop". Instead this renders `children`
- * twice, once per variant, each hidden via CSS rather than unmounted, so
- * only one is ever visible at a given width and the caller still only
- * writes its content once. */
+ * closed-by-default accordion below it, mounting `children` exactly once.
+ *
+ * One `Disclosure` holds the single copy of `children`; its `isExpanded` is
+ * controlled — forced open from `breakpoint` up (where the trigger row is
+ * CSS-hidden, so it can't be re-collapsed) and user-toggled below. Crossing
+ * the breakpoint therefore only flips the expanded state; the children keep
+ * their state instead of a second pristine copy becoming visible.
+ *
+ * SSR can't know the viewport, so the server renders the panel *expanded* —
+ * the one render that works on desktop without JS, and the only one that
+ * avoids fighting the `hidden` attribute a collapsed panel carries (the
+ * preflight `[hidden]` rule is `!important` in an early cascade layer, which
+ * beats `!` utilities). Below the breakpoint a pre-hydration-only CSS class
+ * keeps the panel visually collapsed until `useIsDesktop` resolves, in the
+ * same pre-paint commit that hands control to `isExpanded`. Tradeoff: below
+ * the breakpoint without JS the panel can't be expanded, and until hydration
+ * the trigger's indicator/aria-expanded read as expanded while the panel is
+ * CSS-hidden. */
 export function CollapsibleSection({
   title,
   breakpoint = "md",
@@ -33,28 +93,50 @@ export function CollapsibleSection({
   title: string;
   breakpoint?: Breakpoint;
   /** The mobile trigger always shows `title` — this only controls whether
-   * the desktop variant also renders it as a heading above `children`. */
+   * the desktop heading is visible or sr-only (it always exists, so the
+   * heading outline is stable on both sides of the breakpoint). */
   showTitleOnDesktop?: boolean;
   children: ReactNode;
 }) {
-  return (
-    <>
-      <div className={DESKTOP_CLASSNAME[breakpoint]}>
-        {showTitleOnDesktop && <h2 className="text-lg font-medium">{title}</h2>}
-        {children}
-      </div>
+  const isDesktop = useIsDesktop(breakpoint);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const isExpanded = isDesktop === undefined ? true : isDesktop || mobileExpanded;
 
-      <Disclosure className={MOBILE_CLASSNAME[breakpoint]}>
-        <Disclosure.Heading level={2} className="contents">
-          <Disclosure.Trigger className="flex w-fit items-center gap-1 text-lg font-medium">
-            {title}
-            <Disclosure.Indicator className="size-4" />
-          </Disclosure.Trigger>
-        </Disclosure.Heading>
-        <Disclosure.Content>
-          <Disclosure.Body style={{ padding: 0 }}>{children}</Disclosure.Body>
-        </Disclosure.Content>
-      </Disclosure>
-    </>
+  return (
+    <Disclosure
+      className="flex flex-col gap-2"
+      isExpanded={isExpanded}
+      // Only reachable below the breakpoint — the trigger is display:none
+      // from it up — so this only ever records the user's mobile choice,
+      // which survives round trips across the breakpoint.
+      onExpandedChange={setMobileExpanded}
+    >
+      <h2
+        className={clsx(
+          "text-lg font-medium",
+          showTitleOnDesktop
+            ? DESKTOP_TITLE_CLASSNAME[breakpoint]
+            : DESKTOP_SR_TITLE_CLASSNAME[breakpoint],
+        )}
+      >
+        {title}
+      </h2>
+      <Disclosure.Heading level={2} className={TRIGGER_HEADING_CLASSNAME[breakpoint]}>
+        <Disclosure.Trigger className="flex min-h-11 w-full items-center gap-1 text-lg font-medium">
+          {title}
+          {/* The indicator's own styles put it at the row's far edge
+           * (ms-auto), which the full-width trigger now gives room for. */}
+          <Disclosure.Indicator className="size-4" />
+        </Disclosure.Trigger>
+      </Disclosure.Heading>
+      <Disclosure.Content
+        className={clsx(
+          CONTENT_CLASSNAME[breakpoint],
+          isDesktop === undefined && PREHYDRATION_CONTENT_CLASSNAME[breakpoint],
+        )}
+      >
+        <Disclosure.Body style={{ padding: 0 }}>{children}</Disclosure.Body>
+      </Disclosure.Content>
+    </Disclosure>
   );
 }
