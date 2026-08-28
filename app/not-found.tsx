@@ -4,7 +4,7 @@ export default function NotFound() {
   return (
     <NotFoundMessage
       heading="Page not found"
-      message="Try searching for an area or climb from the home page."
+      message="We couldn't find that page. Try searching for an area or climb instead."
     />
   );
 }
