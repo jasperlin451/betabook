@@ -23,12 +23,20 @@ export type ImportResult = {
   }>;
 };
 
-// D1 caps queries at 100 bound parameters. Each sends row binds 8 values
-// (userId, climbId, ascentStyle, dateSent, comment, rating,
-// suggestedGrade, gradeFeel — id is auto-increment, createdAt/updatedAt use
-// SQL defaults, so those aren't bound). 10 rows × 8 = 80, safely under 100.
+/** How many rows each insert statement carries — see the comment on the
+ * db.batch below. */
 const INSERT_CHUNK_SIZE = 10;
 
+/** Imports one wizard batch of rows as the signed-in user's sends.
+ *
+ * Commit contract: each call is all-or-nothing. Every insert (and its
+ * climbs-aggregate update) rides in ONE db.batch, which D1 executes as a
+ * single transaction — so `{ ok: true }` means every counted row committed,
+ * and `{ ok: false }` means none did. The wizard relies on this to report
+ * truthful imported/failed counts and to make retries safe: re-running a
+ * failed batch can't duplicate rows (nothing committed), and re-running a
+ * successful one is caught by the user+climb duplicate check below (with the
+ * sends_user_climb_unique index as the hard backstop). */
 export async function importSends(
   rows: NormalizedImportRow[],
   gradeScalePreference: "native" | "converted",
@@ -39,6 +47,7 @@ export async function importSends(
 
     const alreadySent = await getUserSentClimbIds(db, session.user.id);
     const toInsert: (typeof sends.$inferInsert)[] = [];
+    const affectedAreaIds = new Set<number>();
     const notFound: ImportResult["notFound"] = [];
     let alreadyLogged = 0;
 
@@ -69,6 +78,7 @@ export async function importSends(
         continue;
       }
       alreadySent.add(resolved.id); // guards against duplicate rows within the same CSV too
+      affectedAreaIds.add(resolved.areaId);
 
       toInsert.push({
         userId: session.user.id,
@@ -92,16 +102,29 @@ export async function importSends(
       });
     }
 
-    // Each chunk's rows are all distinct climbs (alreadySent.add above
-    // dedupes climbId across the whole CSV), so one climbs update per row is
-    // one update per distinct climb — no in-chunk aggregation needed. Batched
-    // with the insert per createSend's reasoning (D1 batch, not a
-    // transaction).
-    for (let i = 0; i < toInsert.length; i += INSERT_CHUNK_SIZE) {
-      const chunk = toInsert.slice(i, i + INSERT_CHUNK_SIZE);
+    if (toInsert.length > 0) {
+      // ONE db.batch for the whole call — a D1 batch runs as a single
+      // transaction (and a single Workers subrequest), so every row here
+      // commits or none do; a mid-batch failure can't leave earlier chunks
+      // committed while the action reports total failure. The insert is
+      // still chunked into multiple statements because D1 caps a statement
+      // at 100 bound parameters: each sends row binds 8 values (userId,
+      // climbId, ascentStyle, dateSent, comment, rating, suggestedGrade,
+      // gradeFeel — id is auto-increment, createdAt/updatedAt use SQL
+      // defaults), so 10 rows × 8 = 80 stays safely under 100.
+      //
+      // toInsert's rows are all distinct climbs (alreadySent.add above
+      // dedupes climbId across the whole CSV), so one climbs update per row
+      // is one update per distinct climb — no aggregation needed.
+      const chunks: (typeof sends.$inferInsert)[][] = [];
+      for (let i = 0; i < toInsert.length; i += INSERT_CHUNK_SIZE) {
+        chunks.push(toInsert.slice(i, i + INSERT_CHUNK_SIZE));
+      }
+      const [firstChunk, ...restChunks] = chunks;
       await db.batch([
-        db.insert(sends).values(chunk),
-        ...chunk.map((row) =>
+        db.insert(sends).values(firstChunk),
+        ...restChunks.map((chunk) => db.insert(sends).values(chunk)),
+        ...toInsert.map((row) =>
           db
             .update(climbs)
             .set({
@@ -112,10 +135,22 @@ export async function importSends(
             .where(eq(climbs.id, row.climbId)),
         ),
       ]);
+
+      // Same revalidation set as createSend (db/mutations/sends.ts): the
+      // batch above mutates climbs.sendCount/ratingSum/ratingCount, which
+      // the home page, each climb's page, and each area's climb list all
+      // render — not just the user's profile.
+      revalidatePath("/");
+      revalidatePath(`/users/${session.user.id}`);
+      for (const row of toInsert) revalidatePath(`/climbs/${row.climbId}`);
+      for (const areaId of affectedAreaIds) revalidatePath(`/areas/${areaId}`);
+      refresh();
     }
 
-    revalidatePath(`/users/${session.user.id}`);
-    refresh();
-    return { imported: toInsert.length, alreadyLogged, notFound };
+    return {
+      imported: toInsert.length,
+      alreadyLogged,
+      notFound,
+    };
   });
 }

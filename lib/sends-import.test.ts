@@ -716,7 +716,7 @@ describe("buildFailedRowsCsv", () => {
     ];
     const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], [], batchErrors);
     expect(csvText).toContain("Some Route");
-    expect(csvText).toContain("Not attempted: Not signed in");
+    expect(csvText).toContain("Not imported: Not signed in");
   });
 
   it("combines all three buckets into one CSV", () => {

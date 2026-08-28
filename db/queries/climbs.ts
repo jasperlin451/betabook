@@ -208,14 +208,24 @@ export async function getSubtreeClimbs(
   };
 }
 
+/** The subset of climb fields findClimbsByNameAndArea selects — everything
+ * the import path needs to resolve a row, dedupe it, and revalidate the
+ * affected climb/area pages. */
+export type ClimbNameAreaMatch = Pick<Climb, "id" | "areaId" | "name" | "type" | "grade">;
+
 /** Exact (case-insensitive, trimmed) name match, in an area matching areaName exactly or as an ancestor. Returns every match — caller decides what 0/1/many means. */
 export async function findClimbsByNameAndArea(
   db: Database,
   climbName: string,
   areaName: string,
-): Promise<Climb[]> {
-  return db.all<Climb>(sql`
-    SELECT climbs.* FROM climbs
+): Promise<ClimbNameAreaMatch[]> {
+  // Raw-SQL db.all skips drizzle's column mapping and keeps database field
+  // names, so snake_case columns are aliased explicitly (as in searchClimbs)
+  // — `climbs.*` would come back with `area_id`, not `areaId`.
+  return db.all<ClimbNameAreaMatch>(sql`
+    SELECT climbs.id AS id, climbs.area_id AS areaId, climbs.name AS name,
+           climbs.type AS type, climbs.grade AS grade
+    FROM climbs
     JOIN areas ON areas.id = climbs.area_id
     WHERE LOWER(TRIM(climbs.name)) = LOWER(TRIM(${climbName}))
     AND (
