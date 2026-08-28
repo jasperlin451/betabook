@@ -1,4 +1,3 @@
-import { revalidatePath } from "next/cache";
 import { inArray, sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas, climbs, treeVersion } from "@/db/schema";
@@ -71,22 +70,26 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export type RecomputeOptions = {
-  /** Paths to revalidate again once this recompute actually commits, so a
-   * cached render doesn't keep serving stale lft/rght to other users/tabs
-   * after the tree has converged (the triggering mutation's own
-   * revalidatePath calls only cover the synchronous, still-stale insert). */
-  revalidatePaths?: string[];
-};
-
 /** Recomputes and writes nested-set lft/rght for every area from current
  * parentId relationships, guarded by an optimistic-concurrency version claim
  * so concurrent recomputes (e.g. two createArea calls close together) can't
  * interleave their write phases into a corrupted tree. Safe to call
  * redundantly/concurrently — retries on losing the race rather than
  * discarding, since a loss doesn't guarantee the winner's snapshot already
- * included whatever this call's own trigger just inserted. */
-export async function recomputeAreaTree(db: Database, options: RecomputeOptions = {}): Promise<void> {
+ * included whatever this call's own trigger just inserted.
+ *
+ * Deliberately does not call revalidatePath after committing: this runs
+ * inside a ctx.waitUntil background task, and OpenNext's Cloudflare adapter
+ * keeps that task in the same async-context scope as request handling for
+ * the whole worker invocation, so Next's render-tracking machinery can
+ * still flag a revalidatePath call here as happening "during render" of
+ * whatever request happens to be in flight at that moment — not a dev-only
+ * quirk, since it's about Next's own context tracking, not real request
+ * lifecycle. The synchronous revalidatePath calls in createArea/createClimb
+ * already cover the creating user's own view; other viewers just see the
+ * stale cached render until it naturally expires or another mutation
+ * touches the same path. */
+export async function recomputeAreaTree(db: Database): Promise<void> {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const rows = await db
       .select({ id: areas.id, parentId: areas.parentId, name: areas.name })
@@ -124,7 +127,6 @@ export async function recomputeAreaTree(db: Database, options: RecomputeOptions 
 
     try {
       await db.batch([db.insert(treeVersion).values({ version: current + 1 }), ...areaUpdates, climbsResync]);
-      for (const path of options.revalidatePaths ?? []) revalidatePath(path);
       return;
     } catch (err) {
       if (!isVersionConflict(err)) throw err;

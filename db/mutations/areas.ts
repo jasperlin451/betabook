@@ -55,9 +55,7 @@ export async function createArea(parentId: number | null, formData: FormData) {
   await db.run(sql`INSERT INTO areas_fts(rowid, name) VALUES (${id}, ${input.name})`);
 
   ctx.waitUntil(
-    recomputeAreaTree(db, {
-      revalidatePaths: [`/areas/${id}`, ...(parentId != null ? [`/areas/${parentId}`] : []), "/"],
-    }).catch((err) => console.error(`recomputeAreaTree failed after createArea(${id})`, err)),
+    recomputeAreaTree(db).catch((err) => console.error(`recomputeAreaTree failed after createArea(${id})`, err)),
   );
 
   if (parentId != null) revalidatePath(`/areas/${parentId}`);

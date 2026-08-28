@@ -73,7 +73,7 @@ export async function createClimb(areaId: number, formData: FormData) {
   // give it another chance here rather than relying on that.
   if (area.lft === 0 && area.rght === 0) {
     ctx.waitUntil(
-      recomputeAreaTree(db, { revalidatePaths: [`/areas/${areaId}`] }).catch((err) =>
+      recomputeAreaTree(db).catch((err) =>
         console.error(`recomputeAreaTree failed after createClimb(${id}) into stale area ${areaId}`, err),
       ),
     );
