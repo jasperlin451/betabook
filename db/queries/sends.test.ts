@@ -1,6 +1,8 @@
 import { env } from "cloudflare:test";
+import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
+import { climbs } from "@/db/schema";
 import {
   getAllSendsForUser,
   getClimbSendStats,
@@ -154,6 +156,67 @@ describe("getSendsForUserPage", () => {
       boulderRange: [3, BOULDER_HUECO.length - 1],
     }, 0);
     expect(highOnly.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
+  });
+
+  describe("grade-unknown sends", () => {
+    beforeAll(async () => {
+      // Two new climbs in Test Highball Alcove (area 4) rather than sends on
+      // the shared fixture climbs — later describe blocks assert exact
+      // cumulative send counts for climbs 1-4 "by this point" in the file's
+      // fixture history. lft/rght mirror the owning area, same as
+      // seedFixtureTree's climbs. Grade V4 = ordinal 5 (BOULDER_HUECO).
+      await db.insert(climbs).values([
+        { id: 850, areaId: 4, name: "Test Mystery Problem", type: "boulder", grade: null, lft: 3, rght: 4 },
+        { id: 851, areaId: 4, name: "Test Graded Problem", type: "boulder", grade: 5, lft: 3, rght: 4 },
+      ]);
+      await db.run(
+        sql`INSERT INTO climbs_fts(rowid, name) SELECT id, name FROM climbs WHERE id IN (850, 851)`,
+      );
+      await seedFixtureUser(db, { id: "test-user-nullgrade", name: "Null Grade Tester" });
+      await seedFixtureSend(db, {
+        userId: "test-user-nullgrade",
+        climbId: 850,
+        dateSent: "2026-06-01",
+      });
+      await seedFixtureSend(db, {
+        userId: "test-user-nullgrade",
+        climbId: 851,
+        dateSent: "2026-06-02",
+      });
+    });
+
+    it("includes grade-unknown sends while the discipline's grade range is the full default", async () => {
+      const results = await getSendsForUserPage(db, "test-user-nullgrade", {
+        ...ALL_SENDS_FILTER,
+        disciplines: ["boulder"],
+      }, 0);
+      expect(results.sends.map((s) => s.climbName).sort()).toEqual([
+        "Test Graded Problem",
+        "Test Mystery Problem",
+      ]);
+    });
+
+    it("excludes grade-unknown sends once the grade range is narrowed", async () => {
+      // Regression: NULL grades were OR-ed into the range predicate, so a
+      // "grade unknown" send matched every narrowed range. An unknown grade
+      // can't be known to fall inside [V2, top], so only the graded (V4)
+      // climb's send matches.
+      const results = await getSendsForUserPage(db, "test-user-nullgrade", {
+        ...ALL_SENDS_FILTER,
+        disciplines: ["boulder"],
+        boulderRange: [3, BOULDER_HUECO.length - 1],
+      }, 0);
+      expect(results.sends.map((s) => s.climbName)).toEqual(["Test Graded Problem"]);
+    });
+
+    it("excludes grade-unknown sends when only the upper bound is narrowed", async () => {
+      const results = await getSendsForUserPage(db, "test-user-nullgrade", {
+        ...ALL_SENDS_FILTER,
+        disciplines: ["boulder"],
+        boulderRange: [0, 3],
+      }, 0);
+      expect(results.sends).toEqual([]);
+    });
   });
 
   describe("name/areaName filtering", () => {

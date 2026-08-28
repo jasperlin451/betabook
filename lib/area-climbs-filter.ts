@@ -1,4 +1,4 @@
-import { DEFAULT_MIN_ASCENTS, DEFAULT_RATING_RANGE } from "@/lib/climb-stats-filter";
+import { DEFAULT_MIN_ASCENTS, DEFAULT_RATING_RANGE, parseRatingRange } from "@/lib/climb-stats-filter";
 import {
   DEFAULT_DISCIPLINE_FILTER,
   appendDisciplineFilterParams,
@@ -37,15 +37,12 @@ export const DEFAULT_AREA_CLIMBS_FILTER: AreaClimbsFilter = {
 export const parseAreaClimbsSort = parseClimbListSort;
 
 export function parseAreaClimbsFilter(params: SearchParamsRecord): AreaClimbsFilter {
-  const [minRating, maxRating] = toArray(params.ratingRange).map(Number);
   const minAscents = Number(toArray(params.minAscents)[0]);
 
   return {
     ...parseDisciplineFilter(params),
     name: toArray(params.name)[0],
-    ratingRange: Number.isFinite(minRating) && Number.isFinite(maxRating)
-      ? [minRating, maxRating]
-      : DEFAULT_RATING_RANGE,
+    ratingRange: parseRatingRange(params.ratingRange),
     minAscents: Number.isFinite(minAscents) && minAscents >= 0 ? minAscents : DEFAULT_MIN_ASCENTS,
   };
 }

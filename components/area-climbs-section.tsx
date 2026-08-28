@@ -9,6 +9,7 @@ import { DisciplineFilterForm } from "@/components/send-filter-form";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import {
   areaClimbsFilterToSearchParams,
+  DEFAULT_AREA_CLIMBS_SORT,
   DEFAULT_BOULDER_RANGE,
   DEFAULT_SPORT_RANGE,
   DEFAULT_TRAD_RANGE,
@@ -153,7 +154,10 @@ export function AreaClimbsFilterPanel({
         ratingRange: DEFAULT_RATING_RANGE,
         minAscents: DEFAULT_MIN_ASCENTS,
       },
-      buildHref: (disciplineFilter, name) => buildClimbsHref(areaId, sort, { ...disciplineFilter, name }),
+      sort,
+      defaultSort: DEFAULT_AREA_CLIMBS_SORT,
+      buildHref: (disciplineFilter, name, _areaName, effectiveSort = sort) =>
+        buildClimbsHref(areaId, effectiveSort, { ...disciplineFilter, name }),
     });
 
   return (

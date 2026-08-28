@@ -5,8 +5,13 @@ import { formatGrade, type ClimbType } from "@/lib/grades";
 import { GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
 import { areaNameCondition } from "./areas";
 import { toFtsPrefixQuery } from "./shared";
-import type { Climb } from "./climbs";
-import type { DisciplineFilter } from "@/lib/discipline-filter";
+import type { Climb, Discipline } from "./climbs";
+import {
+  DEFAULT_BOULDER_RANGE,
+  DEFAULT_SPORT_RANGE,
+  DEFAULT_TRAD_RANGE,
+  type DisciplineFilter,
+} from "@/lib/discipline-filter";
 
 export type Send = typeof sends.$inferSelect;
 export type SendWithUserName = Send & { userName: string };
@@ -116,25 +121,32 @@ export type UserSendsPage = {
   hasMore: boolean;
 };
 
+/** One checked discipline's clause. At the full default range the grade
+ * filter isn't narrowed at all, so there's no grade predicate and
+ * grade-unknown (NULL) sends are included; once either bound is narrowed,
+ * NULL grades fail the BETWEEN and are excluded — an unknown grade can't be
+ * known to fall inside a narrowed range. (They used to be OR-ed back in, so
+ * "grade unknown" sends matched every narrowed range.) */
+function disciplineGradeClause(
+  type: Discipline,
+  range: [number, number],
+  fullRange: [number, number],
+): SQL {
+  const [min, max] = range;
+  if (min <= fullRange[0] && max >= fullRange[1]) return sql`climbs.type = ${type}`;
+  return sql`(climbs.type = ${type} AND climbs.grade BETWEEN ${min} AND ${max})`;
+}
+
 function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
   const disciplineClauses: SQL[] = [];
   if (filter.disciplines.includes("boulder")) {
-    const [min, max] = filter.boulderRange;
-    disciplineClauses.push(
-      sql`(climbs.type = 'boulder' AND (climbs.grade IS NULL OR climbs.grade BETWEEN ${min} AND ${max}))`,
-    );
+    disciplineClauses.push(disciplineGradeClause("boulder", filter.boulderRange, DEFAULT_BOULDER_RANGE));
   }
   if (filter.disciplines.includes("sport")) {
-    const [min, max] = filter.sportRange;
-    disciplineClauses.push(
-      sql`(climbs.type = 'sport' AND (climbs.grade IS NULL OR climbs.grade BETWEEN ${min} AND ${max}))`,
-    );
+    disciplineClauses.push(disciplineGradeClause("sport", filter.sportRange, DEFAULT_SPORT_RANGE));
   }
   if (filter.disciplines.includes("trad")) {
-    const [min, max] = filter.tradRange;
-    disciplineClauses.push(
-      sql`(climbs.type = 'trad' AND (climbs.grade IS NULL OR climbs.grade BETWEEN ${min} AND ${max}))`,
-    );
+    disciplineClauses.push(disciplineGradeClause("trad", filter.tradRange, DEFAULT_TRAD_RANGE));
   }
   // No discipline checked at all means the discipline/grade filter isn't
   // active — match everything, not nothing.

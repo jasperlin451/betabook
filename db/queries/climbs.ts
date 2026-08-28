@@ -1,6 +1,7 @@
 import { eq, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { climbs } from "@/db/schema";
+import { MAX_RATING } from "@/lib/climb-stats-filter";
 import { PAGE_SIZE, toFtsPrefixQuery } from "./shared";
 import { areaNameCondition, type Area } from "./areas";
 
@@ -129,15 +130,20 @@ export type ClimbStatsFilter = {
 /** Adds the rating-range/min-ascents WHERE fragments shared by `searchClimbs`
  * and `getSubtreeClimbs` — both filter on climbs.avg_rating/send_count,
  * real denormalized columns (see drizzle/schema/climbs.ts), so this is a
- * plain predicate, no join or HAVING needed. A range at its full default
- * (or minAscents of 0) means the filter isn't active. A climb with no sends
- * has avg_rating IS NULL and send_count = 0, so it naturally fails either
- * condition once actually narrowed — no NULL special-casing required. */
+ * plain predicate, no join or HAVING needed. Each rating bound is emitted
+ * independently: a bound of 0 is the "Any" sentinel (that side is inactive
+ * — see lib/climb-stats-filter.ts), and a max at MAX_RATING is inactive
+ * too, since no avg_rating exceeds it and emitting it anyway would wrongly
+ * drop unrated climbs from the default view. A climb with no ratings has
+ * avg_rating IS NULL (and send_count = 0 with no sends), so it naturally
+ * fails whichever bound is actually active — no NULL special-casing
+ * required; minAscents of 0 likewise means inactive. */
 function climbStatsConditions(filter: ClimbStatsFilter): SQL[] {
   const clauses: SQL[] = [];
-  if (filter.ratingRange && (filter.ratingRange[0] > 0 || filter.ratingRange[1] < 5)) {
+  if (filter.ratingRange) {
     const [min, max] = filter.ratingRange;
-    clauses.push(sql`climbs.avg_rating BETWEEN ${min} AND ${max}`);
+    if (min > 0) clauses.push(sql`climbs.avg_rating >= ${min}`);
+    if (max > 0 && max < MAX_RATING) clauses.push(sql`climbs.avg_rating <= ${max}`);
   }
   if (filter.minAscents) {
     clauses.push(sql`climbs.send_count >= ${filter.minAscents}`);

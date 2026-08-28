@@ -47,15 +47,18 @@ export function ClimbSearchForm({
 }: ClimbSearchFormProps) {
   // Auto-search: debounce every field change (including the initial render)
   // into a single navigation instead of requiring an explicit submit. Sort
-  // is preserved as-is — it's owned by ClimbSearchSortControl, not this form.
+  // is preserved as-is — it's owned by ClimbSearchSortControl, not this
+  // form — except on Reset Filters, which restores the default sort too.
   const { name, setName, areaName, setAreaName, filter, setFilter, reset } =
     useFilterFormNavigation({
       initialFilter: defaultFilter,
       initialName: defaultFilter.name ?? "",
       initialAreaName: defaultFilter.areaName ?? "",
       defaultFilter: DEFAULT_CLIMB_SEARCH_FILTER,
-      buildHref: (filter, name, areaName) =>
-        `/?${climbSearchFilterToSearchParams(sort, { ...filter, name, areaName }).toString()}`,
+      sort,
+      defaultSort: DEFAULT_CLIMB_SEARCH_SORT,
+      buildHref: (filter, name, areaName, effectiveSort = sort) =>
+        `/?${climbSearchFilterToSearchParams(effectiveSort, { ...filter, name, areaName }).toString()}`,
     });
 
   return (
