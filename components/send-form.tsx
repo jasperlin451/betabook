@@ -65,16 +65,14 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
     formData.set("gradeFeel", gradeFeel);
 
     startTransition(async () => {
-      try {
-        if (existingSend) {
-          await updateSend(existingSend.id, formData);
-        } else {
-          await createSend(climb.id, formData);
-        }
-        onDone?.();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
+      const result = existingSend
+        ? await updateSend(existingSend.id, formData)
+        : await createSend(climb.id, formData);
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
+      onDone?.();
     });
   }
 

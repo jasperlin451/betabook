@@ -137,16 +137,13 @@ export function ImportWizard() {
 
       for (let i = 0; i < total; i += IMPORT_BATCH_SIZE) {
         const batch = normalized.valid.slice(i, i + IMPORT_BATCH_SIZE);
-        try {
-          const result = await importSends(batch, gradeScale);
-          imported += result.imported;
-          alreadyLogged += result.alreadyLogged;
-          notFound.push(...result.notFound);
-        } catch (err) {
-          batchErrors.push({
-            rows: batch,
-            message: err instanceof Error ? err.message : "Import failed",
-          });
+        const result = await importSends(batch, gradeScale);
+        if (result.ok) {
+          imported += result.value.imported;
+          alreadyLogged += result.value.alreadyLogged;
+          notFound.push(...result.value.notFound);
+        } else {
+          batchErrors.push({ rows: batch, message: result.error });
         }
         setProgress({
           completed: Math.min(i + IMPORT_BATCH_SIZE, total),
