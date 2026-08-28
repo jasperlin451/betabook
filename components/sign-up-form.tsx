@@ -4,8 +4,12 @@ import { useState } from "react";
 import { Button, Input, Label, TextField } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
 import { AppLink } from "@/components/ui/app-link";
+import { safeNextPath, signInUrl } from "@/lib/sign-in-redirect";
 
-export function SignUpForm() {
+export function SignUpForm({ next }: { next?: string }) {
+  // The page already validates the param, but re-validate the prop here so
+  // the form can never be handed an off-origin destination.
+  const nextPath = safeNextPath(next);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +28,9 @@ export function SignUpForm() {
     if (password !== confirmPassword) return;
     setPending(true);
     authClient.signUp.email(
-      { name, email, password, callbackURL: "/sign-in" },
+      // The verification link lands back on sign-in, carrying the original
+      // destination so the continuation survives sign-up → verify → sign-in.
+      { name, email, password, callbackURL: signInUrl(nextPath) },
       {
         onSuccess: () => setDone(true),
         onError: (ctx) => setError(ctx.error.message ?? "Sign up failed"),
@@ -39,7 +45,7 @@ export function SignUpForm() {
         <h1 className="text-lg font-semibold">Check your email</h1>
         <p className="text-sm text-muted">
           We sent a verification link to {email}. Verify your address, then{" "}
-          <AppLink href="/sign-in">sign in</AppLink>.
+          <AppLink href={signInUrl(nextPath)}>sign in</AppLink>.
         </p>
       </div>
     );
@@ -80,7 +86,7 @@ export function SignUpForm() {
         Sign Up
       </Button>
       <p className="text-sm text-muted">
-        Already have an account? <AppLink href="/sign-in">Sign in</AppLink>
+        Already have an account? <AppLink href={signInUrl(nextPath)}>Sign in</AppLink>
       </p>
     </form>
   );

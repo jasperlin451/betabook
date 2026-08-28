@@ -5,28 +5,42 @@ import { useRouter } from "next/navigation";
 import { Button, Input, Label, TextField } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
 import { AppLink } from "@/components/ui/app-link";
+import {
+  DEFAULT_SIGNED_IN_PATH,
+  safeNextPath,
+  signInUrl,
+  signUpUrl,
+} from "@/lib/sign-in-redirect";
 
-export function SignInForm() {
+export function SignInForm({ next }: { next?: string }) {
   const router = useRouter();
+  // The page already validates the param, but re-validate the prop here so
+  // the form can never be handed an off-origin destination.
+  const nextPath = safeNextPath(next);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [unverified, setUnverified] = useState(false);
+  // The address a 403 unverified-login error came back for. The resend
+  // affordance is bound to this, not to whatever is currently typed in the
+  // email field.
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const attemptedEmail = email;
     setError(null);
-    setUnverified(false);
+    setUnverifiedEmail(null);
+    setResent(false);
     setPending(true);
     authClient.signIn.email(
-      { email, password },
+      { email: attemptedEmail, password },
       {
-        onSuccess: () => router.push("/account"),
+        onSuccess: () => router.push(nextPath ?? DEFAULT_SIGNED_IN_PATH),
         onError: (ctx) => {
           if (ctx.error.status === 403) {
-            setUnverified(true);
+            setUnverifiedEmail(attemptedEmail);
           } else {
             setError(ctx.error.message ?? "Sign in failed");
           }
@@ -36,10 +50,23 @@ export function SignInForm() {
     );
   }
 
+  function handleEmailChange(value: string) {
+    setEmail(value);
+    // The unverified prompt refers to the attempted address; once the field
+    // is edited it no longer applies.
+    if (unverifiedEmail !== null) {
+      setUnverifiedEmail(null);
+      setResent(false);
+    }
+  }
+
   function resendVerification() {
+    if (!unverifiedEmail) return;
     setResent(false);
     authClient.sendVerificationEmail(
-      { email, callbackURL: "/sign-in" },
+      // After the verification link is clicked, land back on this sign-in
+      // URL, continuation included.
+      { email: unverifiedEmail, callbackURL: signInUrl(nextPath) },
       { onSuccess: () => setResent(true) },
     );
   }
@@ -50,7 +77,7 @@ export function SignInForm() {
       className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6"
     >
       <h1 className="text-lg font-semibold">Sign In</h1>
-      <TextField value={email} onChange={setEmail} type="email" isRequired>
+      <TextField value={email} onChange={handleEmailChange} type="email" isRequired>
         <Label>Email</Label>
         <Input placeholder="you@example.com" className="bg-surface" />
       </TextField>
@@ -62,7 +89,7 @@ export function SignInForm() {
         Forgot password?
       </AppLink>
       {error && <p className="text-sm text-danger">{error}</p>}
-      {unverified && (
+      {unverifiedEmail !== null && (
         <div className="flex flex-col gap-2 text-sm text-danger">
           <p>Please verify your email address before signing in.</p>
           <Button variant="ghost" onPress={resendVerification} isDisabled={resent}>
@@ -74,7 +101,7 @@ export function SignInForm() {
         Sign In
       </Button>
       <p className="text-sm text-muted">
-        Don&apos;t have an account? <AppLink href="/sign-up">Sign up</AppLink>
+        Don&apos;t have an account? <AppLink href={signUpUrl(nextPath)}>Sign up</AppLink>
       </p>
     </form>
   );

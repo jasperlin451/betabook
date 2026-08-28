@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { signInUrl } from "@/lib/sign-in-redirect";
 import { AppLink } from "@/components/ui/app-link";
 import { ExportSendsButton } from "@/components/export-sends-button";
 import { ResetPasswordButton } from "@/components/reset-password-button";
@@ -15,7 +16,7 @@ export default async function AccountPage() {
   const session = await getSession();
 
   if (!session) {
-    redirect("/sign-in");
+    redirect(signInUrl("/account"));
   }
 
   return (
