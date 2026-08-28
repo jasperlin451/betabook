@@ -22,9 +22,12 @@ export const climbs = sqliteTable(
     lft: integer("lft").notNull().default(0),
     rght: integer("rght").notNull().default(0),
     // Denormalized aggregates over `sends`, incrementally maintained by
-    // every write path in db/mutations.ts — lets getSubtreeClimbs sort by
-    // ascent count/rating from an index on climbs alone, instead of joining
-    // an unscoped GROUP BY over the entire sends table on every query.
+    // AFTER INSERT/UPDATE/DELETE triggers on sends (see
+    // drizzle/migrations/0014_sends_aggregate_triggers.sql) — lets
+    // getSubtreeClimbs sort by ascent count/rating from an index on climbs
+    // alone, instead of joining an unscoped GROUP BY over the entire sends
+    // table on every query. App code never writes these columns; the
+    // triggers are the only writer, so no send write path can forget them.
     // ratingSum/ratingCount (not a running average) avoid floating-point
     // drift accumulating over years of incremental +/- updates.
     sendCount: integer("send_count").notNull().default(0),
