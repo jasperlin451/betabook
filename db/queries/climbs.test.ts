@@ -444,9 +444,6 @@ describe("searchClimbs", () => {
     for (let i = 0; i < climbRows.length; i += CHUNK_SIZE) {
       await db.insert(climbs).values(climbRows.slice(i, i + CHUNK_SIZE));
     }
-    await db.run(
-      sql`INSERT INTO climbs_fts(rowid, name) SELECT id, name FROM climbs WHERE id >= ${startId}`,
-    );
 
     // searchClimbs caps results at 25 regardless of match count — the point
     // here is that the query doesn't throw with 60 areas matched, not that

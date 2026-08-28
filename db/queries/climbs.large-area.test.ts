@@ -38,9 +38,6 @@ beforeAll(async () => {
     { id: START_ID + 2, areaId: AREA_ID, name: "Crusher Face", type: "sport", grade: 10, lft: 1, rght: 3000 },
     { id: START_ID + 3, areaId: AREA_ID, name: "Driftwood Slab", type: "boulder", grade: null, lft: 1, rght: 3000 },
   ]);
-  await db.run(
-    sql`INSERT INTO climbs_fts(rowid, name) SELECT id, name FROM climbs WHERE id >= ${START_ID}`,
-  );
 
   for (let i = 1; i <= 4; i++) {
     await seedFixtureUser(db, { id: `test-user-large-area-${i}`, name: `Large Area Tester ${i}` });
