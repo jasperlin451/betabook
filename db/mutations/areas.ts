@@ -8,7 +8,7 @@ import { areas } from "@/db/schema";
 import { getArea, getSubareas, hasClimbsInArea } from "@/db/queries";
 import { recomputeAreaTree } from "@/db/reindex-areas";
 import { validateAreaInput, type RawAreaInput } from "@/lib/areas";
-import { toActionResult, type ActionResult } from "@/lib/action-result";
+import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { pickFormFields } from "@/lib/validation";
 import { parseId } from "@/lib/parse-id";
 
@@ -24,7 +24,7 @@ export async function updateArea(areaId: number, formData: FormData): Promise<Ac
     const db = await getDb();
 
     const existing = parseId(areaId) === null ? undefined : await getArea(db, areaId);
-    if (!existing) throw new Error("Area not found");
+    if (!existing) throw new ActionError("Area not found");
 
     const input = validateAreaInput(readAreaFormData(formData));
     await db.update(areas).set(input).where(eq(areas.id, areaId));
@@ -50,7 +50,7 @@ export async function createArea(
     await requireSession();
 
     const parent = parentId == null ? undefined : await getArea(await getDb(), parentId);
-    if (parentId != null && !parent) throw new Error("Parent area not found");
+    if (parentId != null && !parent) throw new ActionError("Parent area not found");
 
     const input = validateAreaInput(readAreaFormData(formData));
     const { db, ctx } = await getDbAndContext();
@@ -87,11 +87,11 @@ export async function deleteArea(areaId: number): Promise<ActionResult> {
     const db = await getDb();
 
     const existing = parseId(areaId) === null ? undefined : await getArea(db, areaId);
-    if (!existing) throw new Error("Area not found");
+    if (!existing) throw new ActionError("Area not found");
 
     const subareas = await getSubareas(db, areaId);
-    if (subareas.length > 0) throw new Error("Can't delete an area with sub-areas");
-    if (await hasClimbsInArea(db, areaId)) throw new Error("Can't delete an area with climbs");
+    if (subareas.length > 0) throw new ActionError("Can't delete an area with sub-areas");
+    if (await hasClimbsInArea(db, areaId)) throw new ActionError("Can't delete an area with climbs");
 
     await db.delete(areas).where(eq(areas.id, areaId));
     await db.run(sql`DELETE FROM areas_fts WHERE rowid = ${areaId}`);

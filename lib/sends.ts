@@ -1,4 +1,5 @@
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
+import { ActionError } from "@/lib/action-result";
 import { parseGradeIndex, trimOrNull } from "@/lib/validation";
 
 export const ASCENT_STYLES = ["redpoint", "flash", "onsight"] as const;
@@ -55,25 +56,25 @@ export function validateSendInput(
   today: string = new Date().toISOString().slice(0, 10),
 ): SendInput {
   if (!isAscentStyle(raw.ascentStyle)) {
-    throw new Error("Invalid ascent style");
+    throw new ActionError("Invalid ascent style");
   }
 
   const dateSent = typeof raw.dateSent === "string" ? raw.dateSent.trim() : "";
   if (dateSent && !ISO_DATE_RE.test(dateSent)) {
-    throw new Error("Invalid send date");
+    throw new ActionError("Invalid send date");
   }
   if (dateSent && dateSent > today) {
-    throw new Error("Send date can't be in the future");
+    throw new ActionError("Send date can't be in the future");
   }
 
   const comment = trimOrNull(raw.comment);
   if (comment && comment.length > MAX_COMMENT_LENGTH) {
-    throw new Error(`Comment must be ${MAX_COMMENT_LENGTH} characters or fewer`);
+    throw new ActionError(`Comment must be ${MAX_COMMENT_LENGTH} characters or fewer`);
   }
 
   const rating = raw.rating ? Number(raw.rating) : null;
   if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
-    throw new Error("Rating must be between 1 and 5");
+    throw new ActionError("Rating must be between 1 and 5");
   }
 
   const suggestedGrade = parseGradeIndex(

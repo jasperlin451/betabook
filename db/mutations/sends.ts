@@ -7,7 +7,7 @@ import { getDb } from "@/db/client";
 import { climbs, sends } from "@/db/schema";
 import { getClimb, getUserSendForClimb } from "@/db/queries";
 import { validateSendInput, type RawSendInput } from "@/lib/sends";
-import { toActionResult, type ActionResult } from "@/lib/action-result";
+import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { pickFormFields } from "@/lib/validation";
 
 const SEND_FORM_FIELDS = [
@@ -29,11 +29,11 @@ export async function createSend(climbId: number, formData: FormData): Promise<A
     const db = await getDb();
 
     const climb = await getClimb(db, climbId);
-    if (!climb) throw new Error("Climb not found");
+    if (!climb) throw new ActionError("Climb not found");
 
     const existing = await getUserSendForClimb(db, session.user.id, climbId);
     if (existing) {
-      throw new Error("You've already sent this climb — edit your existing send instead.");
+      throw new ActionError("You've already sent this climb — edit your existing send instead.");
     }
 
     const input = validateSendInput(climb.type, readSendFormData(formData));
@@ -68,10 +68,10 @@ export async function updateSend(sendId: number, formData: FormData): Promise<Ac
     const db = await getDb();
 
     const existing = await db.select().from(sends).where(eq(sends.id, sendId)).get();
-    if (!existing || existing.userId !== session.user.id) throw new Error("Send not found");
+    if (!existing || existing.userId !== session.user.id) throw new ActionError("Send not found");
 
     const climb = await getClimb(db, existing.climbId);
-    if (!climb) throw new Error("Climb not found");
+    if (!climb) throw new ActionError("Climb not found");
 
     const input = validateSendInput(climb.type, readSendFormData(formData));
 
@@ -106,7 +106,7 @@ export async function deleteSend(sendId: number): Promise<ActionResult> {
     const db = await getDb();
 
     const existing = await db.select().from(sends).where(eq(sends.id, sendId)).get();
-    if (!existing || existing.userId !== session.user.id) throw new Error("Send not found");
+    if (!existing || existing.userId !== session.user.id) throw new ActionError("Send not found");
 
     // See createSend for why this is a batch, not a transaction.
     await db.batch([

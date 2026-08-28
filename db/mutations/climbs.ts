@@ -12,7 +12,7 @@ import {
   validateNewClimbInput,
   type RawClimbInput,
 } from "@/lib/climbs";
-import { toActionResult, type ActionResult } from "@/lib/action-result";
+import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { pickFormFields } from "@/lib/validation";
 import { parseId } from "@/lib/parse-id";
 
@@ -28,7 +28,7 @@ export async function updateClimb(climbId: number, formData: FormData): Promise<
     const db = await getDb();
 
     const existing = parseId(climbId) === null ? undefined : await getClimb(db, climbId);
-    if (!existing) throw new Error("Climb not found");
+    if (!existing) throw new ActionError("Climb not found");
 
     const input = validateClimbInput(existing, readClimbFormData(formData));
     await db.update(climbs).set(input).where(eq(climbs.id, climbId));
@@ -46,8 +46,8 @@ export async function deleteClimb(climbId: number): Promise<ActionResult> {
     const db = await getDb();
 
     const existing = parseId(climbId) === null ? undefined : await getClimb(db, climbId);
-    if (!existing) throw new Error("Climb not found");
-    if (existing.sendCount > 0) throw new Error("Can't delete a climb with logged sends");
+    if (!existing) throw new ActionError("Climb not found");
+    if (existing.sendCount > 0) throw new ActionError("Can't delete a climb with logged sends");
 
     await db.delete(climbs).where(eq(climbs.id, climbId));
 
@@ -66,7 +66,7 @@ export async function createClimb(
     const { db, ctx } = await getDbAndContext();
 
     const area = parseId(areaId) === null ? undefined : await getArea(db, areaId);
-    if (!area) throw new Error("Area not found");
+    if (!area) throw new ActionError("Area not found");
 
     const input = validateNewClimbInput(readClimbFormData(formData));
     const [{ id }] = await db

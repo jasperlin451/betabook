@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  ActionError,
+  GENERIC_ERROR_MESSAGE,
   NotSignedInError,
   SESSION_EXPIRED_MESSAGE,
   toActionResult,
@@ -14,10 +16,10 @@ describe("toActionResult", () => {
     expect(await toActionResult(async () => {})).toEqual({ ok: true, value: undefined });
   });
 
-  it("converts a thrown Error into ok:false with its message", async () => {
+  it("passes an ActionError's message through to ok:false", async () => {
     expect(
       await toActionResult(async () => {
-        throw new Error("Can't delete a climb with logged sends");
+        throw new ActionError("Can't delete a climb with logged sends");
       }),
     ).toEqual({ ok: false, error: "Can't delete a climb with logged sends" });
   });
@@ -30,11 +32,31 @@ describe("toActionResult", () => {
     ).toEqual({ ok: false, error: SESSION_EXPIRED_MESSAGE });
   });
 
-  it("falls back to a generic message for non-Error throws", async () => {
-    expect(
-      await toActionResult(async () => {
-        throw "nope";
-      }),
-    ).toEqual({ ok: false, error: "Something went wrong" });
+  it("logs an unexpected Error and returns the generic message instead of leaking it", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const internal = new Error("D1_ERROR: something leaked from the driver");
+      expect(
+        await toActionResult(async () => {
+          throw internal;
+        }),
+      ).toEqual({ ok: false, error: GENERIC_ERROR_MESSAGE });
+      expect(consoleError).toHaveBeenCalledWith(internal);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("returns the generic message for non-Error throws", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(
+        await toActionResult(async () => {
+          throw "nope";
+        }),
+      ).toEqual({ ok: false, error: GENERIC_ERROR_MESSAGE });
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
