@@ -3,10 +3,10 @@
 import { refresh, revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
-import { getDb, getDbAndContext } from "@/db/client";
+import { getDb } from "@/db/client";
 import { areas } from "@/db/schema";
 import { getArea, getSubareas, hasClimbsInArea } from "@/db/queries";
-import { recomputeAreaTree } from "@/db/reindex-areas";
+import { insertAreaIntoTree } from "@/db/reindex-areas";
 import { validateAreaInput, type RawAreaInput } from "@/lib/areas";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { pickFormFields } from "@/lib/validation";
@@ -36,35 +36,29 @@ export async function updateArea(areaId: number, formData: FormData): Promise<Ac
   });
 }
 
-/** Creates an area with placeholder lft=0/rght=0 (the seed pipeline's own
- * convention for a not-yet-indexed area) and kicks off a full-tree recompute
- * in the background rather than blocking this response on it — see
- * db/reindex-areas.ts. The new area is visible by id/parentId immediately;
- * its position among siblings and its subtree climb listing catch up once
- * the recompute lands, typically well under a second later. */
+/** Creates an area at its final nested-set position synchronously (see
+ * insertAreaIntoTree) rather than at a lft=0/rght=0 placeholder repaired by
+ * a background recompute. The create forms navigate straight to the new
+ * /areas/[id] page, so its subtree bounds must already be correct by the
+ * time this returns: a pending 0/0 window meant the new page's climb list
+ * matched every other pending 0/0 climb (BETWEEN 0 AND 0), ancestors
+ * omitted anything created into the gap, and concurrent creates
+ * cross-contaminated each other's listings. areas_fts stays in sync via
+ * triggers (drizzle/migrations/0014_fts_sync_triggers.sql), atomically
+ * within the insert itself. */
 export async function createArea(
   parentId: number | null,
   formData: FormData,
 ): Promise<ActionResult<number>> {
   return toActionResult(async () => {
     await requireSession();
+    const db = await getDb();
 
-    const parent = parentId == null ? undefined : await getArea(await getDb(), parentId);
+    const parent = parentId == null ? undefined : await getArea(db, parentId);
     if (parentId != null && !parent) throw new ActionError("Parent area not found");
 
     const input = validateAreaInput(readAreaFormData(formData));
-    const { db, ctx } = await getDbAndContext();
-
-    // areas_fts stays in sync via triggers (drizzle/migrations/
-    // 0014_fts_sync_triggers.sql), atomically within this same statement.
-    const [{ id }] = await db
-      .insert(areas)
-      .values({ parentId, lft: 0, rght: 0, ...input })
-      .returning({ id: areas.id });
-
-    ctx.waitUntil(
-      recomputeAreaTree(db).catch((err) => console.error(`recomputeAreaTree failed after createArea(${id})`, err)),
-    );
+    const id = await insertAreaIntoTree(db, { parentId, ...input });
 
     if (parentId != null) revalidatePath(`/areas/${parentId}`);
     revalidatePath("/");

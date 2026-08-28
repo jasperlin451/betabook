@@ -14,11 +14,13 @@ export const climbs = sqliteTable(
     grade: integer("grade"),
     description: text("description"),
     // Denormalized copy of the owning area's areas.lft/rght, kept in sync
-    // only by the offline reindex step (see scripts/reindex-areas.ts) since
-    // areas.lft/rght themselves are never written by app code — lets
-    // getSubtreeClimbs filter by subtree range directly on climbs, with no
-    // join to areas, so the range predicate and a sort-column index can
-    // cooperate in a single-table query plan.
+    // by every writer of areas.lft/rght: insertAreaIntoTree shifts climbs
+    // and areas in the same atomic batch, recomputeAreaTree resyncs all
+    // climbs after renumbering (both in db/reindex-areas.ts), and the
+    // offline reindex step (scripts/reindex-areas.ts) does the same for
+    // seeded data — lets getSubtreeClimbs filter by subtree range directly
+    // on climbs, with no join to areas, so the range predicate and a
+    // sort-column index can cooperate in a single-table query plan.
     lft: integer("lft").notNull().default(0),
     rght: integer("rght").notNull().default(0),
     // Denormalized aggregates over `sends`, incrementally maintained by

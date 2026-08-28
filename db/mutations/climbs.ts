@@ -1,10 +1,10 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
 import { getDb, getDbAndContext } from "@/db/client";
-import { climbs } from "@/db/schema";
+import { areas, climbs } from "@/db/schema";
 import { getArea, getClimb } from "@/db/queries";
 import { recomputeAreaTree } from "@/db/reindex-areas";
 import {
@@ -70,17 +70,30 @@ export async function createClimb(
 
     // climbs_fts stays in sync via triggers (drizzle/migrations/
     // 0014_fts_sync_triggers.sql), atomically within this same statement.
+    // The denormalized lft/rght copy comes from a correlated subquery, not
+    // the `area` row read above: a concurrent insertAreaIntoTree splice can
+    // shift this area's bounds between that read and this INSERT, and a
+    // stale copy would leave the climb mismatched with its area — invisible
+    // to ancestors' subtree listings, or worse, inside a shifted sibling's
+    // range — until the next full recompute.
     const input = validateNewClimbInput(readClimbFormData(formData));
     const [{ id }] = await db
       .insert(climbs)
-      .values({ areaId, lft: area.lft, rght: area.rght, ...input })
+      .values({
+        areaId,
+        lft: sql`(SELECT ${areas.lft} FROM ${areas} WHERE ${areas.id} = ${areaId})`,
+        rght: sql`(SELECT ${areas.rght} FROM ${areas} WHERE ${areas.id} = ${areaId})`,
+        ...input,
+      })
       .returning({ id: climbs.id });
 
-    // The area's own createArea call already triggers a recompute, but if this
-    // climb landed in the gap before that job committed (or after it already
-    // exhausted its retries), it would otherwise be stuck at lft=0/rght=0
-    // forever unless some unrelated area happens to be created later — so
-    // give it another chance here rather than relying on that.
+    // createArea now splices real bounds in synchronously (see
+    // insertAreaIntoTree), so app-created areas are never 0/0 — this
+    // placeholder state only remains for seeded data that hasn't been
+    // reindexed yet (scripts/reindex-areas.ts). A climb created into such
+    // an area copies the placeholder and would stay invisible to subtree
+    // queries until some recompute happens to run — so schedule the repair
+    // here rather than relying on one.
     if (area.lft === 0 && area.rght === 0) {
       ctx.waitUntil(
         recomputeAreaTree(db).catch((err) =>

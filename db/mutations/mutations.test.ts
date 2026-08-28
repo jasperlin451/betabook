@@ -3,9 +3,10 @@ import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { createDb } from "@/db/client";
 import { climbs, sends } from "@/db/schema";
+import { getArea, getSubtreeClimbs } from "@/db/queries";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
-import { createClimb, createSend, deleteClimb } from "@/db/mutations";
+import { createArea, createClimb, createSend, deleteClimb } from "@/db/mutations";
 
 /** The action boundary must never throw — Next.js redacts uncaught
  * server-action errors in production, so these tests pin the structured
@@ -126,6 +127,53 @@ describe("deleteClimb action boundary", () => {
   it("returns ok:true and deletes on success", async () => {
     expect(await deleteClimb(2)).toEqual({ ok: true, value: undefined });
     expect(await db.select().from(climbs).where(eq(climbs.id, 2)).get()).toBeUndefined();
+  });
+});
+
+describe("createArea action boundary", () => {
+  it("returns ok:false when the parent area doesn't exist", async () => {
+    const formData = new FormData();
+    formData.set("name", "Orphan Area");
+    formData.set("description", "");
+
+    expect(await createArea(999999, formData)).toEqual({
+      ok: false,
+      error: "Parent area not found",
+    });
+  });
+
+  it("creates the area with final nested-set bounds, so a climb added right away is visible on the new page and its ancestors'", async () => {
+    const areaForm = new FormData();
+    areaForm.set("name", "Boundary Test Sector");
+    areaForm.set("description", "");
+
+    const areaResult = await createArea(2, areaForm);
+    expect(areaResult.ok).toBe(true);
+    if (!areaResult.ok) return;
+
+    // No pending lft=0/rght=0 window — bounds are final when the action
+    // returns, since the form navigates straight to /areas/[id].
+    const newArea = await getArea(db, areaResult.value);
+    expect(newArea!.lft).toBeGreaterThan(0);
+    expect(newArea!.rght).toBe(newArea!.lft + 1);
+
+    const climbForm = new FormData();
+    climbForm.set("name", "Boundary Test Fresh Line");
+    climbForm.set("type", "sport");
+    climbForm.set("grade", "10");
+    climbForm.set("description", "");
+
+    const climbResult = await createClimb(areaResult.value, climbForm);
+    expect(climbResult.ok).toBe(true);
+
+    // Immediately listed on the new area's own page, its parent's, and the
+    // root's — and the new area shows nothing but its own climb.
+    const own = await getSubtreeClimbs(db, (await getArea(db, areaResult.value))!);
+    expect(own.climbs.map((c) => c.name)).toEqual(["Boundary Test Fresh Line"]);
+    for (const ancestorId of [2, 1]) {
+      const listing = await getSubtreeClimbs(db, (await getArea(db, ancestorId))!);
+      expect(listing.climbs.map((c) => c.name)).toContain("Boundary Test Fresh Line");
+    }
   });
 });
 
