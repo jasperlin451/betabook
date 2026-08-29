@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Checkbox, Link } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
+import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
 import { formatGrade } from "@/lib/grades";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
@@ -18,8 +19,6 @@ import { SendActionsMenu } from "@/components/send-actions-menu";
 import { SendListShell } from "@/components/send-list-shell";
 import { SortSelect } from "@/components/ui/sort-select";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
-
-const MIN_RATING_OPTIONS = ["Any", "1", "2", "3", "4", "5"];
 
 /** Ascent-style checkboxes for the user sends filter — same structure as
  * DisciplinesFields in send-filter-form.tsx, but not shared there since it's
@@ -58,7 +57,7 @@ function AscentStyleFields({
 
 function MinRatingSelect({ value, onChange }: { value: number; onChange: (value: number) => void }) {
   return (
-    <LabeledIndexSelect label="Min Rating" options={MIN_RATING_OPTIONS} index={value} onChange={onChange} />
+    <LabeledIndexSelect label="Min Rating" options={RATING_OPTIONS} index={value} onChange={onChange} />
   );
 }
 

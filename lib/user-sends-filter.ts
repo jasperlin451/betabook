@@ -1,3 +1,4 @@
+import { MAX_RATING } from "@/lib/climb-stats-filter";
 import {
   DEFAULT_DISCIPLINE_FILTER,
   appendDisciplineFilterParams,
@@ -43,7 +44,7 @@ export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilte
     sort,
     ascentStyles: parseAscentStyles(params),
     minRating:
-      Number.isFinite(minRating) && minRating >= 0 && minRating <= 5
+      Number.isFinite(minRating) && minRating >= 0 && minRating <= MAX_RATING
         ? minRating
         : DEFAULT_USER_SENDS_FILTER.minRating,
   };

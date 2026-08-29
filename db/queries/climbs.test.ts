@@ -306,6 +306,44 @@ describe("getSubtreeClimbs", () => {
       expect(climbs.map((c) => c.name)).toEqual(["Test Slab"]);
     });
 
+    it("treats the default rating range as no filter at all, keeping unrated climbs", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        ratingRange: [0, 5],
+      });
+      expect(climbs).toHaveLength(4);
+    });
+
+    it('returns every climb for an "Any"–"Any" rating range (0 = unbounded), not zero results', async () => {
+      // Regression: "Any" as the max used to reach the query as 0, turning
+      // the filter into `avg_rating BETWEEN 0 AND 0` — zero results.
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        ratingRange: [0, 0],
+      });
+      expect(climbs).toHaveLength(4);
+    });
+
+    it('applies only the lower bound when the max is "Any" (0)', async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        ratingRange: [3, 0],
+      });
+      expect(climbs.map((c) => c.name)).toEqual(["Test Slab"]); // avg 4
+    });
+
+    it('applies only the upper bound when the min is "Any" (0), still excluding unrated climbs', async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        ratingRange: [0, 3],
+      });
+      expect(climbs.map((c) => c.name)).toEqual(["Test Crimper"]); // avg 1
+    });
+
     it("combines a min-ascents filter with a discipline filter", async () => {
       const root = await getArea(db, 1);
       const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
@@ -399,6 +437,23 @@ describe("searchClimbs", () => {
   it("filters by rating range, excluding unrated climbs and climbs outside the range", async () => {
     const results = await searchClimbs(db, { disciplines: [], ratingRange: [3, 5] });
     expect(results.map((c) => c.name)).toEqual(["Test Slab"]);
+  });
+
+  it('returns every climb for an "Any"–"Any" rating range (0 = unbounded), not zero results', async () => {
+    // Same regression as getSubtreeClimbs: an "Any" max used to become
+    // `avg_rating BETWEEN 0 AND 0` and match nothing.
+    const results = await searchClimbs(db, { disciplines: [], ratingRange: [0, 0] });
+    expect(results.map((c) => c.name).sort()).toEqual([
+      "Test Crack",
+      "Test Crimper",
+      "Test Highball",
+      "Test Slab",
+    ]);
+  });
+
+  it('applies only the lower bound when the max is "Any" (0)', async () => {
+    const results = await searchClimbs(db, { disciplines: [], ratingRange: [3, 0] });
+    expect(results.map((c) => c.name)).toEqual(["Test Slab"]); // avg 4
   });
 
   it("defaults to sorting by ascent count descending", async () => {
