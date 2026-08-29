@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateSendInput, type RawSendInput } from "./sends";
+import { MAX_COMMENT_LENGTH, validateSendInput, type RawSendInput } from "./sends";
 
 const TODAY = "2026-08-19";
 
@@ -78,8 +78,8 @@ describe("validateSendInput", () => {
 
   it("rejects a comment over the length limit", () => {
     expect(() =>
-      validateSendInput("boulder", raw({ comment: "a".repeat(281) }), TODAY),
-    ).toThrow("280 characters or fewer");
+      validateSendInput("boulder", raw({ comment: "a".repeat(MAX_COMMENT_LENGTH + 1) }), TODAY),
+    ).toThrow(`${MAX_COMMENT_LENGTH} characters or fewer`);
   });
 
   it("accepts a null rating (abstain)", () => {

@@ -3,7 +3,7 @@ import { parseGradeIndex, trimOrNull } from "@/lib/validation";
 
 export const ASCENT_STYLES = ["redpoint", "flash", "onsight"] as const;
 export type AscentStyle = (typeof ASCENT_STYLES)[number];
-export const MAX_COMMENT_LENGTH = 280;
+export const MAX_COMMENT_LENGTH = 1000;
 
 /** Upper bound on /api/climbs/[id]/sends's `limit` param, shared by the
  * route (which clamps to it) and ClimbSendList's post-mutation reconcile
