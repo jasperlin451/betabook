@@ -1,21 +1,79 @@
 @import "@heroui/styles";
 
 @layer theme {
-  /* Discipline chip colors (boulder/sport/trad). HeroUI's built-in chip
-     colors are spoken for — success/warning are reserved for ascent-style
-     chips (AscentStyle), and accent/default are too few hues for three
-     disciplines that need to read as distinct from each other and from
-     gray — so each discipline gets its own themed bg/fg pair, consumed by
-     STYLE_CHIP_CLASSNAME in components/climb-list.tsx. */
-  :root,
+  /* == Brand palette — the "personal guidebook" colors, defined once. ==
+     Both theme blocks below reference these; change a hue here and every
+     surface, accent, and discipline chip follows. */
+  :root {
+    --color-chalk: #f3f5f6; /* cool chalk-white — light-mode ground */
+    --color-basalt: #1d2733; /* light-mode foreground */
+    --color-midnight: #0d1526; /* dark-mode ground (established brand) */
+    --color-glacier: #2bcfce; /* brand teal accent */
+    /* Glacier darkened for text/link duty on light surfaces (same oklch hue,
+       L lowered to 0.48). The spec's #0e8c8b only reaches 3.7:1 on chalk;
+       this holds 5.3:1 on chalk and 4.9:1 on the secondary surface. */
+    --color-glacier-deep: #007272;
+    --color-ember: #ec4d25; /* danger only — never decoration */
+    --color-gneiss: #7d8aa8; /* muted */
+
+    /* Discipline hue anchors: siblings of the brand teal, produced by
+       rotating glacier's oklch hue (194°) while keeping its lightness and
+       chroma — boulder lands on gneiss's slate-blue hue (~265°), sport on
+       violet (~302°), trad keeps the brand teal itself. */
+    --discipline-hue-boulder: oklch(from var(--color-glacier) l c calc(h + 72)); /* ≈ #91b4ff */
+    --discipline-hue-sport: oklch(from var(--color-glacier) l c calc(h + 108)); /* ≈ #c6a2f9 */
+  }
+
+  /* Chalk "guidebook page" light theme — cool stone-white ground with white
+     cards on top, slate-tinted neutrals mixed from gneiss, and the brand
+     teal (darkened to glacier-deep wherever it must carry text). The :root
+     arm is guarded with :not() because these override HeroUI's dark values
+     otherwise (this @layer theme block outranks HeroUI's nested theme/base
+     variables, and .dark below doesn't re-set every property named here). */
+  :root:not(.dark):not([data-theme="dark"]),
   .light,
   [data-theme="light"] {
-    --discipline-boulder-bg: #dbeafe; /* blue-100 */
-    --discipline-boulder-fg: #1d4ed8; /* blue-700 */
-    --discipline-sport-bg: #ede9fe; /* violet-100 */
-    --discipline-sport-fg: #6d28d9; /* violet-700 */
-    --discipline-trad-bg: #ccfbf1; /* teal-100 */
-    --discipline-trad-fg: #0f766e; /* teal-700 */
+    --background: var(--color-chalk);
+    --foreground: var(--color-basalt);
+    --surface: var(--white);
+    --surface-secondary: color-mix(in oklab, var(--color-gneiss) 6%, var(--color-chalk));
+    --surface-tertiary: color-mix(in oklab, var(--color-gneiss) 12%, var(--color-chalk));
+    --overlay: var(--white);
+    --default: color-mix(in oklab, var(--color-gneiss) 10%, var(--color-chalk));
+    --default-foreground: var(--color-basalt);
+    /* Gneiss pulled toward basalt: raw #7d8aa8 is only 3.2:1 on chalk, this
+       mix holds ≥5.1:1 on every light surface at text-xs/sm sizes. */
+    --muted: color-mix(in oklab, var(--color-gneiss) 60%, var(--color-basalt));
+    --border: color-mix(in oklab, var(--color-gneiss) 21%, var(--color-chalk));
+    --separator: color-mix(in oklab, var(--color-gneiss) 15%, var(--color-chalk));
+    --field-foreground: var(--color-basalt);
+    --accent: var(--color-glacier);
+    --accent-foreground: var(--color-midnight);
+    /* Soft accent text and links need the darkened teal on light surfaces;
+       so does the focus ring (bright glacier is only 1.8:1 against chalk). */
+    --accent-soft-foreground: var(--color-glacier-deep);
+    --focus: var(--color-glacier-deep);
+    --link: var(--color-glacier-deep);
+    /* Ember dimmed toward black for light surfaces: #ec4d25 itself is only
+       3.4:1 on chalk, this burnt ember (≈#af3719) holds 5.7:1 as text and
+       6.1:1 under snow button labels. Dark mode keeps ember at full flame. */
+    --danger: color-mix(in oklab, var(--color-ember) 80%, var(--black));
+    --danger-foreground: var(--snow);
+
+    /* Discipline chip colors (boulder/sport/trad). HeroUI's built-in chip
+       colors are spoken for — success/warning are reserved for ascent-style
+       chips (AscentStyle), and accent/default are too few hues for three
+       disciplines that need to read as distinct from each other and from
+       gray — so each discipline gets its own themed bg/fg pair, consumed by
+       STYLE_CHIP_CLASSNAME in components/climb-list.tsx. Tint and text are
+       mixed from the hue anchors above: chalk-grounded tints, basalt-
+       grounded text (all pairs ≥5.4:1). */
+    --discipline-boulder-bg: color-mix(in oklab, var(--discipline-hue-boulder) 16%, var(--color-chalk));
+    --discipline-boulder-fg: color-mix(in oklab, var(--discipline-hue-boulder) 40%, var(--color-basalt));
+    --discipline-sport-bg: color-mix(in oklab, var(--discipline-hue-sport) 16%, var(--color-chalk));
+    --discipline-sport-fg: color-mix(in oklab, var(--discipline-hue-sport) 40%, var(--color-basalt));
+    --discipline-trad-bg: color-mix(in oklab, var(--color-glacier) 16%, var(--color-chalk));
+    --discipline-trad-fg: color-mix(in oklab, var(--color-glacier) 40%, var(--color-basalt));
   }
 
   /* Deep-navy "night session" theme — layers the same brand teal/coral on
@@ -24,13 +82,13 @@
      background/surface hierarchy and brand accents need overriding here). */
   .dark,
   [data-theme="dark"] {
-    --background: #0d1526;
+    --background: var(--color-midnight);
     --surface: #141d33;
     --surface-secondary: #1b2540;
     --surface-tertiary: #212c4a;
     --overlay: #141d33;
     --default: #1b2540;
-    --muted: #7d8aa8;
+    --muted: var(--color-gneiss);
     --border: #26314f;
     --separator: #1c243c;
     --field-background: #141d33;
@@ -41,22 +99,23 @@
        surface behind them. */
     --field-border: var(--border);
     --field-border-width: 2px;
-    --accent: #2bcfce;
+    --accent: var(--color-glacier);
     --accent-foreground: var(--eclipse);
-    --danger: #ec4d25;
+    --danger: var(--color-ember);
     --danger-foreground: var(--snow);
     /* Vivid teal has plenty of contrast directly on this near-black
        background, so unlike a light background it needs no darkening for
        text/link use. */
     --link: var(--accent);
     /* Discipline chips: translucent tint + pastel text (same recipe as
-       HeroUI's dark soft chip variants), tuned for the navy surfaces. */
-    --discipline-boulder-bg: color-mix(in oklab, #60a5fa 18%, transparent);
-    --discipline-boulder-fg: #93c5fd; /* blue-300 */
-    --discipline-sport-bg: color-mix(in oklab, #a78bfa 18%, transparent);
-    --discipline-sport-fg: #c4b5fd; /* violet-300 */
-    --discipline-trad-bg: color-mix(in oklab, #2dd4bf 15%, transparent);
-    --discipline-trad-fg: #5eead4; /* teal-300 */
+       HeroUI's dark soft chip variants), mixed from the same hue anchors as
+       the light chips (all pairs ≥5.0:1 on every navy surface). */
+    --discipline-boulder-bg: color-mix(in oklab, var(--discipline-hue-boulder) 14%, transparent);
+    --discipline-boulder-fg: color-mix(in oklab, var(--discipline-hue-boulder) 55%, var(--snow));
+    --discipline-sport-bg: color-mix(in oklab, var(--discipline-hue-sport) 14%, transparent);
+    --discipline-sport-fg: color-mix(in oklab, var(--discipline-hue-sport) 55%, var(--snow));
+    --discipline-trad-bg: color-mix(in oklab, var(--color-glacier) 14%, transparent);
+    --discipline-trad-fg: color-mix(in oklab, var(--color-glacier) 55%, var(--snow));
   }
 }
 
