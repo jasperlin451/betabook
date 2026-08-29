@@ -5,6 +5,12 @@ export const ASCENT_STYLES = ["redpoint", "flash", "onsight"] as const;
 export type AscentStyle = (typeof ASCENT_STYLES)[number];
 export const MAX_COMMENT_LENGTH = 280;
 
+/** Upper bound on /api/climbs/[id]/sends's `limit` param, shared by the
+ * route (which clamps to it) and ClimbSendList's post-mutation reconcile
+ * (which won't request beyond it) — same contract as MAX_USER_SENDS_LIMIT
+ * in lib/user-sends-filter.ts. */
+export const MAX_CLIMB_SENDS_LIMIT = 200;
+
 export const GRADE_FEEL_VALUES = ["low", "solid", "high"] as const;
 export type GradeFeel = (typeof GRADE_FEEL_VALUES)[number];
 

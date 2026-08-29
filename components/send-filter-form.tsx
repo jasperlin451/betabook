@@ -224,51 +224,37 @@ export function DisciplineFilterForm<T extends DisciplineFilter>({
             )}
 
             <DisciplinesFields value={value} onChange={onChange} />
-
-            {!isExpanded && (
-              <div className="flex items-center justify-center gap-4">
-                <Button variant="ghost" onPress={onReset}>
-                  Reset Filters
-                </Button>
-
-                <Disclosure.Heading className="contents">
-                  <Disclosure.Trigger className={buttonVariants({ variant: "ghost" })}>
-                    More Options
-                  </Disclosure.Trigger>
-                </Disclosure.Heading>
-              </div>
-            )}
           </div>
 
-          <div className="flex flex-col gap-4">
-            {/* Disclosure.Body's own p-2 comes from an outer wrapper div this
-             * component doesn't expose a className for — style is the only
-             * prop that reaches it, to align this with the visible row above
-             * (pt-4 matches that row's own gap-4; pl-0 removes the built-in
-             * left inset so content lines up with the card's own padding). */}
-            <Disclosure.Content className="min-w-0">
-              <Disclosure.Body
-                className="flex flex-col gap-6"
-                style={{ paddingTop: "1rem", paddingLeft: 0 }}
-              >
-                {extraOptions}
-                <DisciplineGradeSliders value={value} onChange={onChange} />
-              </Disclosure.Body>
-            </Disclosure.Content>
+          {/* Disclosure.Body's own p-2 comes from an outer wrapper div this
+           * component doesn't expose a className for — style is the only
+           * prop that reaches it, to align this with the visible row above
+           * (pt-4 matches that row's own gap-4; pl-0 removes the built-in
+           * left inset so content lines up with the card's own padding). */}
+          <Disclosure.Content className="min-w-0">
+            <Disclosure.Body
+              className="flex flex-col gap-6"
+              style={{ paddingTop: "1rem", paddingLeft: 0 }}
+            >
+              {extraOptions}
+              <DisciplineGradeSliders value={value} onChange={onChange} />
+            </Disclosure.Body>
+          </Disclosure.Content>
 
-            {isExpanded && (
-              <div className="flex items-center justify-center gap-4">
-                <Button variant="ghost" onPress={onReset}>
-                  Reset Filters
-                </Button>
+          {/* One action row for both states, always after the panel — the
+           * trigger is the same element across toggles (so keyboard focus
+           * survives; the collapsed panel contributes no height, so the row
+           * sits in the same visual spot as it did inside the top group). */}
+          <div className="mt-4 flex items-center justify-center gap-4">
+            <Button variant="ghost" onPress={onReset}>
+              Reset Filters
+            </Button>
 
-                <Disclosure.Heading className="contents">
-                  <Disclosure.Trigger className={buttonVariants({ variant: "ghost" })}>
-                    Less Options
-                  </Disclosure.Trigger>
-                </Disclosure.Heading>
-              </div>
-            )}
+            <Disclosure.Heading className="contents">
+              <Disclosure.Trigger className={buttonVariants({ variant: "ghost" })}>
+                {isExpanded ? "Less Options" : "More Options"}
+              </Disclosure.Trigger>
+            </Disclosure.Heading>
           </div>
         </>
       )}

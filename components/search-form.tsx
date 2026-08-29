@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Input, Label, TextField } from "@heroui/react";
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
-import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import {
   climbSearchFilterToSearchParams,
@@ -17,14 +15,21 @@ import {
 import type { SubtreeClimbsSort } from "@/db/queries";
 
 export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
-  const [name, setName] = useState(defaultName);
-
-  // Auto-search: debounce every field change (including the initial render)
-  // into a single navigation, same as the climb search form.
-  const params = new URLSearchParams();
-  params.set("mode", "area");
-  if (name) params.set("name", name);
-  useDebouncedReplace(`/?${params.toString()}`);
+  // Auto-search: debounce each edit into a single navigation, same as the
+  // climb search form. The filter here is just the name field, but the
+  // shared hook also contributes what every search form needs: fire only
+  // when the built URL differs from the current one (mount and no-op edits
+  // leave the URL alone), re-seed on back/forward, report pending state.
+  const { name, setName } = useFilterFormNavigation({
+    initialFilter: null,
+    initialName: defaultName,
+    defaultFilter: null,
+    buildHref: (_filter, name) => {
+      const params = new URLSearchParams({ mode: "area" });
+      if (name) params.set("name", name);
+      return `/?${params.toString()}`;
+    },
+  });
 
   return (
     <div className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6">
@@ -45,10 +50,12 @@ export function ClimbSearchForm({
   defaultFilter = DEFAULT_CLIMB_SEARCH_FILTER,
   sort = DEFAULT_CLIMB_SEARCH_SORT,
 }: ClimbSearchFormProps) {
-  // Auto-search: debounce every field change (including the initial render)
-  // into a single navigation instead of requiring an explicit submit. Sort
-  // is preserved as-is — it's owned by ClimbSearchSortControl, not this
-  // form — except on Reset Filters, which restores the default sort too.
+  // Auto-search: debounce every field change into a single navigation
+  // instead of requiring an explicit submit — fired only when the built URL
+  // actually differs from the current one, so neither mount nor an edit
+  // back to the URL's own values rewrites the URL. Sort is preserved as-is
+  // — it's owned by ClimbSearchSortControl, not this form — except on
+  // Reset Filters, which restores the default sort too.
   const { name, setName, areaName, setAreaName, filter, setFilter, reset } =
     useFilterFormNavigation({
       initialFilter: defaultFilter,

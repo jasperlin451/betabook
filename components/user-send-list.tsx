@@ -1,16 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Checkbox, Link } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
 import { formatGrade } from "@/lib/grades";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
-import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
+import {
+  DEFAULT_USER_SENDS_FILTER,
+  MAX_USER_SENDS_LIMIT,
+  userSendsFilterToSearchParams,
+} from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { AscentStyle } from "@/components/ascent-style";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
+import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
@@ -99,11 +104,12 @@ const DEFAULT_DIRECTION: Record<SortField, "asc" | "desc"> = {
  * the main column. Debounces every field change (including the initial
  * render) into a single navigation, same as the climb search form.
  *
- * Unlike <UserSendList>, the caller must NOT key this on the filter: this
- * component owns its own state and is what drives the navigation, so a
- * filter change is always self-inflicted, never an external resync. Keying
- * it would remount it (and its <input>s) right when the debounce lands —
- * exactly when the user pauses typing — yanking focus out from under them. */
+ * Unlike <UserSendList>, the caller must NOT key this on the filter: keying
+ * would remount it (and its <input>s) right when the debounce lands —
+ * exactly when the user pauses typing — yanking focus out from under them.
+ * External URL changes (back/forward, the sort control) are instead adopted
+ * as values by useFilterFormNavigation, which leaves the mounted inputs
+ * alone. */
 export function UserSendsFilterPanel({
   userId,
   filter,
@@ -160,6 +166,12 @@ export function UserSendsFilterPanel({
   );
 }
 
+type UserSendsPageResponse = {
+  sends: UserSendRow[];
+  hasMore: boolean;
+  areaBreadcrumbs: AreaBreadcrumbs;
+};
+
 /** A user's send history: server-rendered first page, filters that navigate
  * (so the server can re-filter with real SQL), and a "load more" button
  * that fetches subsequent pages from /api/users/[id]/sends — a user's send
@@ -168,7 +180,11 @@ export function UserSendsFilterPanel({
  *
  * The caller keys this component on the filter (see app/users/[id]/page.tsx)
  * so a filter change remounts it with fresh initial state, rather than this
- * component syncing local state to changed props via an effect. */
+ * component syncing local state to changed props via an effect. A server
+ * re-render under the SAME key (a send was deleted/edited via a row's
+ * actions menu — the server action refresh()es the route) instead arrives
+ * as a new `initialSends` prop identity, which is reconciled into the
+ * accumulated pages below. */
 export function UserSendList({
   userId,
   filter,
@@ -183,18 +199,113 @@ export function UserSendList({
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+
+  // --- Post-mutation reconciliation of accumulated pages -------------------
+  //
+  // Same adoption idea as useFilterFormNavigation's URL handling: track the
+  // last-adopted prop identity, and when the incoming first page changes
+  // while the key (sort/filter) didn't, the server data changed underneath
+  // the accumulated rows. With only page 1 loaded, adopting the fresh props
+  // IS the reconcile. With extra pages loaded, re-fetch the loaded range
+  // rather than dropping back to page 1: dropping would collapse the list
+  // right as the user acts on a row further down (scroll jump, lost place),
+  // while re-fetching swaps corrected rows in without moving the layout.
+  // `staleTailLength` holds how many beyond-page-1 rows need re-fetching;
+  // non-null means a reconcile fetch is due/in flight.
+  const [prevInitialSends, setPrevInitialSends] = useState(initialSends);
+  const [staleTailLength, setStaleTailLength] = useState<number | null>(null);
+  if (initialSends !== prevInitialSends) {
+    setPrevInitialSends(initialSends);
+    const tailLength = sends.length - initialSends.length;
+    if (tailLength > 0 && tailLength <= MAX_USER_SENDS_LIMIT) {
+      setStaleTailLength(tailLength);
+    } else {
+      // Either only page 1 is loaded (adopting the fresh props IS the
+      // reconcile), or the tail exceeds what the route's clamped `limit`
+      // can restore in one request (200+ rows = 20+ load-more clicks) —
+      // requesting it anyway would silently truncate the range, so for that
+      // rare case drop back to the fresh first page instead. Correctness
+      // (a deleted send must never keep ghosting) beats keeping the scroll
+      // position there.
+      setStaleTailLength(null);
+      setSends(initialSends);
+      setHasMore(initialHasMore);
+      setAreaBreadcrumbs((prev) => ({ ...prev, ...initialAreaBreadcrumbs }));
+    }
+  }
+
+  useEffect(() => {
+    if (staleTailLength === null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = userSendsFilterToSearchParams(filter);
+        params.set("offset", String(initialSends.length));
+        params.set("limit", String(staleTailLength));
+        const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`);
+        if (!res.ok) throw new Error(`Reloading sends failed: ${res.status}`);
+        const data: UserSendsPageResponse = await res.json();
+        if (cancelled) return;
+        // Atomic swap of the whole loaded range — the stale rows stay
+        // visible until this lands, so the layout never collapses.
+        setSends([...initialSends, ...data.sends]);
+        setHasMore(data.hasMore);
+        setAreaBreadcrumbs((prev) => ({
+          ...prev,
+          ...initialAreaBreadcrumbs,
+          ...data.areaBreadcrumbs,
+        }));
+      } catch {
+        if (cancelled) return;
+        // Correctness over continuity: the stale tail must not outlive the
+        // reconcile (a deleted send would keep ghosting), so fall back to
+        // just the fresh first page and let the inline error explain the
+        // shrink — the "load more" button doubles as the retry.
+        setSends(initialSends);
+        setHasMore(initialHasMore);
+        setAreaBreadcrumbs((prev) => ({ ...prev, ...initialAreaBreadcrumbs }));
+        setLoadMoreFailed(true);
+      } finally {
+        if (!cancelled) setStaleTailLength(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [staleTailLength, initialSends, initialHasMore, initialAreaBreadcrumbs, filter, userId]);
+
+  const reconciling = staleTailLength !== null;
+
+  // Post-commit mirror of the latest adopted first page, so an async
+  // load-more completion can tell whether a mutation refresh superseded the
+  // ordering it was fetched against.
+  const latestInitialSends = useRef(initialSends);
+  useEffect(() => {
+    latestInitialSends.current = initialSends;
+  }, [initialSends]);
 
   async function handleLoadMore() {
+    const baseInitialSends = latestInitialSends.current;
     setLoadingMore(true);
+    setLoadMoreFailed(false);
     try {
       const params = userSendsFilterToSearchParams(filter);
       params.set("offset", String(sends.length));
       const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`);
-      const data: { sends: UserSendRow[]; hasMore: boolean; areaBreadcrumbs: AreaBreadcrumbs } =
-        await res.json();
+      if (!res.ok) throw new Error(`Loading more sends failed: ${res.status}`);
+      const data: UserSendsPageResponse = await res.json();
+      // If a mutation refresh landed while this was in flight, this page was
+      // fetched against a superseded ordering — drop it (the reconcile above
+      // re-fetches the loaded range itself) rather than appending stale rows.
+      if (latestInitialSends.current !== baseInitialSends) return;
       setSends((prev) => [...prev, ...data.sends]);
       setHasMore(data.hasMore);
       setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
+    } catch {
+      // Network failure or a non-2xx response — keep what's loaded, surface
+      // an inline error, and leave the button as the retry affordance.
+      setLoadMoreFailed(true);
     } finally {
       setLoadingMore(false);
     }
@@ -234,70 +345,82 @@ export function UserSendList({
           }}
         />
       </div>
-      <SendListShell
-        sends={sends}
-        emptyState={<p className="text-muted text-sm">No sends match these filters.</p>}
-        hasMore={hasMore}
-        onLoadMore={handleLoadMore}
-        loadingMore={loadingMore}
-        renderRow={(send) => (
-          <ListRow
-            title={
-              <Link href={`/climbs/${send.climbId}`} className="block w-full truncate">
-                {send.climbName}
-              </Link>
-            }
-            subtitle={
-              <AreaBreadcrumb
-                areaId={send.areaId}
-                areaName={send.areaName}
-                ancestors={areaBreadcrumbs[send.areaId] ?? []}
-              />
-            }
-            trailing={
-              <div className="flex flex-col items-end gap-1 text-sm">
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center gap-0.5 font-medium text-foreground">
-                    {formatGrade(send.climbType, send.climbGrade)}
-                    {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
-                      <span className="font-normal text-muted">
-                        {" "}
-                        ({formatGrade(send.climbType, send.suggestedGrade)})
-                      </span>
-                    )}
-                    {send.gradeFeel === "high" && (
-                      <ArrowUp className="size-3.5 text-muted" aria-label="High end of the grade" />
-                    )}
-                    {send.gradeFeel === "low" && (
-                      <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
-                    )}
-                  </span>
-                  <span className="text-muted" aria-hidden>
-                    •
-                  </span>
-                  <RatingStars rating={send.rating} />
-                </div>
-                <AscentStyle type={send.ascentStyle} />
-                <div className="text-xs text-muted/70">{send.dateSent ?? "Date unknown"}</div>
-              </div>
-            }
-            actions={
-              currentUserId === userId && (
-                <SendActionsMenu
-                  climb={{
-                    id: send.climbId,
-                    areaId: send.areaId,
-                    type: send.climbType,
-                    grade: send.climbGrade,
-                  }}
-                  send={send}
+      {/* Dimmed while the filter panel's debounced navigation is re-fetching
+       * these results (see NavigationPendingProvider in the page). */}
+      <NavigationPendingRegion>
+        <SendListShell
+          sends={sends}
+          emptyState={<p className="text-muted text-sm">No sends match these filters.</p>}
+          hasMore={hasMore}
+          onLoadMore={handleLoadMore}
+          // Also disabled while a post-mutation reconcile is re-fetching the
+          // loaded range — a load-more against the superseded ordering would
+          // be dropped anyway (see handleLoadMore).
+          loadingMore={loadingMore || reconciling}
+          loadMoreError={
+            loadMoreFailed && (
+              <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
+            )
+          }
+          renderRow={(send) => (
+            <ListRow
+              title={
+                <Link href={`/climbs/${send.climbId}`} className="block w-full truncate">
+                  {send.climbName}
+                </Link>
+              }
+              subtitle={
+                <AreaBreadcrumb
+                  areaId={send.areaId}
+                  areaName={send.areaName}
+                  ancestors={areaBreadcrumbs[send.areaId] ?? []}
                 />
-              )
-            }
-            comment={send.comment}
-          />
-        )}
-      />
+              }
+              trailing={
+                <div className="flex flex-col items-end gap-1 text-sm">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-0.5 font-medium text-foreground">
+                      {formatGrade(send.climbType, send.climbGrade)}
+                      {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
+                        <span className="font-normal text-muted">
+                          {" "}
+                          ({formatGrade(send.climbType, send.suggestedGrade)})
+                        </span>
+                      )}
+                      {send.gradeFeel === "high" && (
+                        <ArrowUp className="size-3.5 text-muted" aria-label="High end of the grade" />
+                      )}
+                      {send.gradeFeel === "low" && (
+                        <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
+                      )}
+                    </span>
+                    <span className="text-muted" aria-hidden>
+                      •
+                    </span>
+                    <RatingStars rating={send.rating} />
+                  </div>
+                  <AscentStyle type={send.ascentStyle} />
+                  <div className="text-xs text-muted/70">{send.dateSent ?? "Date unknown"}</div>
+                </div>
+              }
+              actions={
+                currentUserId === userId && (
+                  <SendActionsMenu
+                    climb={{
+                      id: send.climbId,
+                      areaId: send.areaId,
+                      type: send.climbType,
+                      grade: send.climbGrade,
+                    }}
+                    send={send}
+                  />
+                )
+              }
+              comment={send.comment}
+            />
+          )}
+        />
+      </NavigationPendingRegion>
     </div>
   );
 }

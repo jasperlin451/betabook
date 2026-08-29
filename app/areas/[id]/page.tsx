@@ -3,6 +3,7 @@ import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { AreaActionsMenu } from "@/components/area-actions-menu";
 import { AreaList } from "@/components/area-list";
 import { AreaClimbsFilterPanel, AreaClimbsSection } from "@/components/area-climbs-section";
+import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { getDb } from "@/db/client";
 import {
@@ -78,34 +79,38 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
         <AreaList areas={subareas} emptyMessage="No sub-areas." />
       </CollapsibleSection>
 
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-        <div className="order-2 flex min-w-0 flex-1 flex-col gap-2 lg:order-1">
-          <AreaClimbsSection
-            // Remounts with fresh initial* state on a sort/filter change,
-            // rather than syncing local "load more" state to changed props
-            // via an effect — same reasoning as UserSendList.
-            key={JSON.stringify({ sort, filter })}
-            areaId={area.id}
-            sort={sort}
-            filter={filter}
-            initialClimbs={subtreeClimbs.climbs}
-            initialHasNextPage={subtreeClimbs.hasNextPage}
-            initialSendStats={sendStats}
-            initialAreaBreadcrumbs={areaBreadcrumbs}
-            sentClimbIds={sentClimbIds}
-            emptyMessage="No climbs found in this area or its sub-areas."
-          />
-        </div>
+      {/* The provider links the filter panel's in-flight navigation to the
+       * climb list it re-fetches, which dims while pending. */}
+      <NavigationPendingProvider>
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+          <div className="order-2 flex min-w-0 flex-1 flex-col gap-2 lg:order-1">
+            <AreaClimbsSection
+              // Remounts with fresh initial* state on a sort/filter change,
+              // rather than syncing local "load more" state to changed props
+              // via an effect — same reasoning as UserSendList.
+              key={JSON.stringify({ sort, filter })}
+              areaId={area.id}
+              sort={sort}
+              filter={filter}
+              initialClimbs={subtreeClimbs.climbs}
+              initialHasNextPage={subtreeClimbs.hasNextPage}
+              initialSendStats={sendStats}
+              initialAreaBreadcrumbs={areaBreadcrumbs}
+              sentClimbIds={sentClimbIds}
+              emptyMessage="No climbs found in this area or its sub-areas."
+            />
+          </div>
 
-        <div className="order-1 lg:order-2 lg:w-80 lg:shrink-0">
-          {/* Gated on lg, not CollapsibleSection's md default, to match
-           * where this column switches from a stacked mobile block to the
-           * sidebar (see the lg:flex-row container below). */}
-          <CollapsibleSection title="Filters" breakpoint="lg" showTitleOnDesktop={false}>
-            <AreaClimbsFilterPanel areaId={area.id} sort={sort} filter={filter} />
-          </CollapsibleSection>
+          <div className="order-1 lg:order-2 lg:w-80 lg:shrink-0">
+            {/* Gated on lg, not CollapsibleSection's md default, to match
+             * where this column switches from a stacked mobile block to the
+             * sidebar (see the lg:flex-row container below). */}
+            <CollapsibleSection title="Filters" breakpoint="lg" showTitleOnDesktop={false}>
+              <AreaClimbsFilterPanel areaId={area.id} sort={sort} filter={filter} />
+            </CollapsibleSection>
+          </div>
         </div>
-      </div>
+      </NavigationPendingProvider>
     </div>
   );
 }

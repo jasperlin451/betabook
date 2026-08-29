@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Chip, Link } from "@heroui/react";
 import { describeGradeTrend } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
@@ -29,6 +30,9 @@ type ClimbListProps = {
     hasNextPage: boolean;
     loadingMore: boolean;
     onLoadMore: () => void;
+    /** Inline error shown above the button when a page fetch failed — the
+     * button itself stays as the retry affordance. */
+    error?: ReactNode;
   };
   /** Average rating, logged-ascent count, and average suggested grade per
    * climb, keyed by climb id. */
@@ -57,7 +61,10 @@ export function ClimbList({
   }
 
   const loadMoreBlock = pagination?.hasNextPage && (
-    <LoadMoreButton onPress={pagination.onLoadMore} loading={pagination.loadingMore} />
+    <div className="flex flex-col items-center gap-2">
+      {pagination.error}
+      <LoadMoreButton onPress={pagination.onLoadMore} loading={pagination.loadingMore} />
+    </div>
   );
 
   return (

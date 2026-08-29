@@ -23,10 +23,9 @@ export async function GET(request: Request, { params }: RouteParams) {
   const db = await getDb();
   const area = areaId === null ? undefined : await getArea(db, areaId);
   if (!area) {
-    return NextResponse.json(
-      { climbs: [], page, pageSize: 0, hasNextPage: false, sendStats: {}, areaBreadcrumbs: {} },
-      { status: 404 },
-    );
+    // A real error shape, not a valid-looking empty page — the client checks
+    // res.ok, and an empty page body would read as "end of list".
+    return NextResponse.json({ error: "Area not found" }, { status: 404 });
   }
 
   const subtreeClimbs = await getSubtreeClimbs(db, area, page, sort, toSubtreeQueryFilter(filter));

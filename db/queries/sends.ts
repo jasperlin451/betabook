@@ -1,8 +1,8 @@
-import { and, desc, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { sends, user } from "@/db/schema";
 import { formatGrade, type ClimbType } from "@/lib/grades";
-import { GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
+import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
 import { areaNameCondition } from "./areas";
 import { toFtsPrefixQuery } from "./shared";
 import type { Climb, Discipline } from "./climbs";
@@ -14,7 +14,6 @@ import {
 } from "@/lib/discipline-filter";
 
 export type Send = typeof sends.$inferSelect;
-export type SendWithUserName = Send & { userName: string };
 
 /** The subset of a Send that SendForm actually needs to prefill an edit —
  * lets a flattened row (e.g. UserSendRow) be passed in without requiring
@@ -44,13 +43,81 @@ export async function getUserSendForClimb(
     .get();
 }
 
-export async function getSendsForClimb(db: Database, climbId: number): Promise<SendWithUserName[]> {
-  return db
-    .select({ ...getTableColumns(sends), userName: user.name })
+/** One community-ascents row for the climb detail page: the fields the list
+ * renders plus what the edit flow needs (EditableSend), and nothing else —
+ * notably not createdAt/updatedAt, which are Date columns that would silently
+ * degrade to strings across the /api/climbs/[id]/sends JSON boundary. */
+export type ClimbSendRow = EditableSend & { userId: string; userName: string };
+
+export const CLIMB_SENDS_PAGE_SIZE = 10;
+
+export type ClimbSendsPage = { sends: ClimbSendRow[]; hasMore: boolean };
+
+/** A page of a climb's send history, newest dateSent first (NULL dates last,
+ * SQLite's DESC default) with `sends.id` as the deterministic tie-breaker —
+ * sends sharing a date have no defined order without it, so OFFSET
+ * pagination could duplicate or skip them across pages. A popular climb can
+ * have hundreds of sends, so this is never fetched in full: the first page
+ * is server-rendered and /api/climbs/[id]/sends backs "load more". */
+export async function getSendsForClimb(
+  db: Database,
+  climbId: number,
+  offset = 0,
+  pageSize: number = CLIMB_SENDS_PAGE_SIZE,
+): Promise<ClimbSendsPage> {
+  // Fetch one extra row to detect a next page without a separate COUNT query.
+  const rows = await db
+    .select({
+      id: sends.id,
+      userId: sends.userId,
+      userName: user.name,
+      ascentStyle: sends.ascentStyle,
+      dateSent: sends.dateSent,
+      comment: sends.comment,
+      rating: sends.rating,
+      suggestedGrade: sends.suggestedGrade,
+      gradeFeel: sends.gradeFeel,
+    })
     .from(sends)
     .innerJoin(user, eq(sends.userId, user.id))
     .where(eq(sends.climbId, climbId))
-    .orderBy(desc(sends.dateSent));
+    .orderBy(desc(sends.dateSent), asc(sends.id))
+    .limit(pageSize + 1)
+    .offset(offset);
+
+  const hasMore = rows.length > pageSize;
+  return { sends: hasMore ? rows.slice(0, pageSize) : rows, hasMore };
+}
+
+export type ClimbSendSummary = ClimbSendStats & {
+  styleBreakdown: Record<AscentStyle, number>;
+};
+
+/** Whole-history stats for the climb detail page's stat cards — aggregate
+ * SQL over every send, independent of the paginated list (which no longer
+ * loads the full history to reduce in memory). */
+export async function getClimbSendSummary(
+  db: Database,
+  climbId: number,
+): Promise<ClimbSendSummary> {
+  const styleBreakdown = Object.fromEntries(
+    ASCENT_STYLES.map((style) => [style, 0]),
+  ) as Record<AscentStyle, number>;
+
+  const [stats, styleRows] = await Promise.all([
+    getClimbSendStats(db, [climbId]),
+    db.all<{ ascentStyle: AscentStyle; count: number }>(sql`
+      SELECT ascent_style AS ascentStyle, COUNT(*) AS count
+      FROM sends
+      WHERE climb_id = ${climbId}
+      GROUP BY ascent_style
+    `),
+  ]);
+  for (const row of styleRows) {
+    styleBreakdown[row.ascentStyle] = row.count;
+  }
+
+  return { ...stats[climbId], styleBreakdown };
 }
 
 /** All climb ids the user already has a send for — cheap pre-check for bulk import, avoids one query per row just to detect duplicates. */
@@ -64,8 +131,8 @@ export async function getUserSentClimbIds(db: Database, userId: string): Promise
 
 // --- Paginated, filtered send history for a user's profile page ---
 //
-// A user's send count can run into the thousands, so (unlike the
-// community-ascents list for a single climb) this is deliberately never
+// A user's send count can run into the thousands, so (like the
+// community-ascents list for a single climb above) this is deliberately never
 // fetched in full: both the row query and the summary stats below are
 // bounded/aggregate SQL, not "fetch everything and reduce in memory".
 
@@ -105,6 +172,11 @@ export type UserSendsFilter = DisciplineFilter & {
 // sends at the bottom regardless of direction — SQLite otherwise treats
 // NULL as the smallest value, which would float them to the top of an ASC
 // sort. The descending variants already put NULLs last by default.
+//
+// None of these keys is unique, so getSendsForUserPage appends `sends.id`
+// as a final tie-breaker (same as getSubtreeClimbs's `climbs.id`) — without
+// it, rows sharing a value have no defined order, and OFFSET pagination can
+// duplicate or skip them across pages.
 const USER_SENDS_ORDER_BY: Record<UserSendsSort, SQL> = {
   date_desc: sql`sends.date_sent DESC`,
   date_asc: sql`sends.date_sent ASC NULLS LAST`,
@@ -211,40 +283,13 @@ export async function getSendsForUserPage(
     JOIN climbs ON climbs.id = sends.climb_id
     JOIN areas ON areas.id = climbs.area_id
     WHERE ${where}
-    ORDER BY ${USER_SENDS_ORDER_BY[filter.sort ?? "date_desc"]}
+    ORDER BY ${USER_SENDS_ORDER_BY[filter.sort ?? "date_desc"]}, sends.id
     LIMIT ${pageSize + 1}
     OFFSET ${offset}
   `);
 
   const hasMore = rows.length > pageSize;
   return { sends: hasMore ? rows.slice(0, pageSize) : rows, hasMore };
-}
-
-/** Unbounded variant of getSendsForUserPage for a full CSV export — same
- * row shape/join, but no filter/pagination to satisfy, so it always
- * returns everything, most recent first. */
-export async function getAllSendsForUser(db: Database, userId: string): Promise<UserSendRow[]> {
-  return db.all<UserSendRow>(sql`
-    SELECT
-      sends.id AS id,
-      sends.climb_id AS climbId,
-      climbs.name AS climbName,
-      climbs.type AS climbType,
-      climbs.grade AS climbGrade,
-      climbs.area_id AS areaId,
-      areas.name AS areaName,
-      sends.ascent_style AS ascentStyle,
-      sends.date_sent AS dateSent,
-      sends.rating AS rating,
-      sends.suggested_grade AS suggestedGrade,
-      sends.grade_feel AS gradeFeel,
-      sends.comment AS comment
-    FROM sends
-    JOIN climbs ON climbs.id = sends.climb_id
-    JOIN areas ON areas.id = climbs.area_id
-    WHERE sends.user_id = ${userId}
-    ORDER BY sends.date_sent DESC
-  `);
 }
 
 export type UserStatsSummary = {

@@ -138,19 +138,32 @@ export async function getAreaBreadcrumbs(
 
 export type AreaWithAncestorPath = Area & { ancestorPath: string | null };
 
+/** Same page size as climb search (see SEARCH_PAGE_SIZE in climbs.ts) — kept
+ * as its own constant here to avoid a circular import between the two query
+ * modules. */
+export const AREA_SEARCH_PAGE_SIZE = 25;
+
+export type SearchAreasPage = { areas: AreaWithAncestorPath[]; hasNextPage: boolean };
+
 /** `ancestorPath` reads immediate-parent-first, e.g. "Squamish > British Columbia > Canada".
  *
  * Walks `parentId` (see getAncestors's doc comment) rather than lft/rght, so
  * a freshly created area's ancestor path is correct immediately, with no
- * dependency on the async lft/rght recompute. */
+ * dependency on the async lft/rght recompute.
+ *
+ * Ordered by FTS rank with `areas.id` as the deterministic tie-breaker —
+ * near-identical names share a bm25 score, and without a unique final key
+ * OFFSET pagination can duplicate or skip rows across pages. */
 export async function searchAreas(
   db: Database,
   name: string,
-): Promise<AreaWithAncestorPath[]> {
+  page = 1,
+): Promise<SearchAreasPage> {
   const query = toFtsPrefixQuery(name);
-  if (!query) return [];
+  if (!query) return { areas: [], hasNextPage: false };
 
-  return db.all<AreaWithAncestorPath>(sql`
+  // Fetch one extra row to detect a next page without a separate COUNT query.
+  const rows = await db.all<AreaWithAncestorPath>(sql`
     WITH RECURSIVE ancestor_chain(area_id, ancestor_id, dist) AS (
       SELECT id, parent_id, 1 FROM areas WHERE parent_id IS NOT NULL
       UNION ALL
@@ -169,7 +182,28 @@ export async function searchAreas(
     FROM areas
     JOIN areas_fts ON areas_fts.rowid = areas.id
     WHERE areas_fts MATCH ${query}
-    ORDER BY rank
-    LIMIT 25
+    ORDER BY rank, areas.id
+    LIMIT ${AREA_SEARCH_PAGE_SIZE + 1}
+    OFFSET ${(page - 1) * AREA_SEARCH_PAGE_SIZE}
   `);
+
+  return {
+    areas: rows.slice(0, AREA_SEARCH_PAGE_SIZE),
+    hasNextPage: rows.length > AREA_SEARCH_PAGE_SIZE,
+  };
+}
+
+/** Exact match count for the same FTS predicate as `searchAreas` — a plain
+ * aggregate over the FTS match, no ancestor-path CTE, so it's cheaper than
+ * the page query it accompanies. */
+export async function countSearchAreas(db: Database, name: string): Promise<number> {
+  const query = toFtsPrefixQuery(name);
+  if (!query) return 0;
+
+  const [row] = await db.all<{ count: number }>(sql`
+    SELECT COUNT(*) AS count
+    FROM areas_fts
+    WHERE areas_fts MATCH ${query}
+  `);
+  return row?.count ?? 0;
 }
