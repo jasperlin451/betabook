@@ -178,7 +178,9 @@ export function formatGrade(
   grade: number | null | undefined,
   scale: GradeScale = disciplineFor(type) === "boulder" ? "hueco" : "yds",
 ): string {
-  if (grade == null) return "Grade unknown";
+  // "—" is the app-wide fallback for absent row values (grades, ratings,
+  // dates) — short enough not to crush row titles on phones.
+  if (grade == null) return "—";
 
   const discipline = disciplineFor(type);
   const native = discipline === "boulder" ? BOULDER_HUECO : ROPE_YDS;
@@ -187,7 +189,7 @@ export function formatGrade(
   const isNativeScale = scale === "hueco" || scale === "yds";
   const table = isNativeScale ? native : converted;
 
-  return table[grade] ?? "Grade unknown";
+  return table[grade] ?? "—";
 }
 
 export type GradeTrend = {

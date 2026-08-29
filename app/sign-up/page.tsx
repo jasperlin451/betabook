@@ -36,7 +36,7 @@ export default function SignUpPage() {
   if (done) {
     return (
       <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
-        <h1 className="text-lg font-semibold">Check your email</h1>
+        <h1 className="text-2xl font-semibold">Check your email</h1>
         <p className="text-sm text-muted">
           We sent a verification link to {email}. Verify your address, then{" "}
           <Link href="/sign-in">sign in</Link>.
@@ -50,7 +50,7 @@ export default function SignUpPage() {
       onSubmit={handleSubmit}
       className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6"
     >
-      <h1 className="text-lg font-semibold">Sign Up</h1>
+      <h1 className="text-2xl font-semibold">Sign Up</h1>
       <TextField value={name} onChange={setName} isRequired>
         <Label>Name</Label>
         <Input placeholder="Your name" className="bg-surface" />

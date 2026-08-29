@@ -33,7 +33,8 @@ export function AreaList({
                 {String(index + 1).padStart(2, "0")}
               </span>
             }
-            title={<Link href={`/areas/${area.id}`}>{area.name}</Link>}
+            title={area.name}
+            href={`/areas/${area.id}`}
             subtitle={<AreaBreadcrumb ancestors={areaBreadcrumbs?.[area.id] ?? []} />}
           />
         ))}

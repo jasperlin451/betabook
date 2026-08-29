@@ -40,13 +40,13 @@ export function CollapsibleSection({
   return (
     <>
       <div className={DESKTOP_CLASSNAME[breakpoint]}>
-        {showTitleOnDesktop && <h2 className="text-lg font-medium">{title}</h2>}
+        {showTitleOnDesktop && <h2 className="text-lg font-semibold">{title}</h2>}
         {children}
       </div>
 
       <Disclosure className={MOBILE_CLASSNAME[breakpoint]}>
         <Disclosure.Heading level={2} className="contents">
-          <Disclosure.Trigger className="flex w-fit items-center gap-1 text-lg font-medium">
+          <Disclosure.Trigger className="flex w-fit items-center gap-1 text-lg font-semibold">
             {title}
             <Disclosure.Indicator className="size-4" />
           </Disclosure.Trigger>

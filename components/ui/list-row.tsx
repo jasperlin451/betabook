@@ -1,9 +1,18 @@
 import { type ReactNode } from "react";
+import { Link } from "@heroui/react";
 import clsx from "clsx";
 
 type ListRowProps = {
   leading?: ReactNode;
   title: ReactNode;
+  /** When set, `title` is wrapped in a link to `href` and the whole row
+   * becomes its click target: an invisible overlay inside the link
+   * stretches across the row (the row is the positioned ancestor), and the
+   * row gets hover/focus-within feedback. Slots that hold their own
+   * links/buttons (leading, subtitle, tags, actions) sit above the overlay
+   * via z-index so they stay independently clickable. Rows without an
+   * `href` get neither the overlay nor the hover affordance. */
+  href?: string;
   meta?: ReactNode;
   subtitle?: ReactNode;
   tags?: ReactNode;
@@ -19,6 +28,7 @@ type ListRowProps = {
 export function ListRow({
   leading,
   title,
+  href,
   meta,
   subtitle,
   tags,
@@ -28,23 +38,47 @@ export function ListRow({
   className,
 }: ListRowProps) {
   return (
-    <div className={clsx("flex items-center gap-4 rounded-xl p-4", className)}>
-      {leading}
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <div>
-          <div className="flex items-baseline gap-2">
-            <span className="min-w-0 flex-1 truncate font-medium text-foreground">{title}</span>
-            {meta && <span className="shrink-0 text-muted text-sm">{meta}</span>}
+    <div
+      className={clsx(
+        "relative flex items-center gap-4 rounded-xl p-4",
+        href != null &&
+          "transition-colors hover:bg-surface-secondary/50 focus-within:bg-surface-secondary/50",
+        className,
+      )}
+    >
+      {leading && <div className="relative z-10 shrink-0">{leading}</div>}
+      {/* Text column + trailing block as a wrapping pair: on narrow screens
+        * the trailing block drops below the text column (still right-aligned
+        * via ml-auto) instead of crushing the title into a sliver. */}
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex min-w-0 grow basis-52 flex-col gap-2">
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                {href != null ? (
+                  <Link href={href} className="static block max-w-full truncate">
+                    {/* Stretches this link's click target across the whole
+                      * row — `static` undoes the link's own `relative` so
+                      * inset-0 resolves against the row instead. */}
+                    <span aria-hidden className="absolute inset-0" />
+                    {title}
+                  </Link>
+                ) : (
+                  title
+                )}
+              </span>
+              {meta && <span className="shrink-0 text-muted text-sm">{meta}</span>}
+            </div>
+            {subtitle && <div className="relative z-10 w-fit text-muted text-sm">{subtitle}</div>}
+            {tags && <div className="relative z-10 mt-1 flex w-fit flex-wrap gap-2">{tags}</div>}
           </div>
-          {subtitle && <div className="text-muted text-sm">{subtitle}</div>}
-          {tags && <div className="mt-1 flex flex-wrap gap-2">{tags}</div>}
+          {comment != null && (
+            <p className="line-clamp-3 text-[0.925rem] leading-relaxed text-foreground">{comment}</p>
+          )}
         </div>
-        {comment != null && (
-          <p className="line-clamp-3 text-[0.925rem] leading-relaxed text-foreground">{comment}</p>
-        )}
+        {trailing && <div className="ml-auto shrink-0 text-right tabular-nums">{trailing}</div>}
       </div>
-      {trailing && <div className="shrink-0 text-right">{trailing}</div>}
-      {actions && <div className="shrink-0">{actions}</div>}
+      {actions && <div className="relative z-10 shrink-0">{actions}</div>}
     </div>
   );
 }

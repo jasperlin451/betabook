@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Checkbox, Link } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
+import { formatDate } from "@/lib/format-date";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
@@ -243,11 +244,8 @@ export function UserSendList({
         loadingMore={loadingMore}
         renderRow={(send) => (
           <ListRow
-            title={
-              <Link href={`/climbs/${send.climbId}`} className="block w-full truncate">
-                {send.climbName}
-              </Link>
-            }
+            title={send.climbName}
+            href={`/climbs/${send.climbId}`}
             subtitle={
               <AreaBreadcrumb
                 areaId={send.areaId}
@@ -279,7 +277,7 @@ export function UserSendList({
                   <RatingStars rating={send.rating} />
                 </div>
                 <AscentStyle type={send.ascentStyle} />
-                <div className="text-xs text-muted/70">{send.dateSent ?? "Date unknown"}</div>
+                <div className="text-xs text-muted">{formatDate(send.dateSent)}</div>
               </div>
             }
             actions={

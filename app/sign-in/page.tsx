@@ -48,7 +48,7 @@ export default function SignInPage() {
       onSubmit={handleSubmit}
       className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6"
     >
-      <h1 className="text-lg font-semibold">Sign In</h1>
+      <h1 className="text-2xl font-semibold">Sign In</h1>
       <TextField value={email} onChange={setEmail} type="email" isRequired>
         <Label>Email</Label>
         <Input placeholder="you@example.com" className="bg-surface" />

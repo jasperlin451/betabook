@@ -37,7 +37,7 @@ export function ResetPasswordForm({ token }: { token: string | undefined }) {
   if (done) {
     return (
       <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
-        <h1 className="text-lg font-semibold">Password reset</h1>
+        <h1 className="text-2xl font-semibold">Password reset</h1>
         <p className="text-sm text-muted">
           Your password has been reset. <Link href="/sign-in">Sign in</Link>{" "}
           with your new password.
@@ -51,7 +51,7 @@ export function ResetPasswordForm({ token }: { token: string | undefined }) {
       onSubmit={handleSubmit}
       className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6"
     >
-      <h1 className="text-lg font-semibold">Reset Password</h1>
+      <h1 className="text-2xl font-semibold">Reset Password</h1>
       <TextField
         value={newPassword}
         onChange={setNewPassword}

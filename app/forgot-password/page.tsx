@@ -27,7 +27,7 @@ export default function ForgotPasswordPage() {
   if (done) {
     return (
       <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
-        <h1 className="text-lg font-semibold">Check your email</h1>
+        <h1 className="text-2xl font-semibold">Check your email</h1>
         <p className="text-sm text-muted">
           If an account exists for {email}, we sent a link to reset your
           password. <Link href="/sign-in">Back to sign in</Link>.
@@ -41,7 +41,7 @@ export default function ForgotPasswordPage() {
       onSubmit={handleSubmit}
       className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6"
     >
-      <h1 className="text-lg font-semibold">Forgot Password</h1>
+      <h1 className="text-2xl font-semibold">Forgot Password</h1>
       <p className="text-sm text-muted">
         Enter your email and we&apos;ll send you a link to reset your
         password.

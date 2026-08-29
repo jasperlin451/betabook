@@ -196,7 +196,7 @@ export function ImportWizard() {
 
   return (
     <div className="flex flex-col gap-6 rounded-xl bg-surface-secondary p-6">
-      <h1 className="text-lg font-semibold">Import Sends from CSV</h1>
+      <h1 className="text-2xl font-semibold">Import Sends from CSV</h1>
 
       {error && <p className="text-sm text-danger">{error}</p>}
 

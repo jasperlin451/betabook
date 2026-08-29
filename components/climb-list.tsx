@@ -1,6 +1,6 @@
 "use client";
 
-import { Chip, Link } from "@heroui/react";
+import { Chip } from "@heroui/react";
 import { describeGradeTrend } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
 import type { ClimbWithAreaName } from "@/db/queries";
@@ -10,14 +10,17 @@ import { LoadMoreButton } from "@/components/ui/load-more-button";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { ClimbSentIndicator } from "@/components/climb-sent-indicator";
 
-// success/warning/danger are reserved for ascent-style chips (AscentStyle), and
+// success/warning are reserved for ascent-style chips (AscentStyle), and
 // HeroUI's only other built-in tokens are accent/default — too few hues for
 // three disciplines that need to read as distinct from each other and from
-// gray. Overriding background/text directly gives each one its own color.
+// gray. Each discipline instead has its own bg/fg custom properties with
+// per-theme (light + dark) values, defined in app/globals.css — plain
+// utilities referencing them win over the chip's own colors by layer order
+// (utilities > components), no `!` needed.
 const STYLE_CHIP_CLASSNAME: Record<ClimbType, string> = {
-  boulder: "bg-blue-100! text-blue-700!",
-  sport: "bg-violet-100! text-violet-700!",
-  trad: "bg-teal-100! text-teal-700!",
+  boulder: "bg-(--discipline-boulder-bg) text-(--discipline-boulder-fg)",
+  sport: "bg-(--discipline-sport-bg) text-(--discipline-sport-fg)",
+  trad: "bg-(--discipline-trad-bg) text-(--discipline-trad-fg)",
 };
 
 type ClimbListProps = {
@@ -71,7 +74,8 @@ export function ClimbList({
                 <ClimbSentIndicator climb={climb} sent={sentClimbIds.has(climb.id)} />
               )
             }
-            title={<Link href={`/climbs/${climb.id}`}>{climb.name}</Link>}
+            title={climb.name}
+            href={`/climbs/${climb.id}`}
             subtitle={
               <AreaBreadcrumb
                 areaId={climb.areaId}
@@ -94,8 +98,8 @@ export function ClimbList({
                   </span>
                   <RatingStars rating={sendStats?.[climb.id]?.avgRating ?? null} precision="decimal" />
                 </div>
-                <Chip variant="soft" className={STYLE_CHIP_CLASSNAME[climb.type]}>
-                  {climb.type.toUpperCase()}
+                <Chip variant="soft" className={`capitalize ${STYLE_CHIP_CLASSNAME[climb.type]}`}>
+                  {climb.type}
                 </Chip>
                 <span className="text-muted text-sm">
                   {sendStats?.[climb.id]?.sendCount ?? 0} ascents

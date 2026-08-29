@@ -69,7 +69,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
       <PageWithStats
         statsPosition="before"
         stats={
-          <div className="flex flex-col gap-4 lg:w-72 lg:shrink-0">
+          <div className="flex flex-col gap-4 lg:w-80 lg:shrink-0">
             <StatStrip
               cards={[
                 {

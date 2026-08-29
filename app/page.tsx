@@ -35,17 +35,20 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
     return (
       <div className="flex flex-col gap-6">
+        {/* The page's content starts straight at the search controls — the
+          * h1 exists for the document outline/assistive tech, not the eye. */}
+        <h1 className="sr-only">Search areas</h1>
         <ModeSwitch mode={mode} />
         <PageWithStats
           statsPosition="before"
           stats={
-            <div className="lg:w-96 lg:shrink-0">
+            <div className="lg:w-80 lg:shrink-0">
               <AreaSearchForm defaultName={name} />
             </div>
           }
         >
           <section className="flex flex-col gap-2">
-            <h2 className="text-lg font-medium">Results</h2>
+            <h2 className="text-lg font-semibold">Results</h2>
             <AreaList
               areas={results}
               variant="search"
@@ -73,18 +76,21 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* See the area-mode h1 above — visually the page starts at the
+        * search controls. */}
+      <h1 className="sr-only">Search climbs</h1>
       <ModeSwitch mode={mode} />
       <PageWithStats
         statsPosition="before"
         stats={
-          <div className="lg:w-96 lg:shrink-0">
+          <div className="lg:w-80 lg:shrink-0">
             <ClimbSearchForm defaultFilter={filter} sort={sort} />
           </div>
         }
       >
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium">Results</h2>
+            <h2 className="text-lg font-semibold">Results</h2>
             <ClimbSearchSortControl sort={sort} filter={filter} />
           </div>
           <ClimbList

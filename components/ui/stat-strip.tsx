@@ -27,7 +27,7 @@ export function StatStrip({ cards, className }: StatStripProps) {
             {card.stats.map((stat) => (
               <div key={stat.label} className="flex items-center justify-between gap-2">
                 <span className="text-xs tracking-wide text-muted uppercase">{stat.label}</span>
-                <span className="font-semibold text-foreground">{stat.value}</span>
+                <span className="font-semibold text-foreground tabular-nums">{stat.value}</span>
               </div>
             ))}
           </div>

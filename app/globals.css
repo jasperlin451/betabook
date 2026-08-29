@@ -1,6 +1,23 @@
 @import "@heroui/styles";
 
 @layer theme {
+  /* Discipline chip colors (boulder/sport/trad). HeroUI's built-in chip
+     colors are spoken for — success/warning are reserved for ascent-style
+     chips (AscentStyle), and accent/default are too few hues for three
+     disciplines that need to read as distinct from each other and from
+     gray — so each discipline gets its own themed bg/fg pair, consumed by
+     STYLE_CHIP_CLASSNAME in components/climb-list.tsx. */
+  :root,
+  .light,
+  [data-theme="light"] {
+    --discipline-boulder-bg: #dbeafe; /* blue-100 */
+    --discipline-boulder-fg: #1d4ed8; /* blue-700 */
+    --discipline-sport-bg: #ede9fe; /* violet-100 */
+    --discipline-sport-fg: #6d28d9; /* violet-700 */
+    --discipline-trad-bg: #ccfbf1; /* teal-100 */
+    --discipline-trad-fg: #0f766e; /* teal-700 */
+  }
+
   /* Deep-navy "night session" theme — layers the same brand teal/coral on
      top of HeroUI's existing dark-mode neutrals (foreground, muted, field
      colors, etc. are already tuned for a dark background, so only the
@@ -32,6 +49,14 @@
        background, so unlike a light background it needs no darkening for
        text/link use. */
     --link: var(--accent);
+    /* Discipline chips: translucent tint + pastel text (same recipe as
+       HeroUI's dark soft chip variants), tuned for the navy surfaces. */
+    --discipline-boulder-bg: color-mix(in oklab, #60a5fa 18%, transparent);
+    --discipline-boulder-fg: #93c5fd; /* blue-300 */
+    --discipline-sport-bg: color-mix(in oklab, #a78bfa 18%, transparent);
+    --discipline-sport-fg: #c4b5fd; /* violet-300 */
+    --discipline-trad-bg: color-mix(in oklab, #2dd4bf 15%, transparent);
+    --discipline-trad-fg: #5eead4; /* teal-300 */
   }
 }
 
