@@ -1,4 +1,4 @@
-import { Link } from "@heroui/react";
+import { AppLink } from "@/components/ui/app-link";
 
 /** Up to two ancestor areas, then (optionally) the leaf area — each a link.
  * Shared by any row that shows "where" something is: a user's sends and
@@ -33,17 +33,17 @@ export function AreaBreadcrumb({
         <span className="hidden md:inline">
           {leading.map((segment) => (
             <span key={segment.id}>
-              <Link href={`/areas/${segment.id}`} className={linkClassName}>
+              <AppLink href={`/areas/${segment.id}`} className={linkClassName}>
                 {segment.name}
-              </Link>
+              </AppLink>
               <span aria-hidden> / </span>
             </span>
           ))}
         </span>
       )}
-      <Link href={`/areas/${last.id}`} className={linkClassName}>
+      <AppLink href={`/areas/${last.id}`} className={linkClassName}>
         {last.name}
-      </Link>
+      </AppLink>
     </span>
   );
 }

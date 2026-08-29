@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { buttonVariants, Button, Link } from "@heroui/react";
+import { buttonVariants, Button } from "@heroui/react";
 import type { Area } from "@/db/queries";
+import { AppLink } from "@/components/ui/app-link";
 import { ListRow } from "@/components/ui/list-row";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
@@ -65,7 +66,7 @@ export function AreaList({
                   {String(index + 1).padStart(2, "0")}
                 </span>
               }
-              title={<Link href={`/areas/${area.id}`}>{area.name}</Link>}
+              title={<AppLink href={`/areas/${area.id}`}>{area.name}</AppLink>}
               subtitle={<AreaBreadcrumb ancestors={areaBreadcrumbs?.[area.id] ?? []} />}
             />
           ))}
@@ -80,7 +81,7 @@ export function AreaList({
       <div className="flex flex-col gap-3">
         {areas.map((area) => (
           <div key={area.id}>
-            <Link href={`/areas/${area.id}`}>{area.name}</Link>
+            <AppLink href={`/areas/${area.id}`}>{area.name}</AppLink>
             {area.ancestorPath && (
               <p className="text-muted text-sm">Parent: {area.ancestorPath}</p>
             )}
@@ -95,13 +96,13 @@ export function AreaList({
   return (
     <div className="flex flex-wrap gap-2">
       {shownAreas.map((area) => (
-        <Link
+        <AppLink
           key={area.id}
           href={`/areas/${area.id}`}
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           {area.name}
-        </Link>
+        </AppLink>
       ))}
       {areas.length > PILL_CAP && (
         <Button

@@ -1,12 +1,18 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
+import { signInUrl } from "@/lib/sign-in-redirect";
 import { ImportWizard } from "@/components/import-wizard";
+
+export const metadata: Metadata = {
+  title: "Import Sends",
+};
 
 export default async function ImportPage() {
   const session = await getSession();
 
   if (!session) {
-    redirect("/sign-in");
+    redirect(signInUrl("/account/import"));
   }
 
   return <ImportWizard />;

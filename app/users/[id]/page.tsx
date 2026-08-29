@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { UserSendList, UserSendsFilterPanel } from "@/components/user-send-list";
@@ -14,24 +16,43 @@ type UserPageProps = {
   searchParams: Promise<SearchParamsRecord>;
 };
 
-export default async function UserPage({ params, searchParams }: UserPageProps) {
-  const { id } = await params;
-  const filter = parseUserSendsFilter(await searchParams);
-
+// Shared between generateMetadata and the page — see the identical pattern in
+// app/areas/[id]/page.tsx for why the whole id -> user lookup is memoized
+// rather than the (db, id)-keyed query helper.
+const getUserById = cache(async (id: string) => {
   const db = await getDb();
-  const user = await getUser(db, id);
+  return getUser(db, id);
+});
+
+export async function generateMetadata({ params }: UserPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const user = await getUserById(id);
   if (!user) notFound();
 
-  const session = await getSession();
+  return { title: user.name };
+}
 
-  // The stats card reflects the user's whole history — computed via small
-  // aggregate queries, independent of the list's current filter/page.
-  const summary = await getUserSendsSummary(db, id);
+export default async function UserPage({ params, searchParams }: UserPageProps) {
+  const [{ id }, search] = await Promise.all([params, searchParams]);
+  const filter = parseUserSendsFilter(search);
+
+  // Grouped by dependency tier so independent fetches overlap instead of
+  // waterfalling: the db handle, the user row, and the session don't depend
+  // on each other; the summary and the first page of sends need only the
+  // user id; and the breadcrumbs need that first page's area ids.
+  const [db, user, session] = await Promise.all([getDb(), getUserById(id), getSession()]);
+  if (!user) notFound();
+
+  const [summary, firstPage] = await Promise.all([
+    // The stats card reflects the user's whole history — computed via small
+    // aggregate queries, independent of the list's current filter/page.
+    getUserSendsSummary(db, id),
+    // A user's send count can run into the thousands, so the list itself is
+    // always fetched a page at a time, never in full (see UserSendList).
+    getSendsForUserPage(db, id, filter, 0),
+  ]);
   const memberSinceYear = new Date(user.createdAt).getFullYear();
 
-  // A user's send count can run into the thousands, so the list itself is
-  // always fetched a page at a time, never in full (see UserSendList).
-  const firstPage = await getSendsForUserPage(db, id, filter, 0);
   const areaBreadcrumbs = await getAreaBreadcrumbs(
     db,
     firstPage.sends.map((send) => send.areaId),

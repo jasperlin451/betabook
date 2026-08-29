@@ -1,3 +1,5 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { AreaActionsMenu } from "@/components/area-actions-menu";
@@ -30,15 +32,36 @@ type AreaPageProps = {
   searchParams: Promise<SearchParamsRecord>;
 };
 
-export default async function AreaPage({ params, searchParams }: AreaPageProps) {
+// generateMetadata and the page both need the area. The query helpers are
+// plain async functions keyed on a per-call db handle, so memoizing them
+// directly would never hit — memoize the whole id -> area lookup with React
+// cache() instead, so the two consumers share one query per request.
+const getAreaById = cache(async (id: number) => {
+  const db = await getDb();
+  return getArea(db, id);
+});
+
+export async function generateMetadata({ params }: AreaPageProps): Promise<Metadata> {
   const { id } = await params;
-  const search = await searchParams;
+  const areaId = Number(id);
+  if (!Number.isInteger(areaId)) notFound();
+
+  const area = await getAreaById(areaId);
+  if (!area) notFound();
+
+  return { title: area.name };
+}
+
+export default async function AreaPage({ params, searchParams }: AreaPageProps) {
+  const [{ id }, search] = await Promise.all([params, searchParams]);
   const areaId = Number(id);
 
   if (!Number.isInteger(areaId)) notFound();
 
-  const db = await getDb();
-  const area = await getArea(db, areaId);
+  // Grouped by dependency tier so independent fetches overlap instead of
+  // waterfalling — the db handle, the area row, and the session don't depend
+  // on each other.
+  const [db, area, session] = await Promise.all([getDb(), getAreaById(areaId), getSession()]);
   if (!area) notFound();
 
   const sort = parseAreaClimbsSort(search);
@@ -46,19 +69,18 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
 
   // Only the first page is server-rendered — AreaClimbsSection fetches
   // subsequent pages itself via "load more" (see app/api/areas/[id]/climbs).
-  const [ancestors, subareas, subtreeClimbs, hasClimbs] = await Promise.all([
+  const [ancestors, subareas, subtreeClimbs, hasClimbs, sentClimbIds] = await Promise.all([
     getAncestors(db, area),
     getSubareas(db, area.id),
     getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter)),
     hasClimbsInArea(db, area.id),
+    session ? getUserSentClimbIds(db, session.user.id) : undefined,
   ]);
   const canDeleteArea = subareas.length === 0 && !hasClimbs;
 
-  const session = await getSession();
-  const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
+  const [sendStats, areaBreadcrumbs] = await Promise.all([
     getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),
-    session ? getUserSentClimbIds(db, session.user.id) : Promise.resolve(undefined),
   ]);
 
   return (

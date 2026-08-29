@@ -1,8 +1,8 @@
-import { Link } from "@heroui/react";
 import clsx from "clsx";
 import { AreaSearchForm, ClimbSearchForm, ClimbSearchSortControl } from "@/components/search-form";
 import { AreaSearchResults, ClimbSearchResults } from "@/components/search-results";
 import { NavigationPendingProvider, NavigationPendingRegion } from "@/components/navigation-pending";
+import { AppLink } from "@/components/ui/app-link";
 import { PageWithStats } from "@/components/ui/page-shell";
 import { getDb } from "@/db/client";
 import {
@@ -85,12 +85,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   // searchClimbs already matches everything when `disciplines` is empty.
   // Only the first page is server-rendered — ClimbSearchResults fetches
   // subsequent pages itself via "load more" (see app/api/search/climbs).
+  // The searches and the session lookup don't depend on each other.
   const queryParams = toSearchClimbsQueryParams(filter, sort);
-  const [results, totalCount] = await Promise.all([
+  const [results, totalCount, session] = await Promise.all([
     searchClimbs(db, queryParams),
     countSearchClimbs(db, queryParams),
+    getSession(),
   ]);
-  const session = await getSession();
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
     getClimbSendStats(db, results.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, results.climbs.map((c) => c.areaId)),
@@ -183,20 +184,20 @@ function ModeSwitch({
 
   return (
     <div className="inline-flex gap-1 self-start rounded-full bg-surface-secondary p-1">
-      <Link
+      <AppLink
         href={hrefFor("climb")}
         className={pillClass(mode === "climb")}
         aria-current={mode === "climb" ? "page" : undefined}
       >
         Search climbs
-      </Link>
-      <Link
+      </AppLink>
+      <AppLink
         href={hrefFor("area")}
         className={pillClass(mode === "area")}
         aria-current={mode === "area" ? "page" : undefined}
       >
         Search areas
-      </Link>
+      </AppLink>
     </div>
   );
 }

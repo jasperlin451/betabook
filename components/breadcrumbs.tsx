@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import { Breadcrumbs } from "@heroui/react";
 
 type BreadcrumbNamed = { id: number; name: string };
@@ -19,18 +22,31 @@ function visibilityClassName(distanceFromCurrent: number): string | undefined {
   return "hidden lg:flex";
 }
 
+/** Unlike the list rows (AppLink = next/link, which prefetches itself),
+ * these items stay HeroUI/react-aria links — Breadcrumbs.Item owns its inner
+ * Link, and its function-children escape hatch drops the separator — so the
+ * intent-based prefetch is recreated with router.prefetch on hover/focus.
+ * router.prefetch does a full prefetch, matching AppLink's upgrade-on-intent
+ * behavior for these (always dynamic) area pages. */
 export function AreaBreadcrumbs({ ancestors, current }: AreaBreadcrumbsProps) {
+  const router = useRouter();
+
   return (
     <Breadcrumbs>
-      {ancestors.map((ancestor, index) => (
-        <Breadcrumbs.Item
-          key={ancestor.id}
-          href={`/areas/${ancestor.id}`}
-          className={visibilityClassName(ancestors.length - index)}
-        >
-          {ancestor.name}
-        </Breadcrumbs.Item>
-      ))}
+      {ancestors.map((ancestor, index) => {
+        const href = `/areas/${ancestor.id}`;
+        return (
+          <Breadcrumbs.Item
+            key={ancestor.id}
+            href={href}
+            onHoverStart={() => router.prefetch(href)}
+            onFocus={() => router.prefetch(href)}
+            className={visibilityClassName(ancestors.length - index)}
+          >
+            {ancestor.name}
+          </Breadcrumbs.Item>
+        );
+      })}
       <Breadcrumbs.Item>{current.name}</Breadcrumbs.Item>
     </Breadcrumbs>
   );

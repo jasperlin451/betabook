@@ -1,10 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Chip, Link } from "@heroui/react";
+import { Chip } from "@heroui/react";
 import { describeGradeTrend } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
 import type { ClimbWithAreaName } from "@/db/queries";
+import { AppLink } from "@/components/ui/app-link";
 import { ListRow } from "@/components/ui/list-row";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
@@ -78,7 +79,7 @@ export function ClimbList({
                 <ClimbSentIndicator climb={climb} sent={sentClimbIds.has(climb.id)} />
               )
             }
-            title={<Link href={`/climbs/${climb.id}`}>{climb.name}</Link>}
+            title={<AppLink href={`/climbs/${climb.id}`}>{climb.name}</AppLink>}
             subtitle={
               <AreaBreadcrumb
                 areaId={climb.areaId}

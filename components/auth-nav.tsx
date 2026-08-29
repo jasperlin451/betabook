@@ -1,8 +1,9 @@
 "use client";
 
-import { Link } from "@heroui/react";
 import { clsx } from "clsx";
+import { Skeleton } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
+import { NavLink } from "@/components/nav-link";
 import { useMounted } from "@/hooks/use-mounted";
 
 type AuthNavProps = {
@@ -13,6 +14,12 @@ type AuthNavProps = {
   onNavigate?: () => void;
 };
 
+/** One pill per signed-in link, each sized to roughly the label it stands in
+ * for ("Create Climb", "Create Area", "My sends", "Account"). The signed-in
+ * set is the widest (and, for a logbook, the most common) state, so holding
+ * its geometry keeps the header from reflowing when the session resolves. */
+const PLACEHOLDER_WIDTHS = ["w-21", "w-20", "w-16", "w-14"] as const;
+
 export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
   // better-auth's session store can resolve from a client-side cache before
   // the first paint, while the server always renders the pending state —
@@ -21,37 +28,58 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
   const mounted = useMounted();
   const { data: session, isPending } = authClient.useSession();
 
+  // Shared by the placeholder and the signed-in state so they occupy the
+  // same geometry.
+  const signedInGroupClass = clsx(
+    "flex",
+    direction === "col" ? "flex-col items-start gap-4" : "items-center gap-6",
+  );
+
   if (!mounted || isPending) {
-    return <span className="text-muted">&nbsp;</span>;
+    // A div (not a span like the real states) because Skeleton renders a
+    // div — the classes, not the wrapper tag, define the geometry.
+    return (
+      <div className={signedInGroupClass} aria-hidden>
+        {PLACEHOLDER_WIDTHS.map((width) => (
+          // my-0.5 + h-4 adds up to the 20px line box of a text-sm link, so
+          // each pill occupies exactly one link's height in both directions.
+          <Skeleton
+            key={width}
+            animationType="pulse"
+            className={clsx("my-0.5 h-4 rounded-full", width)}
+          />
+        ))}
+      </div>
+    );
   }
 
   if (session) {
     return (
-      <span className={clsx("flex", direction === "col" ? "flex-col items-start gap-4" : "items-center gap-6")}>
-        <Link href="/climbs/new" onPress={onNavigate}>
+      <span className={signedInGroupClass}>
+        <NavLink href="/climbs/new" onClick={onNavigate}>
           Create Climb
-        </Link>
-        <Link href="/areas/new" onPress={onNavigate}>
+        </NavLink>
+        <NavLink href="/areas/new" onClick={onNavigate}>
           Create Area
-        </Link>
-        <Link href={`/users/${session.user.id}`} onPress={onNavigate}>
+        </NavLink>
+        <NavLink href={`/users/${session.user.id}`} onClick={onNavigate}>
           My sends
-        </Link>
-        <Link href="/account" onPress={onNavigate}>
+        </NavLink>
+        <NavLink href="/account" onClick={onNavigate}>
           Account
-        </Link>
+        </NavLink>
       </span>
     );
   }
 
   return (
     <span className={clsx("flex gap-4", direction === "col" ? "flex-col items-start" : "items-center")}>
-      <Link href="/sign-in" onPress={onNavigate}>
+      <NavLink href="/sign-in" onClick={onNavigate}>
         Log In
-      </Link>
-      <Link href="/sign-up" onPress={onNavigate}>
+      </NavLink>
+      <NavLink href="/sign-up" onClick={onNavigate}>
         Sign Up
-      </Link>
+      </NavLink>
     </span>
   );
 }
