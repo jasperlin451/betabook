@@ -113,7 +113,7 @@ export function CollapsibleSection({
     >
       <h2
         className={clsx(
-          "text-lg font-medium",
+          "text-lg font-semibold",
           showTitleOnDesktop
             ? DESKTOP_TITLE_CLASSNAME[breakpoint]
             : DESKTOP_SR_TITLE_CLASSNAME[breakpoint],
@@ -122,7 +122,7 @@ export function CollapsibleSection({
         {title}
       </h2>
       <Disclosure.Heading level={2} className={TRIGGER_HEADING_CLASSNAME[breakpoint]}>
-        <Disclosure.Trigger className="flex min-h-11 w-full items-center gap-1 text-lg font-medium">
+        <Disclosure.Trigger className="flex min-h-11 w-full items-center gap-1 text-lg font-semibold">
           {title}
           {/* The indicator's own styles put it at the row's far edge
            * (ms-auto), which the full-width trigger now gives room for. */}

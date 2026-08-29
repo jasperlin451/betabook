@@ -56,6 +56,20 @@
        it darkened; the focus ring is thick enough to wear it straight. */
     --focus: var(--palette-support);
     --link: color-mix(in oklab, var(--palette-support) 78%, var(--palette-ink));
+
+    /* Discipline chip colors (boulder/sport/trad). HeroUI's built-in chip
+       colors are spoken for — success/warning are reserved for ascent-style
+       chips (AscentStyle), and accent/default are too few hues for three
+       disciplines that need to read as distinct from each other and from
+       gray — so each discipline gets its own themed bg/fg pair from the
+       palette (trad = green, sport = support blue, boulder = rose),
+       consumed by STYLE_CHIP_CLASSNAME in components/climb-list.tsx. */
+    --discipline-trad-bg: color-mix(in oklab, var(--palette-primary) 22%, var(--white));
+    --discipline-trad-fg: color-mix(in oklab, var(--palette-primary) 60%, var(--palette-ink));
+    --discipline-sport-bg: color-mix(in oklab, var(--palette-support) 22%, var(--white));
+    --discipline-sport-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-ink));
+    --discipline-boulder-bg: color-mix(in oklab, var(--palette-accent) 22%, var(--white));
+    --discipline-boulder-fg: color-mix(in oklab, var(--palette-accent) 60%, var(--palette-ink));
   }
 
   /* Semantic roles, dark ("ink") theme: the same palette with paper and ink
@@ -101,6 +115,15 @@
        light theme leans it toward ink. */
     --focus: color-mix(in oklab, var(--palette-support) 75%, var(--palette-paper));
     --link: color-mix(in oklab, var(--palette-support) 70%, var(--palette-paper));
+
+    /* Discipline chips: translucent tint + a pastel of the same palette hue
+       (same recipe as HeroUI's dark soft chip variants). */
+    --discipline-trad-bg: color-mix(in oklab, var(--palette-primary) 25%, transparent);
+    --discipline-trad-fg: color-mix(in oklab, var(--palette-primary) 60%, var(--palette-paper));
+    --discipline-sport-bg: color-mix(in oklab, var(--palette-support) 25%, transparent);
+    --discipline-sport-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-paper));
+    --discipline-boulder-bg: color-mix(in oklab, var(--palette-accent) 25%, transparent);
+    --discipline-boulder-fg: color-mix(in oklab, var(--palette-accent) 60%, var(--palette-paper));
   }
 }
 

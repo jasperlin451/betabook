@@ -47,6 +47,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     return (
       <NavigationPendingProvider>
         <div className="flex flex-col gap-6">
+          {/* The page's content starts straight at the search controls — the
+            * h1 exists for the document outline/assistive tech, not the eye. */}
+          <h1 className="sr-only">Search areas</h1>
           <ModeSwitch mode={mode} name={name} currentSearch={currentSearch.toString()} />
           <PageWithStats
             statsPosition="before"
@@ -57,7 +60,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             }
           >
             <section className="flex flex-col gap-2">
-              <h2 className="text-lg font-medium">
+              <h2 className="text-lg font-semibold">
                 Results
                 {name && <ResultCount count={totalCount} />}
               </h2>
@@ -101,6 +104,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   return (
     <NavigationPendingProvider>
       <div className="flex flex-col gap-6">
+        {/* See the area-mode h1 above — visually the page starts at the
+          * search controls. */}
+        <h1 className="sr-only">Search climbs</h1>
         <ModeSwitch
           mode={mode}
           name={filter.name}
@@ -116,7 +122,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         >
           <section className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">
+              <h2 className="text-lg font-semibold">
                 Results
                 <ResultCount count={totalCount} />
               </h2>

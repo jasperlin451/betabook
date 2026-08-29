@@ -12,7 +12,9 @@ type RatingStarsProps = {
 
 export function RatingStars({ rating, precision = "integer", className }: RatingStarsProps) {
   if (rating == null) {
-    return <span className={clsx("text-muted text-sm", className)}>No rating</span>;
+    // "—" is the app-wide fallback for absent row values (grades, ratings,
+    // dates) — long labels like "No rating" crush row titles on phones.
+    return <span className={clsx("text-muted text-sm", className)}>—</span>;
   }
 
   return (

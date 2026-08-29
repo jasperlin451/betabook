@@ -8,6 +8,7 @@ import { StatStrip } from "@/components/ui/stat-strip";
 import { getAreaBreadcrumbs, getSendsForUserPage, getUser, getUserSendsSummary } from "@/db/queries";
 import { getDb } from "@/db/client";
 import { parseUserSendsFilter } from "@/lib/user-sends-filter";
+import { formatDate } from "@/lib/format-date";
 import { getSession } from "@/lib/session";
 import type { SearchParamsRecord } from "@/lib/search-params";
 
@@ -78,7 +79,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
               </span>
             ),
             stats: [
-              { label: "Latest send", value: summary.latestSendDate ?? "Unknown" },
+              { label: "Latest send", value: formatDate(summary.latestSendDate) },
               ...(summary.mostLoggedDiscipline
                 ? [
                     {

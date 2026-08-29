@@ -21,7 +21,7 @@ export default async function AccountPage() {
 
   return (
     <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
-      <h1 className="text-lg font-semibold">Account</h1>
+      <h1 className="text-2xl font-semibold">Account</h1>
       <p className="text-sm text-muted">Signed in as {session.user.email}</p>
       <AppLink href={`/users/${session.user.id}`}>View my profile</AppLink>
       <AppLink href="/account/import">Import Sends</AppLink>

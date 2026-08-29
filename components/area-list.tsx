@@ -66,7 +66,8 @@ export function AreaList({
                   {String(index + 1).padStart(2, "0")}
                 </span>
               }
-              title={<AppLink href={`/areas/${area.id}`}>{area.name}</AppLink>}
+              title={area.name}
+              href={`/areas/${area.id}`}
               subtitle={<AreaBreadcrumb ancestors={areaBreadcrumbs?.[area.id] ?? []} />}
             />
           ))}

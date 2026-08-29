@@ -22,7 +22,7 @@ export function ClimbSentIndicator({ climb, sent }: { climb: Climb; sent: boolea
         aria-label="You've sent this climb"
         className="flex size-8 shrink-0 items-center justify-center"
       >
-        <CircleCheck className="size-5 text-green-600" aria-hidden />
+        <CircleCheck className="size-5 text-success-soft-foreground" aria-hidden />
       </span>
     );
   }
