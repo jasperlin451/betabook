@@ -7,7 +7,12 @@ import { EditSendButton } from "@/components/edit-send-button";
 import { ClimbActionsMenu } from "@/components/climb-actions-menu";
 import { ClimbSendList } from "@/components/climb-send-list";
 import { GradeWithTrend } from "@/components/climb-list";
+import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import { DisciplineChip } from "@/components/ui/discipline-chip";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { GradeBox } from "@/components/ui/grade-box";
+import { PageTitle, SectionHeading } from "@/components/ui/typography";
 import { PageWithStats } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { RatingStars } from "@/components/ui/rating-stars";
@@ -20,6 +25,7 @@ import {
   getUserSendForClimb,
 } from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
+import type { AscentStyle as AscentStyleType } from "@/lib/sends";
 import { missingDescriptionMessage } from "@/lib/descriptions";
 import { getDb } from "@/db/client";
 import { getSession } from "@/lib/session";
@@ -87,11 +93,13 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
       <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
 
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold">{climb.name}</h1>
-          <p className="text-muted mt-1 capitalize">
-            {climb.type} &middot; {formatGrade(climb.type, climb.grade)}
-          </p>
+        <div className="flex flex-col gap-1">
+          <Eyebrow>Climb</Eyebrow>
+          <PageTitle>{climb.name}</PageTitle>
+          <div className="mt-1 flex items-center gap-2">
+            <GradeBox size="md">{formatGrade(climb.type, climb.grade)}</GradeBox>
+            <DisciplineChip type={climb.type} />
+          </div>
           <p className="text-muted mt-1">
             {climb.description || missingDescriptionMessage()}
           </p>
@@ -135,7 +143,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                         key: "breakdown",
                         heading: <Eyebrow>Ascent breakdown</Eyebrow>,
                         stats: loggedBreakdown.map(([type, count]) => ({
-                          label: type,
+                          label: ASCENT_STYLE_LABELS[type as AscentStyleType],
                           value: count,
                         })),
                       },
@@ -164,12 +172,26 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
         }
       >
         <div className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold">Sends</h2>
+          <SectionHeading>Sends</SectionHeading>
           <ClimbSendList
             climb={climb}
             initialSends={sendsPage.sends}
             initialHasMore={sendsPage.hasMore}
             currentUserId={session?.user.id}
+            emptyState={
+              <EmptyState
+                message="No sends yet — this line is waiting for its first ascent."
+                cta={
+                  session ? (
+                    userSend ? undefined : <LogSendButton climb={climb} />
+                  ) : (
+                    <AppLink href={signInUrl(`/climbs/${climb.id}`)} className="text-sm">
+                      Sign in to log the first send
+                    </AppLink>
+                  )
+                }
+              />
+            }
           />
         </div>
       </PageWithStats>

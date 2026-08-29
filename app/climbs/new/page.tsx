@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/typography";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { NewClimbForm } from "@/components/new-climb-form";
@@ -14,7 +15,7 @@ export default async function NewClimbPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">New Climb</h1>
+      <PageTitle>New Climb</PageTitle>
       <NewClimbForm />
     </div>
   );

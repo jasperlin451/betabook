@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Button, Link } from "@heroui/react";
+import { PageTitle } from "@/components/ui/typography";
 
 /** Root error boundary — renders inside the root layout (header/footer stay),
  * catching render errors from every page. `retry()` re-fetches and re-renders
@@ -20,7 +21,7 @@ export default function ErrorPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">Something went wrong</h1>
+        <PageTitle className="text-2xl">Something went wrong</PageTitle>
         <p className="text-muted">
           An unexpected error kept this page from loading. It may be temporary
           — trying again often fixes it.

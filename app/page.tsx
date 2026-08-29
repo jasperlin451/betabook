@@ -182,9 +182,11 @@ function ModeSwitch({
   }
 
   function pillClass(active: boolean): string {
+    // The active pill wears HeroUI's segment tokens (the same pair its own
+    // segmented controls use) instead of a hand-picked background.
     return clsx(
       "rounded-full px-4 py-1.5 text-sm no-underline",
-      active ? "bg-background font-semibold text-foreground" : "text-muted",
+      active ? "bg-segment font-semibold text-segment-foreground" : "text-muted",
     );
   }
 

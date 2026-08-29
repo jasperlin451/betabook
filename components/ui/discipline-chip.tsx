@@ -15,7 +15,7 @@ const DISCIPLINE_CHIP_CLASSNAME: Record<ClimbType, string> = {
   trad: "bg-(--discipline-trad-bg) text-(--discipline-trad-fg)",
 };
 
-const DISCIPLINE_LABELS: Record<ClimbType, string> = {
+export const DISCIPLINE_LABELS: Record<ClimbType, string> = {
   boulder: "Boulder",
   sport: "Sport",
   trad: "Trad",

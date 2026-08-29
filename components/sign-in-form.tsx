@@ -1,5 +1,6 @@
 "use client";
 
+import { PageTitle } from "@/components/ui/typography";
 import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -88,7 +89,7 @@ export function SignInForm({ next }: { next?: string }) {
       onSubmit={handleSubmit}
       className={FORM_CARD_CLASS}
     >
-      <h1 className="text-lg font-semibold">Sign In</h1>
+      <PageTitle className="text-2xl">Sign In</PageTitle>
       <TextField value={email} onChange={handleEmailChange} type="email" isRequired>
         <Label>Email</Label>
         <Input placeholder="you@example.com" className="bg-surface" />

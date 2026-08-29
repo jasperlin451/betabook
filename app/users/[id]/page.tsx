@@ -4,11 +4,15 @@ import { notFound } from "next/navigation";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { UserSendList, UserSendsFilterPanel } from "@/components/user-send-list";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { SidebarLayout } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
+import { PageTitle } from "@/components/ui/typography";
 import { getAreaBreadcrumbs, getSendsForUserPage, getUser, getUserSendsSummary } from "@/db/queries";
 import { getDb } from "@/db/client";
 import { parseUserSendsFilter } from "@/lib/user-sends-filter";
+import { formatCount } from "@/lib/format";
 import { formatDate } from "@/lib/format-date";
 import { getSession } from "@/lib/session";
 import type { SearchParamsRecord } from "@/lib/search-params";
@@ -63,7 +67,6 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   const statCards = [
     {
       key: "profile",
-      heading: <div className="text-xs text-muted">Active since {memberSinceYear}</div>,
       stats: [
         { label: "Sends", value: summary.sendCount },
         { label: "Areas", value: summary.areaCount },
@@ -81,11 +84,10 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
                 ? [
                     {
                       label: "Most logged",
-                      value: `${summary.mostLoggedDiscipline.type} / ${summary.mostLoggedDiscipline.count}`,
+                      value: `${DISCIPLINE_LABELS[summary.mostLoggedDiscipline.type]} · ${formatCount(summary.mostLoggedDiscipline.count, "send")}`,
                     },
                   ]
                 : []),
-              { label: "Highest route", value: summary.peakGrade ?? "—" },
             ],
           },
         ]
@@ -94,39 +96,45 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">{user.name}</h1>
+      <div className="flex flex-col gap-1">
+        <Eyebrow>Climber</Eyebrow>
+        <PageTitle>{user.name}</PageTitle>
+        <span className="mt-1 font-mono text-sm tabular-nums text-muted">
+          Active since {memberSinceYear}
+        </span>
+      </div>
 
       {/* The sidebar (filters + stats) leads on mobile and sits right of the
-       * list on desktop, via order-* — a single render of the stats card, so
-       * the headline stats aren't buried below the infinite send list on
-       * mobile and don't appear twice in the accessibility tree.
+       * list on desktop — a single render of the stats card, so the headline
+       * stats aren't buried below the infinite send list on mobile and don't
+       * appear twice in the accessibility tree.
        *
        * The provider links the filter panel's in-flight navigation to the
        * send list it re-fetches, which dims while pending. */}
       <NavigationPendingProvider>
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-          <div className="order-1 flex flex-col gap-6 lg:order-2 lg:w-80 lg:shrink-0">
-            {summary.sendCount > 0 && (
-              <CollapsibleSection title="Filters" breakpoint="lg" showTitleOnDesktop={false}>
-                <UserSendsFilterPanel userId={id} filter={filter} />
-              </CollapsibleSection>
-            )}
-            <StatStrip cards={statCards} />
-          </div>
-
-          <div className="order-2 flex min-w-0 flex-1 flex-col gap-4 lg:order-1">
-            <UserSendList
-              key={JSON.stringify(filter)}
-              userId={id}
-              filter={filter}
-              initialSends={firstPage.sends}
-              initialHasMore={firstPage.hasMore}
-              initialAreaBreadcrumbs={areaBreadcrumbs}
-              hasAnySends={summary.sendCount > 0}
-              currentUserId={session?.user.id}
-            />
-          </div>
-        </div>
+        <SidebarLayout
+          sidebar={
+            <>
+              {summary.sendCount > 0 && (
+                <CollapsibleSection title="Filters" breakpoint="lg" showTitleOnDesktop={false}>
+                  <UserSendsFilterPanel userId={id} filter={filter} />
+                </CollapsibleSection>
+              )}
+              <StatStrip cards={statCards} />
+            </>
+          }
+        >
+          <UserSendList
+            key={JSON.stringify(filter)}
+            userId={id}
+            filter={filter}
+            initialSends={firstPage.sends}
+            initialHasMore={firstPage.hasMore}
+            initialAreaBreadcrumbs={areaBreadcrumbs}
+            hasAnySends={summary.sendCount > 0}
+            currentUserId={session?.user.id}
+          />
+        </SidebarLayout>
       </NavigationPendingProvider>
     </div>
   );

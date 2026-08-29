@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/typography";
 import type { ReactNode } from "react";
 import { Link } from "@heroui/react";
 
@@ -17,7 +18,7 @@ export function NotFoundMessage({
 }: NotFoundMessageProps) {
   return (
     <div className="flex flex-col gap-2">
-      <h1 className="text-2xl font-semibold">{heading}</h1>
+      <PageTitle className="text-2xl">{heading}</PageTitle>
       <p className="text-muted">{message}</p>
       <Link href={linkHref} className="self-start">
         {linkText}

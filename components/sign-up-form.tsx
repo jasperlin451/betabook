@@ -1,5 +1,6 @@
 "use client";
 
+import { PageTitle } from "@/components/ui/typography";
 import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { useState } from "react";
 import { Button, Input, Label, TextField } from "@heroui/react";
@@ -63,7 +64,7 @@ export function SignUpForm({ next }: { next?: string }) {
   if (done) {
     return (
       <div className={FORM_CARD_CLASS}>
-        <h1 className="text-lg font-semibold">Check your email</h1>
+        <PageTitle className="text-2xl">Check your email</PageTitle>
         <p className="text-sm text-muted">
           We sent a verification link to {email}. Verify your address, then{" "}
           <AppLink href={signInUrl(nextPath)}>sign in</AppLink>.
@@ -85,7 +86,7 @@ export function SignUpForm({ next }: { next?: string }) {
       onSubmit={handleSubmit}
       className={FORM_CARD_CLASS}
     >
-      <h1 className="text-lg font-semibold">Sign Up</h1>
+      <PageTitle className="text-2xl">Sign Up</PageTitle>
       <TextField value={name} onChange={setName} isRequired>
         <Label>Name</Label>
         <Input placeholder="Your name" className="bg-surface" />

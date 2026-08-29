@@ -1,8 +1,12 @@
 "use client";
 
+import { PageTitle } from "@/components/ui/typography";
 import { FIELD_CLASS } from "@/components/ui/field";
 import { useMemo, useState, useTransition } from "react";
-import { Button, Label, TextField } from "@heroui/react";
+import { Button, buttonVariants, Label, TextField } from "@heroui/react";
+import { formatCount } from "@/lib/format";
+import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { importSends, type ImportResult } from "@/db/mutations";
 import { ASCENT_STYLES, type AscentStyle } from "@/lib/sends";
 import {
@@ -26,6 +30,45 @@ import {
 } from "@/lib/sends-import";
 
 type Step = "upload" | "columns" | "values" | "review" | "result";
+
+/** The user-visible stations of the wizard, in order — "result" renders as
+ * every station done. */
+const WIZARD_STATIONS: { key: Step; label: string }[] = [
+  { key: "upload", label: "Upload" },
+  { key: "columns", label: "Columns" },
+  { key: "values", label: "Values" },
+  { key: "review", label: "Review" },
+];
+
+function WizardSteps({ step }: { step: Step }) {
+  const activeIndex =
+    step === "result" ? WIZARD_STATIONS.length : WIZARD_STATIONS.findIndex((s) => s.key === step);
+
+  return (
+    <ol className="flex flex-wrap items-center gap-2 font-mono text-xs tabular-nums">
+      {WIZARD_STATIONS.map((station, i) => {
+        const state = i < activeIndex ? "done" : i === activeIndex ? "active" : "todo";
+        return (
+          <li key={station.key} className="flex items-center gap-2">
+            {i > 0 && <span className="h-px w-4 bg-separator" aria-hidden />}
+            <span
+              aria-current={state === "active" ? "step" : undefined}
+              className={
+                state === "active"
+                  ? "rounded-sm border border-border bg-surface px-1.5 py-0.5 font-medium text-foreground"
+                  : state === "done"
+                    ? "px-1.5 py-0.5 text-success-soft-foreground"
+                    : "px-1.5 py-0.5 text-muted"
+              }
+            >
+              {i + 1} {station.label}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string; required: boolean }[] = [
   { key: "date", label: "Date Sent", required: false },
@@ -197,7 +240,9 @@ export function ImportWizard() {
 
   return (
     <div className="flex flex-col gap-6 rounded-xl bg-surface-secondary p-6">
-      <h1 className="text-2xl font-semibold">Import Sends from CSV</h1>
+      <PageTitle className="text-2xl">Import Sends from CSV</PageTitle>
+
+      <WizardSteps step={step} />
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
@@ -207,7 +252,12 @@ export function ImportWizard() {
             Upload a CSV export of your climbing log. You&apos;ll be able to map its columns
             and clarify a few ambiguous values before anything is imported.
           </p>
-          <input type="file" accept=".csv" onChange={handleFileChange} />
+          <label
+            className={`${buttonVariants({ variant: "outline" })} w-fit cursor-pointer`}
+          >
+            Choose CSV file
+            <input type="file" accept=".csv" onChange={handleFileChange} className="sr-only" />
+          </label>
         </div>
       )}
 
@@ -262,7 +312,7 @@ export function ImportWizard() {
                   >
                     {ASCENT_STYLES.map((t) => (
                       <option key={t} value={t}>
-                        {t}
+                        {ASCENT_STYLE_LABELS[t]}
                       </option>
                     ))}
                     <option value="skip">Skip these rows</option>
@@ -292,7 +342,7 @@ export function ImportWizard() {
                   >
                     {CLIMB_TYPES.map((t) => (
                       <option key={t} value={t}>
-                        {t}
+                        {DISCIPLINE_LABELS[t]}
                       </option>
                     ))}
                     <option value="skip">Ignore</option>
@@ -343,16 +393,19 @@ export function ImportWizard() {
       {step === "review" && normalized && (
         <div className="flex flex-col gap-4">
           <p className="text-sm">
-            <strong>{normalized.valid.length}</strong> rows ready to import.{" "}
+            <strong>{formatCount(normalized.valid.length, "row")}</strong> ready to import.
             {normalized.invalid.length > 0 && (
-              <strong>{normalized.invalid.length}</strong>
+              <>
+                {" "}
+                <strong>{formatCount(normalized.invalid.length, "row")}</strong> can&apos;t be
+                imported.
+              </>
             )}
-            {normalized.invalid.length > 0 && " rows can't be imported."}
           </p>
 
           {normalized.invalid.length > 0 && (
             <details>
-              <summary className="cursor-pointer text-sm text-muted">
+              <summary className="cursor-pointer text-sm text-muted underline decoration-dotted underline-offset-4 hover:text-foreground">
                 View rows that can&apos;t be imported
               </summary>
               <ul className="mt-2 flex flex-col gap-1 text-xs text-muted">
@@ -418,7 +471,7 @@ export function ImportWizard() {
             normalized.invalid.length > 0 ||
             importResult.batchErrors.length > 0) && (
             <details>
-              <summary className="cursor-pointer text-sm text-muted">
+              <summary className="cursor-pointer text-sm text-muted underline decoration-dotted underline-offset-4 hover:text-foreground">
                 View rows that couldn&apos;t be imported
               </summary>
               <ul className="mt-2 flex flex-col gap-1 text-xs text-muted">

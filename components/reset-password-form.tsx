@@ -1,5 +1,6 @@
 "use client";
 
+import { PageTitle } from "@/components/ui/typography";
 import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { useState } from "react";
 import { Button, Input, Label, TextField } from "@heroui/react";
@@ -39,7 +40,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   if (done) {
     return (
       <div className={FORM_CARD_CLASS}>
-        <h1 className="text-2xl font-semibold">Password reset</h1>
+        <PageTitle className="text-2xl">Password reset</PageTitle>
         <p className="text-sm text-muted">
           Your password has been reset. <AppLink href="/sign-in">Sign in</AppLink>{" "}
           with your new password.
@@ -53,7 +54,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       onSubmit={handleSubmit}
       className={FORM_CARD_CLASS}
     >
-      <h1 className="text-2xl font-semibold">Reset Password</h1>
+      <PageTitle className="text-2xl">Reset Password</PageTitle>
       <TextField
         value={newPassword}
         onChange={setNewPassword}

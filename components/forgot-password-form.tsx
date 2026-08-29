@@ -1,5 +1,6 @@
 "use client";
 
+import { PageTitle } from "@/components/ui/typography";
 import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { useState } from "react";
 import { Button, Input, Label, TextField } from "@heroui/react";
@@ -29,7 +30,7 @@ export function ForgotPasswordForm() {
   if (done) {
     return (
       <div className={FORM_CARD_CLASS}>
-        <h1 className="text-lg font-semibold">Check your email</h1>
+        <PageTitle className="text-2xl">Check your email</PageTitle>
         <p className="text-sm text-muted">
           If an account exists for {email}, we sent a link to reset your
           password. <AppLink href="/sign-in">Back to sign in</AppLink>.
@@ -43,7 +44,7 @@ export function ForgotPasswordForm() {
       onSubmit={handleSubmit}
       className={FORM_CARD_CLASS}
     >
-      <h1 className="text-lg font-semibold">Forgot Password</h1>
+      <PageTitle className="text-2xl">Forgot Password</PageTitle>
       <p className="text-sm text-muted">
         Enter your email and we&apos;ll send you a link to reset your
         password.

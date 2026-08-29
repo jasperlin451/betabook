@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import { formatDate } from "@/lib/format-date";
@@ -22,6 +22,9 @@ type ClimbSendListProps = {
   /** The signed-in viewer's own user id, if any — used to show the actions
    * menu on their own row (a user can only have one send per climb). */
   currentUserId?: string | null;
+  /** Rendered when the climb has no sends — the page supplies a
+   * first-ascent invitation (see app/climbs/[id]/page.tsx). */
+  emptyState?: ReactNode;
 };
 
 /** Community ascents for a single climb — one row per climber, paged from
@@ -35,6 +38,7 @@ export function ClimbSendList({
   initialSends,
   initialHasMore,
   currentUserId,
+  emptyState,
 }: ClimbSendListProps) {
   const [sends, setSends] = useState(initialSends);
   const [hasMore, setHasMore] = useState(initialHasMore);
@@ -137,6 +141,7 @@ export function ClimbSendList({
   return (
     <SendListShell
       sends={sends}
+      emptyState={emptyState}
       hasMore={hasMore}
       onLoadMore={handleLoadMore}
       // Also disabled while a post-mutation reconcile is re-fetching the
