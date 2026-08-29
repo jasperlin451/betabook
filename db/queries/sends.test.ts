@@ -498,11 +498,12 @@ describe("getClimbSendStats", () => {
   });
 });
 
-// Placed last in the file, as its own top-level describe rather than nested
-// inside getSendsForUserPage's — every other describe block above asserts
-// exact cumulative send counts/averages for climbs 1-3 "by this point" in
-// the file's fixture history, so adding more sends to those climbs anywhere
-// earlier would shift those hardcoded numbers. Nothing runs after this.
+// Placed near the end of the file, as its own top-level describe rather
+// than nested inside getSendsForUserPage's — every other describe block
+// above asserts exact cumulative send counts/averages for climbs 1-3 "by
+// this point" in the file's fixture history, so adding more sends to those
+// climbs anywhere earlier would shift those hardcoded numbers. Only the
+// tie-breaking describe below (same placement constraint) runs after this.
 describe("getSendsForUserPage ascentStyles/minRating filtering", () => {
   beforeAll(async () => {
     await seedFixtureUser(db, { id: "test-user-12", name: "Style Rating Tester" });
@@ -576,5 +577,45 @@ describe("getSendsForUserPage ascentStyles/minRating filtering", () => {
       0,
     );
     expect(results.sends.map((s) => s.climbName)).toEqual(["Test Slab"]);
+  });
+});
+
+// Regression coverage for OFFSET pagination over ties: none of the sortable
+// columns (date/grade/rating) is unique, so without the `sends.id`
+// tie-breaker in the ORDER BY, sends sharing the sorted value have no
+// defined relative order and can duplicate or vanish across pages. Placed
+// last in the file for the same fixture-history reason as the describe
+// above — this seeds more sends on climbs 1-3. Nothing runs after this.
+describe("getSendsForUserPage tie-breaking across pages", () => {
+  beforeAll(async () => {
+    await seedFixtureUser(db, { id: "test-user-17", name: "Tie Breaker" });
+    // Three sends sharing the same dateSent (and no rating) — under the
+    // default date_desc sort, only the sends.id tie-breaker orders them.
+    for (const climbId of [1, 2, 3]) {
+      await seedFixtureSend(db, {
+        userId: "test-user-17",
+        climbId,
+        dateSent: "2026-08-15",
+      });
+    }
+  });
+
+  it("pages over sends sharing a date without duplicating or skipping any", async () => {
+    const pagedIds: number[] = [];
+    let offset = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const page = await getSendsForUserPage(db, "test-user-17", ALL_SENDS_FILTER, offset, 1);
+      pagedIds.push(...page.sends.map((s) => s.id));
+      offset += page.sends.length;
+      hasMore = page.hasMore;
+    }
+
+    const allIds = (await getAllSendsForUser(db, "test-user-17")).map((s) => s.id);
+    expect(pagedIds.length).toBe(3);
+    expect(new Set(pagedIds).size).toBe(3);
+    expect(new Set(pagedIds)).toEqual(new Set(allIds));
+    // Within the tied date, order is the deterministic sends.id ascending.
+    expect(pagedIds).toEqual([...pagedIds].sort((a, b) => a - b));
   });
 });

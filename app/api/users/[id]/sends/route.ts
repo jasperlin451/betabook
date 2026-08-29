@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
-import { getAreaBreadcrumbs, getSendsForUserPage } from "@/db/queries";
+import { getAreaBreadcrumbs, getSendsForUserPage, getUser, USER_SENDS_PAGE_SIZE } from "@/db/queries";
 import { parseUserSendsFilter } from "@/lib/user-sends-filter";
 import { searchParamsToRecord } from "@/lib/search-params";
 
 type RouteParams = { params: Promise<{ id: string }> };
+
+/** Upper bound on the `limit` param — it exists for UserSendList's
+ * post-mutation reconcile, which re-fetches everything the user had loaded
+ * beyond page 1 in one request, so it's sized for "many load-more clicks",
+ * not "arbitrary bulk fetch" (the CSV export server action covers that). */
+const MAX_LIMIT = 200;
 
 /** Incremental "load more" for a user's send history — the initial page is
  * server-rendered; this backs subsequent pages so the client never has to
@@ -17,9 +23,19 @@ export async function GET(request: Request, { params }: RouteParams) {
   const filter = parseUserSendsFilter(searchParams);
   const offset = Number(url.searchParams.get("offset") ?? 0);
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
+  const limit = Number(url.searchParams.get("limit"));
+  const pageSize =
+    Number.isInteger(limit) && limit >= 1 ? Math.min(limit, MAX_LIMIT) : USER_SENDS_PAGE_SIZE;
 
   const db = await getDb();
-  const page = await getSendsForUserPage(db, userId, filter, safeOffset);
+  // A real 404 rather than a normal-looking empty page for any id — the
+  // client checks res.ok, and an empty 200 would read as "end of list".
+  const user = await getUser(db, userId);
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const page = await getSendsForUserPage(db, userId, filter, safeOffset, pageSize);
   const areaBreadcrumbs = await getAreaBreadcrumbs(
     db,
     page.sends.map((send) => send.areaId),

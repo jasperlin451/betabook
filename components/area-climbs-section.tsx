@@ -65,6 +65,7 @@ export function AreaClimbsSection({
   const [sendStats, setSendStats] = useState(initialSendStats);
   const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   // Climbs are fetched PAGE_SIZE at a time (see db/queries/shared.ts), so the
   // next page to request is however many full pages are already loaded —
   // not climbs.length, which would be wrong after any dedup/filter change.
@@ -72,10 +73,12 @@ export function AreaClimbsSection({
 
   async function handleLoadMore() {
     setLoadingMore(true);
+    setLoadMoreFailed(false);
     try {
       const params = areaClimbsFilterToSearchParams(sort, filter);
       params.set("page", String(loadedPages + 1));
       const res = await fetch(`/api/areas/${areaId}/climbs?${params.toString()}`);
+      if (!res.ok) throw new Error(`Loading more climbs failed: ${res.status}`);
       const data: {
         climbs: ClimbWithAreaName[];
         hasNextPage: boolean;
@@ -87,6 +90,10 @@ export function AreaClimbsSection({
       setSendStats((prev) => ({ ...prev, ...data.sendStats }));
       setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
       setLoadedPages((prev) => prev + 1);
+    } catch {
+      // Network failure or a non-2xx response — keep what's loaded, surface
+      // an inline error, and leave the button as the retry affordance.
+      setLoadMoreFailed(true);
     } finally {
       setLoadingMore(false);
     }
@@ -115,7 +122,14 @@ export function AreaClimbsSection({
           sendStats={sendStats}
           areaBreadcrumbs={areaBreadcrumbs}
           sentClimbIds={sentClimbIds}
-          pagination={{ hasNextPage, loadingMore, onLoadMore: handleLoadMore }}
+          pagination={{
+            hasNextPage,
+            loadingMore,
+            onLoadMore: handleLoadMore,
+            error: loadMoreFailed && (
+              <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
+            ),
+          }}
         />
       </NavigationPendingRegion>
     </section>

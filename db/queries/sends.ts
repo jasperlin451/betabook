@@ -100,6 +100,11 @@ export type UserSendsFilter = DisciplineFilter & {
 // sends at the bottom regardless of direction — SQLite otherwise treats
 // NULL as the smallest value, which would float them to the top of an ASC
 // sort. The descending variants already put NULLs last by default.
+//
+// None of these keys is unique, so getSendsForUserPage appends `sends.id`
+// as a final tie-breaker (same as getSubtreeClimbs's `climbs.id`) — without
+// it, rows sharing a value have no defined order, and OFFSET pagination can
+// duplicate or skip them across pages.
 const USER_SENDS_ORDER_BY: Record<UserSendsSort, SQL> = {
   date_desc: sql`sends.date_sent DESC`,
   date_asc: sql`sends.date_sent ASC NULLS LAST`,
@@ -199,7 +204,7 @@ export async function getSendsForUserPage(
     JOIN climbs ON climbs.id = sends.climb_id
     JOIN areas ON areas.id = climbs.area_id
     WHERE ${where}
-    ORDER BY ${USER_SENDS_ORDER_BY[filter.sort ?? "date_desc"]}
+    ORDER BY ${USER_SENDS_ORDER_BY[filter.sort ?? "date_desc"]}, sends.id
     LIMIT ${pageSize + 1}
     OFFSET ${offset}
   `);

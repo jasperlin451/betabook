@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Checkbox, Link } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
@@ -163,6 +163,12 @@ export function UserSendsFilterPanel({
   );
 }
 
+type UserSendsPageResponse = {
+  sends: UserSendRow[];
+  hasMore: boolean;
+  areaBreadcrumbs: AreaBreadcrumbs;
+};
+
 /** A user's send history: server-rendered first page, filters that navigate
  * (so the server can re-filter with real SQL), and a "load more" button
  * that fetches subsequent pages from /api/users/[id]/sends — a user's send
@@ -171,7 +177,11 @@ export function UserSendsFilterPanel({
  *
  * The caller keys this component on the filter (see app/users/[id]/page.tsx)
  * so a filter change remounts it with fresh initial state, rather than this
- * component syncing local state to changed props via an effect. */
+ * component syncing local state to changed props via an effect. A server
+ * re-render under the SAME key (a send was deleted/edited via a row's
+ * actions menu — the server action refresh()es the route) instead arrives
+ * as a new `initialSends` prop identity, which is reconciled into the
+ * accumulated pages below. */
 export function UserSendList({
   userId,
   filter,
@@ -186,18 +196,106 @@ export function UserSendList({
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+
+  // --- Post-mutation reconciliation of accumulated pages -------------------
+  //
+  // Same adoption idea as useFilterFormNavigation's URL handling: track the
+  // last-adopted prop identity, and when the incoming first page changes
+  // while the key (sort/filter) didn't, the server data changed underneath
+  // the accumulated rows. With only page 1 loaded, adopting the fresh props
+  // IS the reconcile. With extra pages loaded, re-fetch the loaded range
+  // rather than dropping back to page 1: dropping would collapse the list
+  // right as the user acts on a row further down (scroll jump, lost place),
+  // while re-fetching swaps corrected rows in without moving the layout.
+  // `staleTailLength` holds how many beyond-page-1 rows need re-fetching;
+  // non-null means a reconcile fetch is due/in flight.
+  const [prevInitialSends, setPrevInitialSends] = useState(initialSends);
+  const [staleTailLength, setStaleTailLength] = useState<number | null>(null);
+  if (initialSends !== prevInitialSends) {
+    setPrevInitialSends(initialSends);
+    const tailLength = sends.length - initialSends.length;
+    if (tailLength > 0) {
+      setStaleTailLength(tailLength);
+    } else {
+      setStaleTailLength(null);
+      setSends(initialSends);
+      setHasMore(initialHasMore);
+      setAreaBreadcrumbs((prev) => ({ ...prev, ...initialAreaBreadcrumbs }));
+    }
+  }
+
+  useEffect(() => {
+    if (staleTailLength === null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = userSendsFilterToSearchParams(filter);
+        params.set("offset", String(initialSends.length));
+        params.set("limit", String(staleTailLength));
+        const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`);
+        if (!res.ok) throw new Error(`Reloading sends failed: ${res.status}`);
+        const data: UserSendsPageResponse = await res.json();
+        if (cancelled) return;
+        // Atomic swap of the whole loaded range — the stale rows stay
+        // visible until this lands, so the layout never collapses.
+        setSends([...initialSends, ...data.sends]);
+        setHasMore(data.hasMore);
+        setAreaBreadcrumbs((prev) => ({
+          ...prev,
+          ...initialAreaBreadcrumbs,
+          ...data.areaBreadcrumbs,
+        }));
+      } catch {
+        if (cancelled) return;
+        // Correctness over continuity: the stale tail must not outlive the
+        // reconcile (a deleted send would keep ghosting), so fall back to
+        // just the fresh first page and let the inline error explain the
+        // shrink — the "load more" button doubles as the retry.
+        setSends(initialSends);
+        setHasMore(initialHasMore);
+        setAreaBreadcrumbs((prev) => ({ ...prev, ...initialAreaBreadcrumbs }));
+        setLoadMoreFailed(true);
+      } finally {
+        if (!cancelled) setStaleTailLength(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [staleTailLength, initialSends, initialHasMore, initialAreaBreadcrumbs, filter, userId]);
+
+  const reconciling = staleTailLength !== null;
+
+  // Post-commit mirror of the latest adopted first page, so an async
+  // load-more completion can tell whether a mutation refresh superseded the
+  // ordering it was fetched against.
+  const latestInitialSends = useRef(initialSends);
+  useEffect(() => {
+    latestInitialSends.current = initialSends;
+  }, [initialSends]);
 
   async function handleLoadMore() {
+    const baseInitialSends = latestInitialSends.current;
     setLoadingMore(true);
+    setLoadMoreFailed(false);
     try {
       const params = userSendsFilterToSearchParams(filter);
       params.set("offset", String(sends.length));
       const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`);
-      const data: { sends: UserSendRow[]; hasMore: boolean; areaBreadcrumbs: AreaBreadcrumbs } =
-        await res.json();
+      if (!res.ok) throw new Error(`Loading more sends failed: ${res.status}`);
+      const data: UserSendsPageResponse = await res.json();
+      // If a mutation refresh landed while this was in flight, this page was
+      // fetched against a superseded ordering — drop it (the reconcile above
+      // re-fetches the loaded range itself) rather than appending stale rows.
+      if (latestInitialSends.current !== baseInitialSends) return;
       setSends((prev) => [...prev, ...data.sends]);
       setHasMore(data.hasMore);
       setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
+    } catch {
+      // Network failure or a non-2xx response — keep what's loaded, surface
+      // an inline error, and leave the button as the retry affordance.
+      setLoadMoreFailed(true);
     } finally {
       setLoadingMore(false);
     }
@@ -245,7 +343,15 @@ export function UserSendList({
           emptyState={<p className="text-muted text-sm">No sends match these filters.</p>}
           hasMore={hasMore}
           onLoadMore={handleLoadMore}
-          loadingMore={loadingMore}
+          // Also disabled while a post-mutation reconcile is re-fetching the
+          // loaded range — a load-more against the superseded ordering would
+          // be dropped anyway (see handleLoadMore).
+          loadingMore={loadingMore || reconciling}
+          loadMoreError={
+            loadMoreFailed && (
+              <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
+            )
+          }
           renderRow={(send) => (
             <ListRow
               title={
