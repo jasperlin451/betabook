@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import clsx from "clsx";
 
-type Stat = { label: string; value: ReactNode };
+/** `key` is required when `label` isn't a plain string — a string label
+ * doubles as the React key. */
+type Stat = { key?: string; label: ReactNode; value: ReactNode };
 type StatCard = { key: string; heading?: ReactNode; stats: Stat[] };
 
 type StatStripProps = {
@@ -25,7 +27,7 @@ export function StatStrip({ cards, className }: StatStripProps) {
           {card.heading && <div className="mb-3">{card.heading}</div>}
           <div className="flex flex-col gap-2">
             {card.stats.map((stat) => (
-              <div key={stat.label} className="flex items-center justify-between gap-2">
+              <div key={stat.key ?? String(stat.label)} className="flex items-center justify-between gap-2">
                 <span className="text-xs tracking-wide text-muted uppercase">{stat.label}</span>
                 <span className="font-semibold text-foreground tabular-nums">{stat.value}</span>
               </div>

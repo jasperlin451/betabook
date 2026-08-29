@@ -10,9 +10,9 @@ import { LoadMoreButton } from "@/components/ui/load-more-button";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { ClimbSentIndicator } from "@/components/climb-sent-indicator";
 
-// success/warning are reserved for ascent-style chips (AscentStyle), and
-// HeroUI's only other built-in tokens are accent/default — too few hues for
-// three disciplines that need to read as distinct from each other and from
+// HeroUI's built-in chip tokens (success/warning/danger/accent/default) are
+// status colors — the wrong voice, and too few distinct hues, for three
+// disciplines that need to read as distinct from each other and from
 // gray. Each discipline instead has its own bg/fg custom properties with
 // per-theme (light + dark) values, defined in app/globals.css — plain
 // utilities referencing them win over the chip's own colors by layer order

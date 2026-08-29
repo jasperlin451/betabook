@@ -9,7 +9,7 @@ import { formatDate } from "@/lib/format-date";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
-import { AscentStyle } from "@/components/ascent-style";
+import { AscentStyle, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
@@ -48,7 +48,7 @@ function AscentStyleFields({
               <Checkbox.Control>
                 <Checkbox.Indicator />
               </Checkbox.Control>
-              {style.charAt(0).toUpperCase() + style.slice(1)}
+              {ASCENT_STYLE_LABELS[style]}
             </Checkbox.Content>
           </Checkbox>
         ))}

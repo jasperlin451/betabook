@@ -12,17 +12,14 @@ import {
 } from "@/lib/sends";
 import { nativeGradeArray } from "@/lib/grades";
 import type { EditableSend, SendableClimb } from "@/db/queries";
+// Native <option> content is text-only, so the select can't carry the SVG
+// tick-list marks — options get the shared sentence-case labels alone.
+import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 
 type SendFormProps = {
   climb: SendableClimb;
   existingSend?: EditableSend;
   onDone?: () => void;
-};
-
-const ASCENT_STYLE_LABELS: Record<AscentStyle, string> = {
-  redpoint: "Redpoint",
-  flash: "Flash",
-  onsight: "Onsight",
 };
 
 const GRADE_FEEL_LABELS: Record<GradeFeel, string> = {

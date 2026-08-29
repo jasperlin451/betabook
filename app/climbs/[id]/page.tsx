@@ -9,7 +9,9 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageWithStats } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { RatingStars } from "@/components/ui/rating-stars";
+import { AscentMark, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { averageRating, ascentStyleBreakdown, averageSuggestedGrade } from "@/lib/send-stats";
+import type { AscentStyle } from "@/lib/sends";
 import { getAncestors, getArea, getClimb, getSendsForClimb, getUserSendForClimb } from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
 import { missingDescriptionMessage } from "@/lib/descriptions";
@@ -45,7 +47,9 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   const rating = averageRating(climbSends);
   const avgSuggestedGrade = averageSuggestedGrade(climbSends);
   const breakdown = ascentStyleBreakdown(climbSends);
-  const loggedBreakdown = Object.entries(breakdown).filter(([, count]) => count > 0);
+  const loggedBreakdown = (Object.entries(breakdown) as [AscentStyle, number][]).filter(
+    ([, count]) => count > 0,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -106,7 +110,13 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                           </span>
                         ),
                         stats: loggedBreakdown.map(([type, count]) => ({
-                          label: type,
+                          key: type,
+                          label: (
+                            <span className="inline-flex items-center gap-1.5">
+                              <AscentMark type={type} />
+                              {ASCENT_STYLE_LABELS[type]}
+                            </span>
+                          ),
                           value: count,
                         })),
                       },
