@@ -12,11 +12,14 @@ import {
   guessAscentStyleMapping,
   guessClimbTypeMapping,
   guessColumnMapping,
+  fromColumnKey,
   normalizeImportRows,
   parseCsvText,
   detectDateFormat,
+  toColumnKey,
   CLIMB_TYPES,
   IMPORT_BATCH_SIZE,
+  NO_COLUMN_KEY,
   type AscentStyleMapping,
   type ClimbTypeMapping,
   type ColumnMapping,
@@ -39,11 +42,6 @@ const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string; required: boolea
   { key: "rating", label: "Rating", required: false },
   { key: "comment", label: "Comment", required: false },
 ];
-
-/** Sentinel key for "this field has no CSV column" — react-aria Select keys
- * must be non-null to be selectable, so `null` in the mapping round-trips
- * through this. */
-const NO_COLUMN = "__none__";
 
 type ImportProgress = {
   completed: number;
@@ -168,10 +166,18 @@ export function ImportWizard() {
 
       setImportResult({ imported, alreadyLogged, notFound, batchErrors });
       setStep("result");
-      const failed =
-        notFound.length + batchErrors.reduce((n, b) => n + b.rows.length, 0);
+      // Announce the same numbers the visible result summary renders:
+      // "couldn't import" includes the rows normalization rejected before
+      // the import ever started, and batch-error rows are called out
+      // separately, exactly as on screen.
+      const couldNotImport = notFound.length + normalized.invalid.length;
+      const notAttempted = batchErrors.reduce((n, b) => n + b.rows.length, 0);
       announce(
-        `Import finished: ${imported} imported, ${alreadyLogged} already logged, ${failed} not imported.`,
+        `Import finished: ${imported} imported, ${alreadyLogged} already logged, ` +
+          `${couldNotImport} couldn't be imported` +
+          (notAttempted > 0
+            ? `, and ${notAttempted} not attempted due to an error.`
+            : "."),
       );
     });
   }
@@ -235,11 +241,13 @@ export function ImportWizard() {
             <Select
               key={key}
               fullWidth
-              selectedKey={columnMapping[key] ?? NO_COLUMN}
+              selectedKey={
+                columnMapping[key] != null ? toColumnKey(columnMapping[key]) : NO_COLUMN_KEY
+              }
               onSelectionChange={(k) =>
                 setColumnMapping({
                   ...columnMapping,
-                  [key]: k === NO_COLUMN ? null : String(k),
+                  [key]: fromColumnKey(String(k)),
                 })
               }
             >
@@ -253,9 +261,9 @@ export function ImportWizard() {
               </Select.Trigger>
               <Select.Popover>
                 <ListBox className="max-h-64 overflow-y-auto">
-                  <ListBox.Item id={NO_COLUMN}>— None —</ListBox.Item>
+                  <ListBox.Item id={NO_COLUMN_KEY}>— None —</ListBox.Item>
                   {parsedCsv.headers.map((header) => (
-                    <ListBox.Item key={header} id={header}>
+                    <ListBox.Item key={header} id={toColumnKey(header)}>
                       {header}
                     </ListBox.Item>
                   ))}

@@ -3,12 +3,15 @@ import {
   buildFailedRowsCsv,
   detectDateFormat,
   distinctValues,
+  fromColumnKey,
   guessAscentStyleMapping,
   guessClimbTypeMapping,
   guessColumnMapping,
   normalizeImportRows,
   parseCsvText,
   parseDateWithFormat,
+  toColumnKey,
+  NO_COLUMN_KEY,
   type AscentStyleMapping,
   type BatchErrorRow,
   type ClimbTypeMapping,
@@ -151,6 +154,27 @@ describe("guessColumnMapping", () => {
   it("maps a 'Grade Feel' or 'Feel' header to gradeFeel", () => {
     expect(guessColumnMapping(["Grade Feel"]).gradeFeel).toBe("Grade Feel");
     expect(guessColumnMapping(["Feel"]).gradeFeel).toBe("Feel");
+  });
+});
+
+describe("column-mapping select keys", () => {
+  it("round-trips an ordinary header", () => {
+    expect(fromColumnKey(toColumnKey("Send Type"))).toBe("Send Type");
+  });
+
+  it("maps the no-column sentinel back to null", () => {
+    expect(fromColumnKey(NO_COLUMN_KEY)).toBeNull();
+  });
+
+  it("keeps a header literally named like the sentinel selectable", () => {
+    // A CSV column named exactly like the "— None —" key must not collide
+    // with it: its item key stays distinct and round-trips to the header.
+    expect(toColumnKey(NO_COLUMN_KEY)).not.toBe(NO_COLUMN_KEY);
+    expect(fromColumnKey(toColumnKey(NO_COLUMN_KEY))).toBe(NO_COLUMN_KEY);
+  });
+
+  it("round-trips a header that already looks namespaced", () => {
+    expect(fromColumnKey(toColumnKey("col:Grade"))).toBe("col:Grade");
   });
 });
 

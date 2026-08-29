@@ -87,6 +87,27 @@ export type ColumnMapping = {
   comment: string | null; // optional
 };
 
+/** Select-item key for "this field has no CSV column" in the wizard's
+ * column-mapping selects — react-aria keys must be non-null to be
+ * selectable, so `null` in the mapping round-trips through this. */
+export const NO_COLUMN_KEY = "(none)";
+
+// Real headers are namespaced with this prefix so a CSV column literally
+// named "(none)" (or whatever else the wizard might ever reserve) can never
+// collide with a sentinel key.
+const COLUMN_KEY_PREFIX = "col:";
+
+/** Select-item key for a real CSV header (see COLUMN_KEY_PREFIX). */
+export function toColumnKey(header: string): string {
+  return COLUMN_KEY_PREFIX + header;
+}
+
+/** Inverse of `toColumnKey`; the sentinel comes back as `null`, ready to
+ * store in a `ColumnMapping` field. */
+export function fromColumnKey(key: string): string | null {
+  return key === NO_COLUMN_KEY ? null : key.slice(COLUMN_KEY_PREFIX.length);
+}
+
 type FieldKey = keyof ColumnMapping;
 
 // Order matters: more specific aliases are matched first so, e.g., "Climb
