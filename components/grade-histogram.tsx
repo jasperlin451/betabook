@@ -10,20 +10,40 @@ function showLabel(index: number, length: number): boolean {
   return index % 3 === 0 && index < length - 2;
 }
 
+/** Tallest bar in px — bars are sized in px (not %) so the count label can
+ * sit in the same bottom-aligned column and hug its bar's top. */
+const BAR_MAX_PX = 56;
+
+function barHeight(count: number, max: number): number {
+  // Non-zero buckets always get a visible sliver, however tall the max is.
+  return Math.max(4, Math.round((count / max) * BAR_MAX_PX));
+}
+
 function BucketColumn({
   index,
   length,
   label,
+  count,
   children,
 }: {
   index: number;
   length: number;
   label: string;
+  /** The bucket's total, printed atop its bar — the histogram is useless
+   * for "how many?" without it (hover titles don't exist on touch). */
+  count: number;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
-      <div className="flex h-16 w-full items-end justify-center">{children}</div>
+      <div className="flex h-20 w-full flex-col items-center justify-end gap-0.5">
+        {count > 0 && (
+          <span className="font-mono text-[10px] leading-none tabular-nums text-muted">
+            {count}
+          </span>
+        )}
+        {children}
+      </div>
       <span className="h-3 font-mono text-[10px] leading-none text-muted">
         {showLabel(index, length) ? label : null}
       </span>
@@ -31,19 +51,10 @@ function BucketColumn({
   );
 }
 
-/** A bar's inline styles: height relative to the group's tallest bucket,
- * plus the staggered grow-in delay (motion-safe only — the animation class
- * itself is gated, the delay is inert without it). */
-function barStyle(count: number, max: number, index: number): React.CSSProperties {
-  return {
-    height: `${(count / max) * 100}%`,
-    animationDelay: `${index * 40}ms`,
-  };
-}
-
 /** The crag header's signature: the subtree's grade spread as CSS bars —
  * boulders by V grade, routes by number grade with sport stacked on trad,
- * colored by the discipline palette. Server-rendered; no chart library. */
+ * colored by the discipline palette, each bar topped by its count.
+ * Server-rendered; no chart library. */
 export function GradeHistogramChart({ histogram }: { histogram: GradeHistogram }) {
   const groups: React.ReactNode[] = [];
 
@@ -59,12 +70,15 @@ export function GradeHistogramChart({ histogram }: { histogram: GradeHistogram }
               index={i}
               length={histogram.boulderBuckets.length}
               label={bucket.label}
+              count={bucket.count}
             >
               {bucket.count > 0 && (
                 <div
                   className="w-full rounded-t-xs bg-palette-accent motion-safe:animate-bar-grow"
-                  style={barStyle(bucket.count, max, i)}
-                  title={`${bucket.label}: ${bucket.count}`}
+                  style={{
+                    height: `${barHeight(bucket.count, max)}px`,
+                    animationDelay: `${i * 40}ms`,
+                  }}
                 />
               )}
             </BucketColumn>
@@ -88,12 +102,15 @@ export function GradeHistogramChart({ histogram }: { histogram: GradeHistogram }
                 index={i}
                 length={histogram.ropeBuckets.length}
                 label={bucket.label}
+                count={total}
               >
                 {total > 0 && (
                   <div
                     className="flex w-full flex-col justify-end overflow-hidden rounded-t-xs motion-safe:animate-bar-grow"
-                    style={barStyle(total, max, i)}
-                    title={`${bucket.label}: ${total} (${bucket.trad} trad, ${bucket.sport} sport)`}
+                    style={{
+                      height: `${barHeight(total, max)}px`,
+                      animationDelay: `${i * 40}ms`,
+                    }}
                   >
                     {bucket.sport > 0 && (
                       <div
