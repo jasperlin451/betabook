@@ -66,7 +66,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
 
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">{area.name}</h1>
+          <h1 className="font-display text-3xl font-semibold">{area.name}</h1>
           <p className="text-muted mt-1">
             {area.description || missingDescriptionMessage("area")}
           </p>

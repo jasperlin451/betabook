@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Barlow_Condensed } from "next/font/google";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Link } from "@heroui/react";
@@ -14,6 +15,18 @@ export const metadata: Metadata = {
   title: "Betabook",
   description: "Climbing crag and route database",
 };
+
+// The "guidebook index" display face — self-hosted at build time by
+// next/font (no runtime request to Google), exposed as a CSS variable the
+// same way the Geist fonts are and mapped to the `font-display` utility in
+// globals.css. Barlow Condensed has no variable axis on Google Fonts, so
+// the weights used (600 for headings, 700 for the wordmark) are listed
+// explicitly.
+const barlowCondensed = Barlow_Condensed({
+  weight: ["600", "700"],
+  subsets: ["latin"],
+  variable: "--font-barlow-condensed",
+});
 
 // Runs before the browser paints, so the saved/system theme is applied to
 // <html> before any CSS renders — otherwise the page paints with the
@@ -38,7 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${barlowCondensed.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
@@ -52,7 +65,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <div className={`mx-auto flex w-full ${PAGE_MAX_WIDTH_CLASS} flex-wrap items-center justify-between gap-2`}>
               <Link
                 href="/"
-                className="flex items-center gap-2 text-lg font-semibold text-foreground no-underline"
+                className="flex items-center gap-2 font-display text-xl font-bold tracking-tight text-foreground no-underline"
               >
                 <Mountain className="size-5" />
                 Betabook

@@ -63,6 +63,9 @@
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* Condensed display face for guidebook content — entity names, page
+     headings, the wordmark. Used sparingly; body copy stays on the sans. */
+  --font-display: var(--font-barlow-condensed);
 }
 
 @layer base {

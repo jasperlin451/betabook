@@ -33,7 +33,13 @@ export function AreaList({
                 {String(index + 1).padStart(2, "0")}
               </span>
             }
-            title={area.name}
+            title={
+              // Area names set in the display face give the search results
+              // the guidebook-index feel; the size bump to text-lg keeps the
+              // condensed face at the same visual presence as the sans
+              // titles in other list rows.
+              <span className="font-display text-lg font-semibold">{area.name}</span>
+            }
             href={`/areas/${area.id}`}
             subtitle={<AreaBreadcrumb ancestors={areaBreadcrumbs?.[area.id] ?? []} />}
           />

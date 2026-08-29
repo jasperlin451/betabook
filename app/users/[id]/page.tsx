@@ -75,7 +75,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold">{user.name}</h1>
+      <h1 className="font-display text-3xl font-semibold">{user.name}</h1>
 
       {/* Three regions with independent mobile/desktop placement — a plain
        * two-slot side-by-side layout can't express "filter leads on mobile,
