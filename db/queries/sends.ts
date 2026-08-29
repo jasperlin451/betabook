@@ -24,8 +24,9 @@ export type EditableSend = Pick<
  * SendFormDrawer -> SendForm) actually reads — same "narrow to what's
  * used" reasoning as EditableSend, so a flattened row (e.g. UserSendRow)
  * can build one honestly instead of fabricating the rest of Climb's
- * denormalized fields. */
-export type SendableClimb = Pick<Climb, "id" | "areaId" | "type" | "grade">;
+ * denormalized fields. `name` is here so the delete confirmation can say
+ * which climb's send is being removed. */
+export type SendableClimb = Pick<Climb, "id" | "areaId" | "name" | "type" | "grade">;
 
 export async function getUserSendForClimb(
   db: Database,

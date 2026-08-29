@@ -288,6 +288,7 @@ export function UserSendList({
                   climb={{
                     id: send.climbId,
                     areaId: send.areaId,
+                    name: send.climbName,
                     type: send.climbType,
                     grade: send.climbGrade,
                   }}

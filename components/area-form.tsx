@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Button, Label, TextArea, TextField } from "@heroui/react";
 import { AreaPicker, type PickedArea } from "@/components/area-picker";
 import { createArea, updateArea } from "@/db/mutations";
@@ -16,9 +16,12 @@ type AreaFormProps = {
   parentId: number | null;
   area?: Area;
   onDone?: (areaId: number) => void;
+  /** Reports whether the form currently differs from its seeded values —
+   * lets the wrapping drawer confirm before discarding unsaved edits. */
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
-export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProps) {
+export function AreaForm({ parentId: fixedParentId, area, onDone, onDirtyChange }: AreaFormProps) {
   const [name, setName] = useState(area?.name ?? "");
   const [description, setDescription] = useState(area?.description ?? "");
   const [pickedParent, setPickedParent] = useState<PickedArea | null>(null);
@@ -27,6 +30,16 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
 
   const parentId = fixedParentId ?? pickedParent?.id ?? null;
   const trimmedName = name.trim();
+
+  // Current values vs the seeds above — mirrors the useState initializers.
+  const isDirty =
+    name !== (area?.name ?? "") ||
+    description !== (area?.description ?? "") ||
+    pickedParent != null;
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -85,7 +98,7 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
       {error && <p className="text-sm text-danger">{error}</p>}
 
       <Button type="submit" isDisabled={pending || !trimmedName} fullWidth>
-        {area ? "Save Changes" : "Add Area"}
+        {pending ? "Saving..." : area ? "Save Changes" : "Add Area"}
       </Button>
     </form>
   );

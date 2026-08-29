@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Button, ButtonGroup, Label, TextArea, TextField } from "@heroui/react";
 import { createSend, updateSend } from "@/db/mutations";
 import {
@@ -17,6 +17,9 @@ type SendFormProps = {
   climb: SendableClimb;
   existingSend?: EditableSend;
   onDone?: () => void;
+  /** Reports whether the form currently differs from its seeded values —
+   * lets the wrapping drawer confirm before discarding unsaved edits. */
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 const ASCENT_STYLE_LABELS: Record<AscentStyle, string> = {
@@ -31,7 +34,7 @@ const GRADE_FEEL_LABELS: Record<GradeFeel, string> = {
   high: "High end",
 };
 
-export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
+export function SendForm({ climb, existingSend, onDone, onDirtyChange }: SendFormProps) {
   const today = new Date().toISOString().slice(0, 10);
   const gradeOptions = nativeGradeArray(climb.type);
 
@@ -51,6 +54,19 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // Current values vs the seeds above — mirrors the useState initializers.
+  const isDirty =
+    ascentStyle !== (existingSend?.ascentStyle ?? "redpoint") ||
+    dateSent !== (existingSend?.dateSent ?? today) ||
+    comment !== (existingSend?.comment ?? "") ||
+    rating !== (existingSend?.rating != null ? String(existingSend.rating) : "abstain") ||
+    suggestedGrade !== String(existingSend?.suggestedGrade ?? climb.grade ?? 0) ||
+    gradeFeel !== (existingSend?.gradeFeel ?? "solid");
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -169,7 +185,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
       {error && <p className="text-sm text-danger">{error}</p>}
 
       <Button type="submit" isDisabled={pending} fullWidth>
-        {existingSend ? "Save Changes" : "Log Send"}
+        {pending ? "Saving..." : existingSend ? "Save Changes" : "Log Send"}
       </Button>
     </form>
   );

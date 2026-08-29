@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Menu, useOverlayState } from "@heroui/react";
+import { Label, Menu, useOverlayState } from "@heroui/react";
 import { SendFormDrawer } from "@/components/send-form-drawer";
-import { DeleteSendDrawer } from "@/components/delete-send-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
+import { ConfirmDrawer } from "@/components/ui/confirm-drawer";
 import { deleteSend } from "@/db/mutations";
 import type { EditableSend, SendableClimb } from "@/db/queries";
 
@@ -46,12 +46,23 @@ export function SendActionsMenu({ climb, send }: SendActionsMenuProps) {
           }
         }}
       >
-        <Menu.Item id="edit">Edit</Menu.Item>
-        <Menu.Item id="delete">Delete</Menu.Item>
+        {/* See ClimbActionsMenu for why every label is wrapped in <Label>. */}
+        <Menu.Item id="edit" textValue="Edit">
+          <Label>Edit</Label>
+        </Menu.Item>
+        <Menu.Item id="delete" variant="danger" textValue="Delete">
+          <Label>Delete</Label>
+        </Menu.Item>
       </ActionsMenu>
       <SendFormDrawer climb={climb} existingSend={send} state={editState} />
-      <DeleteSendDrawer
+      <ConfirmDrawer
         state={deleteState}
+        heading="Delete this send?"
+        description={
+          send.dateSent
+            ? `Delete your ${send.dateSent} send of '${climb.name}'? This can't be undone.`
+            : `Delete your send of '${climb.name}'? This can't be undone.`
+        }
         onConfirm={handleDelete}
         isPending={pending}
         error={deleteError}

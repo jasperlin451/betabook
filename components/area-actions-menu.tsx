@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, Tooltip, useOverlayState } from "@heroui/react";
+import { Label, Menu, Tooltip, useOverlayState } from "@heroui/react";
 import { AreaFormDrawer } from "@/components/area-form-drawer";
 import { ClimbFormDrawer } from "@/components/climb-form-drawer";
-import { DeleteAreaDrawer } from "@/components/delete-area-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
+import { ConfirmDrawer } from "@/components/ui/confirm-drawer";
 import { deleteArea } from "@/db/mutations";
 import type { Area } from "@/db/queries";
 
@@ -62,27 +62,42 @@ export function AreaActionsMenu({ area, canDelete }: AreaActionsMenuProps) {
           }
         }}
       >
-        <Menu.Item id="edit">Edit</Menu.Item>
-        <Menu.Item id="add-climb">Add Climb</Menu.Item>
-        <Menu.Item id="add-subarea">Add Subarea</Menu.Item>
-        <Menu.Item id="delete" isDisabled={!canDelete} textValue="Delete">
+        {/* See ClimbActionsMenu for why every label is wrapped in <Label>. */}
+        <Menu.Item id="edit" textValue="Edit">
+          <Label>Edit</Label>
+        </Menu.Item>
+        <Menu.Item id="add-climb" textValue="Add Climb">
+          <Label>Add Climb</Label>
+        </Menu.Item>
+        <Menu.Item id="add-subarea" textValue="Add Subarea">
+          <Label>Add Subarea</Label>
+        </Menu.Item>
+        <Menu.Item id="delete" variant="danger" isDisabled={!canDelete} textValue="Delete">
           {canDelete ? (
-            "Delete"
+            <Label>Delete</Label>
           ) : (
             // See ClimbActionsMenu for why pointer-events-auto is needed on
             // a disabled Menu.Item's tooltip trigger.
             <Tooltip.Root delay={0}>
-              <Tooltip.Trigger className="pointer-events-auto">Delete</Tooltip.Trigger>
+              <Tooltip.Trigger className="pointer-events-auto">
+                <Label>Delete</Label>
+              </Tooltip.Trigger>
               <Tooltip.Content>Can&apos;t delete an area with sub-areas or climbs.</Tooltip.Content>
             </Tooltip.Root>
           )}
         </Menu.Item>
       </ActionsMenu>
+      {/* Four drawers rendered unconditionally looks heavy, but a closed
+          drawer costs only a context provider: react-aria's ModalOverlay
+          returns null while closed (see ClimbFormDrawer), so none of these
+          mount any DOM or form state until opened. */}
       <AreaFormDrawer area={area} state={editState} />
       <ClimbFormDrawer areaId={area.id} state={addClimbState} />
       <AreaFormDrawer parentId={area.id} state={addSubareaState} />
-      <DeleteAreaDrawer
+      <ConfirmDrawer
         state={deleteState}
+        heading="Delete this area?"
+        description={`Delete '${area.name}'? This can't be undone.`}
         onConfirm={handleDelete}
         isPending={pending}
         error={deleteError}

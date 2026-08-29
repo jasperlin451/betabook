@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Menu, Tooltip, useOverlayState } from "@heroui/react";
+import { Label, Menu, Tooltip, useOverlayState } from "@heroui/react";
 import { ClimbFormDrawer } from "@/components/climb-form-drawer";
-import { DeleteClimbDrawer } from "@/components/delete-climb-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
+import { ConfirmDrawer } from "@/components/ui/confirm-drawer";
 import { deleteClimb } from "@/db/mutations";
 import type { Climb } from "@/db/queries";
 
@@ -50,8 +50,13 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
           }
         }}
       >
-        <Menu.Item id="edit">Edit</Menu.Item>
-        <Menu.Item id="delete" isDisabled={hasSends} textValue="Delete">
+        {/* Labels are wrapped in <Label> (HeroUI's data-slot="label") — the
+            menu-item danger styling only colors that slot, and wrapping every
+            item keeps the typography uniform across items. */}
+        <Menu.Item id="edit" textValue="Edit">
+          <Label>Edit</Label>
+        </Menu.Item>
+        <Menu.Item id="delete" variant="danger" isDisabled={hasSends} textValue="Delete">
           {hasSends ? (
             // A disabled Menu.Item gets `pointer-events: none`, which would
             // also block hover on a wrapping Tooltip.Trigger — `pointer-
@@ -61,17 +66,21 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
             // register it — wrapping the whole Menu.Item in Tooltip.Trigger
             // (rather than wrapping its label) makes it vanish from the menu.
             <Tooltip.Root delay={0}>
-              <Tooltip.Trigger className="pointer-events-auto">Delete</Tooltip.Trigger>
+              <Tooltip.Trigger className="pointer-events-auto">
+                <Label>Delete</Label>
+              </Tooltip.Trigger>
               <Tooltip.Content>Can&apos;t delete a climb with logged sends.</Tooltip.Content>
             </Tooltip.Root>
           ) : (
-            "Delete"
+            <Label>Delete</Label>
           )}
         </Menu.Item>
       </ActionsMenu>
       <ClimbFormDrawer areaId={climb.areaId} climb={climb} state={editState} />
-      <DeleteClimbDrawer
+      <ConfirmDrawer
         state={deleteState}
+        heading="Delete this climb?"
+        description={`Delete '${climb.name}'? This can't be undone.`}
         onConfirm={handleDelete}
         isPending={pending}
         error={deleteError}

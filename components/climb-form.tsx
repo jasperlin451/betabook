@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Button, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
 import { AreaPicker, type PickedArea } from "@/components/area-picker";
 import { createClimb, updateClimb } from "@/db/mutations";
@@ -14,6 +14,9 @@ type ClimbFormProps = {
   areaId: number | null;
   climb?: Climb;
   onDone?: (climbId: number) => void;
+  /** Reports whether the form currently differs from its seeded values —
+   * lets the wrapping drawer confirm before discarding unsaved edits. */
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
 const CLIMB_TYPE_LABELS: Record<ClimbType, string> = {
@@ -22,7 +25,7 @@ const CLIMB_TYPE_LABELS: Record<ClimbType, string> = {
   trad: "Trad",
 };
 
-export function ClimbForm({ areaId: fixedAreaId, climb, onDone }: ClimbFormProps) {
+export function ClimbForm({ areaId: fixedAreaId, climb, onDone, onDirtyChange }: ClimbFormProps) {
   const disciplineLocked = (climb?.sendCount ?? 0) > 0;
 
   const [name, setName] = useState(climb?.name ?? "");
@@ -39,6 +42,18 @@ export function ClimbForm({ areaId: fixedAreaId, climb, onDone }: ClimbFormProps
   const trimmedName = name.trim();
   const nameInvalid = submitAttempted && !trimmedName;
   const areaInvalid = submitAttempted && !climb && areaId == null;
+
+  // Current values vs the seeds above — mirrors the useState initializers.
+  const isDirty =
+    name !== (climb?.name ?? "") ||
+    type !== (climb?.type ?? "boulder") ||
+    grade !== String(climb?.grade ?? 0) ||
+    description !== (climb?.description ?? "") ||
+    pickedArea != null;
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   function handleTypeChange(next: ClimbType) {
     setType(next);
@@ -159,7 +174,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, onDone }: ClimbFormProps
       {error && <p className="text-sm text-danger">{error}</p>}
 
       <Button type="submit" isDisabled={pending} fullWidth>
-        {climb ? "Save Changes" : "Add Climb"}
+        {pending ? "Saving..." : climb ? "Save Changes" : "Add Climb"}
       </Button>
     </form>
   );
