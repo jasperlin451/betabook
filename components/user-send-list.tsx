@@ -15,7 +15,9 @@ import {
 } from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { AppLink } from "@/components/ui/app-link";
-import { AscentStyle } from "@/components/ascent-style";
+import { EmptyState } from "@/components/ui/empty-state";
+import { GradeBox } from "@/components/ui/grade-box";
+import { AscentStyle, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { RatingStars } from "@/components/ui/rating-stars";
@@ -53,7 +55,7 @@ function AscentStyleFields({
               <Checkbox.Control>
                 <Checkbox.Indicator />
               </Checkbox.Control>
-              {style.charAt(0).toUpperCase() + style.slice(1)}
+              {ASCENT_STYLE_LABELS[style]}
             </Checkbox.Content>
           </Checkbox>
         ))}
@@ -319,15 +321,16 @@ export function UserSendList({
     return (
       <div className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold">Sends</h2>
-        <p className="text-muted text-sm">
-          {currentUserId === userId ? (
-            <>
-              No sends yet. <AppLink href="/account/import">Import your sends</AppLink> to add them here.
-            </>
-          ) : (
-            "No sends yet."
-          )}
-        </p>
+        <EmptyState
+          message="No sends yet."
+          cta={
+            currentUserId === userId ? (
+              <AppLink href="/account/import" className="text-sm">
+                Import your sends
+              </AppLink>
+            ) : undefined
+          }
+        />
       </div>
     );
   }
@@ -352,7 +355,7 @@ export function UserSendList({
       <NavigationPendingRegion>
         <SendListShell
           sends={sends}
-          emptyState={<p className="text-muted text-sm">No sends match these filters.</p>}
+          emptyState={<EmptyState message="No sends match these filters." />}
           hasMore={hasMore}
           onLoadMore={handleLoadMore}
           // Also disabled while a post-mutation reconcile is re-fetching the
@@ -378,7 +381,7 @@ export function UserSendList({
               trailing={
                 <div className="flex flex-col items-end gap-1 text-sm">
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex items-center gap-0.5 font-medium text-foreground">
+                    <GradeBox className="gap-0.5">
                       {formatGrade(send.climbType, send.climbGrade)}
                       {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
                         <span className="font-normal text-muted">
@@ -392,10 +395,7 @@ export function UserSendList({
                       {send.gradeFeel === "low" && (
                         <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
                       )}
-                    </span>
-                    <span className="text-muted" aria-hidden>
-                      •
-                    </span>
+                    </GradeBox>
                     <RatingStars rating={send.rating} />
                   </div>
                   <AscentStyle type={send.ascentStyle} />

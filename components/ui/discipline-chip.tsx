@@ -1,0 +1,33 @@
+import { Chip } from "@heroui/react";
+import type { ClimbType } from "@/lib/grades";
+
+// success/warning are reserved for ascent-style chips (AscentStyle), and
+// HeroUI's only other built-in tokens are accent/default — too few hues for
+// three disciplines that need to read as distinct from each other and from
+// gray. Each discipline instead has its own bg/fg custom properties with
+// per-theme (light + dark) values derived from the palette in
+// app/globals.css (trad = green, sport = support blue, boulder = rose) —
+// plain utilities referencing them win over the chip's own colors by layer
+// order (utilities > components), no `!` needed.
+const DISCIPLINE_CHIP_CLASSNAME: Record<ClimbType, string> = {
+  boulder: "bg-(--discipline-boulder-bg) text-(--discipline-boulder-fg)",
+  sport: "bg-(--discipline-sport-bg) text-(--discipline-sport-fg)",
+  trad: "bg-(--discipline-trad-bg) text-(--discipline-trad-fg)",
+};
+
+const DISCIPLINE_LABELS: Record<ClimbType, string> = {
+  boulder: "Boulder",
+  sport: "Sport",
+  trad: "Trad",
+};
+
+/** The one place discipline gets a color: a soft palette-tinted chip.
+ * Chips mean discipline; ascent styles have their own chip set
+ * (AscentStyle); the sent tick is its own device. */
+export function DisciplineChip({ type }: { type: ClimbType }) {
+  return (
+    <Chip variant="soft" size="sm" className={DISCIPLINE_CHIP_CLASSNAME[type]}>
+      {DISCIPLINE_LABELS[type]}
+    </Chip>
+  );
+}

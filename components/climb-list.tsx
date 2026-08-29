@@ -1,29 +1,18 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Chip } from "@heroui/react";
 import { describeGradeTrend } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
+import { formatCount } from "@/lib/format";
 import type { ClimbWithAreaName } from "@/db/queries";
-import { AppLink } from "@/components/ui/app-link";
+import { DisciplineChip } from "@/components/ui/discipline-chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { GradeBox } from "@/components/ui/grade-box";
 import { ListRow } from "@/components/ui/list-row";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { ClimbSentIndicator } from "@/components/climb-sent-indicator";
-
-// success/warning are reserved for ascent-style chips (AscentStyle), and
-// HeroUI's only other built-in tokens are accent/default — too few hues for
-// three disciplines that need to read as distinct from each other and from
-// gray. Each discipline instead has its own bg/fg custom properties with
-// per-theme (light + dark) values, defined in app/globals.css — plain
-// utilities referencing them win over the chip's own colors by layer order
-// (utilities > components), no `!` needed.
-const STYLE_CHIP_CLASSNAME: Record<ClimbType, string> = {
-  boulder: "bg-(--discipline-boulder-bg) text-(--discipline-boulder-fg)",
-  sport: "bg-(--discipline-sport-bg) text-(--discipline-sport-fg)",
-  trad: "bg-(--discipline-trad-bg) text-(--discipline-trad-fg)",
-};
 
 type ClimbListProps = {
   climbs: ClimbWithAreaName[];
@@ -61,7 +50,7 @@ export function ClimbList({
   sentClimbIds,
 }: ClimbListProps) {
   if (climbs.length === 0) {
-    return <p className="text-muted text-sm">{emptyMessage}</p>;
+    return <EmptyState message={emptyMessage} />;
   }
 
   const loadMoreBlock = pagination?.hasNextPage && (
@@ -92,26 +81,23 @@ export function ClimbList({
               />
             }
             trailing={
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-foreground">
+              <div className="flex flex-col items-end gap-1.5">
+                <div className="flex items-center gap-2">
+                  <GradeBox>
                     <GradeWithTrend
                       type={climb.type}
                       grade={climb.grade}
                       avgSuggestedGrade={sendStats?.[climb.id]?.avgSuggestedGrade ?? null}
                     />
-                  </span>
-                  <span className="text-muted" aria-hidden>
-                    •
-                  </span>
+                  </GradeBox>
                   <RatingStars rating={sendStats?.[climb.id]?.avgRating ?? null} precision="decimal" />
                 </div>
-                <Chip variant="soft" className={`capitalize ${STYLE_CHIP_CLASSNAME[climb.type]}`}>
-                  {climb.type}
-                </Chip>
-                <span className="text-muted text-sm">
-                  {sendStats?.[climb.id]?.sendCount ?? 0} ascents
-                </span>
+                <div className="flex items-center gap-2">
+                  <DisciplineChip type={climb.type} />
+                  <span className="font-mono text-xs tabular-nums text-muted">
+                    {formatCount(sendStats?.[climb.id]?.sendCount ?? 0, "ascent")}
+                  </span>
+                </div>
               </div>
             }
           />

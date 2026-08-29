@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
 
 type SendListShellProps<T extends { id: number }> = {
@@ -25,7 +26,7 @@ type SendListShellProps<T extends { id: number }> = {
 export function SendListShell<T extends { id: number }>({
   sends,
   renderRow,
-  emptyState = <p className="text-muted text-sm">No sends yet.</p>,
+  emptyState = <EmptyState message="No sends yet." />,
   hasMore,
   onLoadMore,
   loadingMore = false,

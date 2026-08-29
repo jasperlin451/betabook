@@ -40,7 +40,10 @@ export function ListRow({
   return (
     <div
       className={clsx(
-        "relative flex items-center gap-4 rounded-xl p-4",
+        // Guidebook route-table density: rows are separated by the list's
+        // divide-y hairlines, so no rounding — px keeps the tap target
+        // breathing while py-3 tightens the table.
+        "relative flex items-center gap-4 px-4 py-3",
         href != null &&
           "transition-colors hover:bg-surface-secondary/50 focus-within:bg-surface-secondary/50",
         className,
@@ -73,7 +76,7 @@ export function ListRow({
             {tags && <div className="relative z-10 mt-1 flex w-fit flex-wrap gap-2">{tags}</div>}
           </div>
           {comment != null && (
-            <p className="line-clamp-3 text-[0.925rem] leading-relaxed text-foreground">{comment}</p>
+            <p className="line-clamp-3 text-sm leading-relaxed text-foreground">{comment}</p>
           )}
         </div>
         {trailing && <div className="ml-auto shrink-0 text-right tabular-nums">{trailing}</div>}

@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, useOverlayState } from "@heroui/react";
-import { CircleCheck, CirclePlus } from "lucide-react";
+import { CirclePlus } from "lucide-react";
 import type { Climb } from "@/db/queries";
 import { SendFormDrawer } from "@/components/send-form-drawer";
 
@@ -22,7 +22,24 @@ export function ClimbSentIndicator({ climb, sent }: { climb: Climb; sent: boolea
         aria-label="You've sent this climb"
         className="flex size-8 shrink-0 items-center justify-center"
       >
-        <CircleCheck className="size-5 text-success-soft-foreground" aria-hidden />
+        {/* The guidebook tick, drawn in on mount (stroke-dash draw — see
+          * tick-draw in globals.css); reduced-motion users get it static. */}
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="size-5 text-success-soft-foreground"
+          aria-hidden
+        >
+          <path
+            d="M4 13l5 5L20 6"
+            strokeDasharray={24}
+            className="motion-safe:animate-tick-draw"
+          />
+        </svg>
       </span>
     );
   }

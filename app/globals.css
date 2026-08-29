@@ -70,6 +70,12 @@
     --discipline-sport-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-ink));
     --discipline-boulder-bg: color-mix(in oklab, var(--palette-accent) 22%, var(--white));
     --discipline-boulder-fg: color-mix(in oklab, var(--palette-accent) 60%, var(--palette-ink));
+
+    /* Flash ascent chip: support-blue tint (same recipe as the discipline
+       chips). Flash used to wear HeroUI's amber `warning`, the one hue the
+       rating stars also use — this frees the stars to own amber. */
+    --ascent-flash-bg: color-mix(in oklab, var(--palette-support) 22%, var(--white));
+    --ascent-flash-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-ink));
   }
 
   /* Semantic roles, dark ("ink") theme: the same palette with paper and ink
@@ -124,6 +130,9 @@
     --discipline-sport-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-paper));
     --discipline-boulder-bg: color-mix(in oklab, var(--palette-accent) 25%, transparent);
     --discipline-boulder-fg: color-mix(in oklab, var(--palette-accent) 60%, var(--palette-paper));
+
+    --ascent-flash-bg: color-mix(in oklab, var(--palette-support) 25%, transparent);
+    --ascent-flash-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-paper));
   }
 }
 
@@ -148,4 +157,19 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Stroke draw-in for the sent tick (climb-sent-indicator) — used behind
+   motion-safe: so reduced-motion users get the tick instantly. */
+@keyframes tick-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@utility animate-tick-draw {
+  animation: tick-draw 0.4s ease-out;
 }

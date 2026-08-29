@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { buttonVariants, Button } from "@heroui/react";
 import type { Area } from "@/db/queries";
 import { AppLink } from "@/components/ui/app-link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ListRow } from "@/components/ui/list-row";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
@@ -44,7 +45,7 @@ export function AreaList({
   const [showAllPills, setShowAllPills] = useState(false);
 
   if (areas.length === 0) {
-    return <p className="text-muted text-sm">{emptyMessage}</p>;
+    return <EmptyState message={emptyMessage} />;
   }
 
   if (variant === "search") {
