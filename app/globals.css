@@ -1,22 +1,83 @@
 @import "@heroui/styles";
 
+/* Fixed palette tokens: these values do not change by theme. Every themed
+   color below is one of these five or a color-mix() of two of them, so the
+   whole UI re-themes from this block alone. */
+:root {
+  --palette-ink: #000000;
+  --palette-primary: #83ba73;
+  --palette-support: #557bb5;
+  --palette-accent: #a4585a;
+  --palette-paper: #eaf7ef;
+}
+
 @layer theme {
-  /* Deep-navy "night session" theme — layers the same brand teal/coral on
-     top of HeroUI's existing dark-mode neutrals (foreground, muted, field
-     colors, etc. are already tuned for a dark background, so only the
-     background/surface hierarchy and brand accents need overriding here). */
+  /* Semantic roles, light ("paper") theme. These are HeroUI's theme tokens;
+     Tailwind utilities (bg-background, text-muted, …) and every HeroUI
+     component read from them, so components need no CSS changes. HeroUI's
+     own aliases keep --color-background/--color-foreground pointing here.
+     Hover, soft, and secondary/tertiary variants are calculated by HeroUI
+     from these bases, so they re-derive automatically. */
+  :root,
+  .light,
+  [data-theme="light"] {
+    --background: var(--palette-paper);
+    --foreground: var(--palette-ink);
+
+    /* Cards float above the paper, so they mix toward white; recessed
+       surfaces mix a few percent of ink into the paper instead. */
+    --surface: color-mix(in oklab, var(--palette-paper) 35%, var(--white));
+    --surface-secondary: color-mix(in oklab, var(--palette-paper) 96%, var(--palette-ink));
+    --surface-tertiary: color-mix(in oklab, var(--palette-paper) 92%, var(--palette-ink));
+    --overlay: color-mix(in oklab, var(--palette-paper) 35%, var(--white));
+
+    --muted: color-mix(in oklab, var(--palette-ink) 56%, var(--palette-paper));
+    --default: color-mix(in oklab, var(--palette-paper) 92%, var(--palette-ink));
+    --default-foreground: var(--palette-ink);
+    --border: color-mix(in oklab, var(--palette-paper) 88%, var(--palette-ink));
+    --separator: color-mix(in oklab, var(--palette-paper) 91%, var(--palette-ink));
+
+    --field-background: color-mix(in oklab, var(--palette-paper) 35%, var(--white));
+    --segment: color-mix(in oklab, var(--palette-paper) 35%, var(--white));
+    --segment-foreground: var(--palette-ink);
+
+    /* Brand green is mid-lightness: ink text clears 9:1 on it where white
+       lands under 2.5:1, so accent flips HeroUI's usual light-on-color. */
+    --accent: var(--palette-primary);
+    --accent-foreground: var(--palette-ink);
+    --success: var(--palette-primary);
+    --success-foreground: var(--palette-ink);
+    --danger: var(--palette-accent);
+    --danger-foreground: var(--palette-paper);
+    /* Warning stays HeroUI's amber: the palette has no yellow slot, and
+       green/red already carry success/danger. */
+
+    /* Support blue at full strength is only ~3.9:1 on paper, so text uses
+       it darkened; the focus ring is thick enough to wear it straight. */
+    --focus: var(--palette-support);
+    --link: color-mix(in oklab, var(--palette-support) 78%, var(--palette-ink));
+  }
+
+  /* Semantic roles, dark ("ink") theme: the same palette with paper and ink
+     swapped. Surfaces lift off the pure-black background by mixing paper
+     back in — one knob (the paper %) sets the whole elevation ramp. */
   .dark,
   [data-theme="dark"] {
-    --background: #0d1526;
-    --surface: #141d33;
-    --surface-secondary: #1b2540;
-    --surface-tertiary: #212c4a;
-    --overlay: #141d33;
-    --default: #1b2540;
-    --muted: #7d8aa8;
-    --border: #26314f;
-    --separator: #1c243c;
-    --field-background: #141d33;
+    --background: var(--palette-ink);
+    --foreground: var(--palette-paper);
+
+    --surface: color-mix(in oklab, var(--palette-paper) 16%, var(--palette-ink));
+    --surface-secondary: color-mix(in oklab, var(--palette-paper) 20%, var(--palette-ink));
+    --surface-tertiary: color-mix(in oklab, var(--palette-paper) 24%, var(--palette-ink));
+    --overlay: color-mix(in oklab, var(--palette-paper) 20%, var(--palette-ink));
+
+    --muted: color-mix(in oklab, var(--palette-paper) 66%, var(--palette-ink));
+    --default: color-mix(in oklab, var(--palette-paper) 24%, var(--palette-ink));
+    --default-foreground: var(--palette-paper);
+    --border: color-mix(in oklab, var(--palette-paper) 26%, var(--palette-ink));
+    --separator: color-mix(in oklab, var(--palette-paper) 20%, var(--palette-ink));
+
+    --field-background: color-mix(in oklab, var(--palette-paper) 18%, var(--palette-ink));
     /* HeroUI leaves this transparent and 0-width by default (--field-border-width
        is hardcoded to 0px globally) and relies on --field-shadow for definition
        instead, but a shadow reads as nothing against a dark background —
@@ -24,20 +85,36 @@
        surface behind them. */
     --field-border: var(--border);
     --field-border-width: 2px;
-    --accent: #2bcfce;
-    --accent-foreground: var(--eclipse);
-    --danger: #ec4d25;
-    --danger-foreground: var(--snow);
-    /* Vivid teal has plenty of contrast directly on this near-black
-       background, so unlike a light background it needs no darkening for
-       text/link use. */
-    --link: var(--accent);
+    --segment: color-mix(in oklab, var(--palette-paper) 30%, var(--palette-ink));
+    --segment-foreground: var(--palette-paper);
+
+    --accent: var(--palette-primary);
+    --accent-foreground: var(--palette-ink);
+    --success: var(--palette-primary);
+    --success-foreground: var(--palette-ink);
+    /* The dusty red keeps paper text at 4.6:1, same as light mode; lightening
+       it for the black background would drop its own text below 4.5:1. */
+    --danger: var(--palette-accent);
+    --danger-foreground: var(--palette-paper);
+
+    /* Support blue leans toward paper here for the same contrast reason the
+       light theme leans it toward ink. */
+    --focus: color-mix(in oklab, var(--palette-support) 75%, var(--palette-paper));
+    --link: color-mix(in oklab, var(--palette-support) 70%, var(--palette-paper));
   }
 }
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Raw palette as utilities (bg-palette-primary, text-palette-support, …)
+     for the rare spot that wants a fixed brand color regardless of theme. */
+  --color-palette-ink: var(--palette-ink);
+  --color-palette-primary: var(--palette-primary);
+  --color-palette-support: var(--palette-support);
+  --color-palette-accent: var(--palette-accent);
+  --color-palette-paper: var(--palette-paper);
 }
 
 @layer base {
