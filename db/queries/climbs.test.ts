@@ -9,6 +9,7 @@ import {
   findClimbsByNameAndArea,
   getClimb,
   getSubtreeClimbs,
+  getSubtreeGradeHistogram,
   hasClimbsInArea,
   searchClimbs,
 } from "./climbs";
@@ -366,6 +367,42 @@ describe("getSubtreeClimbs", () => {
       });
       expect(climbs.map((c) => c.name)).toEqual(["Test Slab"]);
     });
+  });
+});
+
+describe("getSubtreeGradeHistogram", () => {
+  // Fixture grades: Test Highball boulder/5, Test Slab boulder/2,
+  // Test Crimper sport/10, Test Crack trad/6 — all under root area 1.
+  it("counts climbs per (type, grade) across the whole subtree", async () => {
+    const root = await getArea(db, 1);
+    const rows = await getSubtreeGradeHistogram(db, root!);
+    const byKey = Object.fromEntries(rows.map((r) => [`${r.type}/${r.grade}`, r.count]));
+    expect(byKey["boulder/5"]).toBe(1);
+    expect(byKey["boulder/2"]).toBe(1);
+    expect(byKey["sport/10"]).toBe(1);
+    expect(byKey["trad/6"]).toBe(1);
+    expect(rows.reduce((sum, r) => sum + r.count, 0)).toBe(4);
+  });
+
+  it("scopes to the given subtree, not the whole table", async () => {
+    const sportWall = await getArea(db, 3); // holds Test Crimper + Test Crack
+    const rows = await getSubtreeGradeHistogram(db, sportWall!);
+    expect(rows.sort((a, b) => a.type.localeCompare(b.type))).toEqual([
+      { type: "sport", grade: 10, count: 1 },
+      { type: "trad", grade: 6, count: 1 },
+    ]);
+  });
+
+  it("uses the lft/rght range index", async () => {
+    const root = await getArea(db, 1);
+    const plan = await db.all<{ detail: string }>(sql`
+      EXPLAIN QUERY PLAN
+      SELECT climbs.type, climbs.grade, COUNT(*)
+      FROM climbs INDEXED BY climbs_lft_rght_idx
+      WHERE climbs.lft >= ${root!.lft} AND climbs.lft <= ${root!.rght} AND climbs.rght <= ${root!.rght}
+      GROUP BY climbs.type, climbs.grade
+    `);
+    expect(plan.some((row) => row.detail.includes("climbs_lft_rght_idx"))).toBe(true);
   });
 });
 

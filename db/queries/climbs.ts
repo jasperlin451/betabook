@@ -215,6 +215,28 @@ export async function getSubtreeClimbs(
 }
 
 /** Exact (case-insensitive, trimmed) name match, in an area matching areaName exactly or as an ancestor. Returns every match — caller decides what 0/1/many means. */
+export type GradeHistogramRow = { type: Discipline; grade: number | null; count: number };
+
+/** Grade distribution of every climb in an area's subtree — one query
+ * powers the crag header's histogram, climb count, grade span, and
+ * discipline list. Same residual-range predicate as getSubtreeClimbs
+ * (including the redundant-looking second lft bound — see the comment
+ * there); no ORDER BY/LIMIT, so the plain range index is always the right
+ * access path and none of the sort-index forcing applies. Result size is
+ * bounded by distinct (type, grade) pairs (≤ ~55), independent of subtree
+ * size. */
+export async function getSubtreeGradeHistogram(
+  db: Database,
+  area: Area,
+): Promise<GradeHistogramRow[]> {
+  return db.all<GradeHistogramRow>(sql`
+    SELECT climbs.type AS type, climbs.grade AS grade, COUNT(*) AS count
+    FROM climbs INDEXED BY climbs_lft_rght_idx
+    WHERE climbs.lft >= ${area.lft} AND climbs.lft <= ${area.rght} AND climbs.rght <= ${area.rght}
+    GROUP BY climbs.type, climbs.grade
+  `);
+}
+
 export async function findClimbsByNameAndArea(
   db: Database,
   climbName: string,

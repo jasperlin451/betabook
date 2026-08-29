@@ -3,10 +3,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { AreaActionsMenu } from "@/components/area-actions-menu";
+import { AreaCragHeader } from "@/components/area-crag-header";
 import { AreaList } from "@/components/area-list";
 import { AreaClimbsFilterPanel, AreaClimbsSection } from "@/components/area-climbs-section";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { SidebarLayout } from "@/components/ui/page-shell";
 import { getDb } from "@/db/client";
 import {
   getAncestors,
@@ -15,6 +17,7 @@ import {
   getClimbSendStats,
   getSubareas,
   getSubtreeClimbs,
+  getSubtreeGradeHistogram,
   getUserSentClimbIds,
   hasClimbsInArea,
 } from "@/db/queries";
@@ -23,7 +26,7 @@ import {
   parseAreaClimbsSort,
   toSubtreeQueryFilter,
 } from "@/lib/area-climbs-filter";
-import { missingDescriptionMessage } from "@/lib/descriptions";
+import { buildGradeHistogram } from "@/lib/grade-histogram";
 import { getSession } from "@/lib/session";
 import type { SearchParamsRecord } from "@/lib/search-params";
 
@@ -69,14 +72,17 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
 
   // Only the first page is server-rendered — AreaClimbsSection fetches
   // subsequent pages itself via "load more" (see app/api/areas/[id]/climbs).
-  const [ancestors, subareas, subtreeClimbs, hasClimbs, sentClimbIds] = await Promise.all([
-    getAncestors(db, area),
-    getSubareas(db, area.id),
-    getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter)),
-    hasClimbsInArea(db, area.id),
-    session ? getUserSentClimbIds(db, session.user.id) : undefined,
-  ]);
+  const [ancestors, subareas, subtreeClimbs, hasClimbs, sentClimbIds, histogramRows] =
+    await Promise.all([
+      getAncestors(db, area),
+      getSubareas(db, area.id),
+      getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter)),
+      hasClimbsInArea(db, area.id),
+      session ? getUserSentClimbIds(db, session.user.id) : undefined,
+      getSubtreeGradeHistogram(db, area),
+    ]);
   const canDeleteArea = subareas.length === 0 && !hasClimbs;
+  const histogram = buildGradeHistogram(histogramRows);
 
   const [sendStats, areaBreadcrumbs] = await Promise.all([
     getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
@@ -87,15 +93,12 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
     <div className="flex flex-col gap-6">
       <AreaBreadcrumbs ancestors={ancestors} current={area} />
 
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold">{area.name}</h1>
-          <p className="text-muted mt-1">
-            {area.description || missingDescriptionMessage("area")}
-          </p>
-        </div>
-        {session && <AreaActionsMenu area={area} canDelete={canDeleteArea} />}
-      </div>
+      <AreaCragHeader
+        area={area}
+        histogram={histogram}
+        isEditor={session != null}
+        actions={session && <AreaActionsMenu area={area} canDelete={canDeleteArea} />}
+      />
 
       <CollapsibleSection title="Sub-areas">
         <AreaList areas={subareas} emptyMessage="No sub-areas." />
@@ -104,34 +107,32 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
       {/* The provider links the filter panel's in-flight navigation to the
        * climb list it re-fetches, which dims while pending. */}
       <NavigationPendingProvider>
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-          <div className="order-2 flex min-w-0 flex-1 flex-col gap-2 lg:order-1">
-            <AreaClimbsSection
-              // Remounts with fresh initial* state on a sort/filter change,
-              // rather than syncing local "load more" state to changed props
-              // via an effect — same reasoning as UserSendList.
-              key={JSON.stringify({ sort, filter })}
-              areaId={area.id}
-              sort={sort}
-              filter={filter}
-              initialClimbs={subtreeClimbs.climbs}
-              initialHasNextPage={subtreeClimbs.hasNextPage}
-              initialSendStats={sendStats}
-              initialAreaBreadcrumbs={areaBreadcrumbs}
-              sentClimbIds={sentClimbIds}
-              emptyMessage="No climbs found in this area or its sub-areas."
-            />
-          </div>
-
-          <div className="order-1 lg:order-2 lg:w-80 lg:shrink-0">
-            {/* Gated on lg, not CollapsibleSection's md default, to match
+        <SidebarLayout
+          sidebar={
+            /* Gated on lg, not CollapsibleSection's md default, to match
              * where this column switches from a stacked mobile block to the
-             * sidebar (see the lg:flex-row container below). */}
+             * sidebar (see SidebarLayout's lg:flex-row container). */
             <CollapsibleSection title="Filters" breakpoint="lg" showTitleOnDesktop={false}>
               <AreaClimbsFilterPanel areaId={area.id} sort={sort} filter={filter} />
             </CollapsibleSection>
-          </div>
-        </div>
+          }
+        >
+          <AreaClimbsSection
+            // Remounts with fresh initial* state on a sort/filter change,
+            // rather than syncing local "load more" state to changed props
+            // via an effect — same reasoning as UserSendList.
+            key={JSON.stringify({ sort, filter })}
+            areaId={area.id}
+            sort={sort}
+            filter={filter}
+            initialClimbs={subtreeClimbs.climbs}
+            initialHasNextPage={subtreeClimbs.hasNextPage}
+            initialSendStats={sendStats}
+            initialAreaBreadcrumbs={areaBreadcrumbs}
+            sentClimbIds={sentClimbIds}
+            emptyMessage="No climbs found in this area or its sub-areas."
+          />
+        </SidebarLayout>
       </NavigationPendingProvider>
     </div>
   );

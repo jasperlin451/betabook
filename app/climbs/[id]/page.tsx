@@ -1,7 +1,6 @@
 import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { MapPin } from "lucide-react";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { LogSendButton } from "@/components/log-send-button";
 import { EditSendButton } from "@/components/edit-send-button";
@@ -85,9 +84,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Eyebrow icon={MapPin}>
-        <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
-      </Eyebrow>
+      <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
 
       <div className="flex items-start justify-between gap-2">
         <div>
@@ -96,7 +93,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
             {climb.type} &middot; {formatGrade(climb.type, climb.grade)}
           </p>
           <p className="text-muted mt-1">
-            {climb.description || missingDescriptionMessage("climb")}
+            {climb.description || missingDescriptionMessage()}
           </p>
         </div>
         {session && <ClimbActionsMenu climb={climb} />}

@@ -32,22 +32,27 @@ export function AreaBreadcrumbs({ ancestors, current }: AreaBreadcrumbsProps) {
   const router = useRouter();
 
   return (
-    <Breadcrumbs>
-      {ancestors.map((ancestor, index) => {
-        const href = `/areas/${ancestor.id}`;
-        return (
-          <Breadcrumbs.Item
-            key={ancestor.id}
-            href={href}
-            onHoverStart={() => router.prefetch(href)}
-            onFocus={() => router.prefetch(href)}
-            className={visibilityClassName(ancestors.length - index)}
-          >
-            {ancestor.name}
-          </Breadcrumbs.Item>
-        );
-      })}
-      <Breadcrumbs.Item>{current.name}</Breadcrumbs.Item>
-    </Breadcrumbs>
+    <div className="flex items-center gap-3">
+      {/* The topo line: a short rope-end leading into the trail of areas,
+        * the way a guidebook topo traces a route to its start. */}
+      <span className="h-px w-6 shrink-0 bg-palette-primary" aria-hidden />
+      <Breadcrumbs>
+        {ancestors.map((ancestor, index) => {
+          const href = `/areas/${ancestor.id}`;
+          return (
+            <Breadcrumbs.Item
+              key={ancestor.id}
+              href={href}
+              onHoverStart={() => router.prefetch(href)}
+              onFocus={() => router.prefetch(href)}
+              className={visibilityClassName(ancestors.length - index)}
+            >
+              {ancestor.name}
+            </Breadcrumbs.Item>
+          );
+        })}
+        <Breadcrumbs.Item>{current.name}</Breadcrumbs.Item>
+      </Breadcrumbs>
+    </div>
   );
 }

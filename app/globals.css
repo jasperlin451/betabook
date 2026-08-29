@@ -173,3 +173,20 @@
 @utility animate-tick-draw {
   animation: tick-draw 0.4s ease-out;
 }
+
+/* Grow-in for the crag header's grade histogram bars — staggered per bar
+   via an inline animation-delay, used behind motion-safe:. `backwards`
+   keeps a delayed bar at scale 0 until its turn. */
+@keyframes bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@utility animate-bar-grow {
+  animation: bar-grow 0.5s ease-out backwards;
+  transform-origin: bottom;
+}
