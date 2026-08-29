@@ -26,6 +26,8 @@ export function SignInForm({ next }: { next?: string }) {
   // email field.
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
+  const [resendPending, setResendPending] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,6 +35,7 @@ export function SignInForm({ next }: { next?: string }) {
     setError(null);
     setUnverifiedEmail(null);
     setResent(false);
+    setResendError(null);
     setPending(true);
     authClient.signIn.email(
       { email: attemptedEmail, password },
@@ -57,17 +60,25 @@ export function SignInForm({ next }: { next?: string }) {
     if (unverifiedEmail !== null) {
       setUnverifiedEmail(null);
       setResent(false);
+      setResendError(null);
     }
   }
 
   function resendVerification() {
     if (!unverifiedEmail) return;
     setResent(false);
+    setResendError(null);
+    setResendPending(true);
     authClient.sendVerificationEmail(
       // After the verification link is clicked, land back on this sign-in
       // URL, continuation included.
       { email: unverifiedEmail, callbackURL: signInUrl(nextPath) },
-      { onSuccess: () => setResent(true) },
+      {
+        onSuccess: () => setResent(true),
+        onError: (ctx) =>
+          setResendError(ctx.error.message ?? "Could not resend the verification email"),
+        onResponse: () => setResendPending(false),
+      },
     );
   }
 
@@ -92,9 +103,14 @@ export function SignInForm({ next }: { next?: string }) {
       {unverifiedEmail !== null && (
         <div className="flex flex-col gap-2 text-sm text-danger">
           <p>Please verify your email address before signing in.</p>
-          <Button variant="ghost" onPress={resendVerification} isDisabled={resent}>
+          <Button
+            variant="ghost"
+            onPress={resendVerification}
+            isDisabled={resent || resendPending}
+          >
             {resent ? "Verification email sent" : "Resend verification email"}
           </Button>
+          {resendError && <p>{resendError}</p>}
         </div>
       )}
       <Button type="submit" fullWidth isDisabled={pending}>

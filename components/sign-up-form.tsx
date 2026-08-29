@@ -18,6 +18,9 @@ export function SignUpForm({ next }: { next?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [done, setDone] = useState(false);
+  const [resent, setResent] = useState(false);
+  const [resendPending, setResendPending] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
 
   const passwordMismatch = submitAttempted && password !== confirmPassword;
 
@@ -39,6 +42,23 @@ export function SignUpForm({ next }: { next?: string }) {
     );
   }
 
+  // Bound to the just-registered address; same better-auth call (and the
+  // same land-back-on-sign-in callback) as the sign-in form's resend.
+  function resendVerification() {
+    setResent(false);
+    setResendError(null);
+    setResendPending(true);
+    authClient.sendVerificationEmail(
+      { email, callbackURL: signInUrl(nextPath) },
+      {
+        onSuccess: () => setResent(true),
+        onError: (ctx) =>
+          setResendError(ctx.error.message ?? "Could not resend the verification email"),
+        onResponse: () => setResendPending(false),
+      },
+    );
+  }
+
   if (done) {
     return (
       <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
@@ -47,6 +67,14 @@ export function SignUpForm({ next }: { next?: string }) {
           We sent a verification link to {email}. Verify your address, then{" "}
           <AppLink href={signInUrl(nextPath)}>sign in</AppLink>.
         </p>
+        <Button
+          variant="ghost"
+          onPress={resendVerification}
+          isDisabled={resent || resendPending}
+        >
+          {resent ? "Verification email sent" : "Resend verification email"}
+        </Button>
+        {resendError && <p className="text-sm text-danger">{resendError}</p>}
       </div>
     );
   }

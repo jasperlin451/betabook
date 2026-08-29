@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { LogSendButton } from "@/components/log-send-button";
+import { EditSendButton } from "@/components/edit-send-button";
 import { ClimbActionsMenu } from "@/components/climb-actions-menu";
 import { ClimbSendList } from "@/components/climb-send-list";
 import { GradeWithTrend } from "@/components/climb-list";
@@ -17,6 +18,8 @@ import { formatGrade } from "@/lib/grades";
 import { missingDescriptionMessage } from "@/lib/descriptions";
 import { getDb } from "@/db/client";
 import { getSession } from "@/lib/session";
+import { signInUrl } from "@/lib/sign-in-redirect";
+import { AppLink } from "@/components/ui/app-link";
 
 type ClimbPageProps = {
   params: Promise<{ id: string }>;
@@ -140,7 +143,23 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                   : []),
               ]}
             />
-            {session && !userSend && <LogSendButton climb={climb} />}
+            {session ? (
+              userSend ? (
+                <EditSendButton climb={climb} send={userSend} />
+              ) : (
+                <LogSendButton climb={climb} />
+              )
+            ) : (
+              // Quiet stand-in for Log Send: signed-out visitors otherwise
+              // never learn ascents can be logged. The continuation brings
+              // them straight back here after signing in.
+              <AppLink
+                href={signInUrl(`/climbs/${climb.id}`)}
+                className="text-center text-sm text-muted"
+              >
+                Sign in to log this climb
+              </AppLink>
+            )}
           </div>
         }
       >

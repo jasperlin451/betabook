@@ -5,7 +5,11 @@ import { Button, Input, Label, TextField } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
 import { AppLink } from "@/components/ui/app-link";
 
-export function ResetPasswordForm({ token }: { token: string | undefined }) {
+// The page only renders this form when a token is present (missing/invalid
+// links get a dead-end state there), so the prop is required. The token can
+// still expire between page load and submit — resetPassword's onError
+// surfaces that.
+export function ResetPasswordForm({ token }: { token: string }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -19,10 +23,6 @@ export function ResetPasswordForm({ token }: { token: string | undefined }) {
     e.preventDefault();
     setError(null);
     setSubmitAttempted(true);
-    if (!token) {
-      setError("This reset link is invalid or has expired.");
-      return;
-    }
     if (newPassword !== confirmPassword) return;
     setPending(true);
     authClient.resetPassword(
