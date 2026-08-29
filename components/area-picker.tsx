@@ -28,19 +28,20 @@ export function AreaPicker({ selected, onSelectedChange, isInvalid }: AreaPicker
   const [outcome, setOutcome] = useState<SearchOutcome | null>(null);
   const [isPending, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
-  // Monotonic id of the most recently fired search. Server actions can't be
-  // aborted, so overlapping searches are settled "latest wins": a response
-  // whose id is no longer current lost the race and is dropped instead of
-  // clobbering newer results.
+  // Monotonic search generation. Server actions can't be aborted, so stale
+  // responses are dropped instead: a response only commits if its generation
+  // is still current. Every query (or gating selection) change starts a new
+  // generation — not just the next fired search — so an in-flight response
+  // can't slip in during the next search's debounce window either.
   const searchSeq = useRef(0);
 
   useEffect(() => {
+    const seq = ++searchSeq.current;
     if (!query.trim()) return;
     // The input showing the picked area's name isn't a new search — it's the
     // result of picking. Searching it again would waste a round trip.
     if (selected && query === selected.name) return;
     const timeout = setTimeout(() => {
-      const seq = ++searchSeq.current;
       startTransition(async () => {
         try {
           const found = await searchAreasForPicker(query);
