@@ -1,7 +1,7 @@
 "use client";
 
 import { Chip } from "@heroui/react";
-import { describeGradeTrend } from "@/lib/grades";
+import { describeGradeTrend, formatGrade } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
 import type { ClimbWithAreaName } from "@/db/queries";
 import { ListRow } from "@/components/ui/list-row";
@@ -69,6 +69,11 @@ export function ClimbList({
         {climbs.map((climb) => (
           <ListRow
             key={climb.id}
+            // The posted grade owns the left margin (guidebook index column);
+            // the sent tick sits between grade and name — "ticking the line"
+            // right where the route entry starts — so the grade column stays
+            // hard against the row edge whether or not a viewer is signed in.
+            grade={climb.grade == null ? "—" : formatGrade(climb.type, climb.grade)}
             leading={
               sentClimbIds && (
                 <ClimbSentIndicator climb={climb} sent={sentClimbIds.has(climb.id)} />
@@ -86,16 +91,11 @@ export function ClimbList({
             trailing={
               <div className="flex flex-col items-end gap-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-foreground">
-                    <GradeWithTrend
-                      type={climb.type}
-                      grade={climb.grade}
-                      avgSuggestedGrade={sendStats?.[climb.id]?.avgSuggestedGrade ?? null}
-                    />
-                  </span>
-                  <span className="text-muted" aria-hidden>
-                    •
-                  </span>
+                  <GradeTrendHint
+                    type={climb.type}
+                    grade={climb.grade}
+                    avgSuggestedGrade={sendStats?.[climb.id]?.avgSuggestedGrade ?? null}
+                  />
                   <RatingStars rating={sendStats?.[climb.id]?.avgRating ?? null} precision="decimal" />
                 </div>
                 <Chip variant="soft" className={`capitalize ${STYLE_CHIP_CLASSNAME[climb.type]}`}>
@@ -111,6 +111,34 @@ export function ClimbList({
       </div>
       {loadMoreBlock}
     </div>
+  );
+}
+
+/** The community-divergence half of GradeWithTrend, for rows where the
+ * posted grade itself has moved to the leading margin column: renders a
+ * muted parenthetical — "(V5↑)" when the average suggested grade rounds a
+ * whole step away, "(V4↑)" (the posted grade with just an arrow) when it
+ * only leans past the posted grade — or nothing at all when the community
+ * average matches the posted grade. */
+function GradeTrendHint({
+  type,
+  grade,
+  avgSuggestedGrade,
+}: {
+  type: ClimbType;
+  grade: number | null;
+  avgSuggestedGrade: number | null;
+}) {
+  const { postedLabel, suggestedLabel, arrow } = describeGradeTrend(type, grade, avgSuggestedGrade);
+  const arrowSymbol = arrow === "up" ? "↑" : arrow === "down" ? "↓" : null;
+
+  if (suggestedLabel == null && arrowSymbol == null) return null;
+
+  return (
+    <span className="text-sm text-muted">
+      ({suggestedLabel ?? postedLabel}
+      {arrowSymbol})
+    </span>
   );
 }
 

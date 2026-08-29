@@ -3,6 +3,15 @@ import { Link } from "@heroui/react";
 import clsx from "clsx";
 
 type ListRowProps = {
+  /** Guidebook-style margin column: a fixed-width mono slot at the very
+   * start of the row, before `leading`. Climbers scan an index grade-first,
+   * so the grade owns the left margin — the slot is sized to the longest
+   * grade in lib/grades.ts ("5.15d"/"5.13d" at 5ch; "V17" fits inside) and
+   * right-aligned so grades line up down the list. It sits outside the
+   * wrapping title/trailing pair, so it never wraps away at narrow widths.
+   * Pass "—" (not undefined) for a row whose entity has no grade, so the
+   * column stays aligned across the list. */
+  grade?: ReactNode;
   leading?: ReactNode;
   title: ReactNode;
   /** When set, `title` is wrapped in a link to `href` and the whole row
@@ -26,6 +35,7 @@ type ListRowProps = {
 };
 
 export function ListRow({
+  grade,
   leading,
   title,
   href,
@@ -40,12 +50,20 @@ export function ListRow({
   return (
     <div
       className={clsx(
-        "relative flex items-center gap-4 rounded-xl p-4",
+        // Square-edged and py-3: rows live inside divide-y stacks where
+        // rounded corners never render against anything, and the tighter
+        // vertical rhythm reads as an index, not a card list.
+        "relative flex items-center gap-4 px-4 py-3",
         href != null &&
           "transition-colors hover:bg-surface-secondary/50 focus-within:bg-surface-secondary/50",
         className,
       )}
     >
+      {grade != null && (
+        <div className="w-[5ch] shrink-0 text-right font-mono text-sm font-medium text-muted tabular-nums">
+          {grade}
+        </div>
+      )}
       {leading && <div className="relative z-10 shrink-0">{leading}</div>}
       {/* Text column + trailing block as a wrapping pair: on narrow screens
         * the trailing block drops below the text column (still right-aligned

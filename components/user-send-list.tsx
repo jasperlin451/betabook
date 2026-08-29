@@ -63,6 +63,28 @@ function MinRatingSelect({ value, onChange }: { value: number; onChange: (value:
   );
 }
 
+/** How this send's grade opinion diverges from the climb's posted grade —
+ * the posted grade itself lives in the row's leading margin column, so the
+ * trailing line only carries the divergence: the suggested grade in parens
+ * when it differs, plus the high/low grade-feel arrow. Renders nothing when
+ * the sender agreed with the posted grade outright. */
+function SendGradeHint({ send }: { send: UserSendRow }) {
+  const suggestionDiffers = send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade;
+  if (!suggestionDiffers && send.gradeFeel !== "high" && send.gradeFeel !== "low") return null;
+
+  return (
+    <span className="inline-flex items-center gap-0.5 text-muted">
+      {suggestionDiffers && <span>({formatGrade(send.climbType, send.suggestedGrade)})</span>}
+      {send.gradeFeel === "high" && (
+        <ArrowUp className="size-3.5" aria-label="High end of the grade" />
+      )}
+      {send.gradeFeel === "low" && (
+        <ArrowDown className="size-3.5" aria-label="Low end of the grade" />
+      )}
+    </span>
+  );
+}
+
 type UserSendListProps = {
   userId: string;
   filter: UserSendsFilter;
@@ -244,6 +266,9 @@ export function UserSendList({
         loadingMore={loadingMore}
         renderRow={(send) => (
           <ListRow
+            grade={
+              send.climbGrade == null ? "—" : formatGrade(send.climbType, send.climbGrade)
+            }
             title={send.climbName}
             href={`/climbs/${send.climbId}`}
             subtitle={
@@ -256,24 +281,7 @@ export function UserSendList({
             trailing={
               <div className="flex flex-col items-end gap-1 text-sm">
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center gap-0.5 font-medium text-foreground">
-                    {formatGrade(send.climbType, send.climbGrade)}
-                    {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
-                      <span className="font-normal text-muted">
-                        {" "}
-                        ({formatGrade(send.climbType, send.suggestedGrade)})
-                      </span>
-                    )}
-                    {send.gradeFeel === "high" && (
-                      <ArrowUp className="size-3.5 text-muted" aria-label="High end of the grade" />
-                    )}
-                    {send.gradeFeel === "low" && (
-                      <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
-                    )}
-                  </span>
-                  <span className="text-muted" aria-hidden>
-                    •
-                  </span>
+                  <SendGradeHint send={send} />
                   <RatingStars rating={send.rating} />
                 </div>
                 <AscentStyle type={send.ascentStyle} />
