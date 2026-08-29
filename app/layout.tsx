@@ -1,15 +1,26 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { Barlow_Condensed } from "next/font/google";
 import { Mountain } from "lucide-react";
 import Script from "next/script";
 import { Providers } from "./providers";
 import { AuthNav } from "@/components/auth-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { NavLink } from "@/components/nav-link";
+import { ThemeSwitch } from "@/components/theme-toggle";
 import { AppLink } from "@/components/ui/app-link";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import "./globals.css";
+
+// The guidebook display voice — see --font-display in globals.css. Only the
+// two weights the display roles actually use ship to the client.
+const barlowCondensed = Barlow_Condensed({
+  weight: ["600", "700"],
+  subsets: ["latin"],
+  variable: "--font-barlow-condensed",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -20,12 +31,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Matches --background: HeroUI's default light theme (oklch(0.9702 0 0))
-  // and globals.css's dark override, so the browser chrome follows the app
-  // instead of staying light on the dark theme.
+  // Matches --background per theme (globals.css: paper in light, ink in
+  // dark), so the browser chrome follows the app instead of staying light
+  // on the dark theme.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f5f5f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d1526" },
+    { media: "(prefers-color-scheme: light)", color: "#eaf7ef" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
   ],
 };
 
@@ -52,7 +63,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${barlowCondensed.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
@@ -72,16 +83,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <div className={`mx-auto flex w-full ${PAGE_MAX_WIDTH_CLASS} flex-wrap items-center justify-between gap-2`}>
               <AppLink
                 href="/"
-                className="flex items-center gap-2 text-lg font-semibold text-foreground no-underline"
+                className="flex items-center gap-2 font-display text-xl font-bold tracking-wide text-foreground uppercase no-underline"
               >
                 <Mountain className="size-5" />
                 Betabook
               </AppLink>
-              <nav aria-label="Primary" className="hidden items-center gap-6 text-sm md:flex">
-                <NavLink href="/">Search</NavLink>
-                <AuthNav />
-              </nav>
-              <MobileNav />
+              <div className="flex items-center gap-3">
+                <nav aria-label="Primary" className="hidden items-center gap-6 text-sm md:flex">
+                  <NavLink href="/">Search</NavLink>
+                  <AuthNav />
+                </nav>
+                <ThemeSwitch />
+                <MobileNav />
+              </div>
             </div>
           </header>
           {/* tabIndex lets the skip link move focus here, not just scroll. */}

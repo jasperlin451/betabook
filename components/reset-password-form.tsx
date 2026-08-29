@@ -1,5 +1,6 @@
 "use client";
 
+import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { useState } from "react";
 import { Button, Input, Label, TextField } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
@@ -37,7 +38,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
   if (done) {
     return (
-      <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
+      <div className={FORM_CARD_CLASS}>
         <h1 className="text-2xl font-semibold">Password reset</h1>
         <p className="text-sm text-muted">
           Your password has been reset. <AppLink href="/sign-in">Sign in</AppLink>{" "}
@@ -50,7 +51,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6"
+      className={FORM_CARD_CLASS}
     >
       <h1 className="text-2xl font-semibold">Reset Password</h1>
       <TextField

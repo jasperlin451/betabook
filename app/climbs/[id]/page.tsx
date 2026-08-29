@@ -136,11 +136,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                   ? [
                       {
                         key: "breakdown",
-                        heading: (
-                          <span className="text-xs font-semibold tracking-wide text-muted uppercase">
-                            Ascent breakdown
-                          </span>
-                        ),
+                        heading: <Eyebrow>Ascent breakdown</Eyebrow>,
                         stats: loggedBreakdown.map(([type, count]) => ({
                           label: type,
                           value: count,

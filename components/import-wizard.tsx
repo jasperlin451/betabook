@@ -1,5 +1,6 @@
 "use client";
 
+import { FIELD_CLASS } from "@/components/ui/field";
 import { useMemo, useState, useTransition } from "react";
 import { Button, Label, TextField } from "@heroui/react";
 import { importSends, type ImportResult } from "@/db/mutations";
@@ -226,7 +227,7 @@ export function ImportWizard() {
                 onChange={(e) =>
                   setColumnMapping({ ...columnMapping, [key]: e.target.value || null })
                 }
-                className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+                className={FIELD_CLASS}
               >
                 <option value="">— None —</option>
                 {parsedCsv.headers.map((header) => (
@@ -257,7 +258,7 @@ export function ImportWizard() {
                         [value]: e.target.value as AscentStyle | "skip",
                       })
                     }
-                    className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+                    className={FIELD_CLASS}
                   >
                     {ASCENT_STYLES.map((t) => (
                       <option key={t} value={t}>
@@ -287,7 +288,7 @@ export function ImportWizard() {
                         [value]: e.target.value as (typeof CLIMB_TYPES)[number] | "skip",
                       })
                     }
-                    className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+                    className={FIELD_CLASS}
                   >
                     {CLIMB_TYPES.map((t) => (
                       <option key={t} value={t}>
@@ -307,7 +308,7 @@ export function ImportWizard() {
               <select
                 value={dateFormat}
                 onChange={(e) => setDateFormat(e.target.value as DateFormat)}
-                className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+                className={FIELD_CLASS}
               >
                 <option value="iso">YYYY-MM-DD</option>
                 <option value="mdy">MM/DD/YYYY</option>
@@ -322,7 +323,7 @@ export function ImportWizard() {
               <select
                 value={gradeScale}
                 onChange={(e) => setGradeScale(e.target.value as "native" | "converted")}
-                className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+                className={FIELD_CLASS}
               >
                 <option value="native">Native (V-scale / YDS)</option>
                 <option value="converted">Converted (Font / French)</option>

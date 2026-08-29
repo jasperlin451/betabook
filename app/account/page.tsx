@@ -1,3 +1,4 @@
+import { FORM_CARD_CLASS } from "@/components/ui/card";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
@@ -20,7 +21,7 @@ export default async function AccountPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
+    <div className={FORM_CARD_CLASS}>
       <h1 className="text-2xl font-semibold">Account</h1>
       <p className="text-sm text-muted">Signed in as {session.user.email}</p>
       <AppLink href={`/users/${session.user.id}`}>View my profile</AppLink>

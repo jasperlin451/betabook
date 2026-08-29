@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { UserSendList, UserSendsFilterPanel } from "@/components/user-send-list";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { getAreaBreadcrumbs, getSendsForUserPage, getUser, getUserSendsSummary } from "@/db/queries";
 import { getDb } from "@/db/client";
@@ -73,11 +74,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
       ? [
           {
             key: "glance",
-            heading: (
-              <span className="text-xs font-semibold tracking-wide text-muted uppercase">
-                Log at a glance
-              </span>
-            ),
+            heading: <Eyebrow>Log at a glance</Eyebrow>,
             stats: [
               { label: "Latest send", value: formatDate(summary.latestSendDate) },
               ...(summary.mostLoggedDiscipline

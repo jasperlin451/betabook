@@ -1,5 +1,6 @@
 "use client";
 
+import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { useState } from "react";
 import { Button, Input, Label, TextField } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
@@ -61,7 +62,7 @@ export function SignUpForm({ next }: { next?: string }) {
 
   if (done) {
     return (
-      <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
+      <div className={FORM_CARD_CLASS}>
         <h1 className="text-lg font-semibold">Check your email</h1>
         <p className="text-sm text-muted">
           We sent a verification link to {email}. Verify your address, then{" "}
@@ -82,7 +83,7 @@ export function SignUpForm({ next }: { next?: string }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6"
+      className={FORM_CARD_CLASS}
     >
       <h1 className="text-lg font-semibold">Sign Up</h1>
       <TextField value={name} onChange={setName} isRequired>

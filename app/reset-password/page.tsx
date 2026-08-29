@@ -1,3 +1,4 @@
+import { FORM_CARD_CLASS } from "@/components/ui/card";
 import type { Metadata } from "next";
 import { ResetPasswordForm } from "@/components/reset-password-form";
 import { AppLink } from "@/components/ui/app-link";
@@ -21,7 +22,7 @@ export default async function ResetPasswordPage({
   // up front instead of after the user has typed a new password twice.
   if (!token || error) {
     return (
-      <div className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6">
+      <div className={FORM_CARD_CLASS}>
         <h1 className="text-lg font-semibold">Invalid reset link</h1>
         <p className="text-sm text-muted">
           This password reset link is invalid or has expired.{" "}

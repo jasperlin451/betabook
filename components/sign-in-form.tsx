@@ -1,5 +1,6 @@
 "use client";
 
+import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Label, TextField } from "@heroui/react";
@@ -85,7 +86,7 @@ export function SignInForm({ next }: { next?: string }) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mx-auto flex max-w-sm flex-col gap-4 rounded-xl bg-surface-secondary p-6"
+      className={FORM_CARD_CLASS}
     >
       <h1 className="text-lg font-semibold">Sign In</h1>
       <TextField value={email} onChange={handleEmailChange} type="email" isRequired>

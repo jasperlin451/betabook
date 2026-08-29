@@ -130,6 +130,10 @@
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* The guidebook display voice — Barlow Condensed (loaded in
+     app/layout.tsx), reserved for the wordmark, page titles, and entity
+     names. Body/UI stays on Geist Sans; data on Geist Mono. */
+  --font-display: var(--font-barlow-condensed);
 
   /* Raw palette as utilities (bg-palette-primary, text-palette-support, …)
      for the rare spot that wants a fixed brand color regardless of theme. */

@@ -2,7 +2,7 @@
 
 import { Button, Drawer } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
-import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
+import { CONFIRM_DRAWER_WIDTH_CLASS } from "@/components/ui/layout";
 
 type DeleteSendDrawerProps = {
   state: UseOverlayStateReturn;
@@ -17,7 +17,7 @@ export function DeleteSendDrawer({ state, onConfirm, isPending }: DeleteSendDraw
     <Drawer.Root state={state}>
       <Drawer.Backdrop>
         <Drawer.Content>
-          <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
+          <Drawer.Dialog className={`mx-auto w-full ${CONFIRM_DRAWER_WIDTH_CLASS}`}>
             <Drawer.Header>
               <Drawer.Heading>Delete this send?</Drawer.Heading>
               <Drawer.CloseTrigger />

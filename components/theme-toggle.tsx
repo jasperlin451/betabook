@@ -1,7 +1,48 @@
 "use client";
 
-import { ListBox, Select, Skeleton, useTheme } from "@heroui/react";
+import { Button, ListBox, Select, Skeleton, useTheme } from "@heroui/react";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { useMounted } from "@/hooks/use-mounted";
+
+const THEME_CYCLE = ["light", "dark", "system"] as const;
+type ThemeName = (typeof THEME_CYCLE)[number];
+
+const THEME_ICON: Record<ThemeName, typeof Sun> = {
+  light: Sun,
+  dark: Moon,
+  system: Monitor,
+};
+
+/** Compact header theme control: one icon button cycling light → dark →
+ * system. The full three-option Select stays on /account (ThemeToggle
+ * below) for anyone who wants to pick directly. */
+export function ThemeSwitch() {
+  const mounted = useMounted();
+  const { theme, setTheme } = useTheme("system");
+
+  if (!mounted) {
+    // Same footprint as the icon button below so the header doesn't shift.
+    return <Skeleton animationType="pulse" className="size-9 rounded-lg" aria-hidden />;
+  }
+
+  const current: ThemeName = THEME_CYCLE.includes(theme as ThemeName)
+    ? (theme as ThemeName)
+    : "system";
+  const next = THEME_CYCLE[(THEME_CYCLE.indexOf(current) + 1) % THEME_CYCLE.length];
+  const Icon = THEME_ICON[current];
+
+  return (
+    <Button
+      isIconOnly
+      variant="ghost"
+      size="sm"
+      aria-label={`Theme: ${current}. Switch to ${next}.`}
+      onPress={() => setTheme(next)}
+    >
+      <Icon className="size-4" />
+    </Button>
+  );
+}
 
 export function ThemeToggle() {
   // `theme` is only known client-side, so we gate on `mounted` to keep the

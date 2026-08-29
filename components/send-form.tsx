@@ -1,5 +1,7 @@
 "use client";
 
+import { SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { FIELD_CLASS } from "@/components/ui/field";
 import { useState, useTransition } from "react";
 import { Button, ButtonGroup, Label, TextArea, TextField } from "@heroui/react";
 import { createSend, updateSend } from "@/db/mutations";
@@ -81,14 +83,14 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6"
+      className={SURFACE_CARD_CLASS}
     >
       <TextField>
         <Label>Ascent Style</Label>
         <select
           value={ascentStyle}
           onChange={(e) => setAscentStyle(e.target.value as AscentStyle)}
-          className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+          className={FIELD_CLASS}
         >
           {ASCENT_STYLES.map((style) => (
             <option key={style} value={style}>
@@ -105,7 +107,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
           value={dateSent}
           max={today}
           onChange={(e) => setDateSent(e.target.value)}
-          className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+          className={FIELD_CLASS}
         />
       </TextField>
 
@@ -114,7 +116,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         <select
           value={rating}
           onChange={(e) => setRating(e.target.value)}
-          className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+          className={FIELD_CLASS}
         >
           <option value="abstain">No rating</option>
           {[1, 2, 3, 4, 5].map((n) => (
@@ -130,7 +132,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         <select
           value={suggestedGrade}
           onChange={(e) => setSuggestedGrade(e.target.value)}
-          className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+          className={FIELD_CLASS}
         >
           {gradeOptions.map((label, i) => (
             <option key={i} value={i}>

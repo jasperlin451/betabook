@@ -1,5 +1,6 @@
 "use client";
 
+import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { Input, Label, TextField } from "@heroui/react";
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
@@ -32,7 +33,7 @@ export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
   });
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6">
+    <div className={SURFACE_CARD_CLASS}>
       <TextField value={name} onChange={setName}>
         <Label>Area Name</Label>
         <Input placeholder="Search area..." className="bg-surface" />
