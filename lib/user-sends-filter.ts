@@ -16,11 +16,11 @@ const USER_SENDS_SORTS: UserSendsSort[] = [
 ];
 
 /** Upper bound on /api/users/[id]/sends's `limit` param, shared by the
- * route (which clamps to it) and UserSendList's post-mutation reconcile
+ * route (which clamps to it), UserSendList's post-mutation reconcile
  * (which won't request beyond it — see the reconcile comment there for the
- * fallback when more rows than this are loaded). Sized for "many load-more
- * clicks", not "arbitrary bulk fetch" (the CSV export server action covers
- * that). */
+ * fallback when more rows than this are loaded), and ExportSendsButton's
+ * paged CSV export (which requests exactly this per page). Sized for "one
+ * bounded request", not "arbitrary bulk fetch". */
 export const MAX_USER_SENDS_LIMIT = 200;
 
 // No disciplines checked means "don't filter on discipline or grade at

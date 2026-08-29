@@ -1,12 +1,13 @@
 import { Link } from "@heroui/react";
 import clsx from "clsx";
 import { AreaSearchForm, ClimbSearchForm, ClimbSearchSortControl } from "@/components/search-form";
-import { AreaList } from "@/components/area-list";
-import { ClimbList } from "@/components/climb-list";
+import { AreaSearchResults, ClimbSearchResults } from "@/components/search-results";
 import { NavigationPendingProvider, NavigationPendingRegion } from "@/components/navigation-pending";
 import { PageWithStats } from "@/components/ui/page-shell";
 import { getDb } from "@/db/client";
 import {
+  countSearchAreas,
+  countSearchClimbs,
   getAreaBreadcrumbs,
   getClimbSendStats,
   getUserSentClimbIds,
@@ -33,8 +34,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   if (mode === "area") {
     const name = typeof params.name === "string" ? params.name : "";
-    const results = name ? await searchAreas(db, name) : [];
-    const areaBreadcrumbs = await getAreaBreadcrumbs(db, results.map((a) => a.id));
+    // Only the first page is server-rendered — AreaSearchResults fetches
+    // subsequent pages itself via "load more" (see app/api/search/areas).
+    const [results, totalCount] = name
+      ? await Promise.all([searchAreas(db, name), countSearchAreas(db, name)])
+      : [{ areas: [], hasNextPage: false }, 0];
+    const areaBreadcrumbs = await getAreaBreadcrumbs(db, results.areas.map((a) => a.id));
 
     const currentSearch = new URLSearchParams({ mode: "area" });
     if (name) currentSearch.set("name", name);
@@ -52,12 +57,17 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             }
           >
             <section className="flex flex-col gap-2">
-              <h2 className="text-lg font-medium">Results</h2>
+              <h2 className="text-lg font-medium">
+                Results
+                {name && <ResultCount count={totalCount} />}
+              </h2>
               <NavigationPendingRegion>
-                <AreaList
-                  areas={results}
-                  variant="search"
-                  areaBreadcrumbs={areaBreadcrumbs}
+                <AreaSearchResults
+                  key={name}
+                  name={name}
+                  initialAreas={results.areas}
+                  initialHasNextPage={results.hasNextPage}
+                  initialAreaBreadcrumbs={areaBreadcrumbs}
                   emptyMessage={name ? `No areas matching "${name}".` : "Search for an area by name."}
                 />
               </NavigationPendingRegion>
@@ -73,11 +83,17 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   // No disciplines checked means the discipline/grade filter isn't active —
   // searchClimbs already matches everything when `disciplines` is empty.
-  const results = await searchClimbs(db, toSearchClimbsQueryParams(filter, sort));
+  // Only the first page is server-rendered — ClimbSearchResults fetches
+  // subsequent pages itself via "load more" (see app/api/search/climbs).
+  const queryParams = toSearchClimbsQueryParams(filter, sort);
+  const [results, totalCount] = await Promise.all([
+    searchClimbs(db, queryParams),
+    countSearchClimbs(db, queryParams),
+  ]);
   const session = await getSession();
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
-    getClimbSendStats(db, results.map((c) => c.id)),
-    getAreaBreadcrumbs(db, results.map((c) => c.areaId)),
+    getClimbSendStats(db, results.climbs.map((c) => c.id)),
+    getAreaBreadcrumbs(db, results.climbs.map((c) => c.areaId)),
     session ? getUserSentClimbIds(db, session.user.id) : Promise.resolve(undefined),
   ]);
 
@@ -99,22 +115,39 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         >
           <section className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">Results</h2>
+              <h2 className="text-lg font-medium">
+                Results
+                <ResultCount count={totalCount} />
+              </h2>
               <ClimbSearchSortControl sort={sort} filter={filter} />
             </div>
             <NavigationPendingRegion>
-              <ClimbList
-                climbs={results}
-                sendStats={sendStats}
-                areaBreadcrumbs={areaBreadcrumbs}
+              <ClimbSearchResults
+                key={climbSearchFilterToSearchParams(sort, filter).toString()}
+                sort={sort}
+                filter={filter}
+                initialClimbs={results.climbs}
+                initialHasNextPage={results.hasNextPage}
+                initialSendStats={sendStats}
+                initialAreaBreadcrumbs={areaBreadcrumbs}
                 sentClimbIds={sentClimbIds}
-                emptyMessage="No climbs match your search."
               />
             </NavigationPendingRegion>
           </section>
         </PageWithStats>
       </div>
     </NavigationPendingProvider>
+  );
+}
+
+/** The match total shown next to the "Results" heading — an exact COUNT(*)
+ * computed alongside the first page's query (see countSearchClimbs), so
+ * "load more" is visibly worth pressing instead of results silently capping. */
+function ResultCount({ count }: { count: number }) {
+  return (
+    <span className="text-muted ml-1.5 text-sm font-normal">
+      ({count.toLocaleString("en-US")})
+    </span>
   );
 }
 

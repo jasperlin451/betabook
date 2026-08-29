@@ -1,9 +1,10 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
+import { climbs } from "@/db/schema";
 import {
-  getAllSendsForUser,
   getClimbSendStats,
+  getClimbSendSummary,
   getSendsForClimb,
   getSendsForUserPage,
   getUserSendForClimb,
@@ -68,13 +69,24 @@ describe("getUserSendForClimb", () => {
 
 describe("getSendsForClimb", () => {
   it("returns every user's send for the climb, newest dateSent first", async () => {
-    const results = await getSendsForClimb(db, 1);
-    expect(results.map((s) => s.userName)).toEqual(["Bob Climber", "Alice Climber"]);
+    const { sends, hasMore } = await getSendsForClimb(db, 1);
+    expect(sends.map((s) => s.userName)).toEqual(["Bob Climber", "Alice Climber"]);
+    expect(hasMore).toBe(false);
   });
 
-  it("returns an empty array for a climb with no sends", async () => {
+  it("returns an empty page for a climb with no sends", async () => {
     const results = await getSendsForClimb(db, 3);
-    expect(results).toEqual([]);
+    expect(results).toEqual({ sends: [], hasMore: false });
+  });
+
+  it("paginates with an offset and page size, reporting hasMore", async () => {
+    const page1 = await getSendsForClimb(db, 1, 0, 1);
+    expect(page1.sends.map((s) => s.userName)).toEqual(["Bob Climber"]);
+    expect(page1.hasMore).toBe(true);
+
+    const page2 = await getSendsForClimb(db, 1, 1, 1);
+    expect(page2.sends.map((s) => s.userName)).toEqual(["Alice Climber"]);
+    expect(page2.hasMore).toBe(false);
   });
 });
 
@@ -335,24 +347,6 @@ describe("getSendsForUserPage", () => {
   });
 });
 
-describe("getAllSendsForUser", () => {
-  it("returns every send for the user, newest dateSent first, unpaginated", async () => {
-    const results = await getAllSendsForUser(db, "test-user-1");
-    expect(results.map((s) => s.climbName)).toEqual(["Test Slab", "Test Highball"]);
-  });
-
-  it("doesn't leak another user's sends", async () => {
-    const results = await getAllSendsForUser(db, "test-user-2");
-    expect(results.map((s) => s.climbName)).toEqual(["Test Highball"]);
-  });
-
-  it("returns an empty array for a user with no sends", async () => {
-    await seedFixtureUser(db, { id: "test-user-13", name: "No Sends For Export" });
-    const results = await getAllSendsForUser(db, "test-user-13");
-    expect(results).toEqual([]);
-  });
-});
-
 describe("getUserSendsSummary", () => {
   it("summarizes send count, distinct areas, and peak grade in the most-logged discipline", async () => {
     expect(await getUserSendsSummary(db, "test-user-1")).toEqual({
@@ -584,8 +578,9 @@ describe("getSendsForUserPage ascentStyles/minRating filtering", () => {
 // columns (date/grade/rating) is unique, so without the `sends.id`
 // tie-breaker in the ORDER BY, sends sharing the sorted value have no
 // defined relative order and can duplicate or vanish across pages. Placed
-// last in the file for the same fixture-history reason as the describe
-// above — this seeds more sends on climbs 1-3. Nothing runs after this.
+// near the end of the file for the same fixture-history reason as the
+// describe above — this seeds more sends on climbs 1-3. Only the
+// climb-sends describes below (which seed their own climb) run after this.
 describe("getSendsForUserPage tie-breaking across pages", () => {
   beforeAll(async () => {
     await seedFixtureUser(db, { id: "test-user-17", name: "Tie Breaker" });
@@ -611,11 +606,123 @@ describe("getSendsForUserPage tie-breaking across pages", () => {
       hasMore = page.hasMore;
     }
 
-    const allIds = (await getAllSendsForUser(db, "test-user-17")).map((s) => s.id);
+    // One oversized page as the reference set for what paging must cover.
+    const allIds = (
+      await getSendsForUserPage(db, "test-user-17", ALL_SENDS_FILTER, 0, 100)
+    ).sends.map((s) => s.id);
     expect(pagedIds.length).toBe(3);
     expect(new Set(pagedIds).size).toBe(3);
     expect(new Set(pagedIds)).toEqual(new Set(allIds));
     // Within the tied date, order is the deterministic sends.id ascending.
     expect(pagedIds).toEqual([...pagedIds].sort((a, b) => a - b));
+  });
+});
+
+// Both describes below seed sends only on their own freshly inserted climb,
+// so they can't disturb the cumulative per-climb counts asserted "by this
+// point" anywhere above. Nothing runs after these.
+describe("getSendsForClimb tie-breaking across pages", () => {
+  const CLIMB_ID = 50;
+
+  beforeAll(async () => {
+    await db.insert(climbs).values({
+      id: CLIMB_ID,
+      areaId: 3, // Test Sport Wall
+      name: "Test Tie Break Route",
+      type: "sport",
+      grade: 8,
+      lft: 8,
+      rght: 9,
+    });
+    // Three sends sharing the same dateSent — under the newest-first order,
+    // only the sends.id tie-breaker gives them a defined relative order.
+    for (let i = 1; i <= 3; i++) {
+      await seedFixtureUser(db, { id: `test-user-climb-ties-${i}`, name: `Climb Ties ${i}` });
+      await seedFixtureSend(db, {
+        userId: `test-user-climb-ties-${i}`,
+        climbId: CLIMB_ID,
+        dateSent: "2026-08-20",
+      });
+    }
+  });
+
+  it("pages over sends sharing a date without duplicating or skipping any", async () => {
+    const pagedIds: number[] = [];
+    let offset = 0;
+    let hasMore = true;
+    while (hasMore) {
+      const page = await getSendsForClimb(db, CLIMB_ID, offset, 1);
+      pagedIds.push(...page.sends.map((s) => s.id));
+      offset += page.sends.length;
+      hasMore = page.hasMore;
+    }
+
+    expect(pagedIds.length).toBe(3);
+    expect(new Set(pagedIds).size).toBe(3);
+    // Within the tied date, order is the deterministic sends.id ascending.
+    expect(pagedIds).toEqual([...pagedIds].sort((a, b) => a - b));
+  });
+});
+
+describe("getClimbSendSummary", () => {
+  const CLIMB_ID = 51;
+
+  beforeAll(async () => {
+    await db.insert(climbs).values({
+      id: CLIMB_ID,
+      areaId: 3, // Test Sport Wall
+      name: "Test Summary Route",
+      type: "sport",
+      grade: 9,
+      lft: 8,
+      rght: 9,
+    });
+    await seedFixtureUser(db, { id: "test-user-summary-1", name: "Summary One" });
+    await seedFixtureUser(db, { id: "test-user-summary-2", name: "Summary Two" });
+    await seedFixtureUser(db, { id: "test-user-summary-3", name: "Summary Three" });
+    await seedFixtureSend(db, {
+      userId: "test-user-summary-1",
+      climbId: CLIMB_ID,
+      dateSent: "2026-08-01",
+      ascentStyle: "flash",
+      rating: 4,
+      suggestedGrade: 9,
+    });
+    await seedFixtureSend(db, {
+      userId: "test-user-summary-2",
+      climbId: CLIMB_ID,
+      dateSent: "2026-08-02",
+      ascentStyle: "redpoint",
+      rating: 2,
+    });
+    await seedFixtureSend(db, {
+      userId: "test-user-summary-3",
+      climbId: CLIMB_ID,
+      dateSent: "2026-08-03",
+      ascentStyle: "flash",
+      suggestedGrade: 9,
+      gradeFeel: "high",
+    });
+  });
+
+  it("aggregates the whole history: count, rating, suggested grade, and style breakdown", async () => {
+    const summary = await getClimbSendSummary(db, CLIMB_ID);
+    expect(summary.sendCount).toBe(3);
+    expect(summary.avgRating).toBe(3); // (4 + 2) / 2, nulls ignored
+    expect(summary.avgSuggestedGrade).toBeCloseTo(9.15, 5); // (9 + 9.3) / 2
+    expect(summary.styleBreakdown).toEqual({
+      flash: 2,
+      redpoint: 1,
+      onsight: 0,
+    });
+  });
+
+  it("returns zeroed/null stats for a climb with no sends", async () => {
+    expect(await getClimbSendSummary(db, 999_999)).toEqual({
+      sendCount: 0,
+      avgRating: null,
+      avgSuggestedGrade: null,
+      styleBreakdown: { flash: 0, redpoint: 0, onsight: 0 },
+    });
   });
 });

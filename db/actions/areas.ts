@@ -7,5 +7,8 @@ import { searchAreas } from "@/db/queries";
 export async function searchAreasForPicker(name: string) {
   await requireSession();
   const db = await getDb();
-  return searchAreas(db, name);
+  // The picker is a top-matches typeahead, not a browsable list — the first
+  // page is plenty, and refining the query is how a user narrows it.
+  const { areas } = await searchAreas(db, name);
+  return areas;
 }

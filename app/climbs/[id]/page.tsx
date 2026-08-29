@@ -9,8 +9,14 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageWithStats } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { RatingStars } from "@/components/ui/rating-stars";
-import { averageRating, ascentStyleBreakdown, averageSuggestedGrade } from "@/lib/send-stats";
-import { getAncestors, getArea, getClimb, getSendsForClimb, getUserSendForClimb } from "@/db/queries";
+import {
+  getAncestors,
+  getArea,
+  getClimb,
+  getClimbSendSummary,
+  getSendsForClimb,
+  getUserSendForClimb,
+} from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
 import { missingDescriptionMessage } from "@/lib/descriptions";
 import { getDb } from "@/db/client";
@@ -37,15 +43,16 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   const ancestors = await getAncestors(db, area);
 
   const session = await getSession();
-  const userSend = session
-    ? ((await getUserSendForClimb(db, session.user.id, climb.id)) ?? null)
-    : null;
-  const climbSends = await getSendsForClimb(db, climb.id);
+  // Stats come from whole-history aggregates and the list from a paginated
+  // query — a popular climb's full send history never ships in the RSC
+  // payload (ClimbSendList "load more"-fetches the rest on demand).
+  const [userSend, sendsPage, summary] = await Promise.all([
+    session ? getUserSendForClimb(db, session.user.id, climb.id) : Promise.resolve(null),
+    getSendsForClimb(db, climb.id),
+    getClimbSendSummary(db, climb.id),
+  ]);
 
-  const rating = averageRating(climbSends);
-  const avgSuggestedGrade = averageSuggestedGrade(climbSends);
-  const breakdown = ascentStyleBreakdown(climbSends);
-  const loggedBreakdown = Object.entries(breakdown).filter(([, count]) => count > 0);
+  const loggedBreakdown = Object.entries(summary.styleBreakdown).filter(([, count]) => count > 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -77,10 +84,10 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                   stats: [
                     {
                       label: "Community rating",
-                      value: <RatingStars rating={rating} precision="decimal" />,
+                      value: <RatingStars rating={summary.avgRating} precision="decimal" />,
                     },
-                    { label: "Logged ascents", value: climbSends.length },
-                    ...(avgSuggestedGrade != null
+                    { label: "Logged ascents", value: summary.sendCount },
+                    ...(summary.avgSuggestedGrade != null
                       ? [
                           {
                             label: "Suggested grade",
@@ -88,7 +95,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                               <GradeWithTrend
                                 type={climb.type}
                                 grade={climb.grade}
-                                avgSuggestedGrade={avgSuggestedGrade}
+                                avgSuggestedGrade={summary.avgSuggestedGrade}
                               />
                             ),
                           },
@@ -120,7 +127,12 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
       >
         <div className="flex flex-col gap-4">
           <h2 className="text-lg font-semibold">Sends</h2>
-          <ClimbSendList sends={climbSends} climb={climb} currentUserId={session?.user.id} />
+          <ClimbSendList
+            climb={climb}
+            initialSends={sendsPage.sends}
+            initialHasMore={sendsPage.hasMore}
+            currentUserId={session?.user.id}
+          />
         </div>
       </PageWithStats>
     </div>

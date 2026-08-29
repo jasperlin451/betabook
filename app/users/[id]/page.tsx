@@ -77,11 +77,10 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold">{user.name}</h1>
 
-      {/* Three regions with independent mobile/desktop placement — a plain
-       * two-slot side-by-side layout can't express "filter leads on mobile,
-       * but stats trail on mobile while both share the desktop sidebar" —
-       * so the stats card renders twice (cheap, pure) and each copy is
-       * shown/hidden per breakpoint via Tailwind's responsive display.
+      {/* The sidebar (filters + stats) leads on mobile and sits right of the
+       * list on desktop, via order-* — a single render of the stats card, so
+       * the headline stats aren't buried below the infinite send list on
+       * mobile and don't appear twice in the accessibility tree.
        *
        * The provider links the filter panel's in-flight navigation to the
        * send list it re-fetches, which dims while pending. */}
@@ -93,9 +92,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
                 <UserSendsFilterPanel userId={id} filter={filter} />
               </CollapsibleSection>
             )}
-            <div className="hidden lg:block">
-              <StatStrip cards={statCards} />
-            </div>
+            <StatStrip cards={statCards} />
           </div>
 
           <div className="order-2 flex min-w-0 flex-1 flex-col gap-4 lg:order-1">
@@ -109,10 +106,6 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
               hasAnySends={summary.sendCount > 0}
               currentUserId={session?.user.id}
             />
-          </div>
-
-          <div className="order-3 lg:hidden">
-            <StatStrip cards={statCards} />
           </div>
         </div>
       </NavigationPendingProvider>

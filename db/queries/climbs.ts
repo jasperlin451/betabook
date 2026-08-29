@@ -238,15 +238,22 @@ export type SearchClimbsParams = DisciplineGradeFilter &
 
 export type ClimbWithAreaName = Climb & { areaName: string };
 
-export async function searchClimbs(
-  db: Database,
-  params: SearchClimbsParams,
-): Promise<ClimbWithAreaName[]> {
+/** Search pages are smaller than the area page's PAGE_SIZE — the search
+ * surface renders richer per-row context (breadcrumbs, send stats) for
+ * results spanning the whole database, so the first paint stays light and
+ * "load more" (see /api/search/climbs) fetches the rest on demand. */
+export const SEARCH_PAGE_SIZE = 25;
+
+/** The shared WHERE fragments for `searchClimbs`/`countSearchClimbs`, so the
+ * page and its count can never drift apart. Returns `null` when the name has
+ * no matchable FTS tokens — "matches nothing", as distinct from `[]`, which
+ * means "no filtering at all". */
+function searchClimbsConditions(params: SearchClimbsParams): SQL[] | null {
   const conditions: SQL[] = [];
 
   if (params.name) {
     const nameQuery = toFtsPrefixQuery(params.name);
-    if (!nameQuery) return [];
+    if (!nameQuery) return null;
     conditions.push(
       sql`climbs.id IN (SELECT rowid FROM climbs_fts WHERE climbs_fts MATCH ${nameQuery})`,
     );
@@ -261,15 +268,31 @@ export async function searchClimbs(
   }
   conditions.push(...climbStatsConditions(params));
 
-  const whereClause =
-    conditions.length > 0
-      ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
-      : sql``;
+  return conditions;
+}
+
+function searchClimbsWhereClause(conditions: SQL[]): SQL {
+  return conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
+}
+
+export type SearchClimbsPage = { climbs: ClimbWithAreaName[]; hasNextPage: boolean };
+
+export async function searchClimbs(
+  db: Database,
+  params: SearchClimbsParams,
+  page = 1,
+): Promise<SearchClimbsPage> {
+  const conditions = searchClimbsConditions(params);
+  if (conditions === null) return { climbs: [], hasNextPage: false };
 
   // Explicit column aliases, not `climbs.*` — a raw-SQL wildcard returns
   // SQLite's actual (snake_case) column names, not drizzle's camelCase
   // field names, so `area_id` would come back as `area_id`, not `areaId`.
-  return db.all<ClimbWithAreaName>(sql`
+  //
+  // Fetch one extra row to detect a next page without a separate COUNT query
+  // (the count exists — see countSearchClimbs — but only the first
+  // server-rendered page pays for it, not every "load more").
+  const rows = await db.all<ClimbWithAreaName>(sql`
     SELECT
       climbs.id AS id,
       climbs.area_id AS areaId,
@@ -279,8 +302,34 @@ export async function searchClimbs(
       areas.name AS areaName
     FROM climbs
     JOIN areas ON areas.id = climbs.area_id
-    ${whereClause}
+    ${searchClimbsWhereClause(conditions)}
     ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[params.sort ?? "ascents_desc"]}, climbs.id
-    LIMIT 25
+    LIMIT ${SEARCH_PAGE_SIZE + 1}
+    OFFSET ${(page - 1) * SEARCH_PAGE_SIZE}
   `);
+
+  return {
+    climbs: rows.slice(0, SEARCH_PAGE_SIZE),
+    hasNextPage: rows.length > SEARCH_PAGE_SIZE,
+  };
+}
+
+/** Exact match count for the same conditions as `searchClimbs` — a single
+ * aggregate over index/FTS-backed predicates, cheap relative to the page
+ * query itself, so the search heading can show a real total instead of a
+ * silent cap. */
+export async function countSearchClimbs(
+  db: Database,
+  params: SearchClimbsParams,
+): Promise<number> {
+  const conditions = searchClimbsConditions(params);
+  if (conditions === null) return 0;
+
+  const [row] = await db.all<{ count: number }>(sql`
+    SELECT COUNT(*) AS count
+    FROM climbs
+    JOIN areas ON areas.id = climbs.area_id
+    ${searchClimbsWhereClause(conditions)}
+  `);
+  return row?.count ?? 0;
 }

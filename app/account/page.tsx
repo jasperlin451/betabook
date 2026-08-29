@@ -19,7 +19,7 @@ export default async function AccountPage() {
       <p className="text-sm text-muted">Signed in as {session.user.email}</p>
       <Link href={`/users/${session.user.id}`}>View my profile</Link>
       <Link href="/account/import">Import Sends</Link>
-      <ExportSendsButton />
+      <ExportSendsButton userId={session.user.id} />
       <ResetPasswordButton email={session.user.email} />
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm text-muted">Theme</span>
