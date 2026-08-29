@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@heroui/react";
+import { FormError } from "@/components/ui/form-error";
 import { exportSendsCsv } from "@/db/actions";
 
 export function ExportSendsButton() {
@@ -31,7 +32,7 @@ export function ExportSendsButton() {
       <Button onPress={handlePress} isDisabled={isPending}>
         {isPending ? "Exporting..." : "Export Sends"}
       </Button>
-      {error && <p className="text-sm text-danger">{error}</p>}
+      <FormError>{error}</FormError>
     </div>
   );
 }

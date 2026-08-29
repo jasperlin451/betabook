@@ -5,6 +5,7 @@ import type { UseOverlayStateReturn } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { AreaForm } from "@/components/area-form";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
+import { announce } from "@/components/ui/status-announcer";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import type { Area } from "@/db/queries";
 
@@ -25,7 +26,13 @@ export function AreaFormDrawer({ parentId, area, state }: AreaFormDrawerProps) {
   function handleDone(areaId: number) {
     // A successful save isn't a discard — close without the prompt.
     guard.closeWithoutPrompt();
-    if (!area) router.push(`/areas/${areaId}`);
+    // Editing closes in place with no visual cue, so tell screen readers;
+    // creating navigates to the new area, which is its own cue.
+    if (area) {
+      announce("Changes saved.");
+    } else {
+      router.push(`/areas/${areaId}`);
+    }
   }
 
   return (

@@ -6,6 +6,7 @@ import { Label, Menu, Tooltip, useOverlayState } from "@heroui/react";
 import { ClimbFormDrawer } from "@/components/climb-form-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
 import { ConfirmDrawer } from "@/components/ui/confirm-drawer";
+import { announce } from "@/components/ui/status-announcer";
 import { deleteClimb } from "@/db/mutations";
 import type { Climb } from "@/db/queries";
 
@@ -34,6 +35,7 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
         return;
       }
       deleteState.close();
+      announce("Climb deleted.");
       router.push(`/areas/${climb.areaId}`);
     });
   }

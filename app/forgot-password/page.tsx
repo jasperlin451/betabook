@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button, Input, Label, Link, TextField } from "@heroui/react";
+import { FormError } from "@/components/ui/form-error";
 import { authClient } from "@/lib/auth-client";
 
 export default function ForgotPasswordPage() {
@@ -50,7 +51,7 @@ export default function ForgotPasswordPage() {
         <Label>Email</Label>
         <Input placeholder="you@example.com" className="bg-surface" />
       </TextField>
-      {error && <p className="text-sm text-danger">{error}</p>}
+      <FormError>{error}</FormError>
       <Button type="submit" fullWidth isDisabled={pending}>
         Send Reset Link
       </Button>

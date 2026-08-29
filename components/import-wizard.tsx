@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Button, Label, TextField } from "@heroui/react";
+import { useId, useMemo, useState, useTransition } from "react";
+import { Button, Label, ListBox, Select } from "@heroui/react";
+import { FormError } from "@/components/ui/form-error";
+import { announce } from "@/components/ui/status-announcer";
 import { importSends, type ImportResult } from "@/db/mutations";
 import { ASCENT_STYLES, type AscentStyle } from "@/lib/sends";
 import {
@@ -38,6 +40,11 @@ const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string; required: boolea
   { key: "comment", label: "Comment", required: false },
 ];
 
+/** Sentinel key for "this field has no CSV column" — react-aria Select keys
+ * must be non-null to be selectable, so `null` in the mapping round-trips
+ * through this. */
+const NO_COLUMN = "__none__";
+
 type ImportProgress = {
   completed: number;
   total: number;
@@ -54,6 +61,10 @@ export function ImportWizard() {
   const [step, setStep] = useState<Step>("upload");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const fileInputId = useId();
+  const ascentValuesHeadingId = useId();
+  const climbTypeValuesHeadingId = useId();
 
   const [parsedCsv, setParsedCsv] = useState<ParsedCsv | null>(null);
   const [columnMapping, setColumnMapping] = useState<ColumnMapping | null>(null);
@@ -157,6 +168,11 @@ export function ImportWizard() {
 
       setImportResult({ imported, alreadyLogged, notFound, batchErrors });
       setStep("result");
+      const failed =
+        notFound.length + batchErrors.reduce((n, b) => n + b.rows.length, 0);
+      announce(
+        `Import finished: ${imported} imported, ${alreadyLogged} already logged, ${failed} not imported.`,
+      );
     });
   }
 
@@ -195,7 +211,7 @@ export function ImportWizard() {
     <div className="flex flex-col gap-6 rounded-xl bg-surface-secondary p-6">
       <h1 className="text-lg font-semibold">Import Sends from CSV</h1>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      <FormError>{error}</FormError>
 
       {step === "upload" && (
         <div className="flex flex-col gap-4">
@@ -203,7 +219,10 @@ export function ImportWizard() {
             Upload a CSV export of your climbing log. You&apos;ll be able to map its columns
             and clarify a few ambiguous values before anything is imported.
           </p>
-          <input type="file" accept=".csv" onChange={handleFileChange} />
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={fileInputId}>CSV file</Label>
+            <input id={fileInputId} type="file" accept=".csv" onChange={handleFileChange} />
+          </div>
         </div>
       )}
 
@@ -213,26 +232,36 @@ export function ImportWizard() {
             Which column in your CSV holds each field? ({parsedCsv.rows.length} rows found)
           </p>
           {COLUMN_FIELDS.map(({ key, label, required }) => (
-            <TextField key={key}>
+            <Select
+              key={key}
+              fullWidth
+              selectedKey={columnMapping[key] ?? NO_COLUMN}
+              onSelectionChange={(k) =>
+                setColumnMapping({
+                  ...columnMapping,
+                  [key]: k === NO_COLUMN ? null : String(k),
+                })
+              }
+            >
               <Label>
                 {label}
                 {required ? " (required)" : ""}
               </Label>
-              <select
-                value={columnMapping[key] ?? ""}
-                onChange={(e) =>
-                  setColumnMapping({ ...columnMapping, [key]: e.target.value || null })
-                }
-                className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
-              >
-                <option value="">— None —</option>
-                {parsedCsv.headers.map((header) => (
-                  <option key={header} value={header}>
-                    {header}
-                  </option>
-                ))}
-              </select>
-            </TextField>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox className="max-h-64 overflow-y-auto">
+                  <ListBox.Item id={NO_COLUMN}>— None —</ListBox.Item>
+                  {parsedCsv.headers.map((header) => (
+                    <ListBox.Item key={header} id={header}>
+                      {header}
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
           ))}
           <Button onPress={handleColumnsNext}>Next: Value Mapping</Button>
         </div>
@@ -242,89 +271,133 @@ export function ImportWizard() {
         <div className="flex flex-col gap-6">
           {ascentStyleValues.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium">Ascent Style Values</p>
-              {ascentStyleValues.map((value) => (
-                <div key={value} className="flex items-center gap-4">
-                  <span className="w-40 shrink-0 truncate text-sm">{value}</span>
-                  <select
-                    value={ascentStyleMapping[value] ?? "skip"}
-                    onChange={(e) =>
-                      setAscentStyleMapping({
-                        ...ascentStyleMapping,
-                        [value]: e.target.value as AscentStyle | "skip",
-                      })
-                    }
-                    className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
-                  >
-                    {ASCENT_STYLES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                    <option value="skip">Skip these rows</option>
-                  </select>
-                </div>
-              ))}
+              <p id={ascentValuesHeadingId} className="text-sm font-medium">
+                Ascent Style Values
+              </p>
+              {ascentStyleValues.map((value, index) => {
+                const rowLabelId = `${ascentValuesHeadingId}-${index}`;
+                return (
+                  <div key={value} className="flex items-center gap-4">
+                    <span id={rowLabelId} className="w-40 shrink-0 truncate text-sm">
+                      {value}
+                    </span>
+                    <Select
+                      fullWidth
+                      className="flex-1"
+                      aria-labelledby={`${rowLabelId} ${ascentValuesHeadingId}`}
+                      selectedKey={ascentStyleMapping[value] ?? "skip"}
+                      onSelectionChange={(k) =>
+                        setAscentStyleMapping({
+                          ...ascentStyleMapping,
+                          [value]: String(k) as AscentStyle | "skip",
+                        })
+                      }
+                    >
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          {ASCENT_STYLES.map((t) => (
+                            <ListBox.Item key={t} id={t}>
+                              {t}
+                            </ListBox.Item>
+                          ))}
+                          <ListBox.Item id="skip">Skip these rows</ListBox.Item>
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                  </div>
+                );
+              })}
             </div>
           )}
 
           {climbTypeValues.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium">
+              <p id={climbTypeValuesHeadingId} className="text-sm font-medium">
                 Climb Type Values (used only to break ties for ambiguous matches)
               </p>
-              {climbTypeValues.map((value) => (
-                <div key={value} className="flex items-center gap-4">
-                  <span className="w-40 shrink-0 truncate text-sm">{value}</span>
-                  <select
-                    value={climbTypeMapping[value] ?? "skip"}
-                    onChange={(e) =>
-                      setClimbTypeMapping({
-                        ...climbTypeMapping,
-                        [value]: e.target.value as (typeof CLIMB_TYPES)[number] | "skip",
-                      })
-                    }
-                    className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
-                  >
-                    {CLIMB_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                    <option value="skip">Ignore</option>
-                  </select>
-                </div>
-              ))}
+              {climbTypeValues.map((value, index) => {
+                const rowLabelId = `${climbTypeValuesHeadingId}-${index}`;
+                return (
+                  <div key={value} className="flex items-center gap-4">
+                    <span id={rowLabelId} className="w-40 shrink-0 truncate text-sm">
+                      {value}
+                    </span>
+                    <Select
+                      fullWidth
+                      className="flex-1"
+                      aria-labelledby={`${rowLabelId} ${climbTypeValuesHeadingId}`}
+                      selectedKey={climbTypeMapping[value] ?? "skip"}
+                      onSelectionChange={(k) =>
+                        setClimbTypeMapping({
+                          ...climbTypeMapping,
+                          [value]: String(k) as (typeof CLIMB_TYPES)[number] | "skip",
+                        })
+                      }
+                    >
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          {CLIMB_TYPES.map((t) => (
+                            <ListBox.Item key={t} id={t}>
+                              {t}
+                            </ListBox.Item>
+                          ))}
+                          <ListBox.Item id="skip">Ignore</ListBox.Item>
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                  </div>
+                );
+              })}
             </div>
           )}
 
           {columnMapping?.date && (
-            <TextField>
+            <Select
+              fullWidth
+              selectedKey={dateFormat}
+              onSelectionChange={(k) => setDateFormat(String(k) as DateFormat)}
+            >
               <Label>Date Format</Label>
-              <select
-                value={dateFormat}
-                onChange={(e) => setDateFormat(e.target.value as DateFormat)}
-                className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
-              >
-                <option value="iso">YYYY-MM-DD</option>
-                <option value="mdy">MM/DD/YYYY</option>
-                <option value="dmy">DD/MM/YYYY</option>
-              </select>
-            </TextField>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  <ListBox.Item id="iso">YYYY-MM-DD</ListBox.Item>
+                  <ListBox.Item id="mdy">MM/DD/YYYY</ListBox.Item>
+                  <ListBox.Item id="dmy">DD/MM/YYYY</ListBox.Item>
+                </ListBox>
+              </Select.Popover>
+            </Select>
           )}
 
           {columnMapping?.grade && (
-            <TextField>
+            <Select
+              fullWidth
+              selectedKey={gradeScale}
+              onSelectionChange={(k) => setGradeScale(String(k) as "native" | "converted")}
+            >
               <Label>Grade Notation</Label>
-              <select
-                value={gradeScale}
-                onChange={(e) => setGradeScale(e.target.value as "native" | "converted")}
-                className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
-              >
-                <option value="native">Native (V-scale / YDS)</option>
-                <option value="converted">Converted (Font / French)</option>
-              </select>
-            </TextField>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  <ListBox.Item id="native">Native (V-scale / YDS)</ListBox.Item>
+                  <ListBox.Item id="converted">Converted (Font / French)</ListBox.Item>
+                </ListBox>
+              </Select.Popover>
+            </Select>
           )}
 
           <div className="flex gap-4">
@@ -363,10 +436,20 @@ export function ImportWizard() {
 
           {pending && progress ? (
             <div className="flex flex-col gap-2">
-              <p className="text-sm">
+              {/* Progress state only changes once per IMPORT_BATCH_SIZE-row
+                  server round-trip, so this polite region announces per batch
+                  rather than chattering on every row. */}
+              <p className="text-sm" aria-live="polite">
                 Importing… {progress.completed} / {progress.total} rows processed
               </p>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-surface">
+              <div
+                role="progressbar"
+                aria-label="Import progress"
+                aria-valuemin={0}
+                aria-valuemax={progress.total}
+                aria-valuenow={progress.completed}
+                className="h-2 w-full overflow-hidden rounded-full bg-surface"
+              >
                 <div
                   className="h-full bg-accent transition-all"
                   style={{

@@ -5,6 +5,7 @@ import type { UseOverlayStateReturn } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { ClimbForm } from "@/components/climb-form";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
+import { announce } from "@/components/ui/status-announcer";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import type { Climb } from "@/db/queries";
 
@@ -31,9 +32,14 @@ export function ClimbFormDrawer({ areaId, climb, state }: ClimbFormDrawerProps) 
   function handleDone(climbId: number) {
     // A successful save isn't a discard — close without the prompt.
     guard.closeWithoutPrompt();
-    // Editing an existing climb just closes the drawer in place; creating a
-    // new one lands the viewer on it, same as the standalone /climbs/new page.
-    if (!climb) router.push(`/climbs/${climbId}`);
+    // Editing an existing climb just closes the drawer in place — nothing on
+    // screen says so, hence the announcement; creating a new one lands the
+    // viewer on it (a navigation is its own cue), same as /climbs/new.
+    if (climb) {
+      announce("Changes saved.");
+    } else {
+      router.push(`/climbs/${climbId}`);
+    }
   }
 
   return (

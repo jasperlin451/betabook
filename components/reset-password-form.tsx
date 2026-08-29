@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button, Input, Label, Link, TextField } from "@heroui/react";
+import { FormError } from "@/components/ui/form-error";
 import { authClient } from "@/lib/auth-client";
 
 export function ResetPasswordForm({ token }: { token: string | undefined }) {
+  const mismatchErrorId = useId();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -66,14 +68,16 @@ export function ResetPasswordForm({ token }: { token: string | undefined }) {
         onChange={setConfirmPassword}
         type="password"
         isRequired
+        isInvalid={passwordMismatch}
+        aria-describedby={passwordMismatch ? mismatchErrorId : undefined}
       >
         <Label>Confirm New Password</Label>
         <Input className="bg-surface" />
       </TextField>
       {passwordMismatch && (
-        <p className="text-sm text-danger">Passwords do not match.</p>
+        <FormError id={mismatchErrorId}>Passwords do not match.</FormError>
       )}
-      {error && <p className="text-sm text-danger">{error}</p>}
+      <FormError>{error}</FormError>
       <Button type="submit" fullWidth isDisabled={pending}>
         Reset Password
       </Button>

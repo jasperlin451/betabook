@@ -1,8 +1,18 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { Button, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
+import { useEffect, useId, useState, useTransition } from "react";
+import {
+  Button,
+  Description,
+  Input,
+  Label,
+  ListBox,
+  Select,
+  TextArea,
+  TextField,
+} from "@heroui/react";
 import { AreaPicker, type PickedArea } from "@/components/area-picker";
+import { FormError } from "@/components/ui/form-error";
 import { createClimb, updateClimb } from "@/db/mutations";
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 import type { Climb } from "@/db/queries";
@@ -28,6 +38,7 @@ const CLIMB_TYPE_LABELS: Record<ClimbType, string> = {
 export function ClimbForm({ areaId: fixedAreaId, climb, onDone, onDirtyChange }: ClimbFormProps) {
   const disciplineLocked = (climb?.sendCount ?? 0) > 0;
 
+  const nameErrorId = useId();
   const [name, setName] = useState(climb?.name ?? "");
   const [type, setType] = useState<ClimbType>(climb?.type ?? "boulder");
   const [grade, setGrade] = useState(String(climb?.grade ?? 0));
@@ -98,80 +109,80 @@ export function ClimbForm({ areaId: fixedAreaId, climb, onDone, onDirtyChange }:
       className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6"
     >
       {fixedAreaId == null && (
-        <TextField>
-          <Label>Area</Label>
-          <AreaPicker
-            selected={pickedArea}
-            onSelectedChange={setPickedArea}
-            isInvalid={areaInvalid}
-          />
-          {areaInvalid && <p className="text-sm text-danger">Select an area.</p>}
-        </TextField>
+        <AreaPicker
+          label="Area"
+          selected={pickedArea}
+          onSelectedChange={setPickedArea}
+          isInvalid={areaInvalid}
+          errorMessage={areaInvalid ? "Select an area." : null}
+        />
       )}
 
-      <TextField>
+      <TextField
+        value={name}
+        onChange={setName}
+        isInvalid={nameInvalid}
+        aria-describedby={nameInvalid ? nameErrorId : undefined}
+      >
         <Label>Name</Label>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={`rounded-md border bg-surface px-3 py-2 text-sm ${
-            nameInvalid ? "border-danger" : "border-separator"
-          }`}
-        />
-        {nameInvalid && <p className="text-sm text-danger">Name is required.</p>}
+        <Input className="bg-surface" />
+        <FormError id={nameErrorId}>{nameInvalid ? "Name is required." : null}</FormError>
       </TextField>
 
-      <TextField>
+      <Select
+        fullWidth
+        selectedKey={type}
+        onSelectionChange={(key) => handleTypeChange(String(key) as ClimbType)}
+        isDisabled={disciplineLocked}
+      >
         <Label>Discipline</Label>
-        <select
-          value={type}
-          disabled={disciplineLocked}
-          onChange={(e) => handleTypeChange(e.target.value as ClimbType)}
-          className="rounded-md border border-separator bg-surface px-3 py-2 text-sm disabled:opacity-60"
-        >
-          {Object.entries(CLIMB_TYPE_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox>
+            {Object.entries(CLIMB_TYPE_LABELS).map(([value, label]) => (
+              <ListBox.Item key={value} id={value}>
+                {label}
+              </ListBox.Item>
+            ))}
+          </ListBox>
+        </Select.Popover>
         {disciplineLocked && (
-          <p className="text-muted mt-1 text-xs">
+          <Description>
             Discipline can&rsquo;t be changed once sends have been logged.
-          </p>
+          </Description>
         )}
-      </TextField>
+      </Select>
 
-      <TextField>
+      <Select
+        fullWidth
+        selectedKey={grade}
+        onSelectionChange={(key) => setGrade(String(key))}
+      >
         <Label>Grade</Label>
-        <Select
-          aria-label="Grade"
-          fullWidth
-          selectedKey={grade}
-          onSelectionChange={(key) => setGrade(String(key))}
-        >
-          <Select.Trigger>
-            <Select.Value />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox className="max-h-64 overflow-y-auto">
-              {gradeOptions.map((label, i) => (
-                <ListBox.Item key={i} id={String(i)}>
-                  {label}
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </Select.Popover>
-        </Select>
-      </TextField>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox className="max-h-64 overflow-y-auto">
+            {gradeOptions.map((label, i) => (
+              <ListBox.Item key={i} id={String(i)}>
+                {label}
+              </ListBox.Item>
+            ))}
+          </ListBox>
+        </Select.Popover>
+      </Select>
 
       <TextField value={description} onChange={setDescription}>
         <Label>Description</Label>
         <TextArea placeholder="Describe the climb..." className="bg-surface" />
       </TextField>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      <FormError>{error}</FormError>
 
       <Button type="submit" isDisabled={pending} fullWidth>
         {pending ? "Saving..." : climb ? "Save Changes" : "Add Climb"}

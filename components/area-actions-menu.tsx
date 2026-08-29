@@ -7,6 +7,7 @@ import { AreaFormDrawer } from "@/components/area-form-drawer";
 import { ClimbFormDrawer } from "@/components/climb-form-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
 import { ConfirmDrawer } from "@/components/ui/confirm-drawer";
+import { announce } from "@/components/ui/status-announcer";
 import { deleteArea } from "@/db/mutations";
 import type { Area } from "@/db/queries";
 
@@ -44,6 +45,7 @@ export function AreaActionsMenu({ area, canDelete }: AreaActionsMenuProps) {
         return;
       }
       deleteState.close();
+      announce("Area deleted.");
       router.push(area.parentId != null ? `/areas/${area.parentId}` : "/");
     });
   }

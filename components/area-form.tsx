@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Button, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Input, Label, TextArea, TextField } from "@heroui/react";
 import { AreaPicker, type PickedArea } from "@/components/area-picker";
+import { FormError } from "@/components/ui/form-error";
 import { createArea, updateArea } from "@/db/mutations";
 import type { Area } from "@/db/queries";
 
@@ -74,20 +75,16 @@ export function AreaForm({ parentId: fixedParentId, area, onDone, onDirtyChange 
       className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6"
     >
       {!area && fixedParentId == null && (
-        <TextField>
-          <Label>Parent area</Label>
-          <AreaPicker selected={pickedParent} onSelectedChange={setPickedParent} />
-        </TextField>
+        <AreaPicker
+          label="Parent area"
+          selected={pickedParent}
+          onSelectedChange={setPickedParent}
+        />
       )}
 
-      <TextField>
+      <TextField value={name} onChange={setName} isRequired>
         <Label>Name</Label>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
-        />
+        <Input className="bg-surface" />
       </TextField>
 
       <TextField value={description} onChange={setDescription}>
@@ -95,7 +92,7 @@ export function AreaForm({ parentId: fixedParentId, area, onDone, onDirtyChange 
         <TextArea placeholder="Describe the area..." className="bg-surface" />
       </TextField>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      <FormError>{error}</FormError>
 
       <Button type="submit" isDisabled={pending || !trimmedName} fullWidth>
         {pending ? "Saving..." : area ? "Save Changes" : "Add Area"}

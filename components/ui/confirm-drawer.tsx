@@ -2,6 +2,7 @@
 
 import { Button, Drawer } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
+import { FormError } from "@/components/ui/form-error";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 
 type ConfirmDrawerProps = {
@@ -40,7 +41,7 @@ export function ConfirmDrawer({
             </Drawer.Header>
             <Drawer.Body>
               <p className="text-sm text-muted">{description}</p>
-              {error && <p className="text-sm text-danger">{error}</p>}
+              <FormError>{error}</FormError>
             </Drawer.Body>
             <Drawer.Footer className="flex justify-end gap-2">
               <Button variant="ghost" onPress={state.close} isDisabled={isPending}>

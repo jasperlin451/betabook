@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Label, Link, TextField } from "@heroui/react";
+import { FormError } from "@/components/ui/form-error";
 import { authClient } from "@/lib/auth-client";
 
 export default function SignInPage() {
@@ -60,10 +61,10 @@ export default function SignInPage() {
       <Link href="/forgot-password" className="text-sm text-muted">
         Forgot password?
       </Link>
-      {error && <p className="text-sm text-danger">{error}</p>}
+      <FormError>{error}</FormError>
       {unverified && (
-        <div className="flex flex-col gap-2 text-sm text-danger">
-          <p>Please verify your email address before signing in.</p>
+        <div className="flex flex-col gap-2">
+          <FormError>Please verify your email address before signing in.</FormError>
           <Button variant="ghost" onPress={resendVerification} isDisabled={resent}>
             {resent ? "Verification email sent" : "Resend verification email"}
           </Button>

@@ -5,6 +5,7 @@ import { Label, Menu, useOverlayState } from "@heroui/react";
 import { SendFormDrawer } from "@/components/send-form-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
 import { ConfirmDrawer } from "@/components/ui/confirm-drawer";
+import { announce } from "@/components/ui/status-announcer";
 import { deleteSend } from "@/db/mutations";
 import type { EditableSend, SendableClimb } from "@/db/queries";
 
@@ -31,6 +32,8 @@ export function SendActionsMenu({ climb, send }: SendActionsMenuProps) {
         return;
       }
       deleteState.close();
+      // The row vanishes with no navigation — say so for screen readers.
+      announce("Send deleted.");
     });
   }
 

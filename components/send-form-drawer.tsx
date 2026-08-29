@@ -4,6 +4,7 @@ import { Drawer } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
 import { SendForm } from "@/components/send-form";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
+import { announce } from "@/components/ui/status-announcer";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import type { EditableSend, SendableClimb } from "@/db/queries";
 
@@ -20,6 +21,13 @@ type SendFormDrawerProps = {
 export function SendFormDrawer({ climb, existingSend, state }: SendFormDrawerProps) {
   const guard = useUnsavedChangesGuard(state);
 
+  function handleDone() {
+    guard.closeWithoutPrompt();
+    // Both outcomes just close the drawer in place — nothing on screen says
+    // the save happened, so tell screen readers explicitly.
+    announce(existingSend ? "Changes saved." : "Send logged.");
+  }
+
   return (
     <Drawer.Root state={guard.state}>
       <Drawer.Backdrop>
@@ -33,7 +41,7 @@ export function SendFormDrawer({ climb, existingSend, state }: SendFormDrawerPro
               <SendForm
                 climb={climb}
                 existingSend={existingSend}
-                onDone={guard.closeWithoutPrompt}
+                onDone={handleDone}
                 onDirtyChange={guard.onDirtyChange}
               />
             </Drawer.Body>

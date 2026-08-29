@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Link } from "@heroui/react";
 import { Button, Input, Label, TextField } from "@heroui/react";
+import { FormError } from "@/components/ui/form-error";
 import { authClient } from "@/lib/auth-client";
 
 export default function SignUpPage() {
+  const mismatchErrorId = useId();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,14 +70,16 @@ export default function SignUpPage() {
         onChange={setConfirmPassword}
         type="password"
         isRequired
+        isInvalid={passwordMismatch}
+        aria-describedby={passwordMismatch ? mismatchErrorId : undefined}
       >
         <Label>Confirm Password</Label>
         <Input className="bg-surface" />
       </TextField>
       {passwordMismatch && (
-        <p className="text-sm text-danger">Passwords do not match.</p>
+        <FormError id={mismatchErrorId}>Passwords do not match.</FormError>
       )}
-      {error && <p className="text-sm text-danger">{error}</p>}
+      <FormError>{error}</FormError>
       <Button type="submit" fullWidth isDisabled={pending}>
         Sign Up
       </Button>
