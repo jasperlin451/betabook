@@ -15,6 +15,14 @@ const USER_SENDS_SORTS: UserSendsSort[] = [
   "rating_asc",
 ];
 
+/** Upper bound on /api/users/[id]/sends's `limit` param, shared by the
+ * route (which clamps to it) and UserSendList's post-mutation reconcile
+ * (which won't request beyond it — see the reconcile comment there for the
+ * fallback when more rows than this are loaded). Sized for "many load-more
+ * clicks", not "arbitrary bulk fetch" (the CSV export server action covers
+ * that). */
+export const MAX_USER_SENDS_LIMIT = 200;
+
 // No disciplines checked means "don't filter on discipline or grade at
 // all" — not "match nothing". Checking one activates that filter (and
 // reveals its grade-range dropdowns when the panel is expanded). Same

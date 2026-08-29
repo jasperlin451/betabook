@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { getAreaBreadcrumbs, getSendsForUserPage, getUser, USER_SENDS_PAGE_SIZE } from "@/db/queries";
-import { parseUserSendsFilter } from "@/lib/user-sends-filter";
+import { MAX_USER_SENDS_LIMIT, parseUserSendsFilter } from "@/lib/user-sends-filter";
 import { searchParamsToRecord } from "@/lib/search-params";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-/** Upper bound on the `limit` param — it exists for UserSendList's
- * post-mutation reconcile, which re-fetches everything the user had loaded
- * beyond page 1 in one request, so it's sized for "many load-more clicks",
- * not "arbitrary bulk fetch" (the CSV export server action covers that). */
-const MAX_LIMIT = 200;
-
 /** Incremental "load more" for a user's send history — the initial page is
  * server-rendered; this backs subsequent pages so the client never has to
- * hold more than what's actually been scrolled to. */
+ * hold more than what's actually been scrolled to. The `limit` param (see
+ * MAX_USER_SENDS_LIMIT) exists for UserSendList's post-mutation reconcile,
+ * which re-fetches everything the user had loaded beyond page 1 in one
+ * request. */
 export async function GET(request: Request, { params }: RouteParams) {
   const { id: userId } = await params;
   const url = new URL(request.url);
@@ -25,7 +22,9 @@ export async function GET(request: Request, { params }: RouteParams) {
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
   const limit = Number(url.searchParams.get("limit"));
   const pageSize =
-    Number.isInteger(limit) && limit >= 1 ? Math.min(limit, MAX_LIMIT) : USER_SENDS_PAGE_SIZE;
+    Number.isInteger(limit) && limit >= 1
+      ? Math.min(limit, MAX_USER_SENDS_LIMIT)
+      : USER_SENDS_PAGE_SIZE;
 
   const db = await getDb();
   // A real 404 rather than a normal-looking empty page for any id — the

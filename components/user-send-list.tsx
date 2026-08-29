@@ -6,7 +6,11 @@ import { Checkbox, Link } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
-import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
+import {
+  DEFAULT_USER_SENDS_FILTER,
+  MAX_USER_SENDS_LIMIT,
+  userSendsFilterToSearchParams,
+} from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { AscentStyle } from "@/components/ascent-style";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
@@ -215,9 +219,16 @@ export function UserSendList({
   if (initialSends !== prevInitialSends) {
     setPrevInitialSends(initialSends);
     const tailLength = sends.length - initialSends.length;
-    if (tailLength > 0) {
+    if (tailLength > 0 && tailLength <= MAX_USER_SENDS_LIMIT) {
       setStaleTailLength(tailLength);
     } else {
+      // Either only page 1 is loaded (adopting the fresh props IS the
+      // reconcile), or the tail exceeds what the route's clamped `limit`
+      // can restore in one request (200+ rows = 20+ load-more clicks) —
+      // requesting it anyway would silently truncate the range, so for that
+      // rare case drop back to the fresh first page instead. Correctness
+      // (a deleted send must never keep ghosting) beats keeping the scroll
+      // position there.
       setStaleTailLength(null);
       setSends(initialSends);
       setHasMore(initialHasMore);
