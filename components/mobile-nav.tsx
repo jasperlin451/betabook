@@ -11,10 +11,11 @@ export function MobileNav() {
   const pathname = usePathname();
 
   // Root layout persists across navigations, so the drawer won't close on
-  // its own when a nav link is clicked (including via AuthNav's nested
-  // "Create" dropdown, which navigates programmatically) — close it
-  // explicitly whenever the route changes instead of trying to catch every
-  // click.
+  // its own when a nav link is clicked. The links below close it on press —
+  // a route-change effect alone never fires for a tap on a link to the page
+  // you're already on, leaving the drawer stuck open. The effect stays as a
+  // backstop for navigations that don't go through these links (e.g.
+  // programmatic ones from nested menus).
   useEffect(() => {
     state.close();
   }, [pathname]);
@@ -41,8 +42,10 @@ export function MobileNav() {
               </Drawer.Header>
               <Drawer.Body>
                 <nav className="flex flex-col items-start gap-4 text-sm">
-                  <Link href="/">Search</Link>
-                  <AuthNav direction="col" />
+                  <Link href="/" onPress={state.close}>
+                    Search
+                  </Link>
+                  <AuthNav direction="col" onNavigate={state.close} />
                 </nav>
               </Drawer.Body>
             </Drawer.Dialog>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ClimbList } from "@/components/climb-list";
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
+import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import {
@@ -105,14 +106,18 @@ export function AreaClimbsSection({
           }
         />
       </div>
-      <ClimbList
-        climbs={climbs}
-        emptyMessage={emptyMessage}
-        sendStats={sendStats}
-        areaBreadcrumbs={areaBreadcrumbs}
-        sentClimbIds={sentClimbIds}
-        pagination={{ hasNextPage, loadingMore, onLoadMore: handleLoadMore }}
-      />
+      {/* Dimmed while the filter panel's debounced navigation is re-fetching
+       * these results (see NavigationPendingProvider in the page). */}
+      <NavigationPendingRegion>
+        <ClimbList
+          climbs={climbs}
+          emptyMessage={emptyMessage}
+          sendStats={sendStats}
+          areaBreadcrumbs={areaBreadcrumbs}
+          sentClimbIds={sentClimbIds}
+          pagination={{ hasNextPage, loadingMore, onLoadMore: handleLoadMore }}
+        />
+      </NavigationPendingRegion>
     </section>
   );
 }
@@ -122,9 +127,9 @@ export function AreaClimbsSection({
  * search page's `ClimbSearchForm` (area search omitted, since this is
  * already scoped to one area) and `UserSendsFilterPanel`. Not keyed on
  * `filter` by the caller, for the same reason documented on
- * `UserSendsFilterPanel` — this component owns the state that drives
- * navigation, so a change is always self-inflicted, never an external
- * resync. */
+ * `UserSendsFilterPanel` — external URL changes (back/forward, the sort
+ * control) are adopted as values by useFilterFormNavigation on the mounted
+ * inputs, never via a remount. */
 export function AreaClimbsFilterPanel({
   areaId,
   sort,

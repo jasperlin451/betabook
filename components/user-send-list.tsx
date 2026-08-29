@@ -10,6 +10,7 @@ import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { AscentStyle } from "@/components/ascent-style";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
+import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
@@ -100,11 +101,12 @@ const DEFAULT_DIRECTION: Record<SortField, "asc" | "desc"> = {
  * the main column. Debounces every field change (including the initial
  * render) into a single navigation, same as the climb search form.
  *
- * Unlike <UserSendList>, the caller must NOT key this on the filter: this
- * component owns its own state and is what drives the navigation, so a
- * filter change is always self-inflicted, never an external resync. Keying
- * it would remount it (and its <input>s) right when the debounce lands —
- * exactly when the user pauses typing — yanking focus out from under them. */
+ * Unlike <UserSendList>, the caller must NOT key this on the filter: keying
+ * would remount it (and its <input>s) right when the debounce lands —
+ * exactly when the user pauses typing — yanking focus out from under them.
+ * External URL changes (back/forward, the sort control) are instead adopted
+ * as values by useFilterFormNavigation, which leaves the mounted inputs
+ * alone. */
 export function UserSendsFilterPanel({
   userId,
   filter,
@@ -235,70 +237,74 @@ export function UserSendList({
           }}
         />
       </div>
-      <SendListShell
-        sends={sends}
-        emptyState={<p className="text-muted text-sm">No sends match these filters.</p>}
-        hasMore={hasMore}
-        onLoadMore={handleLoadMore}
-        loadingMore={loadingMore}
-        renderRow={(send) => (
-          <ListRow
-            title={
-              <Link href={`/climbs/${send.climbId}`} className="block w-full truncate">
-                {send.climbName}
-              </Link>
-            }
-            subtitle={
-              <AreaBreadcrumb
-                areaId={send.areaId}
-                areaName={send.areaName}
-                ancestors={areaBreadcrumbs[send.areaId] ?? []}
-              />
-            }
-            trailing={
-              <div className="flex flex-col items-end gap-1 text-sm">
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center gap-0.5 font-medium text-foreground">
-                    {formatGrade(send.climbType, send.climbGrade)}
-                    {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
-                      <span className="font-normal text-muted">
-                        {" "}
-                        ({formatGrade(send.climbType, send.suggestedGrade)})
-                      </span>
-                    )}
-                    {send.gradeFeel === "high" && (
-                      <ArrowUp className="size-3.5 text-muted" aria-label="High end of the grade" />
-                    )}
-                    {send.gradeFeel === "low" && (
-                      <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
-                    )}
-                  </span>
-                  <span className="text-muted" aria-hidden>
-                    •
-                  </span>
-                  <RatingStars rating={send.rating} />
-                </div>
-                <AscentStyle type={send.ascentStyle} />
-                <div className="text-xs text-muted/70">{send.dateSent ?? "Date unknown"}</div>
-              </div>
-            }
-            actions={
-              currentUserId === userId && (
-                <SendActionsMenu
-                  climb={{
-                    id: send.climbId,
-                    areaId: send.areaId,
-                    type: send.climbType,
-                    grade: send.climbGrade,
-                  }}
-                  send={send}
+      {/* Dimmed while the filter panel's debounced navigation is re-fetching
+       * these results (see NavigationPendingProvider in the page). */}
+      <NavigationPendingRegion>
+        <SendListShell
+          sends={sends}
+          emptyState={<p className="text-muted text-sm">No sends match these filters.</p>}
+          hasMore={hasMore}
+          onLoadMore={handleLoadMore}
+          loadingMore={loadingMore}
+          renderRow={(send) => (
+            <ListRow
+              title={
+                <Link href={`/climbs/${send.climbId}`} className="block w-full truncate">
+                  {send.climbName}
+                </Link>
+              }
+              subtitle={
+                <AreaBreadcrumb
+                  areaId={send.areaId}
+                  areaName={send.areaName}
+                  ancestors={areaBreadcrumbs[send.areaId] ?? []}
                 />
-              )
-            }
-            comment={send.comment}
-          />
-        )}
-      />
+              }
+              trailing={
+                <div className="flex flex-col items-end gap-1 text-sm">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex items-center gap-0.5 font-medium text-foreground">
+                      {formatGrade(send.climbType, send.climbGrade)}
+                      {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
+                        <span className="font-normal text-muted">
+                          {" "}
+                          ({formatGrade(send.climbType, send.suggestedGrade)})
+                        </span>
+                      )}
+                      {send.gradeFeel === "high" && (
+                        <ArrowUp className="size-3.5 text-muted" aria-label="High end of the grade" />
+                      )}
+                      {send.gradeFeel === "low" && (
+                        <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
+                      )}
+                    </span>
+                    <span className="text-muted" aria-hidden>
+                      •
+                    </span>
+                    <RatingStars rating={send.rating} />
+                  </div>
+                  <AscentStyle type={send.ascentStyle} />
+                  <div className="text-xs text-muted/70">{send.dateSent ?? "Date unknown"}</div>
+                </div>
+              }
+              actions={
+                currentUserId === userId && (
+                  <SendActionsMenu
+                    climb={{
+                      id: send.climbId,
+                      areaId: send.areaId,
+                      type: send.climbType,
+                      grade: send.climbGrade,
+                    }}
+                    send={send}
+                  />
+                )
+              }
+              comment={send.comment}
+            />
+          )}
+        />
+      </NavigationPendingRegion>
     </div>
   );
 }

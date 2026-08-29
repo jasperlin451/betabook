@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { UserSendList, UserSendsFilterPanel } from "@/components/user-send-list";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { StatStrip } from "@/components/ui/stat-strip";
@@ -80,36 +81,41 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
        * two-slot side-by-side layout can't express "filter leads on mobile,
        * but stats trail on mobile while both share the desktop sidebar" —
        * so the stats card renders twice (cheap, pure) and each copy is
-       * shown/hidden per breakpoint via Tailwind's responsive display. */}
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-        <div className="order-1 flex flex-col gap-6 lg:order-2 lg:w-80 lg:shrink-0">
-          {summary.sendCount > 0 && (
-            <CollapsibleSection title="Filters" breakpoint="lg" showTitleOnDesktop={false}>
-              <UserSendsFilterPanel userId={id} filter={filter} />
-            </CollapsibleSection>
-          )}
-          <div className="hidden lg:block">
+       * shown/hidden per breakpoint via Tailwind's responsive display.
+       *
+       * The provider links the filter panel's in-flight navigation to the
+       * send list it re-fetches, which dims while pending. */}
+      <NavigationPendingProvider>
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+          <div className="order-1 flex flex-col gap-6 lg:order-2 lg:w-80 lg:shrink-0">
+            {summary.sendCount > 0 && (
+              <CollapsibleSection title="Filters" breakpoint="lg" showTitleOnDesktop={false}>
+                <UserSendsFilterPanel userId={id} filter={filter} />
+              </CollapsibleSection>
+            )}
+            <div className="hidden lg:block">
+              <StatStrip cards={statCards} />
+            </div>
+          </div>
+
+          <div className="order-2 flex min-w-0 flex-1 flex-col gap-4 lg:order-1">
+            <UserSendList
+              key={JSON.stringify(filter)}
+              userId={id}
+              filter={filter}
+              initialSends={firstPage.sends}
+              initialHasMore={firstPage.hasMore}
+              initialAreaBreadcrumbs={areaBreadcrumbs}
+              hasAnySends={summary.sendCount > 0}
+              currentUserId={session?.user.id}
+            />
+          </div>
+
+          <div className="order-3 lg:hidden">
             <StatStrip cards={statCards} />
           </div>
         </div>
-
-        <div className="order-2 flex min-w-0 flex-1 flex-col gap-4 lg:order-1">
-          <UserSendList
-            key={JSON.stringify(filter)}
-            userId={id}
-            filter={filter}
-            initialSends={firstPage.sends}
-            initialHasMore={firstPage.hasMore}
-            initialAreaBreadcrumbs={areaBreadcrumbs}
-            hasAnySends={summary.sendCount > 0}
-            currentUserId={session?.user.id}
-          />
-        </div>
-
-        <div className="order-3 lg:hidden">
-          <StatStrip cards={statCards} />
-        </div>
-      </div>
+      </NavigationPendingProvider>
     </div>
   );
 }
