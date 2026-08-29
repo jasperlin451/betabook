@@ -29,16 +29,16 @@ function BucketColumn({
   index: number;
   length: number;
   label: string;
-  /** The bucket's total, printed atop its bar — the histogram is useless
-   * for "how many?" without it (hover titles don't exist on touch). */
+  /** The bucket's total, revealed above its bar on hover of the column —
+   * the space is always reserved so nothing shifts. */
   count: number;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
+    <div className="group flex min-w-0 flex-1 flex-col items-center gap-1">
       <div className="flex h-20 w-full flex-col items-center justify-end gap-0.5">
         {count > 0 && (
-          <span className="font-mono text-[10px] leading-none tabular-nums text-muted">
+          <span className="font-mono text-[10px] leading-none tabular-nums text-muted opacity-0 transition-opacity group-hover:opacity-100">
             {count}
           </span>
         )}

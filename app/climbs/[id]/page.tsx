@@ -25,8 +25,10 @@ import {
   getUserSendForClimb,
 } from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
+import { buildLoggedGradeBuckets } from "@/lib/grade-histogram";
 import type { AscentStyle as AscentStyleType } from "@/lib/sends";
 import { missingDescriptionMessage } from "@/lib/descriptions";
+import { LoggedGradeHistogram } from "@/components/logged-grade-histogram";
 import { getDb } from "@/db/client";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
@@ -87,6 +89,11 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   const ancestors = await getAncestors(db, area);
 
   const loggedBreakdown = Object.entries(summary.styleBreakdown).filter(([, count]) => count > 0);
+  const loggedGradeBuckets = buildLoggedGradeBuckets(
+    climb.type,
+    summary.suggestedGradeCounts,
+    climb.grade,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -151,6 +158,14 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                   : []),
               ]}
             />
+            {loggedGradeBuckets.length > 0 && (
+              <div className="rounded-xl bg-surface-secondary p-4">
+                <div className="mb-3">
+                  <Eyebrow>Logged grades</Eyebrow>
+                </div>
+                <LoggedGradeHistogram type={climb.type} buckets={loggedGradeBuckets} />
+              </div>
+            )}
             {session ? (
               userSend ? (
                 <EditSendButton climb={climb} send={userSend} />

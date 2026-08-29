@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGradeHistogram } from "./grade-histogram";
+import { buildGradeHistogram, buildLoggedGradeBuckets } from "./grade-histogram";
 import type { GradeHistogramRow } from "@/db/queries";
 
 describe("buildGradeHistogram", () => {
@@ -69,5 +69,37 @@ describe("buildGradeHistogram", () => {
     ];
     const h = buildGradeHistogram(rows);
     expect(h.boulderBuckets).toEqual([{ label: "V1", count: 1 }]);
+  });
+});
+
+describe("buildLoggedGradeBuckets", () => {
+  it("returns no buckets when nobody suggested a grade", () => {
+    expect(buildLoggedGradeBuckets("sport", [], 10)).toEqual([]);
+  });
+
+  it("keeps letter grades distinct and widens the range to the posted grade", () => {
+    const buckets = buildLoggedGradeBuckets(
+      "sport",
+      [
+        { grade: 11, count: 2 }, // 5.10b
+        { grade: 12, count: 1 }, // 5.10c
+      ],
+      10, // posted 5.10a, below every suggestion
+    );
+    expect(buckets).toEqual([
+      { label: "5.10a", count: 0, isPosted: true },
+      { label: "5.10b", count: 2, isPosted: false },
+      { label: "5.10c", count: 1, isPosted: false },
+    ]);
+  });
+
+  it("marks the posted grade even when it also received votes", () => {
+    const buckets = buildLoggedGradeBuckets("boulder", [{ grade: 5, count: 3 }], 5);
+    expect(buckets).toEqual([{ label: "V4", count: 3, isPosted: true }]);
+  });
+
+  it("ignores an unposted grade (null) without widening", () => {
+    const buckets = buildLoggedGradeBuckets("trad", [{ grade: 8, count: 1 }], null);
+    expect(buckets).toEqual([{ label: "5.8", count: 1, isPosted: false }]);
   });
 });

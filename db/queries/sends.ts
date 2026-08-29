@@ -89,8 +89,13 @@ export async function getSendsForClimb(
   return { sends: hasMore ? rows.slice(0, pageSize) : rows, hasMore };
 }
 
+export type SuggestedGradeCount = { grade: number; count: number };
+
 export type ClimbSendSummary = ClimbSendStats & {
   styleBreakdown: Record<AscentStyle, number>;
+  /** How many senders suggested each grade — the community's own grading
+   * of the climb, for the logged-grades histogram. */
+  suggestedGradeCounts: SuggestedGradeCount[];
 };
 
 /** Whole-history stats for the climb detail page's stat cards — aggregate
@@ -104,7 +109,7 @@ export async function getClimbSendSummary(
     ASCENT_STYLES.map((style) => [style, 0]),
   ) as Record<AscentStyle, number>;
 
-  const [stats, styleRows] = await Promise.all([
+  const [stats, styleRows, suggestedGradeCounts] = await Promise.all([
     getClimbSendStats(db, [climbId]),
     db.all<{ ascentStyle: AscentStyle; count: number }>(sql`
       SELECT ascent_style AS ascentStyle, COUNT(*) AS count
@@ -112,12 +117,18 @@ export async function getClimbSendSummary(
       WHERE climb_id = ${climbId}
       GROUP BY ascent_style
     `),
+    db.all<SuggestedGradeCount>(sql`
+      SELECT suggested_grade AS grade, COUNT(*) AS count
+      FROM sends
+      WHERE climb_id = ${climbId} AND suggested_grade IS NOT NULL
+      GROUP BY suggested_grade
+    `),
   ]);
   for (const row of styleRows) {
     styleBreakdown[row.ascentStyle] = row.count;
   }
 
-  return { ...stats[climbId], styleBreakdown };
+  return { ...stats[climbId], styleBreakdown, suggestedGradeCounts };
 }
 
 /** All climb ids the user already has a send for — cheap pre-check for bulk import, avoids one query per row just to detect duplicates. */

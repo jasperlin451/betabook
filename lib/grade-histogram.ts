@@ -1,5 +1,5 @@
-import { BOULDER_HUECO, ROPE_YDS, type ClimbType } from "@/lib/grades";
-import type { GradeHistogramRow } from "@/db/queries";
+import { BOULDER_HUECO, nativeGradeArray, ROPE_YDS, type ClimbType } from "@/lib/grades";
+import type { GradeHistogramRow, SuggestedGradeCount } from "@/db/queries";
 
 /** One histogram bar. Boulder buckets are one V grade each; rope buckets
  * collapse letter grades to the number ("5.10a–d" → "5.10") and stack
@@ -23,6 +23,41 @@ export type GradeHistogram = {
   boulderSpan: [string, string] | null;
   ropeSpan: [string, string] | null;
 };
+
+export type LoggedGradeBucket = { label: string; count: number; isPosted: boolean };
+
+/** Buckets a single climb's suggested-grade counts for the logged-grades
+ * histogram: one bucket per native grade (letter grades kept — for one
+ * climb the a/b/c/d debate is the whole point), contiguous from the lowest
+ * to highest grade anyone suggested, widened to include the posted grade so
+ * the consensus is always read against it. */
+export function buildLoggedGradeBuckets(
+  type: ClimbType,
+  counts: SuggestedGradeCount[],
+  postedGrade: number | null,
+): LoggedGradeBucket[] {
+  const scale = nativeGradeArray(type);
+  const byGrade = new Map<number, number>();
+  for (const row of counts) {
+    if (row.grade >= 0 && row.grade < scale.length) {
+      byGrade.set(row.grade, (byGrade.get(row.grade) ?? 0) + row.count);
+    }
+  }
+  if (byGrade.size === 0) return [];
+
+  const indices = [...byGrade.keys()];
+  if (postedGrade != null && postedGrade >= 0 && postedGrade < scale.length) {
+    indices.push(postedGrade);
+  }
+  const min = Math.min(...indices);
+  const max = Math.max(...indices);
+
+  const buckets: LoggedGradeBucket[] = [];
+  for (let i = min; i <= max; i++) {
+    buckets.push({ label: scale[i], count: byGrade.get(i) ?? 0, isPosted: i === postedGrade });
+  }
+  return buckets;
+}
 
 /** "5.10a" → "5.10"; grades without a letter pass through. */
 function collapseRopeLabel(label: string): string {

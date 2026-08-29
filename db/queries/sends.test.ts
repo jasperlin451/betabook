@@ -785,6 +785,7 @@ describe("getClimbSendSummary", () => {
       avgRating: null,
       avgSuggestedGrade: null,
       styleBreakdown: { flash: 0, redpoint: 0, onsight: 0 },
+      suggestedGradeCounts: [],
     });
   });
 });
