@@ -8,6 +8,7 @@ import {
   guessColumnMapping,
   guessGradeFeelMapping,
   missingRequiredColumns,
+  needsDateFormatChoice,
   normalizeImportRows,
   parseCsvText,
   parseDateWithFormat,
@@ -289,7 +290,9 @@ describe("parseDateWithFormat", () => {
     const cases: [string, string][] = [
       ["Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", "2019-10-15"],
       ["Sat Mar 07 2020 13:45:02 GMT-0800 (Pacific Standard Time)", "2020-03-07"],
+      ["Sun Sep 22 2019 00:00:00 GMT+0000 (GMT+00:00)", "2019-09-22"],
       ["Tue, 15 Oct 2019 00:00:00 GMT", "2019-10-15"], // RFC 1123 / toUTCString
+      ["Tue, Oct 15 2019 00:00:00 GMT+0000", "2019-10-15"], // punctuated weekday
       ["2019-10-15T00:00:00.000Z", "2019-10-15"],
       ["2019-10-15T23:30:00-07:00", "2019-10-15"], // civil date as written, not shifted to UTC
       ["2019-10-15 00:00:00", "2019-10-15"],
@@ -349,6 +352,39 @@ describe("detectDateFormat", () => {
     expect(
       detectDateFormat(["Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", "25/8/2026"]),
     ).toBe("dmy");
+  });
+});
+
+describe("needsDateFormatChoice", () => {
+  it("doesn't ask about a column of JS Date#toString values", () => {
+    expect(
+      needsDateFormatChoice([
+        "Sun Sep 22 2019 00:00:00 GMT+0000 (GMT+00:00)",
+        "Tue Oct 15 2019 00:00:00 GMT-0700 (Pacific Daylight Time)",
+      ]),
+    ).toBe(false);
+  });
+
+  it("doesn't ask about ISO or named-month dates", () => {
+    expect(needsDateFormatChoice(["2026-08-12", "Oct 15, 2019", "15 October 2019"])).toBe(false);
+  });
+
+  it("asks when a value reads as two different dates", () => {
+    expect(needsDateFormatChoice(["05/06/2019"])).toBe(true);
+  });
+
+  it("doesn't ask when the numbers themselves settle the order", () => {
+    // 25 can't be a month, so only "day first" parses it — detectDateFormat
+    // gets that right on its own.
+    expect(needsDateFormatChoice(["25/8/2026", "26/8/2026"])).toBe(false);
+  });
+
+  it("asks as soon as one value in the column is ambiguous", () => {
+    expect(needsDateFormatChoice(["2026-08-12", "05/06/2019"])).toBe(true);
+  });
+
+  it("ignores blanks and values that aren't dates at all", () => {
+    expect(needsDateFormatChoice(["", "   ", "banana"])).toBe(false);
   });
 });
 

@@ -242,6 +242,7 @@ const UNAMBIGUOUS_FORMATS = [
   "yyyy.MM.dd",
   "yyyyMMdd", // ISO 8601 basic
   "EEE MMM d yyyy", // JS Date#toString: "Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)"
+  "EEE, MMM d yyyy", // the same with the weekday punctuated: "Tue, Oct 15 2019"
   "EEE, d MMM yyyy", // RFC 1123 / Date#toUTCString: "Tue, 15 Oct 2019 00:00:00 GMT"
   "MMMM d, yyyy", // "October 15, 2019"
   "MMM d, yyyy", // "Oct 15, 2019"
@@ -319,6 +320,30 @@ export function parseDateWithFormat(raw: string, format: DateFormat): string | n
 function isPlausibleYear(date: Date): boolean {
   const year = date.getFullYear();
   return year >= 1900 && year <= 2100;
+}
+
+/** How many of a date column's distinct values to look at when detecting the
+ * format and deciding whether to ask about it. Enough to catch a stray
+ * numeric row in an otherwise named-month file; small enough that a
+ * 50,000-row import doesn't parse every value three times. */
+export const DATE_SAMPLE_SIZE = 25;
+
+/**
+ * Whether the user actually has to be asked how to read this column's dates.
+ * True only if some value is genuinely ambiguous — it reads as one date
+ * under "month first" and a different one under "day first", the way
+ * "05/06/2019" does. Everything else answers itself: "2019-09-22" and
+ * "Sun Sep 22 2019" parse the same way whatever the setting is, and
+ * "22/09/2019" only parses one way, so detectDateFormat can settle it
+ * without bothering the user.
+ */
+export function needsDateFormatChoice(sampleValues: string[]): boolean {
+  return sampleValues.some((value) => {
+    if (!value.trim()) return false;
+    const asMdy = parseDateWithFormat(value, "mdy");
+    const asDmy = parseDateWithFormat(value, "dmy");
+    return asMdy !== null && asDmy !== null && asMdy !== asDmy;
+  });
 }
 
 /** Tries each candidate format against the sample values, returns whichever

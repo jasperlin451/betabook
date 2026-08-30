@@ -12,11 +12,13 @@ import {
   guessGradeFeelMapping,
   guessColumnMapping,
   missingRequiredColumns,
+  needsDateFormatChoice,
   normalizeImportRows,
   parseCsvText,
   parseDateWithFormat,
   detectDateFormat,
   CLIMB_TYPES,
+  DATE_SAMPLE_SIZE,
   IMPORT_BATCH_SIZE,
   REQUIRED_COLUMN_KEYS,
   type AscentStyleMapping,
@@ -104,12 +106,23 @@ export function ImportWizard() {
     () => (parsedCsv && columnMapping ? distinctValues(parsedCsv.rows, columnMapping.gradeFeel) : []),
     [parsedCsv, columnMapping],
   );
-  const dateSample = useMemo(
+  const dateValues = useMemo(
     () =>
       parsedCsv && columnMapping
-        ? (distinctValues(parsedCsv.rows, columnMapping.date)[0] ?? null)
-        : null,
+        ? distinctValues(parsedCsv.rows, columnMapping.date).slice(0, DATE_SAMPLE_SIZE)
+        : [],
     [parsedCsv, columnMapping],
+  );
+  // Most files answer the month-first/day-first question themselves, so the
+  // setting is only shown when this one doesn't — see needsDateFormatChoice.
+  const needsDateFormat = useMemo(() => needsDateFormatChoice(dateValues), [dateValues]);
+  // Prefer a value the current setting can't read as the worked example: if
+  // anything in the column is going to fail, that's what the user needs to
+  // see, not the first row that happens to work.
+  const dateSample = useMemo(
+    () =>
+      dateValues.find((v) => parseDateWithFormat(v, dateFormat) === null) ?? dateValues[0] ?? null,
+    [dateValues, dateFormat],
   );
   const dateSamplePreview = dateSample ? parseDateWithFormat(dateSample, dateFormat) : null;
 
@@ -164,7 +177,7 @@ export function ImportWizard() {
     setClimbTypeMapping(guessClimbTypeMapping(climbValues));
     setGradeFeelMapping(guessGradeFeelMapping(feelValues));
     if (columnMapping.date) {
-      const sample = distinctValues(parsedCsv.rows, columnMapping.date).slice(0, 25);
+      const sample = distinctValues(parsedCsv.rows, columnMapping.date).slice(0, DATE_SAMPLE_SIZE);
       setDateFormat(detectDateFormat(sample));
     }
     setStep("values");
@@ -443,22 +456,34 @@ export function ImportWizard() {
 
           {columnMapping?.date && (
             <div className="flex flex-col gap-2">
-              <TextField>
-                <Label>Date Format</Label>
-                <select
-                  value={dateFormat}
-                  onChange={(e) => setDateFormat(e.target.value as DateFormat)}
-                  className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
-                >
-                  <option value="iso">Year first — 2019-10-15</option>
-                  <option value="mdy">Month first — 10/15/2019</option>
-                  <option value="dmy">Day first — 15/10/2019</option>
-                </select>
-              </TextField>
-              <p className="text-xs text-muted">
-                This only settles all-numeric dates, where 05/06/2019 could be either May 6th
-                or June 5th. Named months and timestamps are read automatically.
-              </p>
+              {/* Only asked when the file is genuinely ambiguous. A column of
+                  "2019-10-15" or "Sun Sep 22 2019" reads the same way under
+                  every option, and offering a choice that changes nothing
+                  reads as "your dates aren't supported". */}
+              {needsDateFormat ? (
+                <>
+                  <TextField>
+                    <Label>Date Format</Label>
+                    <select
+                      value={dateFormat}
+                      onChange={(e) => setDateFormat(e.target.value as DateFormat)}
+                      className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+                    >
+                      <option value="iso">Year first — 2019-10-15</option>
+                      <option value="mdy">Month first — 10/15/2019</option>
+                      <option value="dmy">Day first — 15/10/2019</option>
+                    </select>
+                  </TextField>
+                  <p className="text-xs text-muted">
+                    This file has all-numeric dates, where 05/06/2019 could be either May 6th
+                    or June 5th — only you can settle which.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-muted">
+                  Dates are being read automatically — nothing in this column is ambiguous.
+                </p>
+              )}
               {/* A worked example from the file itself: the setting is easy to
                   get backwards, and this shows the mistake before the import
                   rather than after. */}
@@ -466,7 +491,7 @@ export function ImportWizard() {
                 <p className="text-xs text-muted">
                   {dateSamplePreview
                     ? `“${dateSample}” will import as ${dateSamplePreview}.`
-                    : `“${dateSample}” can’t be read as a date this way.`}
+                    : `“${dateSample}” can’t be read as a date${needsDateFormat ? " this way" : ""}.`}
                 </p>
               )}
             </div>
