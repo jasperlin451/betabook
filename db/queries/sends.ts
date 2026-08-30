@@ -451,3 +451,41 @@ export async function getClimbSendStats(
   }
   return stats;
 }
+
+export type AnalyticsSendRow = {
+  climbId: number;
+  climbName: string;
+  climbType: ClimbType;
+  climbGrade: number | null;
+  areaId: number;
+  areaName: string;
+  ascentStyle: AscentStyle;
+  dateSent: string | null;
+};
+
+/** Every send a user has logged, with just the fields the analytics page
+ * aggregates. One query, oldest climb-date first; all the derivation lives
+ * in lib/user-analytics.ts where it's pure and testable. A user's log tops
+ * out in the low thousands of rows — fine for a single D1 round trip, and
+ * the page is per-user, not per-request-hot. */
+export async function getUserSendsForAnalytics(
+  db: Database,
+  userId: string,
+): Promise<AnalyticsSendRow[]> {
+  return db
+    .select({
+      climbId: sends.climbId,
+      climbName: climbs.name,
+      climbType: climbs.type,
+      climbGrade: climbs.grade,
+      areaId: climbs.areaId,
+      areaName: areas.name,
+      ascentStyle: sends.ascentStyle,
+      dateSent: sends.dateSent,
+    })
+    .from(sends)
+    .innerJoin(climbs, eq(sends.climbId, climbs.id))
+    .innerJoin(areas, eq(climbs.areaId, areas.id))
+    .where(eq(sends.userId, userId))
+    .orderBy(sends.dateSent, sends.id);
+}

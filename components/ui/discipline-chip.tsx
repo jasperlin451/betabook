@@ -21,6 +21,15 @@ export const DISCIPLINE_LABELS: Record<ClimbType, string> = {
   trad: "Trad",
 };
 
+/** The discipline hue as a raw CSS color, for charts that paint with the
+ * palette directly (histogram bars, analytics lines, calendar squares)
+ * rather than the soft chip tints above. */
+export const DISCIPLINE_HUE: Record<ClimbType, string> = {
+  boulder: "var(--color-palette-accent)",
+  sport: "var(--color-palette-support)",
+  trad: "var(--color-palette-primary)",
+};
+
 /** The one place discipline gets a color: a soft palette-tinted chip.
  * Chips mean discipline; ascent styles have their own chip set
  * (AscentStyle); the sent tick is its own device. */

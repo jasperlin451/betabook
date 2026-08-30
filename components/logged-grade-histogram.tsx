@@ -2,13 +2,7 @@ import clsx from "clsx";
 import type { ClimbType } from "@/lib/grades";
 import type { GradeFeel } from "@/lib/sends";
 import type { LoggedGradeRow } from "@/lib/grade-histogram";
-
-// Same discipline → palette hue mapping as the discipline chips.
-const BAR_COLOR: Record<ClimbType, string> = {
-  boulder: "var(--color-palette-accent)",
-  sport: "var(--color-palette-support)",
-  trad: "var(--color-palette-primary)",
-};
+import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
 
 // Feel is ordinal, so the shade carries the meaning: lighter = felt soft,
 // darker = felt hard. Three fixed steps of one hue, legible on both themes.
@@ -36,7 +30,7 @@ export function LoggedGradeHistogram({
 
   const totalVotes = voted.reduce((sum, row) => sum + row.total, 0);
   const maxVotes = Math.max(...voted.map((row) => row.total));
-  const hue = BAR_COLOR[type];
+  const hue = DISCIPLINE_HUE[type];
   const hasFeelSplit = voted.some((row) => row.feelCounts.low > 0 || row.feelCounts.high > 0);
 
   const summary = voted

@@ -2,6 +2,7 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
+import { AppLink } from "@/components/ui/app-link";
 import { UserSendList, UserSendsFilterPanel } from "@/components/user-send-list";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
@@ -99,9 +100,11 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
       <div className="flex flex-col gap-1">
         <Eyebrow>Climber</Eyebrow>
         <PageTitle>{user.name}</PageTitle>
-        <span className="mt-1 text-sm text-muted">
-          Active since {memberSinceYear}
-        </span>
+        <div className="mt-1 flex items-center gap-2 text-sm text-muted">
+          <span>Active since {memberSinceYear}</span>
+          <span aria-hidden>·</span>
+          <AppLink href={`/users/${id}/analytics`}>Analytics</AppLink>
+        </div>
       </div>
 
       {/* The sidebar (filters + stats) leads on mobile and sits right of the

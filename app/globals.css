@@ -229,3 +229,19 @@
   animation: bar-grow-x 0.25s ease-out backwards;
   transform-origin: left;
 }
+
+/* Draw-in for the analytics progression line — the path carries
+   pathLength="1" so the dash math is size-independent. */
+@keyframes line-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@utility animate-line-draw {
+  stroke-dasharray: 1;
+  animation: line-draw 0.8s ease-out;
+}
