@@ -107,6 +107,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
         area={area}
         histogram={histogram}
         isEditor={session != null}
+        filter={filter}
         actions={session && <AreaActionsMenu area={area} canDelete={canDeleteArea} />}
       />
 

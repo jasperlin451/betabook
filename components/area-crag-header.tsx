@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Area } from "@/db/queries";
+import type { AreaClimbsFilter } from "@/lib/area-climbs-filter";
 import type { GradeHistogram } from "@/lib/grade-histogram";
 import { formatCount } from "@/lib/format";
 import { GradeHistogramChart } from "@/components/grade-histogram";
@@ -16,6 +17,7 @@ export function AreaCragHeader({
   histogram,
   actions,
   isEditor = false,
+  filter,
 }: {
   area: Area;
   histogram: GradeHistogram;
@@ -24,6 +26,9 @@ export function AreaCragHeader({
   /** Signed-in viewers get invited to fill a missing description — everyone
    * else just sees that there isn't one yet. */
   isEditor?: boolean;
+  /** The page's active climb filter — lets an applied histogram bucket
+   * render selected and toggle clear on click. */
+  filter?: AreaClimbsFilter;
 }) {
   const spans: string[] = [];
   if (histogram.boulderSpan) spans.push(`${histogram.boulderSpan[0]}–${histogram.boulderSpan[1]}`);
@@ -60,7 +65,7 @@ export function AreaCragHeader({
         </div>
       )}
 
-      <GradeHistogramChart histogram={histogram} areaId={area.id} />
+      <GradeHistogramChart histogram={histogram} areaId={area.id} filter={filter} />
     </div>
   );
 }
