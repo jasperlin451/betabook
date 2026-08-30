@@ -68,7 +68,7 @@ export function LoggedGradeHistogram({
       </svg>
       <ul className="flex flex-col gap-1" aria-hidden>
         {voted.map((bucket, i) => (
-          <li key={bucket.label} className="flex items-center gap-2 font-mono text-xs tabular-nums">
+          <li key={bucket.label} className="flex items-center gap-2 text-xs tabular-nums">
             <span
               className="size-2.5 shrink-0 rounded-xs"
               style={{ backgroundColor: hue, opacity: sliceOpacity(i) }}
@@ -88,7 +88,7 @@ export function LoggedGradeHistogram({
           </li>
         ))}
         {posted && posted.count === 0 && (
-          <li className="flex items-center gap-2 font-mono text-xs tabular-nums">
+          <li className="flex items-center gap-2 text-xs tabular-nums">
             <span className="size-2.5 shrink-0" />
             <span className="font-semibold text-foreground underline underline-offset-2">
               {posted.label}

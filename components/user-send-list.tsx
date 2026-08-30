@@ -16,7 +16,7 @@ import {
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { AppLink } from "@/components/ui/app-link";
 import { EmptyState } from "@/components/ui/empty-state";
-import { GradeBox } from "@/components/ui/grade-box";
+import { Grade } from "@/components/ui/grade";
 import { AscentStyle, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { NavigationPendingRegion } from "@/components/navigation-pending";
@@ -396,7 +396,7 @@ export function UserSendList({
               trailing={
                 <div className="flex flex-col items-end gap-1 text-sm">
                   <div className="flex items-center gap-1.5">
-                    <GradeBox className="gap-0.5">
+                    <Grade>
                       {formatGrade(send.climbType, send.climbGrade)}
                       {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
                         <span className="font-normal text-muted">
@@ -410,7 +410,7 @@ export function UserSendList({
                       {send.gradeFeel === "low" && (
                         <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
                       )}
-                    </GradeBox>
+                    </Grade>
                     <RatingStars rating={send.rating} />
                   </div>
                   <AscentStyle type={send.ascentStyle} />

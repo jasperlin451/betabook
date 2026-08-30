@@ -11,7 +11,7 @@ import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { GradeBox } from "@/components/ui/grade-box";
+import { Grade } from "@/components/ui/grade";
 import { PageTitle, SectionHeading } from "@/components/ui/typography";
 import { PageWithStats } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
@@ -104,7 +104,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
           <Eyebrow>Climb</Eyebrow>
           <PageTitle>{climb.name}</PageTitle>
           <div className="mt-1 flex items-center gap-2">
-            <GradeBox size="md">{formatGrade(climb.type, climb.grade)}</GradeBox>
+            <Grade size="md">{formatGrade(climb.type, climb.grade)}</Grade>
             <DisciplineChip type={climb.type} />
           </div>
           <p className="text-muted mt-1">

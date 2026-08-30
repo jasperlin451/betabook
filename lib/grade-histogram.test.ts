@@ -22,10 +22,10 @@ describe("buildGradeHistogram", () => {
       {
         type: "boulder",
         buckets: [
-          { label: "V0", count: 2 },
-          { label: "V1", count: 0 },
-          { label: "V2", count: 0 },
-          { label: "V3", count: 1 },
+          { label: "V0", count: 2, range: [1, 1] },
+          { label: "V1", count: 0, range: [2, 2] },
+          { label: "V2", count: 0, range: [3, 3] },
+          { label: "V3", count: 1, range: [4, 4] },
         ],
       },
     ]);
@@ -41,12 +41,12 @@ describe("buildGradeHistogram", () => {
     ];
     const h = buildGradeHistogram(rows);
     expect(h.groups).toEqual([
-      { type: "sport", buckets: [{ label: "5.10", count: 3 }] },
+      { type: "sport", buckets: [{ label: "5.10", count: 3, range: [10, 13] }] },
       {
         type: "trad",
         buckets: [
-          { label: "5.10", count: 3 },
-          { label: "5.11", count: 1 },
+          { label: "5.10", count: 3, range: [10, 13] },
+          { label: "5.11", count: 1, range: [14, 17] },
         ],
       },
     ]);
@@ -61,7 +61,7 @@ describe("buildGradeHistogram", () => {
     const h = buildGradeHistogram(rows);
     expect(h.ungradedCount).toBe(4);
     expect(h.totalClimbs).toBe(5);
-    expect(h.groups).toEqual([{ type: "sport", buckets: [{ label: "5.8", count: 1 }] }]);
+    expect(h.groups).toEqual([{ type: "sport", buckets: [{ label: "5.8", count: 1, range: [8, 8] }] }]);
   });
 
   it("lists disciplines present in boulder → sport → trad order", () => {
@@ -78,7 +78,7 @@ describe("buildGradeHistogram", () => {
       { type: "boulder", grade: 2, count: 1 },
     ];
     const h = buildGradeHistogram(rows);
-    expect(h.groups).toEqual([{ type: "boulder", buckets: [{ label: "V1", count: 1 }] }]);
+    expect(h.groups).toEqual([{ type: "boulder", buckets: [{ label: "V1", count: 1, range: [2, 2] }] }]);
   });
 });
 

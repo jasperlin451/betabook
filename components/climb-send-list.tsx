@@ -8,7 +8,7 @@ import { MAX_CLIMB_SENDS_LIMIT } from "@/lib/sends";
 import type { Climb, ClimbSendRow, ClimbSendsPage } from "@/db/queries";
 import { AscentStyle } from "@/components/ascent-style";
 import { RatingStars } from "@/components/ui/rating-stars";
-import { GradeBox } from "@/components/ui/grade-box";
+import { Grade } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
 import { SendListShell } from "@/components/send-list-shell";
 import { SendActionsMenu } from "@/components/send-actions-menu";
@@ -170,7 +170,7 @@ export function ClimbSendList({
           trailing={
             <div className="flex flex-col items-end gap-1 text-sm">
               <div className="flex items-center gap-1.5">
-                <GradeBox className="gap-0.5">
+                <Grade>
                   {formatGrade(climb.type, send.suggestedGrade)}
                   {send.gradeFeel === "high" && (
                     <ArrowUp className="size-3.5 text-muted" aria-label="High end of the grade" />
@@ -178,7 +178,7 @@ export function ClimbSendList({
                   {send.gradeFeel === "low" && (
                     <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
                   )}
-                </GradeBox>
+                </Grade>
                 <RatingStars rating={send.rating} />
               </div>
               <AscentStyle type={send.ascentStyle} />

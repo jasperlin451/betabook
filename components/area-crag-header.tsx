@@ -44,7 +44,7 @@ export function AreaCragHeader({
       </div>
 
       {histogram.totalClimbs > 0 && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 font-mono text-sm tabular-nums text-muted">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
           <span className="text-foreground">{formatCount(histogram.totalClimbs, "climb")}</span>
           {spans.map((span) => (
             <span key={span}>{span}</span>
@@ -60,7 +60,7 @@ export function AreaCragHeader({
         </div>
       )}
 
-      <GradeHistogramChart histogram={histogram} />
+      <GradeHistogramChart histogram={histogram} areaId={area.id} />
     </div>
   );
 }

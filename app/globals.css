@@ -146,7 +146,7 @@
   --font-mono: var(--font-geist-mono);
   /* The guidebook display voice — Barlow Condensed (loaded in
      app/layout.tsx), reserved for the wordmark, page titles, and entity
-     names. Body/UI stays on Geist Sans; data on Geist Mono. */
+     names. Everything else, grades included, stays on Geist Sans. */
   --font-display: var(--font-barlow-condensed);
 
   /* Raw palette as utilities (bg-palette-primary, text-palette-support, …)

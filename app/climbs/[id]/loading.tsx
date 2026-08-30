@@ -12,7 +12,7 @@ export default function Loading() {
         <Skeleton className="h-3 w-14" />
         <Skeleton className="h-9 w-64 max-w-full" />
         <div className="mt-1 flex items-center gap-2">
-          <Skeleton className="h-7 w-14 rounded-sm" />
+          <Skeleton className="h-5 w-10" />
           <Skeleton className="h-5 w-16 rounded-full" />
         </div>
         <Skeleton className="h-4 w-96 max-w-full" />

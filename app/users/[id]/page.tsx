@@ -99,7 +99,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
       <div className="flex flex-col gap-1">
         <Eyebrow>Climber</Eyebrow>
         <PageTitle>{user.name}</PageTitle>
-        <span className="mt-1 font-mono text-sm tabular-nums text-muted">
+        <span className="mt-1 text-sm text-muted">
           Active since {memberSinceYear}
         </span>
       </div>

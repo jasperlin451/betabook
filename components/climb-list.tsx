@@ -7,7 +7,7 @@ import { formatCount } from "@/lib/format";
 import type { ClimbWithAreaName } from "@/db/queries";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
-import { GradeBox } from "@/components/ui/grade-box";
+import { Grade } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
@@ -83,18 +83,18 @@ export function ClimbList({
             trailing={
               <div className="flex flex-col items-end gap-1.5">
                 <div className="flex items-center gap-2">
-                  <GradeBox>
+                  <Grade>
                     <GradeWithTrend
                       type={climb.type}
                       grade={climb.grade}
                       avgSuggestedGrade={sendStats?.[climb.id]?.avgSuggestedGrade ?? null}
                     />
-                  </GradeBox>
+                  </Grade>
                   <RatingStars rating={sendStats?.[climb.id]?.avgRating ?? null} precision="decimal" />
                 </div>
                 <div className="flex items-center gap-2">
                   <DisciplineChip type={climb.type} />
-                  <span className="font-mono text-xs tabular-nums text-muted">
+                  <span className="text-xs text-muted">
                     {formatCount(sendStats?.[climb.id]?.sendCount ?? 0, "ascent")}
                   </span>
                 </div>

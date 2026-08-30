@@ -2,8 +2,10 @@ import { BOULDER_HUECO, nativeGradeArray, ROPE_YDS, type ClimbType } from "@/lib
 import type { GradeHistogramRow, SuggestedGradeCount } from "@/db/queries";
 
 /** One histogram bar. Boulder buckets are one V grade each; rope buckets
- * collapse letter grades to the number ("5.10a–d" → "5.10"). */
-export type GradeBucket = { label: string; count: number };
+ * collapse letter grades to the number ("5.10a–d" → "5.10"). `range` is the
+ * inclusive grade-index span the bucket covers, so a bar click can apply
+ * the exact matching grade filter. */
+export type GradeBucket = { label: string; count: number; range: [number, number] };
 
 /** One discipline's chart: buckets contiguous from its lowest to highest
  * graded climb (zeros between kept, so the shape is real). */
@@ -67,6 +69,21 @@ function collapseRopeLabel(label: string): string {
   return label.replace(/[a-d]$/, "");
 }
 
+/** The full grade-index span a collapsed rope label covers ("5.10" →
+ * [5.10a, 5.10d]) — a bucket click filters the whole label, not just the
+ * letter grades this particular area happens to hold. */
+function ropeLabelSpan(label: string): [number, number] {
+  let first = -1;
+  let last = -1;
+  ROPE_YDS.forEach((grade, i) => {
+    if (collapseRopeLabel(grade) === label) {
+      if (first === -1) first = i;
+      last = i;
+    }
+  });
+  return [first, last];
+}
+
 /** Contiguous buckets for one discipline's counts-by-grade-index map:
  * boulder gets one bucket per V grade; rope disciplines collapse letter
  * grades to the number ("5.10a–d" → "5.10"), merging in grade order. */
@@ -84,7 +101,11 @@ function bucketize(type: ClimbType, counts: Map<number, number>): GradeBucket[] 
     if (last && last.label === label) {
       last.count += count;
     } else {
-      buckets.push({ label, count });
+      buckets.push({
+        label,
+        count,
+        range: type === "boulder" ? [i, i] : ropeLabelSpan(label),
+      });
     }
   }
   return buckets;

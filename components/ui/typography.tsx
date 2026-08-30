@@ -23,8 +23,3 @@ export function SectionHeading({
   return <h2 className={clsx("text-lg font-semibold", className)}>{children}</h2>;
 }
 
-/** Figures set like a guidebook table: grades, counts, dates, spans. Mono
- * with lining figures so columns of numbers align. */
-export function DataMono({ children, className }: { children: ReactNode; className?: string }) {
-  return <span className={clsx("font-mono text-sm tabular-nums", className)}>{children}</span>;
-}
