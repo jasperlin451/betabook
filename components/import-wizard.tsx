@@ -13,6 +13,7 @@ import {
   guessColumnMapping,
   normalizeImportRows,
   parseCsvText,
+  parseDateWithFormat,
   detectDateFormat,
   CLIMB_TYPES,
   IMPORT_BATCH_SIZE,
@@ -93,6 +94,14 @@ export function ImportWizard() {
     () => (parsedCsv && columnMapping ? distinctValues(parsedCsv.rows, columnMapping.gradeFeel) : []),
     [parsedCsv, columnMapping],
   );
+  const dateSample = useMemo(
+    () =>
+      parsedCsv && columnMapping
+        ? (distinctValues(parsedCsv.rows, columnMapping.date)[0] ?? null)
+        : null,
+    [parsedCsv, columnMapping],
+  );
+  const dateSamplePreview = dateSample ? parseDateWithFormat(dateSample, dateFormat) : null;
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
@@ -388,18 +397,34 @@ export function ImportWizard() {
           )}
 
           {columnMapping?.date && (
-            <TextField>
-              <Label>Date Format</Label>
-              <select
-                value={dateFormat}
-                onChange={(e) => setDateFormat(e.target.value as DateFormat)}
-                className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
-              >
-                <option value="iso">YYYY-MM-DD</option>
-                <option value="mdy">MM/DD/YYYY</option>
-                <option value="dmy">DD/MM/YYYY</option>
-              </select>
-            </TextField>
+            <div className="flex flex-col gap-2">
+              <TextField>
+                <Label>Date Format</Label>
+                <select
+                  value={dateFormat}
+                  onChange={(e) => setDateFormat(e.target.value as DateFormat)}
+                  className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+                >
+                  <option value="iso">Year first — 2019-10-15</option>
+                  <option value="mdy">Month first — 10/15/2019</option>
+                  <option value="dmy">Day first — 15/10/2019</option>
+                </select>
+              </TextField>
+              <p className="text-xs text-muted">
+                This only settles all-numeric dates, where 05/06/2019 could be either May 6th
+                or June 5th. Named months and timestamps are read automatically.
+              </p>
+              {/* A worked example from the file itself: the setting is easy to
+                  get backwards, and this shows the mistake before the import
+                  rather than after. */}
+              {dateSample && (
+                <p className="text-xs text-muted">
+                  {dateSamplePreview
+                    ? `“${dateSample}” will import as ${dateSamplePreview}.`
+                    : `“${dateSample}” can’t be read as a date this way.`}
+                </p>
+              )}
+            </div>
           )}
 
           {columnMapping?.grade && (

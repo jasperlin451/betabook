@@ -14,6 +14,7 @@ import {
   type BatchErrorRow,
   type ClimbTypeMapping,
   type ColumnMapping,
+  type DateFormat,
   type GradeFeelMapping,
   type InvalidImportRow,
   type NotFoundRow,
@@ -186,9 +187,67 @@ describe("parseDateWithFormat", () => {
     expect(parseDateWithFormat("13/40/2026", "mdy")).toBeNull();
   });
 
-  it("returns null when the format doesn't match the string shape", () => {
+  it("returns null for an all-numeric date the chosen format can't read", () => {
+    // Nothing in the value says whether this is Aug 12th or Dec 8th, and the
+    // user said their file is ISO, so it's a failed row rather than a guess.
     expect(parseDateWithFormat("8/12/2026", "iso")).toBeNull();
-    expect(parseDateWithFormat("2026-08-12", "mdy")).toBeNull();
+  });
+
+  it("parses unambiguous formats whatever the chosen format is", () => {
+    for (const format of ["iso", "mdy", "dmy"] as const) {
+      // JS Date#toString, which is what a naively serialized Date looks like.
+      expect(
+        parseDateWithFormat("Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", format),
+      ).toBe("2019-10-15");
+      expect(parseDateWithFormat("2026-08-12", format)).toBe("2026-08-12");
+      expect(parseDateWithFormat("Oct 15, 2019", format)).toBe("2019-10-15");
+    }
+  });
+
+  it("parses the timestamp shapes exports tend to emit", () => {
+    const cases: [string, string][] = [
+      ["Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", "2019-10-15"],
+      ["Sat Mar 07 2020 13:45:02 GMT-0800 (Pacific Standard Time)", "2020-03-07"],
+      ["Tue, 15 Oct 2019 00:00:00 GMT", "2019-10-15"], // RFC 1123 / toUTCString
+      ["2019-10-15T00:00:00.000Z", "2019-10-15"],
+      ["2019-10-15T23:30:00-07:00", "2019-10-15"], // civil date as written, not shifted to UTC
+      ["2019-10-15 00:00:00", "2019-10-15"],
+      ["10/15/2019 2:05 PM", "2019-10-15"],
+    ];
+    for (const [raw, expected] of cases) {
+      expect(parseDateWithFormat(raw, "mdy"), raw).toBe(expected);
+    }
+  });
+
+  it("parses named-month and non-slash numeric formats", () => {
+    const cases: [string, DateFormat, string][] = [
+      ["October 15, 2019", "iso", "2019-10-15"],
+      ["oct 15 2019", "iso", "2019-10-15"],
+      ["Sept 15, 2019", "iso", "2019-09-15"],
+      ["15 October 2019", "iso", "2019-10-15"],
+      ["15-Oct-2019", "iso", "2019-10-15"], // Excel's text-date rendering
+      ["2019/10/15", "iso", "2019-10-15"],
+      ["20191015", "iso", "2019-10-15"], // ISO 8601 basic
+      ["2019-1-5", "iso", "2019-01-05"], // unpadded
+      ["15.10.2019", "dmy", "2019-10-15"], // European dotted
+      ["10-15-2019", "mdy", "2019-10-15"],
+      ["10/15/19", "mdy", "2019-10-15"], // two-digit year
+      ["15/10/19", "dmy", "2019-10-15"],
+      ["15-10-19", "dmy", "2019-10-15"], // must not be read as ISO year 15
+      ["10/15/89", "mdy", "1989-10-15"], // two-digit years pivot like a spreadsheet's
+    ];
+    for (const [raw, format, expected] of cases) {
+      expect(parseDateWithFormat(raw, format), raw).toBe(expected);
+    }
+  });
+
+  it("rejects values that only look like dates", () => {
+    expect(parseDateWithFormat("2019-10-15 extra", "iso")).toBeNull();
+    expect(parseDateWithFormat("Oct 2019", "iso")).toBeNull();
+    expect(parseDateWithFormat("last Tuesday", "iso")).toBeNull();
+    expect(parseDateWithFormat("43753", "iso")).toBeNull(); // Excel serial number
+    expect(parseDateWithFormat("2019-02-30", "iso")).toBeNull();
+    expect(parseDateWithFormat("Feb 30, 2019", "iso")).toBeNull();
   });
 });
 
@@ -203,6 +262,12 @@ describe("detectDateFormat", () => {
 
   it("detects DMY dates (day > 12 disambiguates from MDY)", () => {
     expect(detectDateFormat(["25/8/2026", "26/8/2026"])).toBe("dmy");
+  });
+
+  it("lets the all-numeric values decide when unambiguous values are mixed in", () => {
+    expect(
+      detectDateFormat(["Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", "25/8/2026"]),
+    ).toBe("dmy");
   });
 });
 
@@ -260,6 +325,20 @@ describe("normalizeImportRows", () => {
     );
     expect(valid).toEqual([]);
     expect(invalid[0].reason).toMatch(/unparseable date/i);
+  });
+
+  it("normalizes a serialized-Date timestamp to its civil date", () => {
+    const { valid, invalid } = normalizeImportRows(
+      csv([row({ Date: "Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      TODAY,
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].dateSent).toBe("2019-10-15");
   });
 
   it("rejects a date two days past UTC today", () => {
