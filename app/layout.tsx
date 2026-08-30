@@ -5,6 +5,8 @@ import localFont from "next/font/local";
 import { Mountain } from "lucide-react";
 import { Providers } from "./providers";
 import { AuthNav } from "@/components/auth-nav";
+import { CommandPalette } from "@/components/command-palette";
+import { SearchScopeProvider } from "@/components/search-scope";
 import { MobileNav } from "@/components/mobile-nav";
 import { ThemeSwitch } from "@/components/theme-toggle";
 import { AppLink } from "@/components/ui/app-link";
@@ -92,6 +94,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to content
         </a>
         <Providers>
+          {/* Wraps everything below the providers: the palette reads the
+            * scope, and the pages that set it are rendered as children. */}
+          <SearchScopeProvider>
           <header className="border-b border-separator px-4 py-3">
             <div className={`mx-auto flex w-full ${PAGE_MAX_WIDTH_CLASS} flex-wrap items-center justify-between gap-2`}>
               <AppLink
@@ -102,6 +107,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 Betabook
               </AppLink>
               <div className="flex items-center gap-3">
+                <CommandPalette />
                 <nav aria-label="Primary" className="hidden items-center gap-6 text-sm md:flex">
                   <AuthNav />
                 </nav>
@@ -119,6 +125,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <span>&copy; {process.env.NEXT_PUBLIC_BUILD_YEAR} Betabook</span>
             </div>
           </footer>
+          </SearchScopeProvider>
         </Providers>
       </body>
     </html>

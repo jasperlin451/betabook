@@ -22,7 +22,9 @@ import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
-import { DisciplineFilterForm } from "@/components/send-filter-form";
+import { FilterToolbar } from "@/components/filter-toolbar";
+import { RouteSearchField } from "@/components/route-search-field";
+import { AreaSearchField } from "@/components/area-search-field";
 import { LabeledIndexSelect } from "@/components/ui/index-select";
 import { SendActionsMenu } from "@/components/send-actions-menu";
 import { SendListShell } from "@/components/send-list-shell";
@@ -102,25 +104,28 @@ const DEFAULT_DIRECTION: Record<SortField, "asc" | "desc"> = {
   rating: "desc",
 };
 
-/** The name/area search + discipline/grade filter for a user's send history
- * — split out from <UserSendList> so the page can place it in a sidebar
- * column alongside the stats cards, while the send rows themselves stay in
- * the main column. Debounces every field change (including the initial
- * render) into a single navigation, same as the climb search form.
+/** A user's send-history filters, in the same one-row toolbar the area page
+ * uses above its climb table — search, discipline chips, "More filters", and
+ * the sort control pushed right — rather than a sidebar card. Debounces
+ * every field change into a single navigation, same as every other filter
+ * surface.
  *
- * Unlike <UserSendList>, the caller must NOT key this on the filter: keying
- * would remount it (and its <input>s) right when the debounce lands —
- * exactly when the user pauses typing — yanking focus out from under them.
- * External URL changes (back/forward, the sort control) are instead adopted
- * as values by useFilterFormNavigation, which leaves the mounted inputs
- * alone. */
-export function UserSendsFilterPanel({
+ * Sort lives here rather than beside the "Sends" heading so that all four
+ * ways of narrowing the list sit in one control instead of two.
+ *
+ * The caller must NOT key this on the filter: keying would remount it (and
+ * its <input>s) right when the debounce lands — exactly when the user pauses
+ * typing — yanking focus out from under them. External URL changes
+ * (back/forward) are instead adopted as values by useFilterFormNavigation,
+ * which leaves the mounted inputs alone. */
+export function UserSendsFilterToolbar({
   userId,
   filter,
 }: {
   userId: string;
   filter: UserSendsFilter;
 }) {
+  const router = useRouter();
   const {
     name,
     setName,
@@ -152,16 +157,53 @@ export function UserSendsFilterPanel({
   });
 
   return (
-    <DisciplineFilterForm
+    <FilterToolbar
       value={disciplineFilter}
       onChange={setDisciplineFilter}
       onReset={reset}
-      name={name}
-      onNameChange={setName}
-      areaName={areaName}
-      onAreaNameChange={setAreaName}
-      extraOptions={
+      search={
+        // One field on the bar, same as the area page: with the stats
+        // sidebar taking its column, a second field can't share this row at
+        // any realistic width. Area scope moves into "More filters" below,
+        // where the rest of the secondary filters already live.
+        <RouteSearchField
+          value={name}
+          onChange={setName}
+          onSelect={(route) => setName(route.name)}
+          ariaLabel="Search route name"
+          className="w-full sm:w-64"
+        />
+      }
+      sortControl={
+        <SortSelect
+          // The URL may omit sort entirely; the control still needs a
+          // concrete field+direction to show.
+          sort={filter.sort ?? "date_desc"}
+          fields={SORT_FIELDS}
+          defaultField="date"
+          defaultDirection={DEFAULT_DIRECTION}
+          onNavigate={(nextSort) => {
+            const params = userSendsFilterToSearchParams({ ...filter, sort: nextSort });
+            router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
+          }}
+        />
+      }
+      extraFilters={
         <>
+          {/* Inline label, matching Ascent Style and Min Rating below —
+            * a stacked label here was the one field in the panel with a
+            * different rhythm. */}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="shrink-0 text-sm font-medium text-foreground">In area</span>
+            <AreaSearchField
+              value={areaName}
+              onChange={setAreaName}
+              onSelect={(area) => setAreaName(area.name)}
+              ariaLabel="Filter by area"
+              placeholder="Anywhere"
+              className="w-full sm:w-64"
+            />
+          </div>
           <AscentStyleFields
             value={disciplineFilter.ascentStyles}
             onChange={(ascentStyles) => setDisciplineFilter({ ...disciplineFilter, ascentStyles })}
@@ -204,7 +246,6 @@ export function UserSendList({
   hasAnySends,
   currentUserId,
 }: UserSendListProps) {
-  const router = useRouter();
   const [sends, setSends] = useState(initialSends);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
@@ -330,8 +371,6 @@ export function UserSendList({
     }
   }
 
-  const currentSort = filter.sort ?? "date_desc";
-
   if (!hasAnySends) {
     return (
       <div className="flex flex-col gap-4">
@@ -352,20 +391,8 @@ export function UserSendList({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Sends</h2>
-        <SortSelect
-          sort={currentSort}
-          fields={SORT_FIELDS}
-          defaultField="date"
-          defaultDirection={DEFAULT_DIRECTION}
-          onNavigate={(nextSort) => {
-            const params = userSendsFilterToSearchParams({ ...filter, sort: nextSort });
-            router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
-          }}
-        />
-      </div>
-      {/* Dimmed while the filter panel's debounced navigation is re-fetching
+      {/* Heading and sort both live above this now, in the page's toolbar. */}
+      {/* Dimmed while the toolbar's debounced navigation is re-fetching
        * these results (see NavigationPendingProvider in the page). */}
       <NavigationPendingRegion>
         <SendListShell

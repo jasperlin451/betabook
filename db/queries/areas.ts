@@ -163,7 +163,10 @@ export const AREA_SEARCH_PAGE_SIZE = 25;
 
 export type SearchAreasPage = { areas: AreaWithAncestorPath[]; hasNextPage: boolean };
 
-/** `ancestorPath` reads immediate-parent-first, e.g. "Squamish > British Columbia > Canada".
+/** `ancestorPath` reads root-first, e.g. "Canada > British Columbia > Squamish"
+ * — the same outside-in reading as `AreaBreadcrumb`, so a suggestion row and
+ * a result row place a crag identically. Ordering is pinned by the subquery
+ * the concat reads from; see the note in the SQL.
  *
  * Walks `parentId` (see getAncestors's doc comment) rather than lft/rght, so
  * a freshly created area's ancestor path is correct immediately, with no
@@ -191,11 +194,18 @@ export async function searchAreas(
       WHERE areas.parent_id IS NOT NULL
     )
     SELECT areas.*, (
-      SELECT GROUP_CONCAT(ancestor.name, ' > ')
-      FROM ancestor_chain
-      JOIN areas ancestor ON ancestor.id = ancestor_chain.ancestor_id
-      WHERE ancestor_chain.area_id = areas.id
-      ORDER BY ancestor_chain.dist ASC
+      -- The ORDER BY has to sit on a subquery whose rows GROUP_CONCAT then
+      -- consumes, not beside the aggregate itself: an ORDER BY applied to an
+      -- aggregate query orders its single output row, leaving the
+      -- concatenation to follow whatever order the scan happened to produce.
+      -- Ordering the input rows is what actually fixes the sequence.
+      SELECT GROUP_CONCAT(name, ' > ') FROM (
+        SELECT ancestor.name AS name
+        FROM ancestor_chain
+        JOIN areas ancestor ON ancestor.id = ancestor_chain.ancestor_id
+        WHERE ancestor_chain.area_id = areas.id
+        ORDER BY ancestor_chain.dist DESC
+      )
     ) AS ancestorPath
     FROM areas
     JOIN areas_fts ON areas_fts.rowid = areas.id

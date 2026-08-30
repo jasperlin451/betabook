@@ -1,7 +1,6 @@
 import clsx from "clsx";
 import { AreaSearchForm, ClimbSearchForm, ClimbSearchSortControl } from "@/components/search-form";
 import { AreaSearchResults, ClimbSearchResults } from "@/components/search-results";
-import { HomeSearchBar } from "@/components/home-search-bar";
 import { NavigationPendingProvider, NavigationPendingRegion } from "@/components/navigation-pending";
 import { RecentSendsFeed } from "@/components/recent-sends-feed";
 import { AppLink } from "@/components/ui/app-link";
@@ -36,9 +35,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
   const db = await getDb();
 
-  // Bare `/` is the home feed — the latest sends across the whole book,
-  // with one search bar as the way in. Any search param at all (a query,
-  // a mode, a filter) switches to the full search view below.
+  // Bare `/` is the home feed — the latest sends across the whole book. The
+  // way in to search is the header's ⌘K palette, which reaches both routes
+  // and areas from every page, so the feed doesn't carry a bar of its own.
+  // Any search param at all (a query, a mode, a filter) switches to the full
+  // search view below.
   if (Object.keys(params).length === 0) {
     const feed = await getRecentSends(db, 1);
     const areaBreadcrumbs = await getAreaBreadcrumbs(
@@ -47,17 +48,19 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     );
 
     return (
-      <div className="flex flex-col gap-8">
-        <section className="mx-auto flex w-full max-w-xl flex-col gap-2 pt-4">
-          <h1 className="sr-only">Betabook</h1>
-          <HomeSearchBar />
-          <p className="text-xs text-muted">
-            or <AppLink href="/?mode=area">browse areas</AppLink>
-          </p>
-        </section>
+      <div className="flex flex-col gap-8 pt-4">
+        <h1 className="sr-only">Betabook</h1>
 
         <section className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-          <SectionHeading>Recent sends</SectionHeading>
+          {/* "or browse areas" dangled off the search bar that used to sit
+            * above; standing alone it becomes the heading's own affordance —
+            * still the one visible path to area search from the feed. */}
+          <div className="flex items-baseline justify-between gap-3">
+            <SectionHeading>Recent sends</SectionHeading>
+            <AppLink href="/?mode=area" className="text-xs text-muted">
+              Browse areas
+            </AppLink>
+          </div>
           <RecentSendsFeed
             initialSends={feed.sends}
             initialHasMore={feed.hasMore}

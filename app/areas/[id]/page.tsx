@@ -6,6 +6,7 @@ import { AreaActionsMenu } from "@/components/area-actions-menu";
 import { AreaClimbsSection } from "@/components/area-climbs-section";
 import { AreaClimbsToolbar } from "@/components/area-climbs-toolbar";
 import { AreaCragHeader } from "@/components/area-crag-header";
+import { RegisterSearchScope } from "@/components/search-scope";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { SubareaRail } from "@/components/subarea-rail";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
@@ -108,6 +109,8 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Lets ⌘K lead with this area's own routes while the viewer is here. */}
+      <RegisterSearchScope areaId={area.id} areaName={area.name} />
       <AreaBreadcrumbs ancestors={ancestors} current={area} />
 
       <AreaCragHeader

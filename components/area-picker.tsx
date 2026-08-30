@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { ComboBox, Input, ListBox } from "@heroui/react";
-import { searchAreasForPicker } from "@/db/actions";
-import type { AreaWithAncestorPath } from "@/db/queries";
+import { useState } from "react";
+import { AreaSearchField } from "@/components/area-search-field";
+import type { AreaSuggestion } from "@/lib/search-suggestions";
 
-export type PickedArea = { id: number; name: string; ancestorPath: string | null };
+export type PickedArea = AreaSuggestion;
 
 type AreaPickerProps = {
   selected: PickedArea | null;
@@ -13,62 +12,34 @@ type AreaPickerProps = {
   isInvalid?: boolean;
 };
 
-/** A searchable combobox for picking an existing area by name, showing each
- * result's ancestor path to disambiguate same-named areas — the only place
- * in the app an area is chosen as a form field rather than via a whole-page
- * search. Debounces the query into `searchAreasForPicker` the same way
- * `useDebouncedReplace` debounces navigation-driven search elsewhere. */
+/** Picks an existing area as a *form value* — the one place an area is
+ * chosen as a field rather than as a filter or a destination. Same control
+ * and same rows as every other area search; what differs is that a pick
+ * binds an id (`selectedKey`), which is what the surrounding form submits.
+ *
+ * Typing after a selection clears it: the text no longer describes the bound
+ * area, and submitting the old id while the field shows something else is
+ * the kind of quiet mismatch a form should never allow. */
 export function AreaPicker({ selected, onSelectedChange, isInvalid }: AreaPickerProps) {
   const [query, setQuery] = useState(selected?.name ?? "");
-  const [results, setResults] = useState<AreaWithAncestorPath[]>([]);
-  const [, startTransition] = useTransition();
-
-  useEffect(() => {
-    if (!query.trim()) return;
-    const timeout = setTimeout(() => {
-      startTransition(async () => {
-        setResults(await searchAreasForPicker(query));
-      });
-    }, 400);
-    return () => clearTimeout(timeout);
-  }, [query]);
-
-  const visibleResults = query.trim() ? results : [];
 
   return (
-    <ComboBox<AreaWithAncestorPath>
-      aria-label="Area"
-      fullWidth
-      isInvalid={isInvalid}
-      allowsEmptyCollection
-      inputValue={query}
-      onInputChange={setQuery}
-      items={visibleResults}
-      selectedKey={selected ? String(selected.id) : null}
-      onSelectionChange={(key) => {
-        const picked = results.find((a) => String(a.id) === key) ?? null;
-        onSelectedChange(
-          picked ? { id: picked.id, name: picked.name, ancestorPath: picked.ancestorPath } : null,
-        );
-        if (picked) setQuery(picked.name);
+    <AreaSearchField
+      value={query}
+      onChange={(value) => {
+        setQuery(value);
+        if (selected && value !== selected.name) onSelectedChange(null);
       }}
-    >
-      <ComboBox.InputGroup>
-        <Input placeholder="Search areas…" className="bg-surface" />
-        <ComboBox.Trigger />
-      </ComboBox.InputGroup>
-      <ComboBox.Popover>
-        <ListBox>
-          {(area: AreaWithAncestorPath) => (
-            <ListBox.Item id={String(area.id)} textValue={area.name}>
-              <p>{area.name}</p>
-              {area.ancestorPath && (
-                <p className="text-muted text-xs">Parent: {area.ancestorPath}</p>
-              )}
-            </ListBox.Item>
-          )}
-        </ListBox>
-      </ComboBox.Popover>
-    </ComboBox>
+      onSelect={(area) => {
+        setQuery(area.name);
+        onSelectedChange(area);
+      }}
+      selectedKey={selected ? String(selected.id) : null}
+      ariaLabel="Area"
+      emptyMessage="No matching areas."
+      isInvalid={isInvalid}
+      inputClassName="bg-surface"
+      fullWidth
+    />
   );
 }

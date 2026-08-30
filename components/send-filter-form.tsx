@@ -1,7 +1,7 @@
 "use client";
 
-import { SearchField } from "@/components/ui/search-field";
-import { AreaNameAutocomplete } from "@/components/area-name-autocomplete";
+import { RouteSearchField } from "@/components/route-search-field";
+import { AreaSearchField } from "@/components/area-search-field";
 import type { ReactNode } from "react";
 import { Button, buttonVariants, Checkbox, Disclosure } from "@heroui/react";
 import clsx from "clsx";
@@ -18,10 +18,9 @@ function toggleDiscipline(
   return checked ? [...disciplines, value] : disciplines.filter((d) => d !== value);
 }
 
-// Shared by climb search and the area page (route/area name search +
-// disciplines + grade ranges) and the user sends filter (disciplines + grade
-// ranges only, via showNameSearch={false}) — one set of fields, not three
-// near-duplicates.
+// Shared by climb search and the user sends list — one set of fields, not
+// two near-duplicates. Each name field renders only when its handler is
+// passed, so a caller opts in per field rather than all-or-nothing.
 
 type NameSearchFieldsProps = {
   name?: string;
@@ -38,18 +37,30 @@ function NameSearchFields({
 }: NameSearchFieldsProps) {
   return (
     <div className="flex flex-col gap-4">
+      {/* Both are filters: the list below is what answers the search, so
+        * picking a suggestion completes the field's text (getting the exact
+        * spelling) rather than navigating away from the results. */}
       {onNameChange && (
-        <SearchField
+        <RouteSearchField
           value={name}
           onChange={onNameChange}
+          onSelect={(route) => onNameChange(route.name)}
           label="Route Name"
-          placeholder="Search routes…"
         />
       )}
       {onAreaNameChange && (
-        // Areas are a known set — an autocomplete over real area names,
-        // not a blind text field (see AreaNameAutocomplete).
-        <AreaNameAutocomplete value={areaName} onChange={onAreaNameChange} />
+        // "In area" reads as a constraint on the route search ("routes named
+        // X, in area Y"), not a second area search; "Anywhere" states the
+        // default scope instead of echoing "search".
+        <AreaSearchField
+          value={areaName}
+          onChange={onAreaNameChange}
+          onSelect={(area) => onAreaNameChange(area.name)}
+          label="In area"
+          placeholder="Anywhere"
+          inputClassName="bg-surface"
+          fullWidth
+        />
       )}
       {(onNameChange || onAreaNameChange) && (
         <p className="text-xs text-muted">Results update as you type.</p>
@@ -130,6 +141,12 @@ export function DisciplineGradeSliders<T extends DisciplineFilter>({
   const showSport = value.disciplines.includes("sport");
   const showTrad = value.disciplines.includes("trad");
 
+  // Nothing selected means no grade scale applies. Returning null rather
+  // than an empty flex container matters in the toolbar's expanded panel,
+  // where an empty child still claims a gap and opens a visible hole above
+  // the footer.
+  if (!showBoulder && !showSport && !showTrad) return null;
+
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:gap-6">
       {showBoulder && (
@@ -175,7 +192,6 @@ export type DisciplineFilterFormProps<T extends DisciplineFilter> = {
   value: T;
   onChange: (value: T) => void;
   onReset: () => void;
-  showNameSearch?: boolean;
   name?: string;
   onNameChange?: (value: string) => void;
   areaName?: string;
@@ -187,8 +203,10 @@ export type DisciplineFilterFormProps<T extends DisciplineFilter> = {
 };
 
 /** The one filter form for discipline + grade-range filtering — climb
- * search, the area page, and the user sends list render this exact
- * component, differing only in `showNameSearch` and `extraOptions`. Generic
+ * search and the user sends list render this exact component, differing only
+ * in which name handlers they pass and in `extraOptions`. (The area page
+ * renders the same fields through its own toolbar layout instead, since a
+ * crag page puts them in a row rather than a sidebar card.) Generic
  * over `T` since each caller's filter type carries its own extra fields
  * (rating range/min ascents, ascent styles/min rating, ...) that `onChange`
  * must round-trip through the `{ ...value, disciplines: ... }` spreads in
@@ -197,7 +215,6 @@ export function DisciplineFilterForm<T extends DisciplineFilter>({
   value,
   onChange,
   onReset,
-  showNameSearch = true,
   name,
   onNameChange,
   areaName,
@@ -209,14 +226,12 @@ export function DisciplineFilterForm<T extends DisciplineFilter>({
       {({ isExpanded }) => (
         <>
           <div className="flex flex-col gap-4">
-            {showNameSearch && (
-              <NameSearchFields
-                name={name}
-                onNameChange={onNameChange}
-                areaName={areaName}
-                onAreaNameChange={onAreaNameChange}
-              />
-            )}
+            <NameSearchFields
+              name={name}
+              onNameChange={onNameChange}
+              areaName={areaName}
+              onAreaNameChange={onAreaNameChange}
+            />
 
             <DisciplinesFields value={value} onChange={onChange} />
           </div>

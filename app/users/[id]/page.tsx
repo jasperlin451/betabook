@@ -5,8 +5,8 @@ import { buttonVariants } from "@heroui/react";
 import { ChartColumnIncreasing } from "lucide-react";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { AppLink } from "@/components/ui/app-link";
-import { UserSendList, UserSendsFilterPanel } from "@/components/user-send-list";
-import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { UserSendList, UserSendsFilterToolbar } from "@/components/user-send-list";
+import { SectionHeading } from "@/components/ui/typography";
 import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { SidebarLayout } from "@/components/ui/page-shell";
@@ -119,33 +119,28 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
       {/* The sidebar (filters + stats) leads on mobile and sits right of the
        * list on desktop — a single render of the stats card, so the headline
        * stats aren't buried below the infinite send list on mobile and don't
-       * appear twice in the accessibility tree.
+       * appear twice in the accessibility tree. The filters used to share
+       * that column; they now sit in a toolbar directly above the rows they
+       * narrow, the same shape the area page uses over its climb table.
        *
-       * The provider links the filter panel's in-flight navigation to the
-       * send list it re-fetches, which dims while pending. */}
+       * The provider links the toolbar's in-flight navigation to the send
+       * list it re-fetches, which dims while pending. */}
       <NavigationPendingProvider>
-        <SidebarLayout
-          sidebar={
-            <>
-              {summary.sendCount > 0 && (
-                <CollapsibleSection title="Filters" breakpoint="lg" showTitleOnDesktop={false}>
-                  <UserSendsFilterPanel userId={id} filter={filter} />
-                </CollapsibleSection>
-              )}
-              <StatStrip cards={statCards} />
-            </>
-          }
-        >
-          <UserSendList
-            key={JSON.stringify(filter)}
-            userId={id}
-            filter={filter}
-            initialSends={firstPage.sends}
-            initialHasMore={firstPage.hasMore}
-            initialAreaBreadcrumbs={areaBreadcrumbs}
-            hasAnySends={summary.sendCount > 0}
-            currentUserId={session?.user.id}
-          />
+        <SidebarLayout sidebar={<StatStrip cards={statCards} />}>
+          <div className="flex flex-col gap-3">
+            <SectionHeading>Sends</SectionHeading>
+            {summary.sendCount > 0 && <UserSendsFilterToolbar userId={id} filter={filter} />}
+            <UserSendList
+              key={JSON.stringify(filter)}
+              userId={id}
+              filter={filter}
+              initialSends={firstPage.sends}
+              initialHasMore={firstPage.hasMore}
+              initialAreaBreadcrumbs={areaBreadcrumbs}
+              hasAnySends={summary.sendCount > 0}
+              currentUserId={session?.user.id}
+            />
+          </div>
         </SidebarLayout>
       </NavigationPendingProvider>
     </div>

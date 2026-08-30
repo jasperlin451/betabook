@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchField } from "@/components/ui/search-field";
+import { AreaSearchField } from "@/components/area-search-field";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
@@ -34,11 +34,16 @@ export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
 
   return (
     <div className={SURFACE_CARD_CLASS}>
-      <SearchField
+      {/* A filter, not a navigator: the results list beside this is what
+        * takes you to an area, so picking a suggestion just completes the
+        * name — which is how you tell two same-named crags apart before
+        * committing to one. */}
+      <AreaSearchField
         value={name}
         onChange={setName}
+        onSelect={(area) => setName(area.name)}
         label="Area Name"
-        placeholder="Search areas…"
+        fullWidth
       />
       <p className="text-xs text-muted">Results update as you type.</p>
     </div>

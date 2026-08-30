@@ -1,13 +1,10 @@
 "use client";
 
-import { SearchField } from "@/components/ui/search-field";
 import { useRouter } from "next/navigation";
-import { Button, buttonVariants, Disclosure } from "@heroui/react";
-import clsx from "clsx";
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
-import { DisciplineGradeSliders } from "@/components/send-filter-form";
-import { DISCIPLINE_CHIP_CLASSNAME, DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
+import { FilterToolbar } from "@/components/filter-toolbar";
+import { RouteSearchField } from "@/components/route-search-field";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import {
   areaClimbsFilterToSearchParams,
@@ -15,19 +12,15 @@ import {
   DEFAULT_AREA_CLIMBS_SORT,
   type AreaClimbsFilter,
 } from "@/lib/area-climbs-filter";
-import type { Discipline, SubtreeClimbsSort } from "@/db/queries";
-
-const DISCIPLINES: Discipline[] = ["boulder", "sport", "trad"];
+import type { SubtreeClimbsSort } from "@/db/queries";
 
 function buildClimbsHref(areaId: number, sort: SubtreeClimbsSort, filter: AreaClimbsFilter): string {
   return `/areas/${areaId}?${areaClimbsFilterToSearchParams(sort, filter).toString()}`;
 }
 
-/** One toolbar row above the climb table — search, discipline toggle chips
- * (the same palette chips the rows wear), a "More filters" disclosure for
- * the range filters, and the sort control — replacing the filter sidebar
- * that spent a whole column on three fields. Same debounced URL-navigation
- * machinery as every other filter surface. */
+/** The area page's climb-table filters, in the shared one-row toolbar. No
+ * area field: the page already scopes to a crag, and route suggestions are
+ * scoped to its subtree for the same reason. */
 export function AreaClimbsToolbar({
   areaId,
   sort,
@@ -56,89 +49,37 @@ export function AreaClimbsToolbar({
       buildClimbsHref(areaId, effectiveSort, { ...value, name }),
   });
 
-  function toggleDiscipline(discipline: Discipline) {
-    const selected = value.disciplines.includes(discipline);
-    setValue({
-      ...value,
-      disciplines: selected
-        ? value.disciplines.filter((d) => d !== discipline)
-        : [...value.disciplines, discipline],
-    });
-  }
-
   return (
-    <Disclosure>
-      {({ isExpanded }) => (
-        <>
-          <div className="flex flex-wrap items-center gap-2">
-            <SearchField
-              value={name}
-              onChange={setName}
-              ariaLabel="Search route name"
-              placeholder="Search routes…"
-              className="w-full sm:w-64"
-            />
-
-            <div className="flex items-center gap-1.5" role="group" aria-label="Disciplines">
-              {DISCIPLINES.map((discipline) => {
-                const selected = value.disciplines.includes(discipline);
-                return (
-                  <button
-                    key={discipline}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => toggleDiscipline(discipline)}
-                    className={clsx(
-                      "cursor-pointer rounded-full border px-3 py-1 text-sm transition-colors",
-                      selected
-                        ? `border-transparent font-medium ${DISCIPLINE_CHIP_CLASSNAME[discipline]}`
-                        : "border-border text-muted hover:text-foreground",
-                    )}
-                  >
-                    {DISCIPLINE_LABELS[discipline]}
-                  </button>
-                );
-              })}
-            </div>
-
-            <Disclosure.Heading className="contents">
-              <Disclosure.Trigger className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                {isExpanded ? "Fewer filters" : "More filters"}
-              </Disclosure.Trigger>
-            </Disclosure.Heading>
-
-            <div className="ms-auto">
-              <ClimbListSortControl
-                sort={sort}
-                onNavigate={(nextSort) =>
-                  router.replace(buildClimbsHref(areaId, nextSort, filter), { scroll: false })
-                }
-              />
-            </div>
-          </div>
-
-          {/* Disclosure.Body's own p-2 comes from an outer wrapper div this
-           * component doesn't expose a className for — style is the only
-           * prop that reaches it (same workaround as DisciplineFilterForm). */}
-          <Disclosure.Content className="min-w-0">
-            <Disclosure.Body
-              className="flex flex-col gap-6"
-              style={{ paddingTop: "1rem", paddingLeft: 0 }}
-            >
-              <ClimbStatsFields
-                ratingRange={value.ratingRange}
-                onRatingRangeChange={(ratingRange) => setValue({ ...value, ratingRange })}
-                minAscents={value.minAscents}
-                onMinAscentsChange={(minAscents) => setValue({ ...value, minAscents })}
-              />
-              <DisciplineGradeSliders value={value} onChange={setValue} />
-              <Button variant="ghost" size="sm" className="self-start" onPress={reset}>
-                Reset filters
-              </Button>
-            </Disclosure.Body>
-          </Disclosure.Content>
-        </>
-      )}
-    </Disclosure>
+    <FilterToolbar
+      value={value}
+      onChange={setValue}
+      onReset={reset}
+      search={
+        <RouteSearchField
+          value={name}
+          onChange={setName}
+          onSelect={(route) => setName(route.name)}
+          areaId={areaId}
+          ariaLabel="Search route name"
+          className="w-full sm:w-64"
+        />
+      }
+      sortControl={
+        <ClimbListSortControl
+          sort={sort}
+          onNavigate={(nextSort) =>
+            router.replace(buildClimbsHref(areaId, nextSort, filter), { scroll: false })
+          }
+        />
+      }
+      extraFilters={
+        <ClimbStatsFields
+          ratingRange={value.ratingRange}
+          onRatingRangeChange={(ratingRange) => setValue({ ...value, ratingRange })}
+          minAscents={value.minAscents}
+          onMinAscentsChange={(minAscents) => setValue({ ...value, minAscents })}
+        />
+      }
+    />
   );
 }

@@ -138,6 +138,21 @@ describe("searchAreas", () => {
     const results = await searchAreas(db, "NoSuchAreaNameAtAll");
     expect(results).toEqual({ areas: [], hasNextPage: false });
   });
+
+  // Load-bearing for every rendered ancestor path (see toBreadcrumbPath):
+  // GROUP_CONCAT concatenates rows in the order it receives them, so the
+  // ordering lives in the subquery feeding it — an ORDER BY beside the
+  // aggregate itself would order the single output row and silently leave
+  // the sequence to the scan.
+  it("builds ancestorPath root-first", async () => {
+    const { areas } = await searchAreas(db, "Highball Alcove");
+    expect(areas[0]?.ancestorPath).toBe("Test Crag > Test Boulders");
+  });
+
+  it("leaves ancestorPath null for a root area", async () => {
+    const { areas } = await searchAreas(db, "Test Crag");
+    expect(areas.find((a) => a.name === "Test Crag")?.ancestorPath).toBeNull();
+  });
 });
 
 // Placed last in the file: this seeds 30 more areas, which would otherwise

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { parseAscentStyles, parseDisciplines, searchParamsToRecord, toArray, toRange } from "./search-params";
+import {
+  MAX_SUGGESTION_LIMIT,
+  parseAscentStyles,
+  parseDisciplines,
+  parseSuggestionLimit,
+  searchParamsToRecord,
+  toArray,
+  toRange,
+} from "./search-params";
 
 describe("toArray", () => {
   it("returns an empty array for undefined", () => {
@@ -78,5 +86,34 @@ describe("searchParamsToRecord", () => {
 
   it("returns an empty record for empty search params", () => {
     expect(searchParamsToRecord(new URLSearchParams())).toEqual({});
+  });
+});
+
+describe("parseSuggestionLimit", () => {
+  function limitOf(query: string) {
+    return parseSuggestionLimit(new URLSearchParams(query));
+  }
+
+  it("returns null when absent, which is what the paginated path sends", () => {
+    expect(limitOf("name=squamish&page=2")).toBeNull();
+  });
+
+  it("reads a valid limit", () => {
+    expect(limitOf("limit=5")).toBe(5);
+  });
+
+  it("caps the limit so a suggestion lookup can't ask for a full table read", () => {
+    expect(limitOf(`limit=${MAX_SUGGESTION_LIMIT + 500}`)).toBe(MAX_SUGGESTION_LIMIT);
+  });
+
+  // Degrading to the unlimited path beats returning an empty page: a
+  // malformed suggestion request should behave like a plain search, not like
+  // a search that matched nothing.
+  it.each(["limit=0", "limit=-5", "limit=abc", "limit="])("reads %s as no limit", (query) => {
+    expect(limitOf(query)).toBeNull();
+  });
+
+  it("truncates a fractional limit rather than rejecting it", () => {
+    expect(limitOf("limit=3.7")).toBe(3);
   });
 });
