@@ -27,11 +27,13 @@ export function distinctValues(rows: Record<string, string>[], column: string | 
 }
 
 // Cloudflare Workers cap a single invocation at 50 subrequests (Free plan).
-// Per db/mutations.ts's importSends: ~2 for the session/auth lookup, 1 for
-// getUserSentClimbIds, up to IMPORT_BATCH_SIZE for climb resolution (one
-// query per row), and a couple more for the chunked insert+climbs-aggregate
-// db.batch (one subrequest per chunk regardless of how many statements ride
-// in that batch). 25 rows -> ~31 subrequests, comfortable margin under 50.
+// Per db/mutations/import.ts's importSends: ~2 for the session/auth lookup,
+// 1 for getUserSentClimbIds, up to IMPORT_BATCH_SIZE for climb resolution
+// (one query per row), and a few more for the chunked insert and overwrite
+// loops (one subrequest per chunk regardless of how many statements ride in
+// that batch). Every row lands in exactly one of those two loops, so
+// together they add at most ceil(25/10) + 1 = 4 for an uneven split.
+// 25 rows -> ~32 subrequests, comfortable margin under 50.
 // The import wizard calls
 // importSends once per batch of this size, sequentially, rather than
 // passing the whole CSV in one call. Lives here (not in db/mutations.ts)
@@ -206,6 +208,7 @@ export function detectDateFormat(sampleValues: string[]): DateFormat {
 
 export type AscentStyleMapping = Record<string, AscentStyle | "skip">;
 export type ClimbTypeMapping = Record<string, ClimbType | "skip">;
+export type GradeFeelMapping = Record<string, GradeFeel | "skip">;
 
 /** Pre-fills the value-mapping step's ascent-style dropdowns by matching
  * each distinct CSV value against a known ascent style; anything that
@@ -225,6 +228,34 @@ export function guessClimbTypeMapping(values: string[]): ClimbTypeMapping {
   const mapping: ClimbTypeMapping = {};
   for (const value of values) {
     const match = CLIMB_TYPES.find((t) => t === value.trim().toLowerCase());
+    mapping[value] = match ?? "skip";
+  }
+  return mapping;
+}
+
+// Other sites rarely use betabook's own low/solid/high wording — soft/stiff
+// is the more common phrasing — so the guess covers the unambiguous
+// synonyms. Deliberately excludes terms like "sandbagged", which people use
+// to mean opposite things; those fall through to "skip" for the user to
+// decide rather than being guessed wrong.
+const GRADE_FEEL_ALIASES: Record<string, GradeFeel> = {
+  soft: "low",
+  easy: "low",
+  fair: "solid",
+  accurate: "solid",
+  stiff: "high",
+  hard: "high",
+};
+
+/** Same as guessAscentStyleMapping, but for the optional grade-feel column.
+ * Unmapped values fall back to the "solid" default rather than failing the
+ * row — grade feel is never required. */
+export function guessGradeFeelMapping(values: string[]): GradeFeelMapping {
+  const mapping: GradeFeelMapping = {};
+  for (const value of values) {
+    const normalized = value.trim().toLowerCase();
+    const match =
+      GRADE_FEEL_VALUES.find((t) => t === normalized) ?? GRADE_FEEL_ALIASES[normalized];
     mapping[value] = match ?? "skip";
   }
   return mapping;
@@ -260,6 +291,7 @@ export function normalizeImportRows(
   mapping: ColumnMapping,
   ascentStyleMapping: AscentStyleMapping,
   climbTypeMapping: ClimbTypeMapping,
+  gradeFeelMapping: GradeFeelMapping,
   dateFormat: DateFormat,
   today: string = new Date().toISOString().slice(0, 10),
 ): { valid: NormalizedImportRow[]; invalid: InvalidImportRow[] } {
@@ -321,12 +353,12 @@ export function normalizeImportRows(
 
     const gradeText = mapping.grade ? (row[mapping.grade] ?? "").trim() || null : null;
 
-    const rawGradeFeel = mapping.gradeFeel
-      ? (row[mapping.gradeFeel] ?? "").trim().toLowerCase()
-      : "";
-    const gradeFeel: GradeFeel = (GRADE_FEEL_VALUES as readonly string[]).includes(rawGradeFeel)
-      ? (rawGradeFeel as GradeFeel)
-      : "solid";
+    const rawGradeFeel = mapping.gradeFeel ? (row[mapping.gradeFeel] ?? "").trim() : "";
+    const mappedGradeFeel = rawGradeFeel ? gradeFeelMapping[rawGradeFeel] : undefined;
+    // Unmapped or explicitly ignored grade feel falls back to the "solid"
+    // default — unlike ascent style, it never invalidates a row.
+    const gradeFeel: GradeFeel =
+      mappedGradeFeel && mappedGradeFeel !== "skip" ? mappedGradeFeel : "solid";
 
     valid.push({
       climbName,

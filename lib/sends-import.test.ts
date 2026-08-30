@@ -6,6 +6,7 @@ import {
   guessAscentStyleMapping,
   guessClimbTypeMapping,
   guessColumnMapping,
+  guessGradeFeelMapping,
   normalizeImportRows,
   parseCsvText,
   parseDateWithFormat,
@@ -13,10 +14,12 @@ import {
   type BatchErrorRow,
   type ClimbTypeMapping,
   type ColumnMapping,
+  type GradeFeelMapping,
   type InvalidImportRow,
   type NotFoundRow,
   type ParsedCsv,
 } from "./sends-import";
+import { MAX_COMMENT_LENGTH } from "./sends";
 
 const SAMPLE_HEADERS = [
   "Date",
@@ -52,6 +55,12 @@ const CLIMB_TYPE_MAPPING: ClimbTypeMapping = {
   boulder: "boulder",
   sport: "sport",
   trad: "trad",
+};
+
+const GRADE_FEEL_MAPPING: GradeFeelMapping = {
+  Low: "low",
+  Solid: "solid",
+  High: "high",
 };
 
 const TODAY = "2026-08-19";
@@ -204,6 +213,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -230,6 +240,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -243,6 +254,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -256,6 +268,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -269,6 +282,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -282,6 +296,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -295,6 +310,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -308,6 +324,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       { ...ASCENT_STYLE_MAPPING, attempt: "skip" },
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -316,17 +333,18 @@ describe("normalizeImportRows", () => {
   });
 
   it("truncates an over-length comment instead of rejecting the row", () => {
-    const longComment = "a".repeat(300);
+    const longComment = "a".repeat(MAX_COMMENT_LENGTH + 20);
     const { valid, invalid } = normalizeImportRows(
       csv([row({ Comments: longComment })]),
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
     expect(invalid).toEqual([]);
-    expect(valid[0].comment).toHaveLength(280);
+    expect(valid[0].comment).toHaveLength(MAX_COMMENT_LENGTH);
   });
 
   it("treats blank optional fields as null", () => {
@@ -335,6 +353,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -349,6 +368,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       { ...CLIMB_TYPE_MAPPING, sport: "skip" },
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -356,13 +376,14 @@ describe("normalizeImportRows", () => {
     expect(valid[0].climbTypeHint).toBeNull();
   });
 
-  it("maps a mapped Grade Feel column's value, case-insensitively", () => {
+  it("resolves a Grade Feel value through the grade-feel mapping", () => {
     const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
     const { valid } = normalizeImportRows(
       { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "High" })] },
       mappingWithFeel,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -370,17 +391,33 @@ describe("normalizeImportRows", () => {
   });
 
   it("defaults gradeFeel to solid when the CSV has no matching column", () => {
-    const { valid } = normalizeImportRows(csv([row()]), FULL_MAPPING, ASCENT_STYLE_MAPPING, CLIMB_TYPE_MAPPING, "iso", TODAY);
+    const { valid } = normalizeImportRows(csv([row()]), FULL_MAPPING, ASCENT_STYLE_MAPPING, CLIMB_TYPE_MAPPING, GRADE_FEEL_MAPPING, "iso", TODAY);
     expect(valid[0].gradeFeel).toBe("solid");
   });
 
-  it("defaults gradeFeel to solid for an unrecognized value, without invalidating the row", () => {
+  it("defaults gradeFeel to solid for an unmapped value, without invalidating the row", () => {
     const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
     const { valid, invalid } = normalizeImportRows(
       { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "medium" })] },
       mappingWithFeel,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      TODAY,
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].gradeFeel).toBe("solid");
+  });
+
+  it("falls back to solid when a grade feel value is explicitly skipped", () => {
+    const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
+    const { valid, invalid } = normalizeImportRows(
+      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "High" })] },
+      mappingWithFeel,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      { ...GRADE_FEEL_MAPPING, High: "skip" },
       "iso",
       TODAY,
     );
@@ -394,6 +431,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -550,5 +588,32 @@ describe("guessClimbTypeMapping", () => {
 
   it("maps unrecognized values to 'skip'", () => {
     expect(guessClimbTypeMapping(["nonsense"])).toEqual({ nonsense: "skip" });
+  });
+});
+
+describe("guessGradeFeelMapping", () => {
+  it("maps values that match a known grade feel, case-insensitively", () => {
+    expect(guessGradeFeelMapping(["Low", "solid", "HIGH"])).toEqual({
+      Low: "low",
+      solid: "solid",
+      HIGH: "high",
+    });
+  });
+
+  it("maps the common soft/stiff phrasings other sites use", () => {
+    expect(guessGradeFeelMapping(["Soft", "stiff", "Hard", "easy"])).toEqual({
+      Soft: "low",
+      stiff: "high",
+      Hard: "high",
+      easy: "low",
+    });
+  });
+
+  it("maps unrecognized values to 'skip'", () => {
+    expect(guessGradeFeelMapping(["nonsense"])).toEqual({ nonsense: "skip" });
+  });
+
+  it("leaves ambiguous jargon like 'sandbagged' for the user to map", () => {
+    expect(guessGradeFeelMapping(["sandbagged"])).toEqual({ sandbagged: "skip" });
   });
 });

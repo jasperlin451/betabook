@@ -37,16 +37,20 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
     formData.set("description", description);
 
     startTransition(async () => {
-      try {
-        if (area) {
-          await updateArea(area.id, formData);
-          onDone?.(area.id);
-        } else {
-          const areaId = await createArea(parentId, formData);
-          onDone?.(areaId);
+      if (area) {
+        const result = await updateArea(area.id, formData);
+        if (!result.ok) {
+          setError(result.error);
+          return;
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
+        onDone?.(area.id);
+      } else {
+        const result = await createArea(parentId, formData);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        onDone?.(result.value);
       }
     });
   }
