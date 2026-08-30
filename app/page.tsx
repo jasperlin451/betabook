@@ -1,15 +1,19 @@
 import clsx from "clsx";
 import { AreaSearchForm, ClimbSearchForm, ClimbSearchSortControl } from "@/components/search-form";
 import { AreaSearchResults, ClimbSearchResults } from "@/components/search-results";
+import { HomeSearchBar } from "@/components/home-search-bar";
 import { NavigationPendingProvider, NavigationPendingRegion } from "@/components/navigation-pending";
+import { RecentSendsFeed } from "@/components/recent-sends-feed";
 import { AppLink } from "@/components/ui/app-link";
 import { PageWithStats } from "@/components/ui/page-shell";
+import { SectionHeading } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
 import {
   countSearchAreas,
   countSearchClimbs,
   getAreaBreadcrumbs,
   getClimbSendStats,
+  getRecentSends,
   getUserSentClimbIds,
   searchAreas,
   searchClimbs,
@@ -30,8 +34,41 @@ type SearchPageProps = {
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
-  const mode = params.mode === "area" ? "area" : "climb";
   const db = await getDb();
+
+  // Bare `/` is the home feed — the latest sends across the whole book,
+  // with one search bar as the way in. Any search param at all (a query,
+  // a mode, a filter) switches to the full search view below.
+  if (Object.keys(params).length === 0) {
+    const feed = await getRecentSends(db, 1);
+    const areaBreadcrumbs = await getAreaBreadcrumbs(
+      db,
+      feed.sends.map((send) => send.areaId),
+    );
+
+    return (
+      <div className="flex flex-col gap-8">
+        <section className="mx-auto flex w-full max-w-xl flex-col gap-2 pt-4">
+          <h1 className="sr-only">Betabook</h1>
+          <HomeSearchBar />
+          <p className="text-xs text-muted">
+            or <AppLink href="/?mode=area">browse areas</AppLink>
+          </p>
+        </section>
+
+        <section className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+          <SectionHeading>Recent sends</SectionHeading>
+          <RecentSendsFeed
+            initialSends={feed.sends}
+            initialHasMore={feed.hasMore}
+            initialAreaBreadcrumbs={areaBreadcrumbs}
+          />
+        </section>
+      </div>
+    );
+  }
+
+  const mode = params.mode === "area" ? "area" : "climb";
 
   if (mode === "area") {
     const name = typeof params.name === "string" ? params.name : "";

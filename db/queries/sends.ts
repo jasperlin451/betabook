@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { sends, user } from "@/db/schema";
+import { areas, climbs, sends, user } from "@/db/schema";
 import { formatGrade, type ClimbType } from "@/lib/grades";
 import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
 import { areaNameCondition } from "./areas";
@@ -87,6 +87,63 @@ export async function getSendsForClimb(
 
   const hasMore = rows.length > pageSize;
   return { sends: hasMore ? rows.slice(0, pageSize) : rows, hasMore };
+}
+
+export type RecentSendRow = {
+  id: number;
+  userId: string;
+  userName: string;
+  climbId: number;
+  climbName: string;
+  climbType: ClimbType;
+  climbGrade: number | null;
+  areaId: number;
+  areaName: string;
+  ascentStyle: AscentStyle;
+  dateSent: string | null;
+  rating: number | null;
+  suggestedGrade: number | null;
+  gradeFeel: GradeFeel;
+  comment: string | null;
+};
+
+export const RECENT_SENDS_PAGE_SIZE = 15;
+
+export type RecentSendsPage = { sends: RecentSendRow[]; hasMore: boolean };
+
+/** The home feed: the latest sends across every climber and area, newest
+ * logged first (created_at, not date_sent — the feed shows activity as it
+ * lands, while each row still displays the climb date). Paged the same way
+ * as every other list: server-rendered first page, /api/feed for the rest. */
+export async function getRecentSends(db: Database, page = 1): Promise<RecentSendsPage> {
+  const rows = await db
+    .select({
+      id: sends.id,
+      userId: sends.userId,
+      userName: user.name,
+      climbId: sends.climbId,
+      climbName: climbs.name,
+      climbType: climbs.type,
+      climbGrade: climbs.grade,
+      areaId: climbs.areaId,
+      areaName: areas.name,
+      ascentStyle: sends.ascentStyle,
+      dateSent: sends.dateSent,
+      rating: sends.rating,
+      suggestedGrade: sends.suggestedGrade,
+      gradeFeel: sends.gradeFeel,
+      comment: sends.comment,
+    })
+    .from(sends)
+    .innerJoin(user, eq(sends.userId, user.id))
+    .innerJoin(climbs, eq(sends.climbId, climbs.id))
+    .innerJoin(areas, eq(climbs.areaId, areas.id))
+    .orderBy(desc(sends.createdAt), desc(sends.id))
+    .limit(RECENT_SENDS_PAGE_SIZE + 1)
+    .offset((page - 1) * RECENT_SENDS_PAGE_SIZE);
+
+  const hasMore = rows.length > RECENT_SENDS_PAGE_SIZE;
+  return { sends: hasMore ? rows.slice(0, RECENT_SENDS_PAGE_SIZE) : rows, hasMore };
 }
 
 export type SuggestedGradeCount = { grade: number; count: number };
