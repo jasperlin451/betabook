@@ -2,6 +2,7 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import clsx from "clsx";
+import { ChartColumnIncreasing } from "lucide-react";
 import { AnalyticsGradePyramid } from "@/components/analytics-grade-pyramid";
 import { AnalyticsYearSelect } from "@/components/analytics-year-select";
 import { StatTiles, type StatTile } from "@/components/analytics-stat-tiles";
@@ -321,7 +322,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
 function AnalyticsHeader({ id, name }: { id: string; name: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <Eyebrow>Analytics</Eyebrow>
+      <Eyebrow icon={ChartColumnIncreasing}>Analytics</Eyebrow>
       <PageTitle>{name}</PageTitle>
       <p className="mt-1 text-sm text-muted">
         Progression, pyramid, and season rhythm from every logged send.{" "}

@@ -1,6 +1,8 @@
 import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { buttonVariants } from "@heroui/react";
+import { ChartColumnIncreasing } from "lucide-react";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { AppLink } from "@/components/ui/app-link";
 import { UserSendList, UserSendsFilterPanel } from "@/components/user-send-list";
@@ -97,14 +99,21 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <Eyebrow>Climber</Eyebrow>
-        <PageTitle>{user.name}</PageTitle>
-        <div className="mt-1 flex items-center gap-2 text-sm text-muted">
-          <span>Active since {memberSinceYear}</span>
-          <span aria-hidden>·</span>
-          <AppLink href={`/users/${id}/analytics`}>Analytics</AppLink>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <Eyebrow>Climber</Eyebrow>
+          <PageTitle>{user.name}</PageTitle>
+          <span className="mt-1 text-sm text-muted">
+            Active since {memberSinceYear}
+          </span>
         </div>
+        <AppLink
+          href={`/users/${id}/analytics`}
+          className={`${buttonVariants({ variant: "outline", size: "sm" })} gap-1.5`}
+        >
+          <ChartColumnIncreasing className="size-4" />
+          Analytics
+        </AppLink>
       </div>
 
       {/* The sidebar (filters + stats) leads on mobile and sits right of the
