@@ -13,7 +13,7 @@ import {
 } from "@/db/mutations";
 
 /** The FTS indexes are maintained by triggers
- * (drizzle/migrations/0014_fts_sync_triggers.sql), inside the same statement
+ * (drizzle/migrations/0015_fts_sync_triggers.sql), inside the same statement
  * as each base-table write. These tests pin the sync across every mutation
  * shape — create, rename, delete — through the real server actions and the
  * real search queries. Renames especially: they used to bypass the index

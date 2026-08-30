@@ -69,7 +69,7 @@ export async function createClimb(
     if (!area) throw new ActionError("Area not found");
 
     // climbs_fts stays in sync via triggers (drizzle/migrations/
-    // 0014_fts_sync_triggers.sql), atomically within this same statement.
+    // 0015_fts_sync_triggers.sql), atomically within this same statement.
     const input = validateNewClimbInput(readClimbFormData(formData));
     const [{ id }] = await db
       .insert(climbs)

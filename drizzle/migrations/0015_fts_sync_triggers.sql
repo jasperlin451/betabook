@@ -13,7 +13,15 @@
 -- write, so it's atomic by construction and no future mutation can forget it.
 --
 -- The UPDATE triggers fire on `UPDATE OF name` only, so bulk lft/rght
--- rewrites (recomputeAreaTree) and send-counter updates don't churn the index.
+-- rewrites (recomputeAreaTree) and the climbs.send_count/rating_* updates
+-- that 0014_sends_aggregate_triggers drives on every send don't churn the
+-- index.
+--
+-- Unlike the sends aggregates in 0014, these triggers have no ON DELETE
+-- CASCADE gap to work around: areas.parent_id and climbs.area_id are both
+-- ON DELETE RESTRICT, so no area or climb row is ever removed by a cascade
+-- that SQLite would skip these DELETE triggers for. Every delete is an
+-- explicit statement, which fires them.
 --
 -- NOTE for future table rebuilds (the 0011 pattern: CREATE __new_x / DROP x /
 -- RENAME): DROP TABLE drops these triggers with it — recreate them, and
