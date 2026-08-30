@@ -60,26 +60,41 @@ export async function getNearestAncestors(
 /** SQL condition for "this row's area equals or descends from an area whose
  * name matches (FTS prefix match)" — shared by any query that scopes rows
  * to an area name or its subtree (climb search, a user's send history).
- * Expressed as a single correlated EXISTS subquery, not one bind parameter
- * per matched area: an area name can match hundreds of areas (a common
- * word, a broad region), and one `(lft >= ? AND rght <= ?)` clause per match
- * blows past SQLite's bound-parameter limit — this is O(1) parameters no
- * matter how many areas match. Callers must have their row's own area
- * joined in as `areas` (the same alias `searchClimbs`/`getSendsForUserPage`
- * already use) for the correlation to resolve. Returns `null` when there's
- * no name to filter by (filter inactive); `sql\`0\`` when the name has no
- * matchable tokens (matches nothing) — the caller can just always push a
- * non-null result onto its condition list. */
+ *
+ * Built as a single non-correlated `IN` set, deliberately: the previous
+ * correlated `EXISTS` re-ran the containment test once per candidate row, so
+ * its cost was O(rows x matched_areas) and a broad name blew up — measured at
+ * 11.6s for a name matching 779 areas (0.4s fixed + ~14ms per matched area),
+ * against D1's 30-second statement cap. Evaluating the descendant set once
+ * instead is ~13ms for the same query and the same results.
+ *
+ * Still O(1) bound parameters no matter how many areas match — an area name
+ * can match hundreds (a common word, a broad region), and one clause per
+ * match would blow past SQLite's bound-parameter limit.
+ *
+ * Walks `parent_id` rather than a nested-set range so a freshly created area
+ * is matchable immediately (see getAncestors's doc comment). Callers must
+ * have their row's own area joined in as `areas` — the same alias
+ * `searchClimbs`/`getSendsForUserPage` already use. Returns `null` when
+ * there's no name to filter by (filter inactive); `sql\`0\`` when the name
+ * has no matchable tokens (matches nothing) — the caller can just always
+ * push a non-null result onto its condition list. */
 export function areaNameCondition(areaName: string | undefined): SQL | null {
   if (!areaName) return null;
   const query = toFtsPrefixQuery(areaName);
   if (!query) return sql`0`;
 
-  return sql`EXISTS (
-    SELECT 1 FROM areas matched_area
-    JOIN areas_fts ON areas_fts.rowid = matched_area.id
-    WHERE areas_fts MATCH ${query}
-    AND matched_area.lft <= areas.lft AND matched_area.rght >= areas.rght
+  // UNION, not UNION ALL: when one matched area nests inside another, the
+  // same descendant is reachable by more than one path.
+  return sql`areas.id IN (
+    WITH RECURSIVE matched(id) AS (
+      SELECT matched_area.id FROM areas matched_area
+      JOIN areas_fts ON areas_fts.rowid = matched_area.id
+      WHERE areas_fts MATCH ${query}
+      UNION
+      SELECT child.id FROM areas child JOIN matched ON child.parent_id = matched.id
+    )
+    SELECT id FROM matched
   )`;
 }
 

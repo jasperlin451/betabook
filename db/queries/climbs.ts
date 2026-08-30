@@ -208,7 +208,15 @@ export async function getSubtreeClimbs(
   };
 }
 
-/** Exact (case-insensitive, trimmed) name match, in an area matching areaName exactly or as an ancestor. Returns every match — caller decides what 0/1/many means. */
+/** Exact (case-insensitive, trimmed) name match, in an area matching areaName
+ * exactly or as an ancestor. Returns every match — caller decides what
+ * 0/1/many means.
+ *
+ * The area set is resolved once by walking `parent_id` down from every
+ * name-matching area, rather than by a correlated per-climb ancestor test —
+ * same reasoning (and same order-of-magnitude speedup) as areaNameCondition.
+ * Seeding the walk with the matching areas themselves is what folds the old
+ * "matches exactly OR matches as an ancestor" disjunction into one clause. */
 export async function findClimbsByNameAndArea(
   db: Database,
   climbName: string,
@@ -216,15 +224,15 @@ export async function findClimbsByNameAndArea(
 ): Promise<Climb[]> {
   return db.all<Climb>(sql`
     SELECT climbs.* FROM climbs
-    JOIN areas ON areas.id = climbs.area_id
     WHERE LOWER(TRIM(climbs.name)) = LOWER(TRIM(${climbName}))
-    AND (
-      LOWER(TRIM(areas.name)) = LOWER(TRIM(${areaName}))
-      OR EXISTS (
-        SELECT 1 FROM areas ancestor
-        WHERE ancestor.lft < areas.lft AND ancestor.rght > areas.rght
-        AND LOWER(TRIM(ancestor.name)) = LOWER(TRIM(${areaName}))
+    AND climbs.area_id IN (
+      WITH RECURSIVE matched(id) AS (
+        SELECT m.id FROM areas m
+        WHERE LOWER(TRIM(m.name)) = LOWER(TRIM(${areaName}))
+        UNION
+        SELECT child.id FROM areas child JOIN matched ON child.parent_id = matched.id
       )
+      SELECT id FROM matched
     )
   `);
 }
