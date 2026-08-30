@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const sort = parseAreaClimbsSort(searchParams);
   const filter = parseAreaClimbsFilter(searchParams);
-  const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+  const page = Math.max(1, Math.trunc(Number(url.searchParams.get("page"))) || 1);
 
   const db = await getDb();
   const area = areaId === null ? undefined : await getArea(db, areaId);

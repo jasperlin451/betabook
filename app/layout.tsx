@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
-import { Barlow_Condensed } from "next/font/google";
+import localFont from "next/font/local";
 import { Mountain } from "lucide-react";
-import Script from "next/script";
 import { Providers } from "./providers";
 import { AuthNav } from "@/components/auth-nav";
 import { MobileNav } from "@/components/mobile-nav";
@@ -13,13 +12,21 @@ import { AppLink } from "@/components/ui/app-link";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import "./globals.css";
 
-// The guidebook display voice — see --font-display in globals.css. Only the
-// two weights the display roles actually use ship to the client.
-const barlowCondensed = Barlow_Condensed({
-  weight: ["600", "700"],
-  subsets: ["latin"],
+// The guidebook display voice — see --font-display in globals.css. Vendored
+// woff2 (latin subset, the two weights the display roles use) rather than
+// next/font/google: the Google loader downloads at build time and aborts the
+// build in a sandboxed/offline environment — the same condition that moved
+// Geist to package assets.
+const barlowCondensed = localFont({
+  src: [
+    { path: "../assets/fonts/barlow-condensed-600-latin.woff2", weight: "600", style: "normal" },
+    { path: "../assets/fonts/barlow-condensed-700-latin.woff2", weight: "700", style: "normal" },
+  ],
   variable: "--font-barlow-condensed",
   display: "swap",
+  // Condensed faces shift layout hard on fallback; metric-adjusted Arial
+  // keeps the swap from reflowing the wordmark and titles.
+  adjustFontFallback: "Arial",
 });
 
 export const metadata: Metadata = {
@@ -40,11 +47,15 @@ export const viewport: Viewport = {
   ],
 };
 
-// Runs before the browser paints, so the saved/system theme is applied to
-// <html> before any CSS renders — otherwise the page paints with the
-// un-attributed (light) styles first and flashes to the real theme once
-// @heroui/react's useTheme() hydrates and applies it. Mirrors that hook's own
-// storage key and resolution logic exactly (see use-theme.js).
+// Rendered as a PLAIN inline <script> at the top of <body> — deliberately
+// not next/script: in the App Router, `beforeInteractive` is queued into
+// self.__next_s and only executed right before hydration, i.e. after the
+// bundle downloads — far too late to stop a light-themed first paint. A
+// plain parser-executed script runs before any following content paints.
+// Mirrors @heroui/react useTheme()'s storage key and resolution exactly
+// (see use-theme.js). Also pins the browser-chrome theme-color for an
+// explicit theme choice — the static media-query metas only track the OS
+// preference (keep the colors and logic in sync with lib/theme-color.ts).
 const SET_THEME_SCRIPT = `
 (function () {
   try {
@@ -55,6 +66,13 @@ const SET_THEME_SCRIPT = `
         : theme;
     document.documentElement.classList.add(resolved);
     document.documentElement.setAttribute("data-theme", resolved);
+    if (theme !== "system") {
+      var m = document.createElement("meta");
+      m.name = "theme-color";
+      m.content = resolved === "dark" ? "#000000" : "#eaf7ef";
+      m.setAttribute("data-explicit-theme", "");
+      document.head.appendChild(m);
+    }
   } catch (e) {}
 })();
 `;
@@ -67,11 +85,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <Script
-          id="theme-script"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: SET_THEME_SCRIPT }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: SET_THEME_SCRIPT }} />
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:text-foreground"

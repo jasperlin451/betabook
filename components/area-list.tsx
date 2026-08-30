@@ -14,6 +14,9 @@ import { AreaBreadcrumb } from "@/components/area-breadcrumb";
  * which would otherwise wall off everything below the fold. */
 const PILL_CAP = 24;
 
+/** Above this many sub-areas, pills give way to the columned index. */
+const PILL_LAYOUT_MAX = 10;
+
 type AreaListProps = {
   areas: (Area & { ancestorPath?: string | null })[];
   emptyMessage?: string;
@@ -93,11 +96,38 @@ export function AreaList({
     );
   }
 
-  const shownAreas = showAllPills ? areas : areas.slice(0, PILL_CAP);
+  // A handful of sub-areas read fine as pills; past that a pill wall turns
+  // into visual porridge, so larger sets switch to an alphabetized
+  // multi-column index — the way a guidebook lists a region's crags.
+  if (areas.length > PILL_LAYOUT_MAX) {
+    const sorted = [...areas].sort((a, b) => a.name.localeCompare(b.name));
+    const shownAreas = showAllPills ? sorted : sorted.slice(0, PILL_CAP);
+    return (
+      <div className="flex flex-col gap-3">
+        <ul className="columns-2 gap-x-8 sm:columns-3 lg:columns-4">
+          {shownAreas.map((area) => (
+            <li key={area.id} className="mb-1.5 break-inside-avoid text-sm">
+              <AppLink href={`/areas/${area.id}`}>{area.name}</AppLink>
+            </li>
+          ))}
+        </ul>
+        {areas.length > PILL_CAP && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start"
+            onPress={() => setShowAllPills((shown) => !shown)}
+          >
+            {showAllPills ? "Show fewer" : `Show all ${areas.length}`}
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap gap-2">
-      {shownAreas.map((area) => (
+      {areas.map((area) => (
         <AppLink
           key={area.id}
           href={`/areas/${area.id}`}
@@ -106,15 +136,6 @@ export function AreaList({
           {area.name}
         </AppLink>
       ))}
-      {areas.length > PILL_CAP && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onPress={() => setShowAllPills((shown) => !shown)}
-        >
-          {showAllPills ? "Show fewer" : `Show all ${areas.length}`}
-        </Button>
-      )}
     </div>
   );
 }

@@ -38,6 +38,7 @@ export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
         <Label>Area Name</Label>
         <Input placeholder="Search area..." className="bg-surface" />
       </TextField>
+      <p className="text-xs text-muted">Results update as you type.</p>
     </div>
   );
 }

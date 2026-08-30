@@ -1,5 +1,6 @@
 "use client";
 
+import { formatCount } from "@/lib/format";
 import { useState } from "react";
 import { Button } from "@heroui/react";
 import { buildSendsExportCsv } from "@/lib/sends-export";
@@ -62,7 +63,7 @@ export function ExportSendsButton({ userId }: { userId: string }) {
   return (
     <div className="flex flex-col gap-1">
       <Button onPress={handlePress} isDisabled={exporting}>
-        {exporting ? `Exporting… ${exportedRows} rows` : "Export Sends"}
+        {exporting ? `Exporting… ${formatCount(exportedRows, "row")}` : "Export Sends"}
       </Button>
       {error && <p className="text-sm text-danger">{error}</p>}
     </div>

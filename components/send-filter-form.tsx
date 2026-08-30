@@ -59,6 +59,9 @@ function NameSearchFields({
           </InputGroup>
         </TextField>
       )}
+      {(onNameChange || onAreaNameChange) && (
+        <p className="text-xs text-muted">Results update as you type.</p>
+      )}
     </div>
   );
 }

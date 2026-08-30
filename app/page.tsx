@@ -16,6 +16,7 @@ import {
 } from "@/db/queries";
 import {
   climbSearchFilterToSearchParams,
+  DEFAULT_CLIMB_SEARCH_FILTER,
   parseClimbSearchFilter,
   parseClimbSearchSort,
   toSearchClimbsQueryParams,
@@ -89,10 +90,19 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   // Only the first page is server-rendered — ClimbSearchResults fetches
   // subsequent pages itself via "load more" (see app/api/search/climbs).
   // The searches and the session lookup don't depend on each other.
+  //
+  // Counting only happens once something is actually filtered: the default
+  // landing would otherwise COUNT(*) every climb (a full index scan billed
+  // on every visit) just to caption an unfiltered list. Canonical
+  // serialization is the comparison the filter libs already treat as
+  // identity (see their fixed-point tests); sort cancels out.
+  const searchActive =
+    climbSearchFilterToSearchParams(sort, filter).toString() !==
+    climbSearchFilterToSearchParams(sort, DEFAULT_CLIMB_SEARCH_FILTER).toString();
   const queryParams = toSearchClimbsQueryParams(filter, sort);
   const [results, totalCount, session] = await Promise.all([
     searchClimbs(db, queryParams),
-    countSearchClimbs(db, queryParams),
+    searchActive ? countSearchClimbs(db, queryParams) : null,
     getSession(),
   ]);
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
@@ -124,7 +134,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">
                 Results
-                <ResultCount count={totalCount} />
+                {totalCount != null && <ResultCount count={totalCount} />}
               </h2>
               <ClimbSearchSortControl sort={sort} filter={filter} />
             </div>

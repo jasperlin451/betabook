@@ -173,25 +173,27 @@ describe("getSubtreeClimbs", () => {
       ]);
     });
 
-    it("sorts by rating ascending, with unrated climbs last (tie-broken by id)", async () => {
+    it("sorts by rating ascending, with unrated climbs last (ties broken by name)", async () => {
       const root = await getArea(db, 1);
       const { climbs } = await getSubtreeClimbs(db, root!, 1, "rating_asc");
       expect(climbs.map((c) => c.name)).toEqual([
         "Test Crimper", // avg 1
         "Test Slab", // avg 4
-        "Test Highball", // unrated (id 1)
-        "Test Crack", // unrated, no sends at all (id 4)
+        // Both unrated — the deterministic tie-break chain (name first)
+        // orders them alphabetically, not by insertion id.
+        "Test Crack",
+        "Test Highball",
       ]);
     });
 
-    it("sorts by rating descending, with unrated climbs last (tie-broken by id)", async () => {
+    it("sorts by rating descending, with unrated climbs last (ties broken by name)", async () => {
       const root = await getArea(db, 1);
       const { climbs } = await getSubtreeClimbs(db, root!, 1, "rating_desc");
       expect(climbs.map((c) => c.name)).toEqual([
         "Test Slab", // avg 4
         "Test Crimper", // avg 1
-        "Test Highball",
         "Test Crack",
+        "Test Highball",
       ]);
     });
 

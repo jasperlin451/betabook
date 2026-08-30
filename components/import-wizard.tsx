@@ -318,7 +318,7 @@ export function ImportWizard() {
       {step === "columns" && columnMapping && parsedCsv && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-muted">
-            Which column in your CSV holds each field? ({parsedCsv.rows.length} rows found)
+            Which column in your CSV holds each field? ({formatCount(parsedCsv.rows.length, "row")} found)
           </p>
           {COLUMN_FIELDS.map(({ key, label, required }) => (
             <TextField key={key}>

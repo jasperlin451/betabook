@@ -3,6 +3,7 @@
 import { Button, ListBox, Select, Skeleton, useTheme } from "@heroui/react";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useMounted } from "@/hooks/use-mounted";
+import { syncThemeColorMeta } from "@/lib/theme-color";
 
 const THEME_CYCLE = ["light", "dark", "system"] as const;
 type ThemeName = (typeof THEME_CYCLE)[number];
@@ -37,7 +38,10 @@ export function ThemeSwitch() {
       variant="ghost"
       size="sm"
       aria-label={`Theme: ${current}. Switch to ${next}.`}
-      onPress={() => setTheme(next)}
+      onPress={() => {
+        setTheme(next);
+        syncThemeColorMeta(next);
+      }}
     >
       <Icon className="size-4" />
     </Button>
@@ -66,7 +70,10 @@ export function ThemeToggle() {
     <Select
       aria-label="Theme"
       selectedKey={theme}
-      onSelectionChange={(key) => setTheme(String(key))}
+      onSelectionChange={(key) => {
+        setTheme(String(key));
+        syncThemeColorMeta(String(key));
+      }}
     >
       <Select.Trigger className="w-28">
         <Select.Value />

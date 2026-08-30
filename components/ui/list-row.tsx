@@ -76,7 +76,11 @@ export function ListRow({
             {tags && <div className="relative z-10 mt-1 flex w-fit flex-wrap gap-2">{tags}</div>}
           </div>
           {comment != null && (
-            <p className="line-clamp-3 text-sm leading-relaxed text-foreground">{comment}</p>
+            // Lifted above the row-link overlay like the other slots so the
+            // comment text stays selectable instead of click-navigating.
+            <p className="relative z-10 line-clamp-3 text-sm leading-relaxed text-foreground">
+              {comment}
+            </p>
           )}
         </div>
         {trailing && <div className="ml-auto shrink-0 text-right tabular-nums">{trailing}</div>}

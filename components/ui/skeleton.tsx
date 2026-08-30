@@ -23,13 +23,13 @@ export function Skeleton({ className, tone = "base" }: SkeletonProps) {
   );
 }
 
-/** Placeholder for a list of ListRow entries — mirrors its rounded-xl p-4
- * shape and the divide-y separators the real lists use. */
+/** Placeholder for a list of ListRow entries — mirrors its route-table
+ * px-4 py-3 density and the divide-y separators the real lists use. */
 export function SkeletonListRows({ rows = 6 }: { rows?: number }) {
   return (
     <div className="flex flex-col divide-y divide-separator">
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="flex flex-col gap-2 rounded-xl p-4">
+        <div key={i} className="flex flex-col gap-2 px-4 py-3">
           <Skeleton className="h-4 w-1/3" />
           <Skeleton className="h-3 w-1/2" />
         </div>

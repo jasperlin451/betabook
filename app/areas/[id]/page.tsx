@@ -20,6 +20,7 @@ import {
   getSubtreeGradeHistogram,
   getUserSentClimbIds,
   hasClimbsInArea,
+  LARGE_AREA_SUBTREE_SPAN,
 } from "@/db/queries";
 import {
   parseAreaClimbsFilter,
@@ -72,6 +73,15 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
 
   // Only the first page is server-rendered — AreaClimbsSection fetches
   // subsequent pages itself via "load more" (see app/api/areas/[id]/climbs).
+  // The histogram reads every climb row in the subtree, so it follows the
+  // same size gate as the list's index strategy — a continent-scale area
+  // renders its header without the strip/chart instead of scanning tens of
+  // thousands of rows per view. The lft=rght=0 check skips areas created
+  // but not yet reindexed, whose placeholder range would falsely match
+  // every other unindexed climb.
+  const histogramEligible =
+    !(area.lft === 0 && area.rght === 0) && area.rght - area.lft < LARGE_AREA_SUBTREE_SPAN;
+
   const [ancestors, subareas, subtreeClimbs, hasClimbs, sentClimbIds, histogramRows] =
     await Promise.all([
       getAncestors(db, area),
@@ -79,7 +89,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
       getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter)),
       hasClimbsInArea(db, area.id),
       session ? getUserSentClimbIds(db, session.user.id) : undefined,
-      getSubtreeGradeHistogram(db, area),
+      histogramEligible ? getSubtreeGradeHistogram(db, area) : [],
     ]);
   const canDeleteArea = subareas.length === 0 && !hasClimbs;
   const histogram = buildGradeHistogram(histogramRows);
@@ -100,9 +110,11 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
         actions={session && <AreaActionsMenu area={area} canDelete={canDeleteArea} />}
       />
 
-      <CollapsibleSection title="Sub-areas">
-        <AreaList areas={subareas} emptyMessage="No sub-areas." />
-      </CollapsibleSection>
+      {subareas.length > 0 && (
+        <CollapsibleSection title="Sub-areas">
+          <AreaList areas={subareas} />
+        </CollapsibleSection>
+      )}
 
       {/* The provider links the filter panel's in-flight navigation to the
        * climb list it re-fetches, which dims while pending. */}

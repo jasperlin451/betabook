@@ -2,10 +2,15 @@ import { BOULDER_HUECO, nativeGradeArray, ROPE_YDS, type ClimbType } from "@/lib
 import type { GradeHistogramRow, SuggestedGradeCount } from "@/db/queries";
 
 /** One histogram bar. Boulder buckets are one V grade each; rope buckets
- * collapse letter grades to the number ("5.10a–d" → "5.10") and stack
- * sport on trad within the bar. */
-export type BoulderBucket = { label: string; count: number };
-export type RopeBucket = { label: string; sport: number; trad: number };
+ * collapse letter grades to the number ("5.10a–d" → "5.10"). */
+export type GradeBucket = { label: string; count: number };
+
+/** One discipline's chart: buckets contiguous from its lowest to highest
+ * graded climb (zeros between kept, so the shape is real). */
+export type DisciplineHistogram = {
+  type: ClimbType;
+  buckets: GradeBucket[];
+};
 
 export type GradeHistogram = {
   totalClimbs: number;
@@ -13,13 +18,11 @@ export type GradeHistogram = {
   ungradedCount: number;
   /** Disciplines present, in boulder → sport → trad order. */
   disciplines: ClimbType[];
-  /** Contiguous from the lowest to highest boulder grade present (zeros
-   * between kept, so the histogram shows the real shape). Empty when the
-   * subtree has no graded boulders. */
-  boulderBuckets: BoulderBucket[];
-  /** Same, for rope grades collapsed to their number. */
-  ropeBuckets: RopeBucket[];
-  /** Native-label span of graded climbs, e.g. ["V0", "V8"] / ["5.6", "5.12a"]. */
+  /** One chart per discipline present with at least one graded climb, in
+   * boulder → sport → trad order. */
+  groups: DisciplineHistogram[];
+  /** Native-label span of graded climbs, e.g. ["V0", "V8"] / ["5.6", "5.12a"]
+   * — rope span covers sport and trad together for the info strip. */
   boulderSpan: [string, string] | null;
   ropeSpan: [string, string] | null;
 };
@@ -64,16 +67,37 @@ function collapseRopeLabel(label: string): string {
   return label.replace(/[a-d]$/, "");
 }
 
+/** Contiguous buckets for one discipline's counts-by-grade-index map:
+ * boulder gets one bucket per V grade; rope disciplines collapse letter
+ * grades to the number ("5.10a–d" → "5.10"), merging in grade order. */
+function bucketize(type: ClimbType, counts: Map<number, number>): GradeBucket[] {
+  const indices = [...counts.keys()];
+  const min = Math.min(...indices);
+  const max = Math.max(...indices);
+  const scale = type === "boulder" ? BOULDER_HUECO : ROPE_YDS;
+  const buckets: GradeBucket[] = [];
+  for (let i = min; i <= max; i++) {
+    const raw = scale[i];
+    const label = type === "boulder" ? raw : collapseRopeLabel(raw);
+    const count = counts.get(i) ?? 0;
+    const last = buckets[buckets.length - 1];
+    if (last && last.label === label) {
+      last.count += count;
+    } else {
+      buckets.push({ label, count });
+    }
+  }
+  return buckets;
+}
+
 /** Buckets the raw (type, grade, count) rows from getSubtreeGradeHistogram
- * into renderable histogram groups plus the info-strip aggregates. Pure —
+ * into one chart per discipline plus the info-strip aggregates. Pure —
  * see grade-histogram.test.ts. */
 export function buildGradeHistogram(rows: GradeHistogramRow[]): GradeHistogram {
   let totalClimbs = 0;
   let ungradedCount = 0;
   const present = new Set<ClimbType>();
-
-  const boulderCounts = new Map<number, number>();
-  const ropeCounts = new Map<number, { sport: number; trad: number }>();
+  const countsByType = new Map<ClimbType, Map<number, number>>();
 
   for (const row of rows) {
     totalClimbs += row.count;
@@ -82,61 +106,40 @@ export function buildGradeHistogram(rows: GradeHistogramRow[]): GradeHistogram {
       ungradedCount += row.count;
       continue;
     }
-    if (row.type === "boulder") {
-      if (row.grade >= 0 && row.grade < BOULDER_HUECO.length) {
-        boulderCounts.set(row.grade, (boulderCounts.get(row.grade) ?? 0) + row.count);
-      }
-    } else if (row.grade >= 0 && row.grade < ROPE_YDS.length) {
-      const entry = ropeCounts.get(row.grade) ?? { sport: 0, trad: 0 };
-      entry[row.type] += row.count;
-      ropeCounts.set(row.grade, entry);
+    const scale = row.type === "boulder" ? BOULDER_HUECO : ROPE_YDS;
+    if (row.grade < 0 || row.grade >= scale.length) continue;
+    const counts = countsByType.get(row.type) ?? new Map<number, number>();
+    counts.set(row.grade, (counts.get(row.grade) ?? 0) + row.count);
+    countsByType.set(row.type, counts);
+  }
+
+  const groups: DisciplineHistogram[] = [];
+  for (const type of ["boulder", "sport", "trad"] as const) {
+    const counts = countsByType.get(type);
+    if (counts && counts.size > 0) {
+      groups.push({ type, buckets: bucketize(type, counts) });
     }
   }
 
-  const boulderBuckets: BoulderBucket[] = [];
-  let boulderSpan: [string, string] | null = null;
-  if (boulderCounts.size > 0) {
-    const indices = [...boulderCounts.keys()];
-    const min = Math.min(...indices);
-    const max = Math.max(...indices);
-    for (let i = min; i <= max; i++) {
-      boulderBuckets.push({ label: BOULDER_HUECO[i], count: boulderCounts.get(i) ?? 0 });
-    }
-    boulderSpan = [BOULDER_HUECO[min], BOULDER_HUECO[max]];
-  }
+  const boulderIndices = [...(countsByType.get("boulder")?.keys() ?? [])];
+  const boulderSpan: [string, string] | null =
+    boulderIndices.length > 0
+      ? [
+          BOULDER_HUECO[Math.min(...boulderIndices)],
+          BOULDER_HUECO[Math.max(...boulderIndices)],
+        ]
+      : null;
 
-  const ropeBuckets: RopeBucket[] = [];
-  let ropeSpan: [string, string] | null = null;
-  if (ropeCounts.size > 0) {
-    const indices = [...ropeCounts.keys()];
-    const min = Math.min(...indices);
-    const max = Math.max(...indices);
-    // Walk grade indices min..max, merging letter grades into one bucket
-    // per collapsed label — pushing a new bucket only when the label
-    // changes keeps buckets in grade order.
-    for (let i = min; i <= max; i++) {
-      const label = collapseRopeLabel(ROPE_YDS[i]);
-      const counts = ropeCounts.get(i) ?? { sport: 0, trad: 0 };
-      const last = ropeBuckets[ropeBuckets.length - 1];
-      if (last && last.label === label) {
-        last.sport += counts.sport;
-        last.trad += counts.trad;
-      } else {
-        ropeBuckets.push({ label, ...counts });
-      }
-    }
-    ropeSpan = [ROPE_YDS[min], ROPE_YDS[max]];
-  }
+  const ropeIndices = [
+    ...(countsByType.get("sport")?.keys() ?? []),
+    ...(countsByType.get("trad")?.keys() ?? []),
+  ];
+  const ropeSpan: [string, string] | null =
+    ropeIndices.length > 0
+      ? [ROPE_YDS[Math.min(...ropeIndices)], ROPE_YDS[Math.max(...ropeIndices)]]
+      : null;
 
   const disciplines = (["boulder", "sport", "trad"] as const).filter((d) => present.has(d));
 
-  return {
-    totalClimbs,
-    ungradedCount,
-    disciplines,
-    boulderBuckets,
-    ropeBuckets,
-    boulderSpan,
-    ropeSpan,
-  };
+  return { totalClimbs, ungradedCount, disciplines, groups, boulderSpan, ropeSpan };
 }

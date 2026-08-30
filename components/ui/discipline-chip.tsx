@@ -26,7 +26,10 @@ export const DISCIPLINE_LABELS: Record<ClimbType, string> = {
  * (AscentStyle); the sent tick is its own device. */
 export function DisciplineChip({ type }: { type: ClimbType }) {
   return (
-    <Chip variant="soft" size="sm" className={DISCIPLINE_CHIP_CLASSNAME[type]}>
+    // font-sans pinned: chips inherit font-family, so one placed inside a
+    // mono context (the crag header's info strip) would silently change
+    // face — the tag reads identically everywhere.
+    <Chip variant="soft" size="sm" className={`font-sans ${DISCIPLINE_CHIP_CLASSNAME[type]}`}>
       {DISCIPLINE_LABELS[type]}
     </Chip>
   );

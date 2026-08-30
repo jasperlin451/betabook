@@ -47,7 +47,11 @@
     --accent-foreground: var(--palette-ink);
     --success: var(--palette-primary);
     --success-foreground: var(--palette-ink);
-    --danger: var(--palette-accent);
+    /* Deepened toward ink: raw #A4585A is ~4.1:1 as text on paper and
+       lower on the secondary-surface cards where every error message
+       renders — the mix clears AA on both, and paper text on the fill
+       gets easier too. */
+    --danger: color-mix(in oklab, var(--palette-accent) 85%, var(--palette-ink));
     --danger-foreground: var(--palette-paper);
     /* Warning stays HeroUI's amber: the palette has no yellow slot, and
        green/red already carry success/danger. */
@@ -112,10 +116,11 @@
     --accent-foreground: var(--palette-ink);
     --success: var(--palette-primary);
     --success-foreground: var(--palette-ink);
-    /* The dusty red keeps paper text at 4.6:1, same as light mode; lightening
-       it for the black background would drop its own text below 4.5:1. */
-    --danger: var(--palette-accent);
-    --danger-foreground: var(--palette-paper);
+    /* Lightened toward paper: raw #A4585A reads ~3.6:1 as error text on the
+       lifted dark surfaces — under AA. The lighter fill flips its own text
+       to ink (paper on the lightened red would fail instead). */
+    --danger: color-mix(in oklab, var(--palette-accent) 70%, var(--palette-paper));
+    --danger-foreground: var(--palette-ink);
 
     /* Support blue leans toward paper here for the same contrast reason the
        light theme leans it toward ink. */

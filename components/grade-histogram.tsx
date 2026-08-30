@@ -1,5 +1,20 @@
-import type { GradeHistogram } from "@/lib/grade-histogram";
+import type { GradeHistogram, DisciplineHistogram } from "@/lib/grade-histogram";
+import type { ClimbType } from "@/lib/grades";
+import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
+
+// Same discipline → palette hue mapping as the discipline chips.
+const BAR_COLOR: Record<ClimbType, string> = {
+  boulder: "bg-palette-accent",
+  sport: "bg-palette-support",
+  trad: "bg-palette-primary",
+};
+
+const GROUP_LABELS: Record<ClimbType, string> = {
+  boulder: "Boulders",
+  sport: "Sport",
+  trad: "Trad",
+};
 
 /** Whether a bucket's grade label is printed. First and last always are;
  * short scales label everything; long ones every third, so the axis stays
@@ -10,8 +25,8 @@ function showLabel(index: number, length: number): boolean {
   return index % 3 === 0 && index < length - 2;
 }
 
-/** Tallest bar in px — bars are sized in px (not %) so the count label can
- * sit in the same bottom-aligned column and hug its bar's top. */
+/** Tallest bar in px — px (not %) so the hover-revealed count label can sit
+ * in the same bottom-aligned column and hug its bar's top. */
 const BAR_MAX_PX = 56;
 
 function barHeight(count: number, max: number): number {
@@ -19,135 +34,67 @@ function barHeight(count: number, max: number): number {
   return Math.max(4, Math.round((count / max) * BAR_MAX_PX));
 }
 
-function BucketColumn({
-  index,
-  length,
-  label,
-  count,
-  children,
-}: {
-  index: number;
-  length: number;
-  label: string;
-  /** The bucket's total, revealed above its bar on hover of the column —
-   * the space is always reserved so nothing shifts. */
-  count: number;
-  children: React.ReactNode;
-}) {
+function DisciplineChart({ group, delayBase }: { group: DisciplineHistogram; delayBase: number }) {
+  const max = Math.max(...group.buckets.map((b) => b.count), 1);
+  const voted = group.buckets.filter((b) => b.count > 0);
+  // The chart itself is aria-hidden; this line, paired with the visible
+  // group label, carries the full distribution for screen readers.
+  const summary = voted.map((b) => `${b.count} at ${b.label}`).join(", ");
+
   return (
-    <div className="group flex min-w-0 flex-1 flex-col items-center gap-1">
-      <div className="flex h-20 w-full flex-col items-center justify-end gap-0.5">
-        {count > 0 && (
-          <span className="font-mono text-[10px] leading-none tabular-nums text-muted opacity-0 transition-opacity group-hover:opacity-100">
-            {count}
-          </span>
-        )}
-        {children}
+    <div className="flex min-w-0 flex-1 flex-col gap-2">
+      <Eyebrow>{GROUP_LABELS[group.type]}</Eyebrow>
+      <p className="sr-only">
+        {DISCIPLINE_LABELS[group.type]} grade spread: {summary}.
+      </p>
+      <div className="flex items-end gap-[3px]" aria-hidden>
+        {group.buckets.map((bucket, i) => (
+          <div key={bucket.label} className="group flex min-w-0 flex-1 flex-col items-center gap-1">
+            <div className="flex h-20 w-full flex-col items-center justify-end gap-0.5">
+              {bucket.count > 0 && (
+                <span className="font-mono text-[10px] leading-none tabular-nums text-muted opacity-0 transition-opacity group-hover:opacity-100">
+                  {bucket.count}
+                </span>
+              )}
+              {bucket.count > 0 && (
+                <div
+                  className={`w-full rounded-t-xs motion-safe:animate-bar-grow ${BAR_COLOR[group.type]}`}
+                  style={{
+                    height: `${barHeight(bucket.count, max)}px`,
+                    animationDelay: `${(delayBase + i) * 40}ms`,
+                  }}
+                  title={`${bucket.label}: ${bucket.count}`}
+                />
+              )}
+            </div>
+            <span className="h-3 font-mono text-[10px] leading-none text-muted">
+              {showLabel(i, group.buckets.length) ? bucket.label : null}
+            </span>
+          </div>
+        ))}
       </div>
-      <span className="h-3 font-mono text-[10px] leading-none text-muted">
-        {showLabel(index, length) ? label : null}
-      </span>
     </div>
   );
 }
 
-/** The crag header's signature: the subtree's grade spread as CSS bars —
- * boulders by V grade, routes by number grade with sport stacked on trad,
- * colored by the discipline palette, each bar topped by its count.
+/** The crag header's signature: the subtree's grade spread as one CSS-bar
+ * chart per discipline, colored by the discipline palette. Exact counts
+ * reveal on hover and live in each group's screen-reader summary.
  * Server-rendered; no chart library. */
 export function GradeHistogramChart({ histogram }: { histogram: GradeHistogram }) {
-  const groups: React.ReactNode[] = [];
+  if (histogram.groups.length === 0) return null;
 
-  if (histogram.boulderBuckets.length > 0) {
-    const max = Math.max(...histogram.boulderBuckets.map((b) => b.count), 1);
-    groups.push(
-      <div key="boulders" className="flex min-w-0 flex-1 flex-col gap-2">
-        <Eyebrow>Boulders</Eyebrow>
-        <div className="flex items-end gap-[3px]" aria-hidden>
-          {histogram.boulderBuckets.map((bucket, i) => (
-            <BucketColumn
-              key={bucket.label}
-              index={i}
-              length={histogram.boulderBuckets.length}
-              label={bucket.label}
-              count={bucket.count}
-            >
-              {bucket.count > 0 && (
-                <div
-                  className="w-full rounded-t-xs bg-palette-accent motion-safe:animate-bar-grow"
-                  style={{
-                    height: `${barHeight(bucket.count, max)}px`,
-                    animationDelay: `${i * 40}ms`,
-                  }}
-                />
-              )}
-            </BucketColumn>
-          ))}
-        </div>
-      </div>,
-    );
-  }
-
-  if (histogram.ropeBuckets.length > 0) {
-    const max = Math.max(...histogram.ropeBuckets.map((b) => b.sport + b.trad), 1);
-    groups.push(
-      <div key="routes" className="flex min-w-0 flex-1 flex-col gap-2">
-        <Eyebrow>Routes</Eyebrow>
-        <div className="flex items-end gap-[3px]" aria-hidden>
-          {histogram.ropeBuckets.map((bucket, i) => {
-            const total = bucket.sport + bucket.trad;
-            return (
-              <BucketColumn
-                key={bucket.label}
-                index={i}
-                length={histogram.ropeBuckets.length}
-                label={bucket.label}
-                count={total}
-              >
-                {total > 0 && (
-                  <div
-                    className="flex w-full flex-col justify-end overflow-hidden rounded-t-xs motion-safe:animate-bar-grow"
-                    style={{
-                      height: `${barHeight(total, max)}px`,
-                      animationDelay: `${i * 40}ms`,
-                    }}
-                  >
-                    {bucket.sport > 0 && (
-                      <div
-                        className="w-full bg-palette-support"
-                        style={{ height: `${(bucket.sport / total) * 100}%` }}
-                      />
-                    )}
-                    {bucket.trad > 0 && (
-                      <div
-                        className="w-full bg-palette-primary"
-                        style={{ height: `${(bucket.trad / total) * 100}%` }}
-                      />
-                    )}
-                  </div>
-                )}
-              </BucketColumn>
-            );
-          })}
-        </div>
-      </div>,
-    );
-  }
-
-  if (groups.length === 0) return null;
-
-  const summaryParts: string[] = [];
-  if (histogram.boulderSpan) {
-    summaryParts.push(`boulders from ${histogram.boulderSpan[0]} to ${histogram.boulderSpan[1]}`);
-  }
-  if (histogram.ropeSpan) {
-    summaryParts.push(`routes from ${histogram.ropeSpan[0]} to ${histogram.ropeSpan[1]}`);
-  }
+  // Stagger continues across groups: each group's delay base is the number
+  // of bars before it (prefix sum, computed without render-time mutation).
+  const delayBases = histogram.groups.map((_, i) =>
+    histogram.groups.slice(0, i).reduce((sum, g) => sum + g.buckets.length, 0),
+  );
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="sr-only">Grade spread: {summaryParts.join("; ")}.</p>
-      <div className="flex flex-col gap-6 sm:flex-row sm:gap-10">{groups}</div>
+    <div className="flex flex-col gap-6 lg:flex-row lg:gap-10">
+      {histogram.groups.map((group, i) => (
+        <DisciplineChart key={group.type} group={group} delayBase={delayBases[i]} />
+      ))}
     </div>
   );
 }

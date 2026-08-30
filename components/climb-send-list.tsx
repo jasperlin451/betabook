@@ -52,10 +52,16 @@ export function ClimbSendList({
   // reconcile fetch is due/in flight.
   const [prevInitialSends, setPrevInitialSends] = useState(initialSends);
   const [staleTailLength, setStaleTailLength] = useState<number | null>(null);
+  // A length delta alone can't distinguish "extra pages loaded" from "page 1
+  // itself shrank" (deleting a send from a full single page leaves
+  // sends.length > initialSends.length too) — only an actual load-more sets
+  // this, so the shrink case adopts the fresh page immediately instead of
+  // ghosting the deleted row through a pointless tail re-fetch.
+  const [loadedBeyondFirstPage, setLoadedBeyondFirstPage] = useState(false);
   if (initialSends !== prevInitialSends) {
     setPrevInitialSends(initialSends);
     const tailLength = sends.length - initialSends.length;
-    if (tailLength > 0 && tailLength <= MAX_CLIMB_SENDS_LIMIT) {
+    if (loadedBeyondFirstPage && tailLength > 0 && tailLength <= MAX_CLIMB_SENDS_LIMIT) {
       setStaleTailLength(tailLength);
     } else {
       // Either only page 1 is loaded (adopting the fresh props IS the
@@ -64,6 +70,7 @@ export function ClimbSendList({
       // truncate the range, so for that rare case drop back to the fresh
       // first page instead (same trade-off as UserSendList).
       setStaleTailLength(null);
+      setLoadedBeyondFirstPage(false);
       setSends(initialSends);
       setHasMore(initialHasMore);
     }
@@ -94,6 +101,7 @@ export function ClimbSendList({
         // doubles as the retry.
         setSends(initialSends);
         setHasMore(initialHasMore);
+        setLoadedBeyondFirstPage(false);
         setLoadMoreFailed(true);
       } finally {
         if (!cancelled) setStaleTailLength(null);
@@ -128,6 +136,7 @@ export function ClimbSendList({
       // re-fetches the loaded range itself) rather than appending stale rows.
       if (latestInitialSends.current !== baseInitialSends) return;
       setSends((prev) => [...prev, ...data.sends]);
+      setLoadedBeyondFirstPage(true);
       setHasMore(data.hasMore);
     } catch {
       // Network failure or a non-2xx response — keep what's loaded, surface

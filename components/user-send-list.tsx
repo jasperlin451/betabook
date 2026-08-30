@@ -141,8 +141,14 @@ export function UserSendsFilterPanel({
     initialName: filter.name ?? "",
     initialAreaName: filter.areaName ?? "",
     defaultFilter: DEFAULT_USER_SENDS_FILTER,
-    buildHref: (disciplineFilter, name, areaName) =>
-      `/users/${userId}?${userSendsFilterToSearchParams({ ...disciplineFilter, name, areaName }).toString()}`,
+    // Sort lives in the URL beside the filter; threading it through the
+    // hook keeps a non-default sort across filter edits (a filter change
+    // used to silently snap the list back to date_desc) while Reset
+    // Filters still restores the default.
+    sort: filter.sort,
+    defaultSort: DEFAULT_USER_SENDS_FILTER.sort,
+    buildHref: (disciplineFilter, name, areaName, sort) =>
+      `/users/${userId}?${userSendsFilterToSearchParams({ ...disciplineFilter, name, areaName, sort }).toString()}`,
   });
 
   return (
@@ -219,10 +225,16 @@ export function UserSendList({
   // non-null means a reconcile fetch is due/in flight.
   const [prevInitialSends, setPrevInitialSends] = useState(initialSends);
   const [staleTailLength, setStaleTailLength] = useState<number | null>(null);
+  // A length delta alone can't distinguish "extra pages loaded" from "page 1
+  // itself shrank" (deleting a send from a full single page leaves
+  // sends.length > initialSends.length too) — only an actual load-more sets
+  // this, so the shrink case adopts the fresh page immediately instead of
+  // ghosting the deleted row through a pointless tail re-fetch.
+  const [loadedBeyondFirstPage, setLoadedBeyondFirstPage] = useState(false);
   if (initialSends !== prevInitialSends) {
     setPrevInitialSends(initialSends);
     const tailLength = sends.length - initialSends.length;
-    if (tailLength > 0 && tailLength <= MAX_USER_SENDS_LIMIT) {
+    if (loadedBeyondFirstPage && tailLength > 0 && tailLength <= MAX_USER_SENDS_LIMIT) {
       setStaleTailLength(tailLength);
     } else {
       // Either only page 1 is loaded (adopting the fresh props IS the
@@ -233,6 +245,7 @@ export function UserSendList({
       // (a deleted send must never keep ghosting) beats keeping the scroll
       // position there.
       setStaleTailLength(null);
+      setLoadedBeyondFirstPage(false);
       setSends(initialSends);
       setHasMore(initialHasMore);
       setAreaBreadcrumbs((prev) => ({ ...prev, ...initialAreaBreadcrumbs }));
@@ -268,6 +281,7 @@ export function UserSendList({
         // shrink — the "load more" button doubles as the retry.
         setSends(initialSends);
         setHasMore(initialHasMore);
+        setLoadedBeyondFirstPage(false);
         setAreaBreadcrumbs((prev) => ({ ...prev, ...initialAreaBreadcrumbs }));
         setLoadMoreFailed(true);
       } finally {
@@ -304,6 +318,7 @@ export function UserSendList({
       // re-fetches the loaded range itself) rather than appending stale rows.
       if (latestInitialSends.current !== baseInitialSends) return;
       setSends((prev) => [...prev, ...data.sends]);
+      setLoadedBeyondFirstPage(true);
       setHasMore(data.hasMore);
       setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
     } catch {

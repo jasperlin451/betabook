@@ -6,8 +6,7 @@ describe("buildGradeHistogram", () => {
   it("returns an empty histogram for no rows", () => {
     const h = buildGradeHistogram([]);
     expect(h.totalClimbs).toBe(0);
-    expect(h.boulderBuckets).toEqual([]);
-    expect(h.ropeBuckets).toEqual([]);
+    expect(h.groups).toEqual([]);
     expect(h.boulderSpan).toBeNull();
     expect(h.ropeSpan).toBeNull();
     expect(h.disciplines).toEqual([]);
@@ -19,16 +18,21 @@ describe("buildGradeHistogram", () => {
       { type: "boulder", grade: 4, count: 1 }, // V3
     ];
     const h = buildGradeHistogram(rows);
-    expect(h.boulderBuckets).toEqual([
-      { label: "V0", count: 2 },
-      { label: "V1", count: 0 },
-      { label: "V2", count: 0 },
-      { label: "V3", count: 1 },
+    expect(h.groups).toEqual([
+      {
+        type: "boulder",
+        buckets: [
+          { label: "V0", count: 2 },
+          { label: "V1", count: 0 },
+          { label: "V2", count: 0 },
+          { label: "V3", count: 1 },
+        ],
+      },
     ]);
     expect(h.boulderSpan).toEqual(["V0", "V3"]);
   });
 
-  it("collapses rope letter grades into one bucket per number, stacking sport and trad", () => {
+  it("collapses rope letter grades per discipline, one chart each", () => {
     const rows: GradeHistogramRow[] = [
       { type: "sport", grade: 10, count: 1 }, // 5.10a
       { type: "sport", grade: 13, count: 2 }, // 5.10d
@@ -36,9 +40,15 @@ describe("buildGradeHistogram", () => {
       { type: "trad", grade: 14, count: 1 }, // 5.11a
     ];
     const h = buildGradeHistogram(rows);
-    expect(h.ropeBuckets).toEqual([
-      { label: "5.10", sport: 3, trad: 3 },
-      { label: "5.11", sport: 0, trad: 1 },
+    expect(h.groups).toEqual([
+      { type: "sport", buckets: [{ label: "5.10", count: 3 }] },
+      {
+        type: "trad",
+        buckets: [
+          { label: "5.10", count: 3 },
+          { label: "5.11", count: 1 },
+        ],
+      },
     ]);
     expect(h.ropeSpan).toEqual(["5.10a", "5.11a"]);
   });
@@ -51,7 +61,7 @@ describe("buildGradeHistogram", () => {
     const h = buildGradeHistogram(rows);
     expect(h.ungradedCount).toBe(4);
     expect(h.totalClimbs).toBe(5);
-    expect(h.ropeBuckets).toEqual([{ label: "5.8", sport: 1, trad: 0 }]);
+    expect(h.groups).toEqual([{ type: "sport", buckets: [{ label: "5.8", count: 1 }] }]);
   });
 
   it("lists disciplines present in boulder → sport → trad order", () => {
@@ -68,7 +78,7 @@ describe("buildGradeHistogram", () => {
       { type: "boulder", grade: 2, count: 1 },
     ];
     const h = buildGradeHistogram(rows);
-    expect(h.boulderBuckets).toEqual([{ label: "V1", count: 1 }]);
+    expect(h.groups).toEqual([{ type: "boulder", buckets: [{ label: "V1", count: 1 }] }]);
   });
 });
 

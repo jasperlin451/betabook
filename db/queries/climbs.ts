@@ -2,6 +2,11 @@ import { eq, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { climbs } from "@/db/schema";
 import { MAX_RATING } from "@/lib/climb-stats-filter";
+import {
+  DEFAULT_BOULDER_RANGE,
+  DEFAULT_SPORT_RANGE,
+  DEFAULT_TRAD_RANGE,
+} from "@/lib/discipline-filter";
 import { PAGE_SIZE, toFtsPrefixQuery } from "./shared";
 import { areaNameCondition, type Area } from "./areas";
 
@@ -54,6 +59,25 @@ const SUBTREE_CLIMBS_ORDER_BY: Record<SubtreeClimbsSort, SQL> = {
   ascents_desc: sql`climbs.send_count DESC`,
 };
 
+/** Deterministic tie-breaks after the chosen sort, in name → grade →
+ * rating → ascents priority (minus whichever is primary), impressive-first
+ * directions. Only appended on paths that sort anyway (search, and
+ * small-area subtrees on the plain range index): the large-area path's
+ * whole point is that its forced sort index satisfies the ORDER BY without
+ * sorting the subtree, and extra keys would void that — there, ties fall
+ * back to climbs.id as before. */
+const SUBTREE_CLIMBS_TIE_BREAK: Record<"name" | "grade" | "rating" | "ascents", SQL> = {
+  name: sql`climbs.grade DESC, climbs.avg_rating DESC, climbs.send_count DESC`,
+  grade: sql`climbs.name ASC, climbs.avg_rating DESC, climbs.send_count DESC`,
+  rating: sql`climbs.name ASC, climbs.grade DESC, climbs.send_count DESC`,
+  ascents: sql`climbs.name ASC, climbs.grade DESC, climbs.avg_rating DESC`,
+};
+
+function sortTieBreak(sort: SubtreeClimbsSort): SQL {
+  const field = sort.replace(/_(asc|desc)$/, "") as keyof typeof SUBTREE_CLIMBS_TIE_BREAK;
+  return SUBTREE_CLIMBS_TIE_BREAK[field];
+}
+
 export type Discipline = "boulder" | "sport" | "trad";
 
 export type DisciplineGradeFilter = {
@@ -66,20 +90,34 @@ export type DisciplineGradeFilter = {
 /** Builds the discipline/grade OR-clause shared by `searchClimbs` and
  * `getSubtreeClimbs` — a climb matches if its own type is checked and its
  * grade falls in that discipline's range. Returns `[]` (no filtering) when
- * no disciplines are checked, per DEFAULT_USER_SENDS_FILTER's convention. */
+ * no disciplines are checked, per DEFAULT_USER_SENDS_FILTER's convention.
+ *
+ * Same NULL-grade semantics as the user-sends filter's
+ * disciplineGradeClause: at the full default range there's no grade
+ * predicate, so ungraded climbs stay (ticking "Boulder" used to silently
+ * drop every ungraded boulder — right under a crag header advertising
+ * them); once a bound is narrowed, NULL fails the BETWEEN and is excluded,
+ * since an unknown grade can't be known to fall inside a narrowed range. */
+function disciplineGradeCondition(
+  type: Discipline,
+  range: [number, number],
+  fullRange: [number, number],
+): SQL {
+  const [min, max] = range;
+  if (min <= fullRange[0] && max >= fullRange[1]) return sql`climbs.type = ${type}`;
+  return sql`(climbs.type = ${type} AND climbs.grade BETWEEN ${min} AND ${max})`;
+}
+
 function disciplineGradeConditions(filter: DisciplineGradeFilter): SQL[] {
   const clauses: SQL[] = [];
   if (filter.disciplines.includes("boulder") && filter.boulderRange) {
-    const [min, max] = filter.boulderRange;
-    clauses.push(sql`(climbs.type = 'boulder' AND climbs.grade BETWEEN ${min} AND ${max})`);
+    clauses.push(disciplineGradeCondition("boulder", filter.boulderRange, DEFAULT_BOULDER_RANGE));
   }
   if (filter.disciplines.includes("sport") && filter.sportRange) {
-    const [min, max] = filter.sportRange;
-    clauses.push(sql`(climbs.type = 'sport' AND climbs.grade BETWEEN ${min} AND ${max})`);
+    clauses.push(disciplineGradeCondition("sport", filter.sportRange, DEFAULT_SPORT_RANGE));
   }
   if (filter.disciplines.includes("trad") && filter.tradRange) {
-    const [min, max] = filter.tradRange;
-    clauses.push(sql`(climbs.type = 'trad' AND climbs.grade BETWEEN ${min} AND ${max})`);
+    clauses.push(disciplineGradeCondition("trad", filter.tradRange, DEFAULT_TRAD_RANGE));
   }
   return clauses;
 }
@@ -102,7 +140,7 @@ function disciplineGradeConditions(filter: DisciplineGradeFilter): SQL[] {
 // state/country-level areas (e.g. Alberta, ~8.8k climbs) top out around a
 // span of 1200; continent-level areas (Europe, Canada, North America —
 // tens of thousands of climbs each) start above 3500. 2000 sits in that gap.
-const LARGE_AREA_SUBTREE_SPAN = 2000;
+export const LARGE_AREA_SUBTREE_SPAN = 2000;
 
 const SUBTREE_CLIMBS_SORT_INDEX: Record<SubtreeClimbsSort, string> = {
   name_asc: "climbs_name_asc_idx",
@@ -194,13 +232,21 @@ export async function getSubtreeClimbs(
   }
 
   // Fetch one extra row to detect a next page without a separate COUNT query.
+  // Small subtrees sort their (few) rows anyway, so ties get the full
+  // deterministic chain; the large-area path must keep an ORDER BY its
+  // forced sort index satisfies verbatim (see SUBTREE_CLIMBS_TIE_BREAK).
+  const orderBy =
+    indexName === "climbs_lft_rght_idx"
+      ? sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, ${sortTieBreak(sort)}, climbs.id`
+      : sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, climbs.id`;
+
   const rows = await db.all<ClimbWithAreaName>(sql`
     SELECT climbs.id AS id, climbs.area_id AS areaId, climbs.name AS name,
            climbs.type AS type, climbs.grade AS grade, areas.name AS areaName
     FROM climbs INDEXED BY ${sql.raw(indexName)}
     JOIN areas ON areas.id = climbs.area_id
     WHERE ${sql.join(conditions, sql` AND `)}
-    ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[sort]}, climbs.id
+    ORDER BY ${orderBy}
     LIMIT ${PAGE_SIZE + 1}
     OFFSET ${(page - 1) * PAGE_SIZE}
   `);
@@ -223,8 +269,11 @@ export type GradeHistogramRow = { type: Discipline; grade: number | null; count:
  * (including the redundant-looking second lft bound — see the comment
  * there); no ORDER BY/LIMIT, so the plain range index is always the right
  * access path and none of the sort-index forcing applies. Result size is
- * bounded by distinct (type, grade) pairs (≤ ~55), independent of subtree
- * size. */
+ * bounded by distinct (type, grade) pairs (≤ ~55) — but COST is a table
+ * lookup per climb in range, so callers gate on the same
+ * LARGE_AREA_SUBTREE_SPAN threshold the list query uses (and on the
+ * lft=rght=0 placeholder a freshly created, not-yet-reindexed area
+ * carries, whose "range" would match every other unindexed climb). */
 export async function getSubtreeGradeHistogram(
   db: Database,
   area: Area,
@@ -331,7 +380,7 @@ export async function searchClimbs(
     FROM climbs
     JOIN areas ON areas.id = climbs.area_id
     ${searchClimbsWhereClause(conditions)}
-    ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[params.sort ?? "ascents_desc"]}, climbs.id
+    ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[params.sort ?? "ascents_desc"]}, ${sortTieBreak(params.sort ?? "ascents_desc")}, climbs.id
     LIMIT ${SEARCH_PAGE_SIZE + 1}
     OFFSET ${(page - 1) * SEARCH_PAGE_SIZE}
   `);
@@ -345,7 +394,12 @@ export async function searchClimbs(
 /** Exact match count for the same conditions as `searchClimbs` — a single
  * aggregate over index/FTS-backed predicates, cheap relative to the page
  * query itself, so the search heading can show a real total instead of a
- * silent cap. */
+ * silent cap. The areas join exists only for areaNameCondition's
+ * correlation (it references the outer `areas` row); with no area-name
+ * filter it would add a pointless per-climb PK seek to the scan, so it's
+ * joined only when needed. Callers should skip the count entirely for a
+ * fully unfiltered search (see app/page.tsx) — COUNT(*) over every climb
+ * is a full index scan with nothing to show for it on a default landing. */
 export async function countSearchClimbs(
   db: Database,
   params: SearchClimbsParams,
@@ -353,10 +407,11 @@ export async function countSearchClimbs(
   const conditions = searchClimbsConditions(params);
   if (conditions === null) return 0;
 
+  const areasJoin = params.areaName ? sql`JOIN areas ON areas.id = climbs.area_id` : sql``;
   const [row] = await db.all<{ count: number }>(sql`
     SELECT COUNT(*) AS count
     FROM climbs
-    JOIN areas ON areas.id = climbs.area_id
+    ${areasJoin}
     ${searchClimbsWhereClause(conditions)}
   `);
   return row?.count ?? 0;

@@ -1,4 +1,9 @@
+import type { Metadata } from "next";
 import { NotFoundMessage } from "@/components/ui/not-found-message";
+
+export const metadata: Metadata = {
+  title: "Climb not found",
+};
 
 export default function ClimbNotFound() {
   return (

@@ -7,7 +7,7 @@ import { getAreaBreadcrumbs, searchAreas } from "@/db/queries";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const name = url.searchParams.get("name") ?? "";
-  const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+  const page = Math.max(1, Math.trunc(Number(url.searchParams.get("page"))) || 1);
 
   const db = await getDb();
   const results = await searchAreas(db, name, page);

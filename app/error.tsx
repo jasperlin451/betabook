@@ -1,7 +1,8 @@
 "use client"; // Error boundaries must be Client Components
 
 import { useEffect } from "react";
-import { Button, Link } from "@heroui/react";
+import { Button } from "@heroui/react";
+import { AppLink } from "@/components/ui/app-link";
 import { PageTitle } from "@/components/ui/typography";
 
 /** Root error boundary — renders inside the root layout (header/footer stay),
@@ -29,7 +30,7 @@ export default function ErrorPage({
       </div>
       <div className="flex items-center gap-4">
         <Button onPress={() => retry()}>Try again</Button>
-        <Link href="/">Search from the home page</Link>
+        <AppLink href="/">Search from the home page</AppLink>
       </div>
     </div>
   );

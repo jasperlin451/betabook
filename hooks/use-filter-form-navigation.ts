@@ -29,12 +29,12 @@ export function useFilterFormNavigation<T, Sort extends string = string>({
   initialName?: string;
   initialAreaName?: string;
   defaultFilter: T;
-  /** The list's current sort, for surfaces whose sort control lives outside
-   * this form (climb search, the area page): passed through to `buildHref`
-   * so a filter change preserves it — except right after `reset()`, when
-   * `defaultSort` is passed instead, so Reset Filters restores the default
-   * sort too. Surfaces that carry sort inside the filter itself (user
-   * sends) omit both, and `buildHref` just ignores its last argument. */
+  /** The list's current sort: passed through to `buildHref` so a filter
+   * change preserves it — except right after `reset()`, when `defaultSort`
+   * is passed instead, so Reset Filters restores the default sort too.
+   * Every sorted surface (climb search, the area page, user sends) wires
+   * both; a surface with no sort at all (area search) omits them and its
+   * `buildHref` ignores the last argument. */
   sort?: Sort;
   defaultSort?: Sort;
   buildHref: (filter: T, name: string, areaName: string, sort: Sort | undefined) => string;
@@ -45,8 +45,11 @@ export function useFilterFormNavigation<T, Sort extends string = string>({
   // reset() can't reach into the sort control's state (it lives outside this
   // form, fed from the URL), so it sets this override instead, which stands
   // in for the `sort` prop until that prop next changes — normally the reset
-  // navigation itself landing, but also a sort-control click racing the
-  // debounce, whose fresher choice then wins.
+  // navigation itself landing. A sort-control click racing the debounce
+  // clears it too, but only once that click's own navigation round-trips
+  // and updates the prop; if the pending reset lands after that, the reset
+  // still wins the sort. Narrow window, inherent to two uncoordinated
+  // writers of the same URL.
   const [sortOverride, setSortOverride] = useState<Sort | null>(null);
   const [prevSort, setPrevSort] = useState(sort);
   if (prevSort !== sort) {
@@ -67,17 +70,28 @@ export function useFilterFormNavigation<T, Sort extends string = string>({
     currentHref,
   );
 
-  // Back/forward (or a sort control's replace) changes the URL — and with it
-  // the server-filtered results — without this form's involvement: adopt the
-  // incoming values so the controls match what the results now show, and so
-  // the debounce doesn't later overwrite the restored URL with stale state.
-  // Only *external* changes re-seed (our own navigations round-trip with
+  // Back/forward changes the URL — and with it the server-filtered results —
+  // without this form's involvement: adopt the incoming values so the
+  // controls match what the results now show, and so the debounce doesn't
+  // later overwrite the restored URL with stale state. Only *external*
+  // changes re-seed (our own navigations round-trip with
   // urlChangedExternally false), and re-seeding sets values on the mounted
   // inputs rather than remounting them — which is also why callers must not
   // key the form on the filter: a remount would yank focus right as the
   // debounce lands. (Render-phase state adjustment, per React's "storing
   // information from previous renders".)
-  if (urlChangedExternally) {
+  //
+  // A sort-only external change (the sort control's own replace) is the
+  // exception: the form holds no sort field, so there is nothing to adopt —
+  // and re-seeding would discard an edit still sitting in the debounce
+  // window. Skipping it keeps the edit; the pending navigation then fires
+  // with the new sort via the refreshed `sort` prop. Sort-insensitivity is
+  // detected by comparing hrefs built with a pinned sort.
+  const fingerprint = buildHref(initialFilter, initialName, initialAreaName, defaultSort);
+  const [prevFingerprint, setPrevFingerprint] = useState(fingerprint);
+  const nonSortValuesChanged = fingerprint !== prevFingerprint;
+  if (nonSortValuesChanged) setPrevFingerprint(fingerprint);
+  if (urlChangedExternally && nonSortValuesChanged) {
     setName(initialName);
     setAreaName(initialAreaName);
     setFilter(initialFilter);

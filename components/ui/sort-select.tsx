@@ -31,6 +31,11 @@ export function SortSelect<Field extends string, Sort extends string>({
 
   return (
     <div className="flex items-center gap-2">
+      {/* Static label so the control reads as "Sort by: X", not a bare
+        * value dropdown that could pass for a filter. */}
+      <span className="shrink-0 text-sm text-muted" aria-hidden>
+        Sort by
+      </span>
       <Select
         aria-label="Sort by"
         selectedKey={field}
