@@ -1,6 +1,6 @@
 "use client";
 
-import { Label, NumberField } from "@heroui/react";
+import { NumberField } from "@heroui/react";
 import { IndexRangeSelect } from "@/components/ui/index-select";
 import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
 
@@ -41,14 +41,25 @@ export function MinAscentsField({
   onChange: (value: number) => void;
 }) {
   return (
-    <NumberField value={value} onChange={onChange} minValue={0} fullWidth>
-      <Label>Min Ascents</Label>
-      <NumberField.Group>
-        <NumberField.DecrementButton />
-        <NumberField.Input />
-        <NumberField.IncrementButton />
-      </NumberField.Group>
-    </NumberField>
+    // Inline label + compact stepper, matching the Rating row's
+    // label-beside-controls rhythm — a count field has no business
+    // spanning the whole filter panel.
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="text-sm font-medium text-foreground">Min Ascents</span>
+      <NumberField
+        value={value}
+        onChange={onChange}
+        minValue={0}
+        aria-label="Min Ascents"
+        className="w-32"
+      >
+        <NumberField.Group>
+          <NumberField.DecrementButton />
+          <NumberField.Input />
+          <NumberField.IncrementButton />
+        </NumberField.Group>
+      </NumberField>
+    </div>
   );
 }
 
