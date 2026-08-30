@@ -8,9 +8,16 @@ import {
   type AscentStyle,
   type GradeFeel,
 } from "@/lib/sends";
-import type { ClimbType } from "@/lib/grades";
+import { parseGrade, type ClimbType } from "@/lib/grades";
 
-export type ParsedCsv = { headers: string[]; rows: Record<string, string>[] };
+export type ParsedCsv = {
+  headers: string[];
+  rows: Record<string, string>[];
+  /** Human-readable parse diagnostics: malformed-CSV errors reported by the
+   * parser plus any duplicate-header renames. Non-fatal — the file still
+   * parsed — but shown to the user before they map columns. */
+  warnings: string[];
+};
 
 export const CLIMB_TYPES = ["boulder", "sport", "trad"] as const;
 
@@ -41,6 +48,8 @@ export function distinctValues(rows: Record<string, string>[], column: string | 
 // because a "use server" file can only export async functions.
 export const IMPORT_BATCH_SIZE = 25;
 
+const MAX_PARSE_ERROR_WARNINGS = 5;
+
 /**
  * Real-world exports (like Sendage's) sometimes have metadata lines before
  * the actual header row (an attribution line, an export date, a blank
@@ -50,8 +59,24 @@ export const IMPORT_BATCH_SIZE = 25;
  */
 export function parseCsvText(text: string): ParsedCsv {
   const result = Papa.parse<string[]>(text, { skipEmptyLines: true });
+  const warnings: string[] = [];
+
+  // "UndetectableDelimiter" only means papaparse fell back to a comma — it
+  // fires for any empty or single-column file, so it's noise rather than a
+  // sign of a malformed file. Everything else (unterminated quotes, etc.)
+  // is worth showing.
+  const parseErrors = result.errors.filter((e) => e.code !== "UndetectableDelimiter");
+  for (const err of parseErrors.slice(0, MAX_PARSE_ERROR_WARNINGS)) {
+    warnings.push(err.row != null ? `Row ${err.row + 1}: ${err.message}` : err.message);
+  }
+  if (parseErrors.length > MAX_PARSE_ERROR_WARNINGS) {
+    warnings.push(
+      `…and ${parseErrors.length - MAX_PARSE_ERROR_WARNINGS} more parse issues`,
+    );
+  }
+
   const rawRows = result.data;
-  if (rawRows.length === 0) return { headers: [], rows: [] };
+  if (rawRows.length === 0) return { headers: [], rows: [], warnings };
 
   const lengthCounts = new Map<number, number>();
   for (const r of rawRows) {
@@ -67,7 +92,29 @@ export function parseCsvText(text: string): ParsedCsv {
   }
 
   const headerIndex = rawRows.findIndex((r) => r.length === modeLength);
-  const headers = rawRows[headerIndex] ?? [];
+  const rawHeaders = rawRows[headerIndex] ?? [];
+
+  // Duplicate header names would silently collapse into one field (each row
+  // object is keyed by header name) and produce duplicate React keys in the
+  // mapping UI — rename repeats deterministically instead, skipping over any
+  // name another header already holds.
+  const used = new Set<string>();
+  const headers = rawHeaders.map((header) => {
+    if (!used.has(header)) {
+      used.add(header);
+      return header;
+    }
+    let n = 2;
+    let renamed = `${header} (${n})`;
+    while (used.has(renamed) || rawHeaders.includes(renamed)) {
+      n++;
+      renamed = `${header} (${n})`;
+    }
+    used.add(renamed);
+    warnings.push(`Duplicate column "${header}" renamed to "${renamed}"`);
+    return renamed;
+  });
+
   const rows = rawRows.slice(headerIndex + 1).map((r) => {
     const row: Record<string, string> = {};
     headers.forEach((h, i) => {
@@ -76,7 +123,7 @@ export function parseCsvText(text: string): ParsedCsv {
     return row;
   });
 
-  return { headers, rows };
+  return { headers, rows, warnings };
 }
 
 export type ColumnMapping = {
@@ -86,12 +133,27 @@ export type ColumnMapping = {
   areaName: string | null;
   climbType: string | null; // optional — tiebreaker only
   grade: string | null; // optional
+  suggestedGrade: string | null; // optional — takes precedence over `grade` for the send's suggested grade
   gradeFeel: string | null; // optional
   rating: string | null; // optional
   comment: string | null; // optional
 };
 
 type FieldKey = keyof ColumnMapping;
+
+export const REQUIRED_COLUMN_KEYS: readonly FieldKey[] = [
+  "ascentStyle",
+  "climbName",
+  "areaName",
+];
+
+/** The required fields (per REQUIRED_COLUMN_KEYS) that aren't mapped to a
+ * CSV column yet. The wizard's columns step blocks Next and names these
+ * until the user maps each one — an unmapped ascent style would otherwise
+ * only surface three steps later as "0 rows ready". */
+export function missingRequiredColumns(mapping: ColumnMapping): FieldKey[] {
+  return REQUIRED_COLUMN_KEYS.filter((key) => !mapping[key]);
+}
 
 // Order matters: more specific aliases are matched first so, e.g., "Climb
 // Type" is claimed before ascentStyle's generic "type" fallback would
@@ -102,6 +164,7 @@ const FIELD_ORDER: FieldKey[] = [
   "ascentStyle",
   "climbName",
   "areaName",
+  "suggestedGrade",
   "grade",
   "gradeFeel",
   "rating",
@@ -112,8 +175,9 @@ const HEADER_ALIASES: Record<FieldKey, string[]> = {
   date: ["date sent", "send date", "ascent date", "date"],
   climbType: ["climb type", "discipline"],
   ascentStyle: ["send type", "ascent type", "ascent style", "completion type", "style", "type"],
-  climbName: ["climb", "route", "problem", "name"],
-  areaName: ["area", "crag", "location", "sector"],
+  climbName: ["climb name", "climb", "route", "problem", "name"],
+  areaName: ["area name", "area", "crag", "location", "sector"],
+  suggestedGrade: ["suggested grade", "personal grade", "my grade"],
   grade: ["grade", "difficulty"],
   gradeFeel: ["grade feel", "feel"],
   rating: ["rating", "stars"],
@@ -129,6 +193,7 @@ export function guessColumnMapping(headers: string[]): ColumnMapping {
     areaName: null,
     climbType: null,
     grade: null,
+    suggestedGrade: null,
     gradeFeel: null,
     rating: null,
     comment: null,
@@ -342,7 +407,19 @@ export type NormalizedImportRow = {
   dateSent: string | null; // ISO if present; blank in the CSV -> null, not a failure
   rating: number | null;
   comment: string | null; // truncated to MAX_COMMENT_LENGTH here, not rejected
+  /** The text that becomes the send's suggested grade — from the Suggested
+   * Grade column when one is mapped (it takes precedence: in a betabook
+   * export the Grade column is the climb's posted grade, a property of the
+   * climb rather than of this send), else from the Grade column. */
   gradeText: string | null;
+  /** What a null gradeText means for the send's suggested grade:
+   * "posted-grade" — only a Grade column was mapped, so fall back to the
+   * climb's posted grade (the pre-existing semantics for third-party CSVs);
+   * "no-suggestion" — a Suggested Grade column was mapped and this row's
+   * cell was blank, so record no suggestion at all. The latter is what lets
+   * a betabook export round-trip losslessly instead of silently replacing
+   * every blank suggested grade with the climb's posted grade. */
+  blankGradeMeans: "posted-grade" | "no-suggestion";
   gradeFeel: GradeFeel; // optional CSV column; defaults to "solid" if absent/unrecognized
   raw: Record<string, string>; // the original CSV row, kept for a failed-rows export identical to the source
 };
@@ -353,11 +430,51 @@ export type InvalidImportRow = {
   reason: string;
 };
 
+/** One kind of silent value adjustment normalizeImportRows makes to rows it
+ * still counts as valid — surfaced on the review step so lossy coercions
+ * (invalid rating dropped, unrecognized grade dropped, unknown grade feel
+ * defaulted, overlong comment truncated) aren't presented as "ready"
+ * without comment. */
+export type CoercionWarning = {
+  field: "suggestedGrade" | "rating" | "gradeFeel" | "comment";
+  message: string;
+  count: number;
+  /** The first few affected rows, pre-formatted for display (e.g. `Row 4: "banana"`). */
+  examples: string[];
+};
+
+const WARNING_EXAMPLE_LIMIT = 3;
+
+const COERCION_MESSAGES: Record<CoercionWarning["field"], string> = {
+  suggestedGrade: "unrecognized grade, imported without a suggested grade",
+  rating: "invalid rating, imported without a rating",
+  gradeFeel: 'unmapped grade feel, imported as "solid"',
+  comment: `comment longer than ${MAX_COMMENT_LENGTH} characters, truncated`,
+};
+
+/** Whether grade text will resolve to a grade ordinal server-side. With a
+ * climb-type hint the exact grade table is known; without one, text that
+ * parses in neither the boulder nor the rope table is certain to come back
+ * null. (Text that parses in only one table can still miss if the climb
+ * resolves to the other discipline — that can't be known client-side.) */
+function gradeTextParses(
+  text: string,
+  climbTypeHint: ClimbType | null,
+  preference: "native" | "converted",
+): boolean {
+  if (climbTypeHint) return parseGrade(climbTypeHint, text, preference) !== null;
+  return (
+    parseGrade("boulder", text, preference) !== null ||
+    parseGrade("sport", text, preference) !== null
+  );
+}
+
 /**
  * Applies column mapping + value mappings + date format to every parsed CSV
  * row. Never touches the database — climb resolution happens server-side.
  * Returns both buckets so the wizard can show "N rows ready, M rows can't be
- * imported" before the user ever clicks Finalize.
+ * imported" before the user ever clicks Finalize, plus per-field coercion
+ * warnings for the value adjustments made to rows in the valid bucket.
  */
 export function normalizeImportRows(
   parsed: ParsedCsv,
@@ -366,13 +483,27 @@ export function normalizeImportRows(
   climbTypeMapping: ClimbTypeMapping,
   gradeFeelMapping: GradeFeelMapping,
   dateFormat: DateFormat,
-  today: string = new Date().toISOString().slice(0, 10),
-): { valid: NormalizedImportRow[]; invalid: InvalidImportRow[] } {
+  options: { today?: string; gradeScalePreference?: "native" | "converted" } = {},
+): { valid: NormalizedImportRow[]; invalid: InvalidImportRow[]; warnings: CoercionWarning[] } {
+  const {
+    today = new Date().toISOString().slice(0, 10),
+    gradeScalePreference = "native",
+  } = options;
   const valid: NormalizedImportRow[] = [];
   const invalid: InvalidImportRow[] = [];
   // One day past UTC today, since a client's local today can be ahead of
   // UTC's — see latestAcceptableSendDate.
   const latestDateSent = latestAcceptableSendDate(today);
+
+  const warningBuckets = new Map<CoercionWarning["field"], { count: number; examples: string[] }>();
+  const warn = (field: CoercionWarning["field"], rowIndex: number, example: string) => {
+    const bucket = warningBuckets.get(field) ?? { count: 0, examples: [] };
+    bucket.count++;
+    if (bucket.examples.length < WARNING_EXAMPLE_LIMIT) {
+      bucket.examples.push(`Row ${rowIndex + 1}: ${example}`);
+    }
+    warningBuckets.set(field, bucket);
+  };
 
   parsed.rows.forEach((row, rowIndex) => {
     const fail = (reason: string) => invalid.push({ rowIndex, raw: row, reason });
@@ -416,22 +547,37 @@ export function normalizeImportRows(
       ratingNum !== null && Number.isInteger(ratingNum) && ratingNum >= 1 && ratingNum <= 5
         ? ratingNum
         : null;
+    if (rawRating && rating === null) warn("rating", rowIndex, `"${rawRating}"`);
 
     const rawComment = mapping.comment ? (row[mapping.comment] ?? "").trim() : "";
+    if (rawComment.length > MAX_COMMENT_LENGTH) {
+      warn("comment", rowIndex, `${rawComment.length} characters`);
+    }
     const comment = rawComment
       ? rawComment.length > MAX_COMMENT_LENGTH
         ? rawComment.slice(0, MAX_COMMENT_LENGTH)
         : rawComment
       : null;
 
-    const gradeText = mapping.grade ? (row[mapping.grade] ?? "").trim() || null : null;
+    // The Suggested Grade column, when mapped, is authoritative for the
+    // send's suggested grade; the Grade column only fills that role when no
+    // Suggested Grade column exists (see NormalizedImportRow.blankGradeMeans).
+    const gradeColumn = mapping.suggestedGrade ?? mapping.grade;
+    const blankGradeMeans = mapping.suggestedGrade ? ("no-suggestion" as const) : ("posted-grade" as const);
+    const gradeText = gradeColumn ? (row[gradeColumn] ?? "").trim() || null : null;
+    if (gradeText && !gradeTextParses(gradeText, climbTypeHint, gradeScalePreference)) {
+      warn("suggestedGrade", rowIndex, `"${gradeText}"`);
+    }
 
     const rawGradeFeel = mapping.gradeFeel ? (row[mapping.gradeFeel] ?? "").trim() : "";
     const mappedGradeFeel = rawGradeFeel ? gradeFeelMapping[rawGradeFeel] : undefined;
     // Unmapped or explicitly ignored grade feel falls back to the "solid"
-    // default — unlike ascent style, it never invalidates a row.
-    const gradeFeel: GradeFeel =
-      mappedGradeFeel && mappedGradeFeel !== "skip" ? mappedGradeFeel : "solid";
+    // default — unlike ascent style, it never invalidates a row. It does
+    // warn, though: the file said something about this send's grade feel and
+    // the import is dropping it.
+    const feelDropped = !mappedGradeFeel || mappedGradeFeel === "skip";
+    const gradeFeel: GradeFeel = feelDropped ? "solid" : mappedGradeFeel;
+    if (rawGradeFeel && feelDropped) warn("gradeFeel", rowIndex, `"${rawGradeFeel}"`);
 
     valid.push({
       climbName,
@@ -442,12 +588,20 @@ export function normalizeImportRows(
       rating,
       comment,
       gradeText,
+      blankGradeMeans,
       gradeFeel,
       raw: row,
     });
   });
 
-  return { valid, invalid };
+  const warnings: CoercionWarning[] = (
+    ["suggestedGrade", "rating", "gradeFeel", "comment"] as const
+  ).flatMap((field) => {
+    const bucket = warningBuckets.get(field);
+    return bucket ? [{ field, message: COERCION_MESSAGES[field], ...bucket }] : [];
+  });
+
+  return { valid, invalid, warnings };
 }
 
 export type NotFoundRow = {

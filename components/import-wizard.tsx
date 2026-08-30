@@ -11,14 +11,17 @@ import {
   guessClimbTypeMapping,
   guessGradeFeelMapping,
   guessColumnMapping,
+  missingRequiredColumns,
   normalizeImportRows,
   parseCsvText,
   parseDateWithFormat,
   detectDateFormat,
   CLIMB_TYPES,
   IMPORT_BATCH_SIZE,
+  REQUIRED_COLUMN_KEYS,
   type AscentStyleMapping,
   type ClimbTypeMapping,
+  type CoercionWarning,
   type GradeFeelMapping,
   type ColumnMapping,
   type DateFormat,
@@ -29,17 +32,22 @@ import {
 
 type Step = "upload" | "columns" | "values" | "review" | "result";
 
-const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string; required: boolean }[] = [
-  { key: "date", label: "Date Sent", required: false },
-  { key: "ascentStyle", label: "Ascent Style", required: true },
-  { key: "climbName", label: "Climb Name", required: true },
-  { key: "areaName", label: "Area Name", required: true },
-  { key: "climbType", label: "Climb Type (tiebreaker only)", required: false },
-  { key: "grade", label: "Grade", required: false },
-  { key: "gradeFeel", label: "Grade Feel", required: false },
-  { key: "rating", label: "Rating", required: false },
-  { key: "comment", label: "Comment", required: false },
+const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string }[] = [
+  { key: "date", label: "Date Sent" },
+  { key: "ascentStyle", label: "Ascent Style" },
+  { key: "climbName", label: "Climb Name" },
+  { key: "areaName", label: "Area Name" },
+  { key: "climbType", label: "Climb Type (tiebreaker only)" },
+  { key: "grade", label: "Grade" },
+  { key: "suggestedGrade", label: "Suggested Grade" },
+  { key: "gradeFeel", label: "Grade Feel" },
+  { key: "rating", label: "Rating" },
+  { key: "comment", label: "Comment" },
 ];
+
+function columnLabel(key: keyof ColumnMapping): string {
+  return COLUMN_FIELDS.find((f) => f.key === key)?.label ?? key;
+}
 
 const CONFLICT_MODES = [
   { value: "skip", label: "Skip" },
@@ -62,6 +70,7 @@ type WizardResult = ImportResult & { batchErrors: BatchError[] };
 export function ImportWizard() {
   const [step, setStep] = useState<Step>("upload");
   const [error, setError] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
   const [pending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +87,7 @@ export function ImportWizard() {
   const [normalized, setNormalized] = useState<{
     valid: NormalizedImportRow[];
     invalid: InvalidImportRow[];
+    warnings: CoercionWarning[];
   } | null>(null);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [importResult, setImportResult] = useState<WizardResult | null>(null);
@@ -105,29 +115,48 @@ export function ImportWizard() {
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
 
-    const text = await file.text();
-    // Clear the input once the contents are read, so picking the same file
-    // again still fires a change event — otherwise a file rejected below
-    // couldn't be re-picked after fixing it.
-    e.target.value = "";
+    setReading(true);
+    try {
+      const text = await file.text();
+      // Clear the input once the contents are read, so picking the same file
+      // again still fires a change event — otherwise a file rejected below
+      // couldn't be re-picked after fixing it.
+      input.value = "";
 
-    const parsed = parseCsvText(text);
-    if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-      setError("Couldn't find any data rows in that file.");
-      return;
+      const parsed = parseCsvText(text);
+      if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+        setError("Couldn't find any data rows in that file.");
+        return;
+      }
+
+      const mapping = guessColumnMapping(parsed.headers);
+      setParsedCsv(parsed);
+      setColumnMapping(mapping);
+      setStep("columns");
+    } catch {
+      setError("Couldn't read that file. Re-save it as a plain CSV and try again.");
+      input.value = "";
+    } finally {
+      setReading(false);
     }
-
-    const mapping = guessColumnMapping(parsed.headers);
-    setParsedCsv(parsed);
-    setColumnMapping(mapping);
-    setStep("columns");
   }
 
   function handleColumnsNext() {
     if (!parsedCsv || !columnMapping) return;
+    const missing = missingRequiredColumns(columnMapping);
+    if (missing.length > 0) {
+      setError(
+        `Map the required column${missing.length > 1 ? "s" : ""} before continuing: ${missing
+          .map(columnLabel)
+          .join(", ")}.`,
+      );
+      return;
+    }
+    setError(null);
     const ascentStyleValues = distinctValues(parsedCsv.rows, columnMapping.ascentStyle);
     const climbValues = distinctValues(parsedCsv.rows, columnMapping.climbType);
     const feelValues = distinctValues(parsedCsv.rows, columnMapping.gradeFeel);
@@ -143,6 +172,7 @@ export function ImportWizard() {
 
   function handleValuesNext() {
     if (!parsedCsv || !columnMapping) return;
+    setError(null);
     const result = normalizeImportRows(
       parsedCsv,
       columnMapping,
@@ -150,9 +180,15 @@ export function ImportWizard() {
       climbTypeMapping,
       gradeFeelMapping,
       dateFormat,
+      { gradeScalePreference: gradeScale },
     );
     setNormalized(result);
     setStep("review");
+  }
+
+  function goBack(target: Step) {
+    setError(null);
+    setStep(target);
   }
 
   function handleFinalize() {
@@ -269,11 +305,13 @@ export function ImportWizard() {
           />
           <Button
             type="button"
+            isDisabled={reading}
             onPress={() => fileInputRef.current?.click()}
             className="w-full lg:w-auto lg:self-start"
           >
             Choose CSV File
           </Button>
+          {reading && <p className="text-sm text-muted">Reading file…</p>}
         </div>
       )}
 
@@ -282,11 +320,18 @@ export function ImportWizard() {
           <p className="text-sm text-muted">
             Which column in your CSV holds each field? ({parsedCsv.rows.length} rows found)
           </p>
-          {COLUMN_FIELDS.map(({ key, label, required }) => (
+          {parsedCsv.warnings.length > 0 && (
+            <ul className="flex flex-col gap-1 text-xs text-warning">
+              {parsedCsv.warnings.map((warning, i) => (
+                <li key={i}>{warning}</li>
+              ))}
+            </ul>
+          )}
+          {COLUMN_FIELDS.map(({ key, label }) => (
             <TextField key={key}>
               <Label>
                 {label}
-                {required ? " (required)" : ""}
+                {REQUIRED_COLUMN_KEYS.includes(key) ? " (required)" : ""}
               </Label>
               <select
                 value={columnMapping[key] ?? ""}
@@ -427,7 +472,7 @@ export function ImportWizard() {
             </div>
           )}
 
-          {columnMapping?.grade && (
+          {(columnMapping?.grade || columnMapping?.suggestedGrade) && (
             <TextField>
               <Label>Grade Notation</Label>
               <select
@@ -442,7 +487,7 @@ export function ImportWizard() {
           )}
 
           <div className="flex gap-4">
-            <Button variant="ghost" onPress={() => setStep("columns")}>
+            <Button variant="ghost" onPress={() => goBack("columns")}>
               Back
             </Button>
             <Button onPress={handleValuesNext}>Next: Review</Button>
@@ -473,6 +518,21 @@ export function ImportWizard() {
                 ))}
               </ul>
             </details>
+          )}
+
+          {normalized.warnings.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <p className="text-sm">Some values will be adjusted during import:</p>
+              <ul className="flex flex-col gap-1 text-xs text-warning">
+                {normalized.warnings.map((warning) => (
+                  <li key={warning.field}>
+                    {warning.count} {warning.count === 1 ? "row" : "rows"}: {warning.message} (
+                    {warning.examples.join("; ")}
+                    {warning.count > warning.examples.length ? "; …" : ""})
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {pending && progress ? (
@@ -526,7 +586,7 @@ export function ImportWizard() {
               )}
 
               <div className="flex gap-4">
-                <Button variant="ghost" onPress={() => setStep("values")}>
+                <Button variant="ghost" onPress={() => goBack("values")}>
                   Back
                 </Button>
                 <Button onPress={handleFinalize} isDisabled={normalized.valid.length === 0}>
