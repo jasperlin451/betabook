@@ -127,7 +127,7 @@ function DisciplinesFields<T extends DisciplineFilter>({
   );
 }
 
-function DisciplineGradeSliders<T extends DisciplineFilter>({
+export function DisciplineGradeSliders<T extends DisciplineFilter>({
   value,
   onChange,
 }: {

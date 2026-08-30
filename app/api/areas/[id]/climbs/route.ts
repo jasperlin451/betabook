@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
-import { getArea, getAreaBreadcrumbs, getClimbSendStats, getSubtreeClimbs } from "@/db/queries";
+import {
+  getArea,
+  getAreaBreadcrumbs,
+  getClimbSendStats,
+  getSubtreeClimbs,
+  resolveSubareaScope,
+} from "@/db/queries";
 import { parseAreaClimbsFilter, parseAreaClimbsSort, toSubtreeQueryFilter } from "@/lib/area-climbs-filter";
 import { searchParamsToRecord } from "@/lib/search-params";
 import { parseId } from "@/lib/parse-id";
@@ -28,7 +34,8 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Area not found" }, { status: 404 });
   }
 
-  const subtreeClimbs = await getSubtreeClimbs(db, area, page, sort, toSubtreeQueryFilter(filter));
+  const listScope = await resolveSubareaScope(db, area, filter.subareaId);
+  const subtreeClimbs = await getSubtreeClimbs(db, listScope, page, sort, toSubtreeQueryFilter(filter));
   const [sendStats, areaBreadcrumbs] = await Promise.all([
     getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),

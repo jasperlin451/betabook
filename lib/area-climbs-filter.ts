@@ -26,24 +26,31 @@ export type AreaClimbsFilter = DisciplineFilter & {
   name?: string;
   ratingRange: [number, number];
   minAscents: number;
+  /** Scope the list to one sub-area's subtree (the sub-area rail's filter).
+   * `null` = the whole area. Validated server-side against the page's area
+   * before it targets a query. */
+  subareaId: number | null;
 };
 
 export const DEFAULT_AREA_CLIMBS_FILTER: AreaClimbsFilter = {
   ...DEFAULT_DISCIPLINE_FILTER,
   ratingRange: DEFAULT_RATING_RANGE,
   minAscents: DEFAULT_MIN_ASCENTS,
+  subareaId: null,
 };
 
 export const parseAreaClimbsSort = parseClimbListSort;
 
 export function parseAreaClimbsFilter(params: SearchParamsRecord): AreaClimbsFilter {
   const minAscents = Number(toArray(params.minAscents)[0]);
+  const subarea = Number(toArray(params.subarea)[0]);
 
   return {
     ...parseDisciplineFilter(params),
     name: toArray(params.name)[0],
     ratingRange: parseRatingRange(params.ratingRange),
     minAscents: Number.isFinite(minAscents) && minAscents >= 0 ? minAscents : DEFAULT_MIN_ASCENTS,
+    subareaId: Number.isInteger(subarea) && subarea > 0 ? subarea : null,
   };
 }
 
@@ -74,6 +81,7 @@ export function areaClimbsFilterToSearchParams(
   const params = new URLSearchParams();
   params.set("sort", sort);
   if (filter.name) params.set("name", filter.name);
+  if (filter.subareaId != null) params.set("subarea", String(filter.subareaId));
   appendDisciplineFilterParams(params, filter);
   params.append("ratingRange", String(filter.ratingRange[0]));
   params.append("ratingRange", String(filter.ratingRange[1]));

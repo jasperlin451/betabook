@@ -3,12 +3,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { AreaActionsMenu } from "@/components/area-actions-menu";
+import { AreaClimbsSection } from "@/components/area-climbs-section";
+import { AreaClimbsToolbar } from "@/components/area-climbs-toolbar";
 import { AreaCragHeader } from "@/components/area-crag-header";
-import { AreaList } from "@/components/area-list";
-import { AreaClimbsFilterPanel, AreaClimbsSection } from "@/components/area-climbs-section";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
+import { SubareaRail } from "@/components/subarea-rail";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { SidebarLayout } from "@/components/ui/page-shell";
+import { SectionHeading } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
 import {
   getAncestors,
@@ -21,6 +23,7 @@ import {
   getUserSentClimbIds,
   hasClimbsInArea,
   LARGE_AREA_SUBTREE_SPAN,
+  resolveSubareaScope,
 } from "@/db/queries";
 import {
   parseAreaClimbsFilter,
@@ -82,11 +85,15 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   const histogramEligible =
     !(area.lft === 0 && area.rght === 0) && area.rght - area.lft < LARGE_AREA_SUBTREE_SPAN;
 
+  // The sub-area rail can scope the list to one sub-area's subtree; the
+  // header, histogram, and rail always describe the whole area.
+  const listScope = await resolveSubareaScope(db, area, filter.subareaId);
+
   const [ancestors, subareas, subtreeClimbs, hasClimbs, sentClimbIds, histogramRows] =
     await Promise.all([
       getAncestors(db, area),
       getSubareas(db, area.id),
-      getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter)),
+      getSubtreeClimbs(db, listScope, 1, sort, toSubtreeQueryFilter(filter)),
       hasClimbsInArea(db, area.id),
       session ? getUserSentClimbIds(db, session.user.id) : undefined,
       histogramEligible ? getSubtreeGradeHistogram(db, area) : [],
@@ -111,41 +118,58 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
         actions={session && <AreaActionsMenu area={area} canDelete={canDeleteArea} />}
       />
 
-      {subareas.length > 0 && (
-        <CollapsibleSection title="Sub-areas">
-          <AreaList areas={subareas} />
-        </CollapsibleSection>
-      )}
-
-      {/* The provider links the filter panel's in-flight navigation to the
-       * climb list it re-fetches, which dims while pending. */}
+      {/* The provider links the toolbar's in-flight navigation to the climb
+       * list it re-fetches, which dims while pending. */}
       <NavigationPendingProvider>
-        <SidebarLayout
-          sidebar={
-            /* Gated on lg, not CollapsibleSection's md default, to match
-             * where this column switches from a stacked mobile block to the
-             * sidebar (see SidebarLayout's lg:flex-row container). */
-            <CollapsibleSection title="Filters" breakpoint="lg" showTitleOnDesktop={false}>
-              <AreaClimbsFilterPanel areaId={area.id} sort={sort} filter={filter} />
-            </CollapsibleSection>
-          }
-        >
-          <AreaClimbsSection
-            // Remounts with fresh initial* state on a sort/filter change,
-            // rather than syncing local "load more" state to changed props
-            // via an effect — same reasoning as UserSendList.
-            key={JSON.stringify({ sort, filter })}
-            areaId={area.id}
-            sort={sort}
-            filter={filter}
-            initialClimbs={subtreeClimbs.climbs}
-            initialHasNextPage={subtreeClimbs.hasNextPage}
-            initialSendStats={sendStats}
-            initialAreaBreadcrumbs={areaBreadcrumbs}
-            sentClimbIds={sentClimbIds}
-            emptyMessage="No climbs found in this area or its sub-areas."
-          />
-        </SidebarLayout>
+        {(() => {
+          const climbsBlock = (
+            <div className="flex flex-col gap-3">
+              <SectionHeading>Climbs</SectionHeading>
+              <AreaClimbsToolbar areaId={area.id} sort={sort} filter={filter} />
+              <AreaClimbsSection
+                // Remounts with fresh initial* state on a sort/filter change,
+                // rather than syncing local "load more" state to changed props
+                // via an effect — same reasoning as UserSendList.
+                key={JSON.stringify({ sort, filter })}
+                areaId={area.id}
+                sort={sort}
+                filter={filter}
+                initialClimbs={subtreeClimbs.climbs}
+                initialHasNextPage={subtreeClimbs.hasNextPage}
+                initialSendStats={sendStats}
+                initialAreaBreadcrumbs={areaBreadcrumbs}
+                sentClimbIds={sentClimbIds}
+                emptyMessage={
+                  filter.subareaId != null
+                    ? "No climbs match in this sub-area."
+                    : "No climbs found in this area or its sub-areas."
+                }
+              />
+            </div>
+          );
+
+          if (subareas.length === 0) return climbsBlock;
+
+          return (
+            <SidebarLayout
+              sidebarWidthClass="lg:w-64"
+              sidebar={
+                /* Gated on lg to match where the rail becomes a side column;
+                 * on mobile it's a collapsed accordion above the list. */
+                <CollapsibleSection title="Sub-areas" breakpoint="lg">
+                  <SubareaRail
+                    areaId={area.id}
+                    sort={sort}
+                    filter={filter}
+                    subareas={subareas.map(({ id, name }) => ({ id, name }))}
+                  />
+                </CollapsibleSection>
+              }
+            >
+              {climbsBlock}
+            </SidebarLayout>
+          );
+        })()}
       </NavigationPendingProvider>
     </div>
   );

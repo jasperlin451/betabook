@@ -9,6 +9,24 @@ export async function getArea(db: Database, id: number): Promise<Area | undefine
   return db.select().from(areas).where(eq(areas.id, id)).get();
 }
 
+/** The area a subarea-scoped climb list should actually query: the given
+ * sub-area when it's a real, indexed descendant of `area`, otherwise
+ * `area` itself. Guards both a forged/stale id from the URL and the
+ * lft=rght=0 placeholder of a not-yet-reindexed area (whose "range" would
+ * match every unindexed climb). */
+export async function resolveSubareaScope(
+  db: Database,
+  area: Area,
+  subareaId: number | null,
+): Promise<Area> {
+  if (subareaId == null || subareaId === area.id) return area;
+  const sub = await getArea(db, subareaId);
+  if (!sub) return area;
+  if (sub.lft === 0 && sub.rght === 0) return area;
+  if (!(sub.lft > area.lft && sub.rght < area.rght)) return area;
+  return sub;
+}
+
 export async function getSubareas(db: Database, areaId: number): Promise<Area[]> {
   return db
     .select()

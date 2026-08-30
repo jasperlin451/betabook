@@ -9,7 +9,7 @@ import type { ClimbType } from "@/lib/grades";
 // app/globals.css (trad = green, sport = support blue, boulder = rose) —
 // plain utilities referencing them win over the chip's own colors by layer
 // order (utilities > components), no `!` needed.
-const DISCIPLINE_CHIP_CLASSNAME: Record<ClimbType, string> = {
+export const DISCIPLINE_CHIP_CLASSNAME: Record<ClimbType, string> = {
   boulder: "bg-(--discipline-boulder-bg) text-(--discipline-boulder-fg)",
   sport: "bg-(--discipline-sport-bg) text-(--discipline-sport-fg)",
   trad: "bg-(--discipline-trad-bg) text-(--discipline-trad-fg)",
