@@ -109,9 +109,9 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
         </div>
         <AppLink
           href={`/users/${id}/analytics`}
-          className={`${buttonVariants({ variant: "outline", size: "sm" })} gap-1.5`}
+          className={`${buttonVariants()} gap-2`}
         >
-          <ChartColumnIncreasing className="size-4" />
+          <ChartColumnIncreasing className="size-5" />
           Analytics
         </AppLink>
       </div>
