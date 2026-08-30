@@ -1,4 +1,5 @@
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
+import { ActionError } from "@/lib/action-result";
 import { parseGradeIndex, requireTrimmed, trimOrNull } from "@/lib/validation";
 import type { Climb } from "@/db/queries";
 
@@ -26,7 +27,7 @@ function parseClimbFields(raw: RawClimbInput): ClimbInput {
   const name = requireTrimmed(raw.name, "Name");
 
   if (!isClimbType(raw.type)) {
-    throw new Error("Invalid discipline");
+    throw new ActionError("Invalid discipline");
   }
   const type = raw.type;
 
@@ -43,7 +44,7 @@ export function validateNewClimbInput(raw: RawClimbInput): ClimbInput {
 export function validateClimbInput(existing: Climb, raw: RawClimbInput): ClimbInput {
   const input = parseClimbFields(raw);
   if (input.type !== existing.type && existing.sendCount > 0) {
-    throw new Error("Can't change discipline once a climb has logged sends");
+    throw new ActionError("Can't change discipline once a climb has logged sends");
   }
   return input;
 }

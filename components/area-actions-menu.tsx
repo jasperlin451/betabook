@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, Tooltip, useOverlayState } from "@heroui/react";
 import { AreaFormDrawer } from "@/components/area-form-drawer";
@@ -33,10 +33,16 @@ export function AreaActionsMenu({ area, canDelete }: AreaActionsMenuProps) {
   const addSubareaState = useOverlayState();
   const deleteState = useOverlayState();
   const [pending, startTransition] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function handleDelete() {
+    setDeleteError(null);
     startTransition(async () => {
-      await deleteArea(area.id);
+      const result = await deleteArea(area.id);
+      if (!result.ok) {
+        setDeleteError(result.error);
+        return;
+      }
       deleteState.close();
       router.push(area.parentId != null ? `/areas/${area.parentId}` : "/");
     });
@@ -50,7 +56,10 @@ export function AreaActionsMenu({ area, canDelete }: AreaActionsMenuProps) {
           if (key === "edit") editState.open();
           if (key === "add-climb") addClimbState.open();
           if (key === "add-subarea") addSubareaState.open();
-          if (key === "delete") deleteState.open();
+          if (key === "delete") {
+            setDeleteError(null);
+            deleteState.open();
+          }
         }}
       >
         <Menu.Item id="edit">Edit</Menu.Item>
@@ -72,7 +81,12 @@ export function AreaActionsMenu({ area, canDelete }: AreaActionsMenuProps) {
       <AreaFormDrawer area={area} state={editState} />
       <ClimbFormDrawer areaId={area.id} state={addClimbState} />
       <AreaFormDrawer parentId={area.id} state={addSubareaState} />
-      <DeleteAreaDrawer state={deleteState} onConfirm={handleDelete} isPending={pending} />
+      <DeleteAreaDrawer
+        state={deleteState}
+        onConfirm={handleDelete}
+        isPending={pending}
+        error={deleteError}
+      />
     </>
   );
 }

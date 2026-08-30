@@ -171,15 +171,21 @@ export function ImportWizard() {
         const batch = normalized.valid.slice(i, i + IMPORT_BATCH_SIZE);
         try {
           const result = await importSends(batch, { gradeScale, onConflict });
-          imported += result.imported;
-          overwritten += result.overwritten;
-          alreadyLogged += result.alreadyLogged;
-          notFound.push(...result.notFound);
-        } catch (err) {
-          batchErrors.push({
-            rows: batch,
-            message: err instanceof Error ? err.message : "Import failed",
-          });
+          if (result.ok) {
+            imported += result.value.imported;
+            overwritten += result.value.overwritten;
+            alreadyLogged += result.value.alreadyLogged;
+            notFound.push(...result.value.notFound);
+          } else {
+            batchErrors.push({ rows: batch, message: result.error });
+          }
+        } catch {
+          // The action boundary turns anything thrown server-side into
+          // { ok: false }, so a rejection here is the round-trip itself
+          // failing — offline, or the worker erroring outside the action.
+          // Still per-batch: the remaining batches run and the result step
+          // renders with a failed-rows CSV to retry from.
+          batchErrors.push({ rows: batch, message: "Import failed" });
         }
         setProgress({
           completed: Math.min(i + IMPORT_BATCH_SIZE, total),

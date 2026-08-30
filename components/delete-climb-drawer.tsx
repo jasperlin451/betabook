@@ -8,11 +8,14 @@ type DeleteClimbDrawerProps = {
   state: UseOverlayStateReturn;
   onConfirm: () => void;
   isPending: boolean;
+  /** Failure message from the last delete attempt, if any — shown inline so
+   * the viewer can retry or cancel. */
+  error?: string | null;
 };
 
 /** Confirmation drawer for deleting a climb — same shape as
  * DeleteSendDrawer, just for the climb entity. */
-export function DeleteClimbDrawer({ state, onConfirm, isPending }: DeleteClimbDrawerProps) {
+export function DeleteClimbDrawer({ state, onConfirm, isPending, error }: DeleteClimbDrawerProps) {
   return (
     <Drawer.Root state={state}>
       <Drawer.Backdrop>
@@ -24,6 +27,7 @@ export function DeleteClimbDrawer({ state, onConfirm, isPending }: DeleteClimbDr
             </Drawer.Header>
             <Drawer.Body>
               <p className="text-sm text-muted">This can&apos;t be undone.</p>
+              {error && <p className="text-sm text-danger">{error}</p>}
             </Drawer.Body>
             <Drawer.Footer className="flex justify-end gap-2">
               <Button variant="ghost" onPress={state.close} isDisabled={isPending}>

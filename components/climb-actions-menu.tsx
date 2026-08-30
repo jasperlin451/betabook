@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, Tooltip, useOverlayState } from "@heroui/react";
 import { ClimbFormDrawer } from "@/components/climb-form-drawer";
@@ -22,11 +22,17 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
   const editState = useOverlayState();
   const deleteState = useOverlayState();
   const [pending, startTransition] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const hasSends = climb.sendCount > 0;
 
   function handleDelete() {
+    setDeleteError(null);
     startTransition(async () => {
-      await deleteClimb(climb.id);
+      const result = await deleteClimb(climb.id);
+      if (!result.ok) {
+        setDeleteError(result.error);
+        return;
+      }
       deleteState.close();
       router.push(`/areas/${climb.areaId}`);
     });
@@ -38,7 +44,10 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
         ariaLabel="Climb actions"
         onAction={(key) => {
           if (key === "edit") editState.open();
-          if (key === "delete") deleteState.open();
+          if (key === "delete") {
+            setDeleteError(null);
+            deleteState.open();
+          }
         }}
       >
         <Menu.Item id="edit">Edit</Menu.Item>
@@ -61,7 +70,12 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
         </Menu.Item>
       </ActionsMenu>
       <ClimbFormDrawer areaId={climb.areaId} climb={climb} state={editState} />
-      <DeleteClimbDrawer state={deleteState} onConfirm={handleDelete} isPending={pending} />
+      <DeleteClimbDrawer
+        state={deleteState}
+        onConfirm={handleDelete}
+        isPending={pending}
+        error={deleteError}
+      />
     </>
   );
 }
