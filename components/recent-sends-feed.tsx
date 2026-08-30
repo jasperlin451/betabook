@@ -6,7 +6,6 @@ import { formatGrade } from "@/lib/grades";
 import { formatDate } from "@/lib/format-date";
 import type { AreaBreadcrumbs, RecentSendRow } from "@/db/queries";
 import { AppLink } from "@/components/ui/app-link";
-import { AscentStyle } from "@/components/ascent-style";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Grade } from "@/components/ui/grade";
@@ -20,10 +19,19 @@ type FeedPageResponse = {
   areaBreadcrumbs: AreaBreadcrumbs;
 };
 
-/** The home feed: latest sends across the whole book, one logbook entry per
- * row — the climb is the row target, the climber their own link, and the
- * trailing column reads like every other send row (grade, stars, style,
- * date). Server-rendered first page, /api/feed behind "load more". */
+// The event verb, in logbook voice — specific enough that the trailing
+// column doesn't need to repeat the style as a chip.
+const ASCENT_VERBS = {
+  onsight: "onsighted",
+  flash: "flashed",
+  redpoint: "sent",
+} as const;
+
+/** The home feed: latest sends across the whole book, one logbook entry
+ * per row, read as a sentence — "climber onsighted/flashed/sent route" —
+ * with the area as quiet context beneath and grade/stars/date in the
+ * trailing data column. Server-rendered first page, /api/feed behind
+ * "load more". */
 export function RecentSendsFeed({
   initialSends,
   initialHasMore,
@@ -68,20 +76,22 @@ export function RecentSendsFeed({
         {sends.map((send) => (
           <ListRow
             key={send.id}
-            title={send.climbName}
-            href={`/climbs/${send.climbId}`}
+            // The event reads as a sentence — climber and route are the two
+            // strong words, the verb stays quiet between them. No row-level
+            // href: the sentence carries its own two links.
+            title={
+              <>
+                <AppLink href={`/users/${send.userId}`}>{send.userName}</AppLink>
+                <span className="font-normal text-muted"> {ASCENT_VERBS[send.ascentStyle]} </span>
+                <AppLink href={`/climbs/${send.climbId}`}>{send.climbName}</AppLink>
+              </>
+            }
             subtitle={
-              <span className="flex flex-wrap items-center gap-x-1.5">
-                <AppLink href={`/users/${send.userId}`} className="text-sm">
-                  {send.userName}
-                </AppLink>
-                <span aria-hidden>·</span>
-                <AreaBreadcrumb
-                  areaId={send.areaId}
-                  areaName={send.areaName}
-                  ancestors={areaBreadcrumbs[send.areaId] ?? []}
-                />
-              </span>
+              <AreaBreadcrumb
+                areaId={send.areaId}
+                areaName={send.areaName}
+                ancestors={areaBreadcrumbs[send.areaId] ?? []}
+              />
             }
             trailing={
               <div className="flex flex-col items-end gap-1 text-sm">
@@ -103,7 +113,6 @@ export function RecentSendsFeed({
                   </Grade>
                   <RatingStars rating={send.rating} />
                 </div>
-                <AscentStyle type={send.ascentStyle} />
                 <div className="text-xs text-muted">{formatDate(send.dateSent)}</div>
               </div>
             }
