@@ -54,7 +54,7 @@ export function AreaPicker({ selected, onSelectedChange, isInvalid }: AreaPicker
       }}
     >
       <ComboBox.InputGroup>
-        <Input placeholder="Search areas..." className="bg-surface" />
+        <Input placeholder="Search areas…" className="bg-surface" />
         <ComboBox.Trigger />
       </ComboBox.InputGroup>
       <ComboBox.Popover>

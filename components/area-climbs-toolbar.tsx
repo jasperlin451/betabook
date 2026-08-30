@@ -1,9 +1,9 @@
 "use client";
 
+import { SearchField } from "@/components/ui/search-field";
 import { useRouter } from "next/navigation";
-import { Button, buttonVariants, Disclosure, InputGroup, TextField } from "@heroui/react";
+import { Button, buttonVariants, Disclosure } from "@heroui/react";
 import clsx from "clsx";
-import { Search } from "lucide-react";
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
 import { DisciplineGradeSliders } from "@/components/send-filter-form";
@@ -71,19 +71,13 @@ export function AreaClimbsToolbar({
       {({ isExpanded }) => (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <TextField
+            <SearchField
               value={name}
               onChange={setName}
-              aria-label="Search route name"
+              ariaLabel="Search route name"
+              placeholder="Search routes…"
               className="w-full sm:w-64"
-            >
-              <InputGroup>
-                <InputGroup.Prefix>
-                  <Search className="size-4 text-muted" />
-                </InputGroup.Prefix>
-                <InputGroup.Input placeholder="Search routes…" />
-              </InputGroup>
-            </TextField>
+            />
 
             <div className="flex items-center gap-1.5" role="group" aria-label="Disciplines">
               {DISCIPLINES.map((discipline) => {

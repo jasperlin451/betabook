@@ -1,9 +1,9 @@
 "use client";
 
+import { SearchField } from "@/components/ui/search-field";
 import type { ReactNode } from "react";
-import { Button, buttonVariants, Checkbox, Disclosure, InputGroup, Label, TextField } from "@heroui/react";
+import { Button, buttonVariants, Checkbox, Disclosure } from "@heroui/react";
 import clsx from "clsx";
-import { Search } from "lucide-react";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 import { IndexRangeSelect } from "@/components/ui/index-select";
 import type { Discipline } from "@/db/queries";
@@ -38,26 +38,20 @@ function NameSearchFields({
   return (
     <div className="flex flex-col gap-4">
       {onNameChange && (
-        <TextField value={name} onChange={onNameChange}>
-          <Label>Route Name</Label>
-          <InputGroup>
-            <InputGroup.Prefix>
-              <Search className="size-4 text-muted" />
-            </InputGroup.Prefix>
-            <InputGroup.Input placeholder="Search route name..." />
-          </InputGroup>
-        </TextField>
+        <SearchField
+          value={name}
+          onChange={onNameChange}
+          label="Route Name"
+          placeholder="Search routes…"
+        />
       )}
       {onAreaNameChange && (
-        <TextField value={areaName} onChange={onAreaNameChange}>
-          <Label>Area Name</Label>
-          <InputGroup>
-            <InputGroup.Prefix>
-              <Search className="size-4 text-muted" />
-            </InputGroup.Prefix>
-            <InputGroup.Input placeholder="Search area..." />
-          </InputGroup>
-        </TextField>
+        <SearchField
+          value={areaName}
+          onChange={onAreaNameChange}
+          label="Area Name"
+          placeholder="Search areas…"
+        />
       )}
       {(onNameChange || onAreaNameChange) && (
         <p className="text-xs text-muted">Results update as you type.</p>

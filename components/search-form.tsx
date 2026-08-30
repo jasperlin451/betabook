@@ -1,8 +1,8 @@
 "use client";
 
+import { SearchField } from "@/components/ui/search-field";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
-import { Input, Label, TextField } from "@heroui/react";
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import { DisciplineFilterForm } from "@/components/send-filter-form";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
@@ -34,10 +34,12 @@ export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
 
   return (
     <div className={SURFACE_CARD_CLASS}>
-      <TextField value={name} onChange={setName}>
-        <Label>Area Name</Label>
-        <Input placeholder="Search area..." className="bg-surface" />
-      </TextField>
+      <SearchField
+        value={name}
+        onChange={setName}
+        label="Area Name"
+        placeholder="Search areas…"
+      />
       <p className="text-xs text-muted">Results update as you type.</p>
     </div>
   );
