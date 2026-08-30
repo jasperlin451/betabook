@@ -16,6 +16,10 @@ function sliceOpacity(index: number): number {
   return SLICE_OPACITY[index % SLICE_OPACITY.length];
 }
 
+// The feel qualifier beside a grade — "5.12a soft" and "5.12a" are
+// different opinions, and each vote group gets its own slice.
+const FEEL_SUFFIX = { low: " soft", solid: "", high: " hard" } as const;
+
 /** The community's grading of one climb: a donut of every suggested grade
  * from its sends, with a legend carrying the exact share — read against
  * the posted grade, which the legend marks even when nobody voted for it. */
@@ -34,7 +38,7 @@ export function LoggedGradeHistogram({
   const hue = PIE_COLOR[type];
 
   const summary = voted
-    .map((b) => `${Math.round((b.count / total) * 100)}% at ${b.label}`)
+    .map((b) => `${Math.round((b.count / total) * 100)}% at ${b.label}${FEEL_SUFFIX[b.feel]}`)
     .join(", ");
 
   // Donut slices: one circle per bucket on a circumference normalized to
@@ -45,7 +49,7 @@ export function LoggedGradeHistogram({
   const starts = pcts.map((_, i) => pcts.slice(0, i).reduce((sum, p) => sum + p, 0));
   const slices = voted.map((bucket, i) => (
     <circle
-      key={bucket.label}
+      key={`${bucket.label}-${bucket.feel}`}
       cx="21"
       cy="21"
       r="15.915"
@@ -68,7 +72,10 @@ export function LoggedGradeHistogram({
       </svg>
       <ul className="flex flex-col gap-1" aria-hidden>
         {voted.map((bucket, i) => (
-          <li key={bucket.label} className="flex items-center gap-2 text-xs tabular-nums">
+          <li
+            key={`${bucket.label}-${bucket.feel}`}
+            className="flex items-center gap-2 text-xs tabular-nums"
+          >
             <span
               className="size-2.5 shrink-0 rounded-xs"
               style={{ backgroundColor: hue, opacity: sliceOpacity(i) }}
@@ -81,6 +88,11 @@ export function LoggedGradeHistogram({
               )}
             >
               {bucket.label}
+              {bucket.feel !== "solid" && (
+                <span className="font-normal text-muted no-underline">
+                  {FEEL_SUFFIX[bucket.feel]}
+                </span>
+              )}
             </span>
             <span className="text-muted">
               {Math.round((bucket.count / total) * 100)}% · {bucket.count}

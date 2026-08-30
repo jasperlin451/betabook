@@ -8,23 +8,24 @@ type AreaSuggestion = { id: number; name: string; ancestorPath: string | null };
 
 const SUGGESTION_LIMIT = 5;
 
-/** The Area Name filter as an autocomplete: areas are a known set, so as
- * soon as you type, real area names (with their ancestor paths, to tell
- * same-named crags apart) are offered for selection — via the public
- * search API, so it works signed out. Picking one fills the exact name;
+/** The area-scope filter as an autocomplete: labeled "In area" so it reads
+ * as a constraint on the route search ("routes named X, in area Y"), not a
+ * second area search. Areas are a known set, so typing offers real area
+ * names (with ancestor paths, to tell same-named crags apart) via the
+ * public search API — works signed out. Picking one fills the exact name;
  * free text still works — the filter matches ancestor names, so a partial
  * like "squam" keeps filtering as before. */
 export function AreaNameAutocomplete({
   value,
   onChange,
-  label = "Area Name",
+  label = "In area",
 }: {
   value: string;
   onChange: (value: string) => void;
   label?: string;
 }) {
   const [suggestions, setSuggestions] = useState<AreaSuggestion[]>([]);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     const query = value.trim();
@@ -58,6 +59,10 @@ export function AreaNameAutocomplete({
     <ComboBox<AreaSuggestion>
       fullWidth
       allowsCustomValue
+      // Load-bearing: the popover only opens on input events, and the
+      // suggestions arrive async after the debounce — without this the
+      // menu would never open at all. The empty state below keeps the
+      // open-but-empty moment informative instead of a bare sliver.
       allowsEmptyCollection
       inputValue={value}
       onInputChange={onChange}
@@ -69,13 +74,26 @@ export function AreaNameAutocomplete({
       }}
     >
       <Label>{label}</Label>
-      {/* No chevron trigger — suggestions open as you type, and an arrow
-        * on an empty field promises a list that isn't there. */}
+      {/* "Anywhere" states the default scope instead of echoing "search".
+        * ComboBox.InputGroup's sibling wiring requires exactly its Input +
+        * Trigger children, so the magnifier is a themed background image
+        * on the input (search-combo-input) and the trigger stays in the
+        * tree but hidden — typing opens the suggestions, and an arrow on
+        * an empty field would promise a list that isn't there. */}
       <ComboBox.InputGroup>
-        <Input placeholder="Search areas…" className="bg-surface" />
+        <Input placeholder="Anywhere" className="bg-surface search-combo-input" />
+        <ComboBox.Trigger className="hidden" />
       </ComboBox.InputGroup>
       <ComboBox.Popover>
-        <ListBox>
+        <ListBox
+          renderEmptyState={() => (
+            <p className="px-3 py-2 text-sm text-muted">
+              {isPending || !value.trim()
+                ? "Type an area name…"
+                : "No matching areas — the text still filters by area name."}
+            </p>
+          )}
+        >
           {(area: AreaSuggestion) => (
             <ListBox.Item id={String(area.id)} textValue={area.name}>
               <p>{area.name}</p>

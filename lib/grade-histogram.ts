@@ -1,4 +1,5 @@
 import { BOULDER_HUECO, nativeGradeArray, ROPE_YDS, type ClimbType } from "@/lib/grades";
+import type { GradeFeel } from "@/lib/sends";
 import type { GradeHistogramRow, SuggestedGradeCount } from "@/db/queries";
 
 /** One histogram bar. Boulder buckets are one V grade each; rope buckets
@@ -29,37 +30,47 @@ export type GradeHistogram = {
   ropeSpan: [string, string] | null;
 };
 
-export type LoggedGradeBucket = { label: string; count: number; isPosted: boolean };
+export type LoggedGradeBucket = {
+  label: string;
+  count: number;
+  isPosted: boolean;
+  /** How the grade felt to these voters — a "5.12a but soft" vote is a
+   * different opinion from a plain "5.12a", so it gets its own slice. */
+  feel: GradeFeel;
+};
 
-/** Buckets a single climb's suggested-grade counts for the logged-grades
- * histogram: one bucket per native grade (letter grades kept — for one
- * climb the a/b/c/d debate is the whole point), contiguous from the lowest
- * to highest grade anyone suggested, widened to include the posted grade so
- * the consensus is always read against it. */
+const FEEL_ORDER: Record<GradeFeel, number> = { low: 0, solid: 1, high: 2 };
+
+/** Buckets a single climb's suggested-grade votes for the logged-grades
+ * donut: one bucket per (native grade, feel) pair actually voted — letter
+ * grades kept, since for one climb the a/b/c/d debate is the whole point —
+ * ordered soft-to-hard. The posted grade is always represented so the
+ * consensus is read against it, even with zero votes. */
 export function buildLoggedGradeBuckets(
   type: ClimbType,
   counts: SuggestedGradeCount[],
   postedGrade: number | null,
 ): LoggedGradeBucket[] {
   const scale = nativeGradeArray(type);
-  const byGrade = new Map<number, number>();
-  for (const row of counts) {
-    if (row.grade >= 0 && row.grade < scale.length) {
-      byGrade.set(row.grade, (byGrade.get(row.grade) ?? 0) + row.count);
-    }
-  }
-  if (byGrade.size === 0) return [];
+  const voted = counts
+    .filter((row) => row.grade >= 0 && row.grade < scale.length)
+    .sort((a, b) => a.grade - b.grade || FEEL_ORDER[a.feel] - FEEL_ORDER[b.feel]);
+  if (voted.length === 0) return [];
 
-  const indices = [...byGrade.keys()];
-  if (postedGrade != null && postedGrade >= 0 && postedGrade < scale.length) {
-    indices.push(postedGrade);
-  }
-  const min = Math.min(...indices);
-  const max = Math.max(...indices);
+  const buckets: LoggedGradeBucket[] = voted.map((row) => ({
+    label: scale[row.grade],
+    count: row.count,
+    isPosted: row.grade === postedGrade,
+    feel: row.feel,
+  }));
 
-  const buckets: LoggedGradeBucket[] = [];
-  for (let i = min; i <= max; i++) {
-    buckets.push({ label: scale[i], count: byGrade.get(i) ?? 0, isPosted: i === postedGrade });
+  const postedRepresented =
+    postedGrade == null ||
+    postedGrade < 0 ||
+    postedGrade >= scale.length ||
+    buckets.some((bucket) => bucket.isPosted);
+  if (!postedRepresented) {
+    buckets.push({ label: scale[postedGrade as number], count: 0, isPosted: true, feel: "solid" });
   }
   return buckets;
 }

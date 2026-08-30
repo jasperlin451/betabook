@@ -80,6 +80,10 @@
        rating stars also use — this frees the stars to own amber. */
     --ascent-flash-bg: color-mix(in oklab, var(--palette-support) 22%, var(--white));
     --ascent-flash-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-ink));
+
+    /* Magnifier for combobox inputs (see search-combo-input) — data URIs
+       can't reference CSS vars, so each theme pins its own muted stroke. */
+    --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f6c63' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
   }
 
   /* Semantic roles, dark ("ink") theme: the same palette with paper and ink
@@ -138,6 +142,8 @@
 
     --ascent-flash-bg: color-mix(in oklab, var(--palette-support) 25%, transparent);
     --ascent-flash-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-paper));
+
+    --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3b0a7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
   }
 }
 
@@ -177,6 +183,19 @@
 
 @utility animate-tick-draw {
   animation: tick-draw 0.4s ease-out;
+}
+
+/* The magnifier for combobox search inputs, as a background image — HeroUI's
+   ComboBox builds its input group from its DIRECT children, so any injected
+   icon element (or wrapper) corrupts that wiring; a background on the input
+   itself can't. Per-theme URIs because a data: SVG can't read CSS vars —
+   colors approximate --muted in each theme. */
+@utility search-combo-input {
+  padding-inline-start: --spacing(9);
+  background-image: var(--search-icon);
+  background-repeat: no-repeat;
+  background-position: 0.75rem center;
+  background-size: 1rem 1rem;
 }
 
 /* Grow-in for the crag header's grade histogram bars — staggered per bar

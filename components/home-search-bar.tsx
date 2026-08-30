@@ -83,13 +83,16 @@ export function HomeSearchBar() {
         }}
         className="min-w-0 flex-1"
       >
-        {/* Plain Input is ComboBox.InputGroup's supported child —
-          * InputGroup.Prefix slots break its collection wiring, so the
-          * magnifier lives on the adjacent Search button. No chevron
-          * trigger either: typing is what opens the suggestions, and an
-          * arrow on an empty field promises a list that isn't there. */}
+        {/* ComboBox.InputGroup's sibling wiring requires exactly its Input
+          * + Trigger children — anything else (wrappers, icons, Prefix
+          * slots, or a MISSING trigger) corrupts it. So: magnifier as a
+          * themed background image on the input (search-combo-input in
+          * globals.css), and the trigger kept in the tree but hidden —
+          * typing is what opens the suggestions, and an arrow on an empty
+          * field promises a list that isn't there. */}
         <ComboBox.InputGroup>
-          <Input placeholder="Search routes…" />
+          <Input placeholder="Search routes…" className="search-combo-input" />
+          <ComboBox.Trigger className="hidden" />
         </ComboBox.InputGroup>
         <ComboBox.Popover>
           <ListBox>

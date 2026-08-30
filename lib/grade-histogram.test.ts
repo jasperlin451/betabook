@@ -87,29 +87,50 @@ describe("buildLoggedGradeBuckets", () => {
     expect(buildLoggedGradeBuckets("sport", [], 10)).toEqual([]);
   });
 
-  it("keeps letter grades distinct and widens the range to the posted grade", () => {
+  it("splits the same grade by feel and orders soft to hard", () => {
     const buckets = buildLoggedGradeBuckets(
       "sport",
       [
-        { grade: 11, count: 2 }, // 5.10b
-        { grade: 12, count: 1 }, // 5.10c
+        { grade: 18, feel: "high", count: 1 }, // 5.12a hard
+        { grade: 18, feel: "low", count: 2 }, // 5.12a soft
+        { grade: 18, feel: "solid", count: 3 },
+      ],
+      18,
+    );
+    expect(buckets).toEqual([
+      { label: "5.12a", count: 2, isPosted: true, feel: "low" },
+      { label: "5.12a", count: 3, isPosted: true, feel: "solid" },
+      { label: "5.12a", count: 1, isPosted: true, feel: "high" },
+    ]);
+  });
+
+  it("appends a zero-vote row for a posted grade nobody suggested", () => {
+    const buckets = buildLoggedGradeBuckets(
+      "sport",
+      [
+        { grade: 11, feel: "solid", count: 2 }, // 5.10b
+        { grade: 12, feel: "solid", count: 1 }, // 5.10c
       ],
       10, // posted 5.10a, below every suggestion
     );
     expect(buckets).toEqual([
-      { label: "5.10a", count: 0, isPosted: true },
-      { label: "5.10b", count: 2, isPosted: false },
-      { label: "5.10c", count: 1, isPosted: false },
+      { label: "5.10b", count: 2, isPosted: false, feel: "solid" },
+      { label: "5.10c", count: 1, isPosted: false, feel: "solid" },
+      { label: "5.10a", count: 0, isPosted: true, feel: "solid" },
     ]);
   });
 
   it("marks the posted grade even when it also received votes", () => {
-    const buckets = buildLoggedGradeBuckets("boulder", [{ grade: 5, count: 3 }], 5);
-    expect(buckets).toEqual([{ label: "V4", count: 3, isPosted: true }]);
+    const buckets = buildLoggedGradeBuckets(
+      "boulder",
+      [{ grade: 5, feel: "solid", count: 3 }],
+      5,
+    );
+    expect(buckets).toEqual([{ label: "V4", count: 3, isPosted: true, feel: "solid" }]);
   });
 
-  it("ignores an unposted grade (null) without widening", () => {
-    const buckets = buildLoggedGradeBuckets("trad", [{ grade: 8, count: 1 }], null);
-    expect(buckets).toEqual([{ label: "5.8", count: 1, isPosted: false }]);
+  it("handles a null posted grade without adding a marker row", () => {
+    const buckets = buildLoggedGradeBuckets("trad", [{ grade: 8, feel: "low", count: 1 }], null);
+    expect(buckets).toEqual([{ label: "5.8", count: 1, isPosted: false, feel: "low" }]);
   });
 });

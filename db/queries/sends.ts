@@ -146,7 +146,7 @@ export async function getRecentSends(db: Database, page = 1): Promise<RecentSend
   return { sends: hasMore ? rows.slice(0, RECENT_SENDS_PAGE_SIZE) : rows, hasMore };
 }
 
-export type SuggestedGradeCount = { grade: number; count: number };
+export type SuggestedGradeCount = { grade: number; feel: GradeFeel; count: number };
 
 export type ClimbSendSummary = ClimbSendStats & {
   styleBreakdown: Record<AscentStyle, number>;
@@ -175,10 +175,10 @@ export async function getClimbSendSummary(
       GROUP BY ascent_style
     `),
     db.all<SuggestedGradeCount>(sql`
-      SELECT suggested_grade AS grade, COUNT(*) AS count
+      SELECT suggested_grade AS grade, grade_feel AS feel, COUNT(*) AS count
       FROM sends
       WHERE climb_id = ${climbId} AND suggested_grade IS NOT NULL
-      GROUP BY suggested_grade
+      GROUP BY suggested_grade, grade_feel
     `),
   ]);
   for (const row of styleRows) {
