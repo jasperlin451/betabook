@@ -157,12 +157,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
                 /* Gated on lg to match where the rail becomes a side column;
                  * on mobile it's a collapsed accordion above the list. */
                 <CollapsibleSection title="Sub-areas" breakpoint="lg">
-                  <SubareaRail
-                    areaId={area.id}
-                    sort={sort}
-                    filter={filter}
-                    subareas={subareas.map(({ id, name }) => ({ id, name }))}
-                  />
+                  <SubareaRail subareas={subareas.map(({ id, name }) => ({ id, name }))} />
                 </CollapsibleSection>
               }
             >
