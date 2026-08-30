@@ -32,12 +32,9 @@ function largeSubtreeClimbs(area: Area, sort: SubtreeClimbsSort = "ascents_desc"
 
 beforeAll(async () => {
   db = createDb(env.DB);
-  // lft/rght are unread — still NOT NULL on areas until they're dropped.
   await db.insert(areas).values({
     id: AREA_ID,
     parentId: null,
-    lft: 0,
-    rght: 0,
     name: "Large Test Region",
   });
 

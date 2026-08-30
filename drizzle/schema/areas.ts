@@ -14,14 +14,11 @@ export const areas = sqliteTable(
       (): AnySQLiteColumn => areas.id,
       { onDelete: "restrict" },
     ),
-    lft: integer("lft").notNull(),
-    rght: integer("rght").notNull(),
     name: text("name").notNull(),
     description: text("description"),
   },
-  (t) => [
-    index("areas_parent_idx").on(t.parentId),
-    index("areas_lft_idx").on(t.lft),
-    index("areas_rght_idx").on(t.rght),
-  ],
+  // areas_parent_idx is the whole tree index: every subtree and ancestor
+  // query walks parent_id through a recursive CTE, and SQLite reads this as
+  // a covering index for that walk.
+  (t) => [index("areas_parent_idx").on(t.parentId)],
 );

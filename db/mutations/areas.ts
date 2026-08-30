@@ -54,16 +54,9 @@ export async function createArea(
 
     // areas_fts stays in sync via triggers (drizzle/migrations/
     // 0015_fts_sync_triggers.sql), atomically within this same statement.
-    //
-    // lft/rght are vestigial: nothing reads them any more, but the columns
-    // are still NOT NULL with no database default, so the insert has to name
-    // them until they're dropped. Writing zeros keeps a rollback to the
-    // nested-set code well-defined — that code treats 0/0 as "not yet
-    // positioned" and repairs it on the next recompute, exactly as it does
-    // for every area it creates itself.
     const [{ id }] = await db
       .insert(areas)
-      .values({ parentId, lft: 0, rght: 0, ...input })
+      .values({ parentId, ...input })
       .returning({ id: areas.id });
 
     if (parentId != null) revalidatePath(`/areas/${parentId}`);

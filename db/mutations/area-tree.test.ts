@@ -15,7 +15,13 @@ import { createArea, createClimb, updateArea } from "@/db/mutations";
  * as a real coordinate — so until the repair landed, the new area's own page
  * matched `lft >= 0 AND lft <= 0`, i.e. every *other* pending climb in the
  * database, while ancestors matched none of them. Resolving ancestry from
- * parentId at read time removes the window rather than shortening it. */
+ * parentId at read time removes the window rather than shortening it.
+ *
+ * Worth knowing what these can and can't prove: run against the old
+ * implementation, only the rename case below fails. The rest pass, because
+ * the recompute they were racing finishes well within a 5-area fixture — the
+ * same reason the bug survived in the first place. They pin the invariant
+ * going forward; they are not a reproduction of the old race. */
 
 vi.mock("next/cache", () => ({ refresh: () => {}, revalidatePath: () => {} }));
 
