@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Button, Label, TextField } from "@heroui/react";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { Button, ButtonGroup, Label, TextField } from "@heroui/react";
 import { importSends, type ImportResult } from "@/db/mutations";
-import { ASCENT_STYLES, type AscentStyle } from "@/lib/sends";
+import { ASCENT_STYLES, GRADE_FEEL_VALUES, type AscentStyle, type GradeFeel } from "@/lib/sends";
 import {
   buildFailedRowsCsv,
   distinctValues,
   guessAscentStyleMapping,
   guessClimbTypeMapping,
+  guessGradeFeelMapping,
   guessColumnMapping,
   normalizeImportRows,
   parseCsvText,
@@ -17,6 +18,7 @@ import {
   IMPORT_BATCH_SIZE,
   type AscentStyleMapping,
   type ClimbTypeMapping,
+  type GradeFeelMapping,
   type ColumnMapping,
   type DateFormat,
   type InvalidImportRow,
@@ -38,10 +40,16 @@ const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string; required: boolea
   { key: "comment", label: "Comment", required: false },
 ];
 
+const CONFLICT_MODES = [
+  { value: "skip", label: "Skip" },
+  { value: "overwrite", label: "Overwrite" },
+] as const;
+
 type ImportProgress = {
   completed: number;
   total: number;
   imported: number;
+  overwritten: number;
   alreadyLogged: number;
   notFound: number;
   failed: number; // rows from a batch that errored out entirely
@@ -54,14 +62,17 @@ export function ImportWizard() {
   const [step, setStep] = useState<Step>("upload");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [parsedCsv, setParsedCsv] = useState<ParsedCsv | null>(null);
   const [columnMapping, setColumnMapping] = useState<ColumnMapping | null>(null);
   const [ascentStyleMapping, setAscentStyleMapping] =
     useState<AscentStyleMapping>({});
   const [climbTypeMapping, setClimbTypeMapping] = useState<ClimbTypeMapping>({});
+  const [gradeFeelMapping, setGradeFeelMapping] = useState<GradeFeelMapping>({});
   const [dateFormat, setDateFormat] = useState<DateFormat>("iso");
   const [gradeScale, setGradeScale] = useState<"native" | "converted">("native");
+  const [onConflict, setOnConflict] = useState<"skip" | "overwrite">("skip");
 
   const [normalized, setNormalized] = useState<{
     valid: NormalizedImportRow[];
@@ -78,6 +89,10 @@ export function ImportWizard() {
     () => (parsedCsv && columnMapping ? distinctValues(parsedCsv.rows, columnMapping.climbType) : []),
     [parsedCsv, columnMapping],
   );
+  const gradeFeelValues = useMemo(
+    () => (parsedCsv && columnMapping ? distinctValues(parsedCsv.rows, columnMapping.gradeFeel) : []),
+    [parsedCsv, columnMapping],
+  );
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
@@ -85,6 +100,11 @@ export function ImportWizard() {
     if (!file) return;
 
     const text = await file.text();
+    // Clear the input once the contents are read, so picking the same file
+    // again still fires a change event — otherwise a file rejected below
+    // couldn't be re-picked after fixing it.
+    e.target.value = "";
+
     const parsed = parseCsvText(text);
     if (parsed.headers.length === 0 || parsed.rows.length === 0) {
       setError("Couldn't find any data rows in that file.");
@@ -101,8 +121,10 @@ export function ImportWizard() {
     if (!parsedCsv || !columnMapping) return;
     const ascentStyleValues = distinctValues(parsedCsv.rows, columnMapping.ascentStyle);
     const climbValues = distinctValues(parsedCsv.rows, columnMapping.climbType);
+    const feelValues = distinctValues(parsedCsv.rows, columnMapping.gradeFeel);
     setAscentStyleMapping(guessAscentStyleMapping(ascentStyleValues));
     setClimbTypeMapping(guessClimbTypeMapping(climbValues));
+    setGradeFeelMapping(guessGradeFeelMapping(feelValues));
     if (columnMapping.date) {
       const sample = distinctValues(parsedCsv.rows, columnMapping.date).slice(0, 25);
       setDateFormat(detectDateFormat(sample));
@@ -117,6 +139,7 @@ export function ImportWizard() {
       columnMapping,
       ascentStyleMapping,
       climbTypeMapping,
+      gradeFeelMapping,
       dateFormat,
     );
     setNormalized(result);
@@ -127,35 +150,55 @@ export function ImportWizard() {
     if (!normalized) return;
     setError(null);
     const total = normalized.valid.length;
-    setProgress({ completed: 0, total, imported: 0, alreadyLogged: 0, notFound: 0, failed: 0 });
+    setProgress({
+      completed: 0,
+      total,
+      imported: 0,
+      overwritten: 0,
+      alreadyLogged: 0,
+      notFound: 0,
+      failed: 0,
+    });
 
     startTransition(async () => {
       let imported = 0;
+      let overwritten = 0;
       let alreadyLogged = 0;
       const notFound: ImportResult["notFound"] = [];
       const batchErrors: BatchError[] = [];
 
       for (let i = 0; i < total; i += IMPORT_BATCH_SIZE) {
         const batch = normalized.valid.slice(i, i + IMPORT_BATCH_SIZE);
-        const result = await importSends(batch, gradeScale);
-        if (result.ok) {
-          imported += result.value.imported;
-          alreadyLogged += result.value.alreadyLogged;
-          notFound.push(...result.value.notFound);
-        } else {
-          batchErrors.push({ rows: batch, message: result.error });
+        try {
+          const result = await importSends(batch, { gradeScale, onConflict });
+          if (result.ok) {
+            imported += result.value.imported;
+            overwritten += result.value.overwritten;
+            alreadyLogged += result.value.alreadyLogged;
+            notFound.push(...result.value.notFound);
+          } else {
+            batchErrors.push({ rows: batch, message: result.error });
+          }
+        } catch {
+          // The action boundary turns anything thrown server-side into
+          // { ok: false }, so a rejection here is the round-trip itself
+          // failing — offline, or the worker erroring outside the action.
+          // Still per-batch: the remaining batches run and the result step
+          // renders with a failed-rows CSV to retry from.
+          batchErrors.push({ rows: batch, message: "Import failed" });
         }
         setProgress({
           completed: Math.min(i + IMPORT_BATCH_SIZE, total),
           total,
           imported,
+          overwritten,
           alreadyLogged,
           notFound: notFound.length,
           failed: batchErrors.reduce((n, b) => n + b.rows.length, 0),
         });
       }
 
-      setImportResult({ imported, alreadyLogged, notFound, batchErrors });
+      setImportResult({ imported, overwritten, alreadyLogged, notFound, batchErrors });
       setStep("result");
     });
   }
@@ -183,8 +226,10 @@ export function ImportWizard() {
     setColumnMapping(null);
     setAscentStyleMapping({});
     setClimbTypeMapping({});
+    setGradeFeelMapping({});
     setDateFormat("iso");
     setGradeScale("native");
+    setOnConflict("skip");
     setNormalized(null);
     setProgress(null);
     setImportResult(null);
@@ -203,7 +248,23 @@ export function ImportWizard() {
             Upload a CSV export of your climbing log. You&apos;ll be able to map its columns
             and clarify a few ambiguous values before anything is imported.
           </p>
-          <input type="file" accept=".csv" onChange={handleFileChange} />
+          {/* The file input stays in the DOM but hidden: it's the only way to
+              open the picker, and a Button driving it keeps the styling
+              consistent with the rest of the wizard. */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            onPress={() => fileInputRef.current?.click()}
+            className="w-full lg:w-auto lg:self-start"
+          >
+            Choose CSV File
+          </Button>
         </div>
       )}
 
@@ -298,6 +359,34 @@ export function ImportWizard() {
             </div>
           )}
 
+          {gradeFeelValues.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium">Grade Feel Values</p>
+              {gradeFeelValues.map((value) => (
+                <div key={value} className="flex items-center gap-4">
+                  <span className="w-40 shrink-0 truncate text-sm">{value}</span>
+                  <select
+                    value={gradeFeelMapping[value] ?? "skip"}
+                    onChange={(e) =>
+                      setGradeFeelMapping({
+                        ...gradeFeelMapping,
+                        [value]: e.target.value as GradeFeel | "skip",
+                      })
+                    }
+                    className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+                  >
+                    {GRADE_FEEL_VALUES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                    <option value="skip">Ignore (use solid)</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+
           {columnMapping?.date && (
             <TextField>
               <Label>Date Format</Label>
@@ -375,19 +464,51 @@ export function ImportWizard() {
                 />
               </div>
               <p className="text-xs text-muted">
-                {progress.imported} imported &middot; {progress.alreadyLogged} already logged
-                &middot; {progress.notFound} not found &middot; {progress.failed} failed
+                {progress.imported} imported &middot;{" "}
+                {onConflict === "overwrite" && <>{progress.overwritten} overwritten &middot; </>}
+                {progress.alreadyLogged} already logged &middot; {progress.notFound} not found
+                &middot; {progress.failed} failed
               </p>
             </div>
           ) : (
-            <div className="flex gap-4">
-              <Button variant="ghost" onPress={() => setStep("values")}>
-                Back
-              </Button>
-              <Button onPress={handleFinalize} isDisabled={normalized.valid.length === 0}>
-                Finalize Import
-              </Button>
-            </div>
+            <>
+              <TextField>
+                <Label>Already-logged climbs</Label>
+                <ButtonGroup className="w-full lg:w-auto lg:self-start">
+                  {CONFLICT_MODES.map(({ value, label }) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      variant={onConflict === value ? undefined : "outline"}
+                      onPress={() => setOnConflict(value)}
+                      className="flex-1 lg:flex-none"
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </ButtonGroup>
+              </TextField>
+              {onConflict === "overwrite" ? (
+                <p className="text-sm text-danger">
+                  CSV values will replace your existing send data for any already-logged climbs.
+                  This cannot be undone.
+                </p>
+              ) : (
+                <p className="text-sm text-muted">
+                  Climbs you&apos;ve already logged are left untouched and counted as already
+                  logged.
+                </p>
+              )}
+
+              <div className="flex gap-4">
+                <Button variant="ghost" onPress={() => setStep("values")}>
+                  Back
+                </Button>
+                <Button onPress={handleFinalize} isDisabled={normalized.valid.length === 0}>
+                  Finalize Import
+                </Button>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -395,8 +516,13 @@ export function ImportWizard() {
       {step === "result" && importResult && normalized && (
         <div className="flex flex-col gap-4">
           <p className="text-sm">
-            Imported <strong>{importResult.imported}</strong>, already logged{" "}
-            <strong>{importResult.alreadyLogged}</strong>, couldn&apos;t import{" "}
+            Imported <strong>{importResult.imported}</strong>,{" "}
+            {importResult.overwritten > 0 && (
+              <>
+                overwrote <strong>{importResult.overwritten}</strong>,{" "}
+              </>
+            )}
+            already logged <strong>{importResult.alreadyLogged}</strong>, couldn&apos;t import{" "}
             <strong>{importResult.notFound.length + normalized.invalid.length}</strong>
             {importResult.batchErrors.length > 0 && (
               <>
