@@ -30,49 +30,59 @@ export type GradeHistogram = {
   ropeSpan: [string, string] | null;
 };
 
-export type LoggedGradeBucket = {
+export type LoggedGradeRow = {
   label: string;
-  count: number;
+  total: number;
   isPosted: boolean;
-  /** How the grade felt to these voters — a "5.12a but soft" vote is a
-   * different opinion from a plain "5.12a", so it gets its own slice. */
-  feel: GradeFeel;
+  /** Votes by how the grade felt — a "5.12a but soft" vote is a different
+   * opinion from a plain "5.12a", rendered as shaded segments of one bar. */
+  feelCounts: Record<GradeFeel, number>;
 };
 
-const FEEL_ORDER: Record<GradeFeel, number> = { low: 0, solid: 1, high: 2 };
-
-/** Buckets a single climb's suggested-grade votes for the logged-grades
- * donut: one bucket per (native grade, feel) pair actually voted — letter
- * grades kept, since for one climb the a/b/c/d debate is the whole point —
- * ordered soft-to-hard. The posted grade is always represented so the
- * consensus is read against it, even with zero votes. */
-export function buildLoggedGradeBuckets(
+/** Rows a single climb's suggested-grade votes for the logged-grades chart:
+ * one row per native grade actually voted — letter grades kept, since for
+ * one climb the a/b/c/d debate is the whole point — in grade order, with
+ * the votes split by feel inside the row. The posted grade is always
+ * represented so the consensus is read against it, even with zero votes. */
+export function buildLoggedGradeRows(
   type: ClimbType,
   counts: SuggestedGradeCount[],
   postedGrade: number | null,
-): LoggedGradeBucket[] {
+): LoggedGradeRow[] {
   const scale = nativeGradeArray(type);
   const voted = counts
     .filter((row) => row.grade >= 0 && row.grade < scale.length)
-    .sort((a, b) => a.grade - b.grade || FEEL_ORDER[a.feel] - FEEL_ORDER[b.feel]);
+    .sort((a, b) => a.grade - b.grade);
   if (voted.length === 0) return [];
 
-  const buckets: LoggedGradeBucket[] = voted.map((row) => ({
-    label: scale[row.grade],
-    count: row.count,
-    isPosted: row.grade === postedGrade,
-    feel: row.feel,
-  }));
+  const byGrade = new Map<number, LoggedGradeRow>();
+  for (const vote of voted) {
+    const row = byGrade.get(vote.grade) ?? {
+      label: scale[vote.grade],
+      total: 0,
+      isPosted: vote.grade === postedGrade,
+      feelCounts: { low: 0, solid: 0, high: 0 },
+    };
+    row.total += vote.count;
+    row.feelCounts[vote.feel] += vote.count;
+    byGrade.set(vote.grade, row);
+  }
+  const rows = [...byGrade.values()];
 
   const postedRepresented =
     postedGrade == null ||
     postedGrade < 0 ||
     postedGrade >= scale.length ||
-    buckets.some((bucket) => bucket.isPosted);
+    rows.some((row) => row.isPosted);
   if (!postedRepresented) {
-    buckets.push({ label: scale[postedGrade as number], count: 0, isPosted: true, feel: "solid" });
+    rows.push({
+      label: scale[postedGrade as number],
+      total: 0,
+      isPosted: true,
+      feelCounts: { low: 0, solid: 0, high: 0 },
+    });
   }
-  return buckets;
+  return rows;
 }
 
 /** "5.10a" → "5.10"; grades without a letter pass through. */

@@ -25,7 +25,7 @@ import {
   getUserSendForClimb,
 } from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
-import { buildLoggedGradeBuckets } from "@/lib/grade-histogram";
+import { buildLoggedGradeRows } from "@/lib/grade-histogram";
 import type { AscentStyle as AscentStyleType } from "@/lib/sends";
 import { missingDescriptionMessage } from "@/lib/descriptions";
 import { LoggedGradeHistogram } from "@/components/logged-grade-histogram";
@@ -89,7 +89,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   const ancestors = await getAncestors(db, area);
 
   const loggedBreakdown = Object.entries(summary.styleBreakdown).filter(([, count]) => count > 0);
-  const loggedGradeBuckets = buildLoggedGradeBuckets(
+  const loggedGradeRows = buildLoggedGradeRows(
     climb.type,
     summary.suggestedGradeCounts,
     climb.grade,
@@ -158,12 +158,12 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                   : []),
               ]}
             />
-            {loggedGradeBuckets.length > 0 && (
+            {loggedGradeRows.length > 0 && (
               <div className="rounded-xl bg-surface-secondary p-4">
                 <div className="mb-3">
                   <Eyebrow>Logged grades</Eyebrow>
                 </div>
-                <LoggedGradeHistogram type={climb.type} buckets={loggedGradeBuckets} />
+                <LoggedGradeHistogram type={climb.type} rows={loggedGradeRows} />
               </div>
             )}
             {session ? (

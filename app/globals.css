@@ -214,3 +214,18 @@
   animation: bar-grow 0.25s ease-out backwards;
   transform-origin: bottom;
 }
+
+/* Horizontal variant for the climb page's logged-grades bars. */
+@keyframes bar-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@utility animate-bar-grow-x {
+  animation: bar-grow-x 0.25s ease-out backwards;
+  transform-origin: left;
+}

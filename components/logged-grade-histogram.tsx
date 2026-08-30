@@ -1,114 +1,124 @@
 import clsx from "clsx";
 import type { ClimbType } from "@/lib/grades";
-import type { LoggedGradeBucket } from "@/lib/grade-histogram";
+import type { GradeFeel } from "@/lib/sends";
+import type { LoggedGradeRow } from "@/lib/grade-histogram";
 
-// Same discipline → palette hue mapping as the discipline chips; slices
-// step down in opacity so one hue yields distinct, theme-adaptive shades.
-const PIE_COLOR: Record<ClimbType, string> = {
+// Same discipline → palette hue mapping as the discipline chips.
+const BAR_COLOR: Record<ClimbType, string> = {
   boulder: "var(--color-palette-accent)",
   sport: "var(--color-palette-support)",
   trad: "var(--color-palette-primary)",
 };
 
-const SLICE_OPACITY = [1, 0.72, 0.5, 0.34, 0.22];
+// Feel is ordinal, so the shade carries the meaning: lighter = felt soft,
+// darker = felt hard. Three fixed steps of one hue, legible on both themes.
+const FEEL_ORDER: GradeFeel[] = ["low", "solid", "high"];
+const FEEL_OPACITY: Record<GradeFeel, number> = { low: 0.35, solid: 0.65, high: 1 };
+const FEEL_LABEL: Record<GradeFeel, string> = {
+  low: "felt soft",
+  solid: "solid",
+  high: "felt hard",
+};
 
-function sliceOpacity(index: number): number {
-  return SLICE_OPACITY[index % SLICE_OPACITY.length];
-}
-
-// The feel qualifier beside a grade — "5.12a soft" and "5.12a" are
-// different opinions, and each vote group gets its own slice.
-const FEEL_SUFFIX = { low: " soft", solid: "", high: " hard" } as const;
-
-/** The community's grading of one climb: a donut of every suggested grade
- * from its sends, with a legend carrying the exact share — read against
- * the posted grade, which the legend marks even when nobody voted for it. */
+/** The community's grading of one climb: one bar per suggested grade, in
+ * grade order, sized by vote share — with each bar shaded soft → hard by
+ * how the grade felt, and the exact feel counts revealed on hover. Read
+ * against the posted grade, which is marked even when nobody voted for it. */
 export function LoggedGradeHistogram({
   type,
-  buckets,
+  rows,
 }: {
   type: ClimbType;
-  buckets: LoggedGradeBucket[];
+  rows: LoggedGradeRow[];
 }) {
-  const voted = buckets.filter((b) => b.count > 0);
+  const voted = rows.filter((row) => row.total > 0);
   if (voted.length === 0) return null;
 
-  const total = voted.reduce((sum, b) => sum + b.count, 0);
-  const posted = buckets.find((b) => b.isPosted);
-  const hue = PIE_COLOR[type];
+  const totalVotes = voted.reduce((sum, row) => sum + row.total, 0);
+  const maxVotes = Math.max(...voted.map((row) => row.total));
+  const hue = BAR_COLOR[type];
+  const hasFeelSplit = voted.some((row) => row.feelCounts.low > 0 || row.feelCounts.high > 0);
 
   const summary = voted
-    .map((b) => `${Math.round((b.count / total) * 100)}% at ${b.label}${FEEL_SUFFIX[b.feel]}`)
-    .join(", ");
-
-  // Donut slices: one circle per bucket on a circumference normalized to
-  // 100, dashed to its percentage share; 25 rotates the start to 12
-  // o'clock. Each slice starts where the previous ones end (prefix sum,
-  // computed without render-time mutation).
-  const pcts = voted.map((bucket) => (bucket.count / total) * 100);
-  const starts = pcts.map((_, i) => pcts.slice(0, i).reduce((sum, p) => sum + p, 0));
-  const slices = voted.map((bucket, i) => (
-    <circle
-      key={`${bucket.label}-${bucket.feel}`}
-      cx="21"
-      cy="21"
-      r="15.915"
-      fill="none"
-      stroke={hue}
-      strokeOpacity={sliceOpacity(i)}
-      strokeWidth="9"
-      strokeDasharray={`${pcts[i]} ${100 - pcts[i]}`}
-      strokeDashoffset={25 - starts[i]}
-    />
-  ));
+    .map((row) => {
+      const feels = FEEL_ORDER.filter((feel) => row.feelCounts[feel] > 0)
+        .map((feel) => `${row.feelCounts[feel]} ${FEEL_LABEL[feel]}`)
+        .join(", ");
+      return `${row.total} at ${row.label} (${feels})`;
+    })
+    .join("; ");
+  const posted = rows.find((row) => row.isPosted);
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-col gap-2.5">
       <p className="sr-only">
         Logged grades: {summary}.{posted ? ` Posted grade: ${posted.label}.` : ""}
       </p>
-      <svg viewBox="0 0 42 42" className="size-20 shrink-0 -rotate-0" aria-hidden>
-        {slices}
-      </svg>
-      <ul className="flex flex-col gap-1" aria-hidden>
-        {voted.map((bucket, i) => (
-          <li
-            key={`${bucket.label}-${bucket.feel}`}
-            className="flex items-center gap-2 text-xs tabular-nums"
-          >
-            <span
-              className="size-2.5 shrink-0 rounded-xs"
-              style={{ backgroundColor: hue, opacity: sliceOpacity(i) }}
-            />
-            <span
-              className={clsx(
-                bucket.isPosted
-                  ? "font-semibold text-foreground underline underline-offset-2"
-                  : "text-foreground",
+      <div className="flex flex-col gap-2 text-xs tabular-nums" aria-hidden>
+        {rows.map((row, i) => {
+          const breakdown = FEEL_ORDER.filter((feel) => row.feelCounts[feel] > 0)
+            .map((feel) => `${row.feelCounts[feel]} ${FEEL_LABEL[feel]}`)
+            .join(" · ");
+          return (
+            <div key={row.label} className="group flex items-center gap-3">
+              <span
+                className={clsx(
+                  "w-11 shrink-0 text-foreground",
+                  row.isPosted && "font-semibold underline underline-offset-2",
+                )}
+              >
+                {row.label}
+              </span>
+              {row.total > 0 ? (
+                <>
+                  <div className="relative flex-1">
+                    <div
+                      className="motion-safe:animate-bar-grow-x flex h-3 gap-px overflow-hidden rounded-xs"
+                      style={{
+                        width: `${(row.total / maxVotes) * 100}%`,
+                        animationDelay: `${i * 15}ms`,
+                      }}
+                    >
+                      {FEEL_ORDER.filter((feel) => row.feelCounts[feel] > 0).map((feel) => (
+                        <div
+                          key={feel}
+                          className="h-full"
+                          style={{
+                            flexGrow: row.feelCounts[feel],
+                            backgroundColor: hue,
+                            opacity: FEEL_OPACITY[feel],
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <span className="border-separator bg-surface pointer-events-none absolute -top-7 left-0 z-10 hidden rounded-md border px-2 py-1 text-[11px] whitespace-nowrap shadow-sm group-hover:block">
+                      {breakdown}
+                    </span>
+                  </div>
+                  <span className="text-muted w-14 shrink-0 text-right">
+                    {Math.round((row.total / totalVotes) * 100)}% · {row.total}
+                  </span>
+                </>
+              ) : (
+                <span className="text-muted">posted · no votes</span>
               )}
-            >
-              {bucket.label}
-              {bucket.feel !== "solid" && (
-                <span className="font-normal text-muted no-underline">
-                  {FEEL_SUFFIX[bucket.feel]}
-                </span>
-              )}
+            </div>
+          );
+        })}
+      </div>
+      {hasFeelSplit && (
+        <p className="text-muted flex items-center gap-3 text-[11px]" aria-hidden>
+          {FEEL_ORDER.map((feel) => (
+            <span key={feel} className="flex items-center gap-1.5">
+              <span
+                className="size-2.5 rounded-xs"
+                style={{ backgroundColor: hue, opacity: FEEL_OPACITY[feel] }}
+              />
+              {FEEL_LABEL[feel]}
             </span>
-            <span className="text-muted">
-              {Math.round((bucket.count / total) * 100)}% · {bucket.count}
-            </span>
-          </li>
-        ))}
-        {posted && posted.count === 0 && (
-          <li className="flex items-center gap-2 text-xs tabular-nums">
-            <span className="size-2.5 shrink-0" />
-            <span className="font-semibold text-foreground underline underline-offset-2">
-              {posted.label}
-            </span>
-            <span className="text-muted">posted · no votes</span>
-          </li>
-        )}
-      </ul>
+          ))}
+        </p>
+      )}
     </div>
   );
 }

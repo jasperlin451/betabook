@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGradeHistogram, buildLoggedGradeBuckets } from "./grade-histogram";
+import { buildGradeHistogram, buildLoggedGradeRows } from "./grade-histogram";
 import type { GradeHistogramRow } from "@/db/queries";
 
 describe("buildGradeHistogram", () => {
@@ -82,13 +82,13 @@ describe("buildGradeHistogram", () => {
   });
 });
 
-describe("buildLoggedGradeBuckets", () => {
-  it("returns no buckets when nobody suggested a grade", () => {
-    expect(buildLoggedGradeBuckets("sport", [], 10)).toEqual([]);
+describe("buildLoggedGradeRows", () => {
+  it("returns no rows when nobody suggested a grade", () => {
+    expect(buildLoggedGradeRows("sport", [], 10)).toEqual([]);
   });
 
-  it("splits the same grade by feel and orders soft to hard", () => {
-    const buckets = buildLoggedGradeBuckets(
+  it("merges feels for the same grade into one row's feel counts", () => {
+    const rows = buildLoggedGradeRows(
       "sport",
       [
         { grade: 18, feel: "high", count: 1 }, // 5.12a hard
@@ -97,40 +97,43 @@ describe("buildLoggedGradeBuckets", () => {
       ],
       18,
     );
-    expect(buckets).toEqual([
-      { label: "5.12a", count: 2, isPosted: true, feel: "low" },
-      { label: "5.12a", count: 3, isPosted: true, feel: "solid" },
-      { label: "5.12a", count: 1, isPosted: true, feel: "high" },
+    expect(rows).toEqual([
+      {
+        label: "5.12a",
+        total: 6,
+        isPosted: true,
+        feelCounts: { low: 2, solid: 3, high: 1 },
+      },
     ]);
   });
 
-  it("appends a zero-vote row for a posted grade nobody suggested", () => {
-    const buckets = buildLoggedGradeBuckets(
+  it("orders rows by grade and appends a zero-vote row for a posted grade nobody suggested", () => {
+    const rows = buildLoggedGradeRows(
       "sport",
       [
-        { grade: 11, feel: "solid", count: 2 }, // 5.10b
         { grade: 12, feel: "solid", count: 1 }, // 5.10c
+        { grade: 11, feel: "solid", count: 2 }, // 5.10b
       ],
       10, // posted 5.10a, below every suggestion
     );
-    expect(buckets).toEqual([
-      { label: "5.10b", count: 2, isPosted: false, feel: "solid" },
-      { label: "5.10c", count: 1, isPosted: false, feel: "solid" },
-      { label: "5.10a", count: 0, isPosted: true, feel: "solid" },
+    expect(rows).toEqual([
+      { label: "5.10b", total: 2, isPosted: false, feelCounts: { low: 0, solid: 2, high: 0 } },
+      { label: "5.10c", total: 1, isPosted: false, feelCounts: { low: 0, solid: 1, high: 0 } },
+      { label: "5.10a", total: 0, isPosted: true, feelCounts: { low: 0, solid: 0, high: 0 } },
     ]);
   });
 
   it("marks the posted grade even when it also received votes", () => {
-    const buckets = buildLoggedGradeBuckets(
-      "boulder",
-      [{ grade: 5, feel: "solid", count: 3 }],
-      5,
-    );
-    expect(buckets).toEqual([{ label: "V4", count: 3, isPosted: true, feel: "solid" }]);
+    const rows = buildLoggedGradeRows("boulder", [{ grade: 5, feel: "solid", count: 3 }], 5);
+    expect(rows).toEqual([
+      { label: "V4", total: 3, isPosted: true, feelCounts: { low: 0, solid: 3, high: 0 } },
+    ]);
   });
 
   it("handles a null posted grade without adding a marker row", () => {
-    const buckets = buildLoggedGradeBuckets("trad", [{ grade: 8, feel: "low", count: 1 }], null);
-    expect(buckets).toEqual([{ label: "5.8", count: 1, isPosted: false, feel: "low" }]);
+    const rows = buildLoggedGradeRows("trad", [{ grade: 8, feel: "low", count: 1 }], null);
+    expect(rows).toEqual([
+      { label: "5.8", total: 1, isPosted: false, feelCounts: { low: 1, solid: 0, high: 0 } },
+    ]);
   });
 });
