@@ -3,6 +3,7 @@ import {
   ASCENT_STYLES,
   GRADE_FEEL_VALUES,
   MAX_COMMENT_LENGTH,
+  latestAcceptableSendDate,
   type AscentStyle,
   type GradeFeel,
 } from "@/lib/sends";
@@ -296,6 +297,9 @@ export function normalizeImportRows(
 ): { valid: NormalizedImportRow[]; invalid: InvalidImportRow[] } {
   const valid: NormalizedImportRow[] = [];
   const invalid: InvalidImportRow[] = [];
+  // One day past UTC today, since a client's local today can be ahead of
+  // UTC's — see latestAcceptableSendDate.
+  const latestDateSent = latestAcceptableSendDate(today);
 
   parsed.rows.forEach((row, rowIndex) => {
     const fail = (reason: string) => invalid.push({ rowIndex, raw: row, reason });
@@ -325,7 +329,7 @@ export function normalizeImportRows(
     if (rawDate) {
       dateSent = parseDateWithFormat(rawDate, dateFormat);
       if (dateSent === null) return fail(`Unparseable date "${rawDate}"`);
-      if (dateSent > today) return fail(`Date "${rawDate}" is in the future`);
+      if (dateSent > latestDateSent) return fail(`Date "${rawDate}" is in the future`);
     }
 
     const rawClimbType = mapping.climbType ? (row[mapping.climbType] ?? "").trim() : "";
