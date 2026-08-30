@@ -211,16 +211,21 @@ export async function searchAreas(
   };
 }
 
-/** Exact match count for the same FTS predicate as `searchAreas` — a plain
- * aggregate over the FTS match, no ancestor-path CTE, so it's cheaper than
- * the page query it accompanies. */
+/** Exact match count for the same FTS predicate as `searchAreas` — no
+ * ancestor-path CTE, so it's cheaper than the page query it accompanies.
+ * Keeps `searchAreas`'s join to `areas` (a PK seek per match) rather than
+ * counting FTS rows alone: areas_fts is maintained by app code in a second
+ * statement after the `areas` write (see db/mutations/areas.ts), so an
+ * orphaned index row would otherwise be counted in a heading whose list
+ * can't show it. */
 export async function countSearchAreas(db: Database, name: string): Promise<number> {
   const query = toFtsPrefixQuery(name);
   if (!query) return 0;
 
   const [row] = await db.all<{ count: number }>(sql`
     SELECT COUNT(*) AS count
-    FROM areas_fts
+    FROM areas
+    JOIN areas_fts ON areas_fts.rowid = areas.id
     WHERE areas_fts MATCH ${query}
   `);
   return row?.count ?? 0;

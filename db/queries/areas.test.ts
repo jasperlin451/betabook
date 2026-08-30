@@ -1,4 +1,5 @@
 import { env } from "cloudflare:test";
+import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
 import {
@@ -175,5 +176,16 @@ describe("searchAreas pagination", () => {
 
   it("counts zero for an unmatchable name", async () => {
     expect(await countSearchAreas(db, "NoSuchAreaNameAtAll")).toBe(0);
+  });
+
+  // areas_fts is maintained by app code in a second statement after the
+  // `areas` write, so an index row can outlive the row it describes. The
+  // count heads a list that joins `areas`, so it has to skip what the list
+  // can't render.
+  it("ignores an orphaned index row the search itself cannot return", async () => {
+    await db.run(sql`INSERT INTO areas_fts(rowid, name) VALUES (987654, 'Orphaned Ghost Area')`);
+    const page = await searchAreas(db, "Orphaned Ghost Area");
+    expect(page.areas).toHaveLength(0);
+    expect(await countSearchAreas(db, "Orphaned Ghost Area")).toBe(0);
   });
 });

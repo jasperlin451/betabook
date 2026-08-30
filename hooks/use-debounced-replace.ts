@@ -35,25 +35,33 @@ export function useDebouncedReplace(
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // The href this hook last navigated to, consumed (reset to null) when the
-  // resulting URL change arrives back as `currentHref`. Consuming exactly
-  // once matters: after back/forward is adopted, a later forward to a URL we
-  // once emitted must still read as external. Held in state, not a ref —
-  // it's read during render and the render-phase consumption below has to
-  // stay deterministic under Strict Mode's double-invoked renders.
-  const [navigatedHref, setNavigatedHref] = useState<string | null>(null);
+  // Every href this hook has navigated to whose URL change hasn't come back
+  // yet, oldest first. A queue rather than a single slot: on a slow round
+  // trip a second debounce can fire before the first navigation's URL
+  // arrives, and remembering only the latest would make the first one's
+  // arrival read as external — re-seeding the caller's inputs from a URL the
+  // user has already typed past. Entries are consumed once (the match and
+  // everything it superseded are dropped), so a later forward to a URL we
+  // once emitted still reads as external. Held in state, not a ref — it's
+  // read during render and the render-phase consumption below has to stay
+  // deterministic under Strict Mode's double-invoked renders.
+  const [navigatedHrefs, setNavigatedHrefs] = useState<string[]>([]);
   const [prevCurrentHref, setPrevCurrentHref] = useState(currentHref);
   const currentHrefChanged = currentHref !== prevCurrentHref;
+  const navigatedIndex = currentHrefChanged ? navigatedHrefs.indexOf(currentHref) : -1;
   if (currentHrefChanged) {
     setPrevCurrentHref(currentHref);
-    setNavigatedHref(null);
+    // A match consumes it and every older pending navigation it superseded;
+    // a non-match (back/forward) means the queue no longer describes where
+    // the URL is, so it's dropped wholesale.
+    setNavigatedHrefs(navigatedIndex === -1 ? [] : navigatedHrefs.slice(navigatedIndex + 1));
   }
-  const urlChangedExternally = currentHrefChanged && currentHref !== navigatedHref;
+  const urlChangedExternally = currentHrefChanged && navigatedIndex === -1;
 
   useEffect(() => {
     if (href === currentHref) return;
     const timeout = setTimeout(() => {
-      setNavigatedHref(href);
+      setNavigatedHrefs((pending) => [...pending, href]);
       startTransition(() => {
         router.replace(href, { scroll: false });
       });

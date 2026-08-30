@@ -26,19 +26,28 @@ export function HomeSearchBar() {
   useEffect(() => {
     const query = name.trim();
     if (!query) return;
+    // Superseded once `name` changes again: clearing the timeout only stops a
+    // request that hasn't started, and a slow earlier response would
+    // otherwise land after a newer one and offer routes for a query the user
+    // has already typed past.
+    let superseded = false;
     const timeout = setTimeout(() => {
       startTransition(async () => {
         try {
           const res = await fetch(`/api/search/climbs?name=${encodeURIComponent(query)}`);
           if (!res.ok) return;
           const data: { climbs: ClimbWithAreaName[] } = await res.json();
+          if (superseded) return;
           setClimbs(data.climbs.slice(0, SUGGESTION_LIMIT));
         } catch {
           // Typeahead is a convenience — a failed fetch leaves plain search.
         }
       });
     }, 300);
-    return () => clearTimeout(timeout);
+    return () => {
+      superseded = true;
+      clearTimeout(timeout);
+    };
   }, [name]);
 
   function resultsHref(): string {

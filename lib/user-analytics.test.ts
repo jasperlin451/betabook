@@ -179,6 +179,19 @@ describe("buildUserAnalytics", () => {
     expect(a.sendsByDay["2024-03-04"]).toBe(2);
   });
 
+  it("reports no layoff when every gap is a back-to-back climbing day", () => {
+    const a = buildUserAnalytics(
+      [
+        send({ dateSent: "2024-01-01" }),
+        send({ dateSent: "2024-01-02" }),
+        send({ dateSent: "2024-01-03" }),
+      ],
+      "all",
+    );
+    expect(a.longestStreak).toEqual({ days: 3, end: "2024-01-03" });
+    expect(a.longestLayoff).toBeNull();
+  });
+
   it("finds the top area and hardest first-try within one discipline", () => {
     const a = buildUserAnalytics(
       [

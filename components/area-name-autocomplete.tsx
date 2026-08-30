@@ -30,12 +30,18 @@ export function AreaNameAutocomplete({
   useEffect(() => {
     const query = value.trim();
     if (!query) return;
+    // Superseded once `value` changes again: clearing the timeout only stops
+    // a request that hasn't started, and a slow earlier response would
+    // otherwise land after a newer one and show suggestions for a query the
+    // user has already typed past.
+    let superseded = false;
     const timeout = setTimeout(() => {
       startTransition(async () => {
         try {
           const res = await fetch(`/api/search/areas?name=${encodeURIComponent(query)}`);
           if (!res.ok) return;
           const data: { areas: Area[]; areaBreadcrumbs: AreaBreadcrumbs } = await res.json();
+          if (superseded) return;
           setSuggestions(
             data.areas.slice(0, SUGGESTION_LIMIT).map((area) => ({
               id: area.id,
@@ -50,7 +56,10 @@ export function AreaNameAutocomplete({
         }
       });
     }, 300);
-    return () => clearTimeout(timeout);
+    return () => {
+      superseded = true;
+      clearTimeout(timeout);
+    };
   }, [value]);
 
   const visibleSuggestions = value.trim() ? suggestions : [];

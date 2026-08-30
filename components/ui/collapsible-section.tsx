@@ -1,8 +1,16 @@
 "use client";
 
-import { useLayoutEffect, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { Disclosure } from "@heroui/react";
+
+// Layout effects never run during SSR, and React warns when a component that
+// declares one is server-rendered — this component is a client component but
+// is still server-rendered on every area/user page. Picking the hook once per
+// environment (never per render) keeps hook order stable while dropping the
+// warning; the client still gets the pre-paint commit the fallback below
+// depends on.
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 type Breakpoint = "md" | "lg";
 
@@ -54,7 +62,7 @@ const PREHYDRATION_CONTENT_CLASSNAME: Record<Breakpoint, string> = {
 function useIsDesktop(breakpoint: Breakpoint): boolean | undefined {
   const [isDesktop, setIsDesktop] = useState<boolean | undefined>(undefined);
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     const mql = window.matchMedia(BREAKPOINT_QUERY[breakpoint]);
     const update = () => setIsDesktop(mql.matches);
     update();

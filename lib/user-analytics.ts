@@ -233,7 +233,10 @@ export function buildUserAnalytics(
     if (i > 0) {
       const gap = diffDays(days[i - 1], days[i]);
       streak = gap === 1 ? streak + 1 : 1;
-      if (!longestLayoff || gap > longestLayoff.days) {
+      // A gap of 1 is back-to-back climbing days, not a break — only an
+      // actual day off the wall counts, so a climber who never missed a day
+      // reports no layoff rather than "1d".
+      if (gap > 1 && (!longestLayoff || gap > longestLayoff.days)) {
         longestLayoff = { days: gap, from: days[i - 1], to: days[i] };
       }
     }
