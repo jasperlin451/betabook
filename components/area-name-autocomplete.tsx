@@ -69,9 +69,10 @@ export function AreaNameAutocomplete({
       }}
     >
       <Label>{label}</Label>
+      {/* No chevron trigger — suggestions open as you type, and an arrow
+        * on an empty field promises a list that isn't there. */}
       <ComboBox.InputGroup>
         <Input placeholder="Search areas…" className="bg-surface" />
-        <ComboBox.Trigger />
       </ComboBox.InputGroup>
       <ComboBox.Popover>
         <ListBox>

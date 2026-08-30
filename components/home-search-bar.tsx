@@ -83,12 +83,13 @@ export function HomeSearchBar() {
         }}
         className="min-w-0 flex-1"
       >
-        {/* Plain Input + Trigger are ComboBox.InputGroup's supported
-          * children — InputGroup.Prefix slots break its collection wiring,
-          * so the magnifier lives on the adjacent Search button here. */}
+        {/* Plain Input is ComboBox.InputGroup's supported child —
+          * InputGroup.Prefix slots break its collection wiring, so the
+          * magnifier lives on the adjacent Search button. No chevron
+          * trigger either: typing is what opens the suggestions, and an
+          * arrow on an empty field promises a list that isn't there. */}
         <ComboBox.InputGroup>
           <Input placeholder="Search routes…" />
-          <ComboBox.Trigger />
         </ComboBox.InputGroup>
         <ComboBox.Popover>
           <ListBox>

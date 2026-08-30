@@ -6,7 +6,6 @@ import { Mountain } from "lucide-react";
 import { Providers } from "./providers";
 import { AuthNav } from "@/components/auth-nav";
 import { MobileNav } from "@/components/mobile-nav";
-import { NavLink } from "@/components/nav-link";
 import { ThemeSwitch } from "@/components/theme-toggle";
 import { AppLink } from "@/components/ui/app-link";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
@@ -104,7 +103,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               </AppLink>
               <div className="flex items-center gap-3">
                 <nav aria-label="Primary" className="hidden items-center gap-6 text-sm md:flex">
-                  <NavLink href="/">Search</NavLink>
                   <AuthNav />
                 </nav>
                 <ThemeSwitch />
