@@ -44,7 +44,7 @@ export async function updateArea(areaId: number, formData: FormData): Promise<Ac
  * matched every other pending 0/0 climb (BETWEEN 0 AND 0), ancestors
  * omitted anything created into the gap, and concurrent creates
  * cross-contaminated each other's listings. areas_fts stays in sync via
- * triggers (drizzle/migrations/0014_fts_sync_triggers.sql), atomically
+ * triggers (drizzle/migrations/0015_fts_sync_triggers.sql), atomically
  * within the insert itself. */
 export async function createArea(
   parentId: number | null,

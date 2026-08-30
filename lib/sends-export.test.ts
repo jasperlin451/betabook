@@ -5,6 +5,7 @@ import {
   guessAscentStyleMapping,
   guessClimbTypeMapping,
   guessColumnMapping,
+  guessGradeFeelMapping,
   normalizeImportRows,
   parseCsvText,
 } from "./sends-import";
@@ -124,12 +125,16 @@ describe("export → import round trip", () => {
     const climbTypeMapping = guessClimbTypeMapping(
       distinctValues(parsed.rows, mapping.climbType),
     );
+    const gradeFeelMapping = guessGradeFeelMapping(
+      distinctValues(parsed.rows, mapping.gradeFeel),
+    );
 
     const { valid, invalid, warnings } = normalizeImportRows(
       parsed,
       mapping,
       ascentStyleMapping,
       climbTypeMapping,
+      gradeFeelMapping,
       "iso",
       { today: "2026-08-19" },
     );

@@ -69,7 +69,7 @@ export async function createClimb(
     if (!area) throw new ActionError("Area not found");
 
     // climbs_fts stays in sync via triggers (drizzle/migrations/
-    // 0014_fts_sync_triggers.sql), atomically within this same statement.
+    // 0015_fts_sync_triggers.sql), atomically within this same statement.
     // The denormalized lft/rght copy comes from a correlated subquery, not
     // the `area` row read above: a concurrent insertAreaIntoTree splice can
     // shift this area's bounds between that read and this INSERT, and a
