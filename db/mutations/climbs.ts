@@ -1,7 +1,7 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
 import { getDb, getDbAndContext } from "@/db/client";
 import { climbs } from "@/db/schema";
@@ -68,12 +68,13 @@ export async function createClimb(
     const area = parseId(areaId) === null ? undefined : await getArea(db, areaId);
     if (!area) throw new ActionError("Area not found");
 
+    // climbs_fts stays in sync via triggers (drizzle/migrations/
+    // 0015_fts_sync_triggers.sql), atomically within this same statement.
     const input = validateNewClimbInput(readClimbFormData(formData));
     const [{ id }] = await db
       .insert(climbs)
       .values({ areaId, lft: area.lft, rght: area.rght, ...input })
       .returning({ id: climbs.id });
-    await db.run(sql`INSERT INTO climbs_fts(rowid, name) VALUES (${id}, ${input.name})`);
 
     // The area's own createArea call already triggers a recompute, but if this
     // climb landed in the gap before that job committed (or after it already

@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas, climbs, user, sends } from "@/db/schema";
 
@@ -34,8 +34,9 @@ export async function seedFixtureTree(db: Database) {
     { id: 4, areaId: 3, name: "Test Crack", type: "trad", grade: 6, lft: 8, rght: 9 }, // 5.6
   ]);
 
-  await db.run(sql`INSERT INTO areas_fts(rowid, name) SELECT id, name FROM areas`);
-  await db.run(sql`INSERT INTO climbs_fts(rowid, name) SELECT id, name FROM climbs`);
+  // areas_fts/climbs_fts are populated by the sync triggers
+  // (drizzle/migrations/0015_fts_sync_triggers.sql) — seeding them by hand
+  // here would double-index every row.
 }
 
 /** Inserts `count` boulder climbs into `areaId`, for pagination tests. */
@@ -68,7 +69,6 @@ export async function seedManyClimbs(
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
     await db.insert(climbs).values(rows.slice(i, i + CHUNK_SIZE));
   }
-  await db.run(sql`INSERT INTO climbs_fts(rowid, name) SELECT id, name FROM climbs WHERE id >= ${startId}`);
 }
 
 /** Inserts `count` unrelated root-level areas, each its own leaf, sharing a
@@ -88,9 +88,6 @@ export async function seedManyAreas(db: Database, count: number, startId: number
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
     await db.insert(areas).values(rows.slice(i, i + CHUNK_SIZE));
   }
-  await db.run(
-    sql`INSERT INTO areas_fts(rowid, name) SELECT id, name FROM areas WHERE id >= ${startId}`,
-  );
 }
 
 type FixtureUserOverrides = Partial<typeof user.$inferInsert> & { id: string };

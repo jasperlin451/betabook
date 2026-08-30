@@ -1,7 +1,7 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
 import { getDb, getDbAndContext } from "@/db/client";
 import { areas } from "@/db/schema";
@@ -55,11 +55,12 @@ export async function createArea(
     const input = validateAreaInput(readAreaFormData(formData));
     const { db, ctx } = await getDbAndContext();
 
+    // areas_fts stays in sync via triggers (drizzle/migrations/
+    // 0015_fts_sync_triggers.sql), atomically within this same statement.
     const [{ id }] = await db
       .insert(areas)
       .values({ parentId, lft: 0, rght: 0, ...input })
       .returning({ id: areas.id });
-    await db.run(sql`INSERT INTO areas_fts(rowid, name) VALUES (${id}, ${input.name})`);
 
     ctx.waitUntil(
       recomputeAreaTree(db).catch((err) => console.error(`recomputeAreaTree failed after createArea(${id})`, err)),
@@ -94,7 +95,6 @@ export async function deleteArea(areaId: number): Promise<ActionResult> {
     if (await hasClimbsInArea(db, areaId)) throw new ActionError("Can't delete an area with climbs");
 
     await db.delete(areas).where(eq(areas.id, areaId));
-    await db.run(sql`DELETE FROM areas_fts WHERE rowid = ${areaId}`);
 
     revalidatePath(`/areas/${areaId}`);
     if (existing.parentId != null) revalidatePath(`/areas/${existing.parentId}`);
