@@ -39,7 +39,7 @@ export type SubtreeClimbsSort =
 // NULLS FIRST/LAST syntax, so this expression idiom stands in for it.
 // send_count/avg_rating are denormalized onto climbs (see
 // drizzle/schema/climbs.ts) specifically so every one of these sorts can be
-// satisfied by an index scan on climbs alone, with climbs.lft/rght as a
+// satisfied by an index scan on climbs alone, with subtree membership as a
 // residual filter, instead of joining an unscoped GROUP BY over all of
 // `sends` on every query.
 const SUBTREE_CLIMBS_ORDER_BY: Record<SubtreeClimbsSort, SQL> = {
@@ -83,25 +83,56 @@ function disciplineGradeConditions(filter: DisciplineGradeFilter): SQL[] {
   return clauses;
 }
 
+/** The set of `areaId` and every area beneath it, walked over `parent_id`.
+ * Backed by areas_parent_idx, which the plan uses as a covering index.
+ * SQLite materializes this once per query (plus a bloom filter) rather than
+ * re-walking it per candidate row. */
+function subtreeAreaIds(areaId: number): SQL {
+  return sql`
+    WITH RECURSIVE subtree(id) AS (
+      SELECT ${areaId}
+      UNION ALL
+      SELECT a.id FROM areas a JOIN subtree s ON a.parent_id = s.id
+    )`;
+}
+
 // SQLite commits to one query plan per prepared-statement SHAPE, not per
 // call — it never sees bound host-parameter values at plan time, only the
 // SQL text. Verified empirically: without a forced index, the exact same
 // plan gets chosen for a tiny leaf area and a huge root area, whichever way
 // the cost estimate happens to lean, so it's cheap for one extreme and does
-// a near-full-table scan for the other. There's no query shape that lets
-// the planner adapt per `area` the way this function is called with wildly
-// different subtree sizes — INDEXED BY forces the right access path from a
-// signal we DO know at query-build time: the area's own nested-set span
-// (already loaded, no extra query).
+// a near-full-table scan for the other. (Re-verified after the move to
+// parent_id: unhinted, North America picks climbs_area_idx plus a temp
+// b-tree over all 83,916 of its climbs — 24ms against 4ms hinted.) There's
+// no query shape that lets the planner adapt per `area`, so INDEXED BY
+// forces the access path from a signal we resolve at query-build time.
 //
-// Below LARGE_AREA_SUBTREE_SPAN, climbs.lft/rght range-scans a small enough
+// Below LARGE_AREA_SUBTREE_AREAS, climbs_area_idx gathers a small enough
 // candidate set to sort in memory cheaply. At or above it, the sort-column
 // index lets SQLite scan in the needed order and stop at LIMIT without ever
 // reading the full subtree. Tuned from this dataset's actual area sizes:
-// state/country-level areas (e.g. Alberta, ~8.8k climbs) top out around a
-// span of 1200; continent-level areas (Europe, Canada, North America —
-// tens of thousands of climbs each) start above 3500. 2000 sits in that gap.
-const LARGE_AREA_SUBTREE_SPAN = 2000;
+// state/country-level areas (e.g. Alberta, ~8.8k climbs) top out around 600
+// subtree areas; continent-level areas (Europe, Canada, North America — tens
+// of thousands of climbs each) start above 1750. 1000 sits in that gap.
+//
+// This replaces an equivalent threshold of 2000 on the old nested-set span:
+// a subtree of N areas spans exactly 2N-1, so the classification is
+// unchanged. Unlike that span — a snapshot only as fresh as the last
+// recompute — this is a live count.
+export const LARGE_AREA_SUBTREE_AREAS = 1000;
+
+/** How many areas are in `areaId`'s subtree, counting no further than `cap`
+ * — only which side of LARGE_AREA_SUBTREE_AREAS we land on matters, and the
+ * LIMIT keeps a continent-sized walk from reading every descendant. */
+async function countSubtreeAreas(db: Database, areaId: number, cap: number): Promise<number> {
+  const rows = await db.all<{ count: number }>(sql`
+    SELECT count(*) AS count FROM (
+      ${subtreeAreaIds(areaId)}
+      SELECT id FROM subtree LIMIT ${cap}
+    )
+  `);
+  return rows[0]?.count ?? 0;
+}
 
 const SUBTREE_CLIMBS_SORT_INDEX: Record<SubtreeClimbsSort, string> = {
   name_asc: "climbs_name_asc_idx",
@@ -145,21 +176,18 @@ function climbStatsConditions(filter: ClimbStatsFilter): SQL[] {
   return clauses;
 }
 
+/** `subtreeAreaCount` lets a caller that already knows the subtree size skip
+ * the extra probe query; omit it and it's measured (capped, ~2ms worst case
+ * on this dataset). */
 export async function getSubtreeClimbs(
   db: Database,
   area: Area,
   page = 1,
   sort: SubtreeClimbsSort = "ascents_desc",
   filter?: DisciplineGradeFilter & { name?: string } & ClimbStatsFilter,
+  subtreeAreaCount?: number,
 ): Promise<{ climbs: ClimbWithAreaName[]; page: number; pageSize: number; hasNextPage: boolean }> {
-  // Both bounds on lft (not just the lower one) so the forced range index
-  // can seek a bounded scan instead of an open-ended one — redundant given
-  // rght <= area.rght already implies it for a valid nested-set descendant,
-  // but SQLite's index-range-seek needs it spelled out on the indexed column
-  // itself to stop early.
-  const conditions: SQL[] = [
-    sql`climbs.lft >= ${area.lft} AND climbs.lft <= ${area.rght} AND climbs.rght <= ${area.rght}`,
-  ];
+  const conditions: SQL[] = [sql`climbs.area_id IN (SELECT id FROM subtree)`];
 
   if (filter?.name) {
     const nameQuery = toFtsPrefixQuery(filter.name);
@@ -175,20 +203,24 @@ export async function getSubtreeClimbs(
     conditions.push(...climbStatsConditions(filter));
   }
 
-  const indexName =
-    area.rght - area.lft >= LARGE_AREA_SUBTREE_SPAN
-      ? SUBTREE_CLIMBS_SORT_INDEX[sort]
-      : "climbs_lft_rght_idx";
-  // sql.raw inlines this as literal SQL text with no parameter binding, so
-  // it must never carry anything but one of these known index names —
-  // callers are expected to validate `sort` first, but this guard keeps the
-  // function safe even if a future caller doesn't.
-  if (indexName !== "climbs_lft_rght_idx" && !Object.values(SUBTREE_CLIMBS_SORT_INDEX).includes(indexName)) {
-    throw new Error(`Invalid index name: ${indexName}`);
+  // Callers are expected to validate `sort`, but check it here too: an
+  // unknown key yields `undefined` from both lookup tables below, which would
+  // inline a bare `undefined` into the ORDER BY and — via sql.raw, which
+  // binds nothing and interpolates literal SQL text — into the INDEXED BY.
+  // Checking the key itself rather than the resolved index name catches it on
+  // whichever branch we take.
+  if (!Object.prototype.hasOwnProperty.call(SUBTREE_CLIMBS_SORT_INDEX, sort)) {
+    throw new Error(`Invalid sort value: ${sort}`);
   }
+
+  const areaCount =
+    subtreeAreaCount ?? (await countSubtreeAreas(db, area.id, LARGE_AREA_SUBTREE_AREAS));
+  const indexName =
+    areaCount >= LARGE_AREA_SUBTREE_AREAS ? SUBTREE_CLIMBS_SORT_INDEX[sort] : "climbs_area_idx";
 
   // Fetch one extra row to detect a next page without a separate COUNT query.
   const rows = await db.all<ClimbWithAreaName>(sql`
+    ${subtreeAreaIds(area.id)}
     SELECT climbs.id AS id, climbs.area_id AS areaId, climbs.name AS name,
            climbs.type AS type, climbs.grade AS grade, areas.name AS areaName
     FROM climbs INDEXED BY ${sql.raw(indexName)}

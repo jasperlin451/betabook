@@ -201,16 +201,25 @@ describe("getSubtreeClimbs", () => {
       expect(usingDefault.climbs.map((c) => c.name)).toEqual(expected);
     });
 
-    it("uses the lft/rght range index, not the sort-column index, for a small area", async () => {
-      const root = await getArea(db, 1);
+    it("gathers by area_id, not the sort-column index, for a small area", async () => {
       const plan = await db.all<{ detail: string }>(sql`
         EXPLAIN QUERY PLAN
-        SELECT climbs.id FROM climbs INDEXED BY climbs_lft_rght_idx
-        WHERE climbs.lft >= ${root!.lft} AND climbs.lft <= ${root!.rght} AND climbs.rght <= ${root!.rght}
+        WITH RECURSIVE subtree(id) AS (
+          SELECT 1
+          UNION ALL
+          SELECT a.id FROM areas a JOIN subtree s ON a.parent_id = s.id
+        )
+        SELECT climbs.id FROM climbs INDEXED BY climbs_area_idx
+        JOIN areas ON areas.id = climbs.area_id
+        WHERE climbs.area_id IN (SELECT id FROM subtree)
         ORDER BY climbs.send_count DESC, climbs.id
         LIMIT 51 OFFSET 0
       `);
-      expect(plan.some((row) => row.detail.includes("climbs_lft_rght_idx"))).toBe(true);
+      const details = plan.map((row) => row.detail);
+      // Small subtree: gather the candidates and sort them, rather than
+      // scanning a global sort index hunting for the few that match.
+      expect(details.some((d) => d.includes("climbs_area_idx"))).toBe(true);
+      expect(details.some((d) => d.includes("climbs_send_count_desc_idx"))).toBe(false);
     });
   });
 

@@ -1,4 +1,4 @@
-import { asc, eq, sql, type SQL } from "drizzle-orm";
+import { eq, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas } from "@/db/schema";
 import { toFtsPrefixQuery } from "./shared";
@@ -9,12 +9,23 @@ export async function getArea(db: Database, id: number): Promise<Area | undefine
   return db.select().from(areas).where(eq(areas.id, id)).get();
 }
 
+/** Direct children, name-sorted.
+ *
+ * COLLATE NOCASE, not SQLite's default BINARY: this ordering used to come
+ * from areas.lft, which encoded a JS localeCompare sort, so a plain binary
+ * sort would drop every lowercase-initial name below every uppercase one —
+ * visibly reordering real sibling lists ("stawamus river valley" and
+ * "wrinkle rock" would jump below "Yonderland" under Squamish).
+ *
+ * Sorting here rather than reading a stored position also means a rename
+ * takes effect immediately; lft only moved when a full tree recompute ran,
+ * which updateArea never triggered. */
 export async function getSubareas(db: Database, areaId: number): Promise<Area[]> {
   return db
     .select()
     .from(areas)
     .where(eq(areas.parentId, areaId))
-    .orderBy(asc(areas.lft));
+    .orderBy(sql`${areas.name} COLLATE NOCASE`);
 }
 
 /** Root-first, immediate-parent-last. Does not include `area` itself.

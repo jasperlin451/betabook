@@ -1,0 +1,191 @@
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { env } from "cloudflare:test";
+import { sql } from "drizzle-orm";
+import { createDb } from "@/db/client";
+import { getArea, getSubareas, getSubtreeClimbs, findClimbsByNameAndArea } from "@/db/queries";
+import { seedFixtureTree } from "@/test/fixtures";
+import { createArea, createClimb, updateArea } from "@/db/mutations";
+
+/** A newly created area has to be *fully placed* the moment createArea
+ * returns: its own page, its parent's sub-area list, and every ancestor's
+ * subtree climb listing all have to agree immediately.
+ *
+ * That used to be untrue. Areas were inserted at a placeholder lft=0/rght=0
+ * and repaired by a background recompute, but every subtree read treated 0/0
+ * as a real coordinate — so until the repair landed, the new area's own page
+ * matched `lft >= 0 AND lft <= 0`, i.e. every *other* pending climb in the
+ * database, while ancestors matched none of them. Resolving ancestry from
+ * parentId at read time removes the window rather than shortening it. */
+
+vi.mock("next/cache", () => ({ refresh: () => {}, revalidatePath: () => {} }));
+
+vi.mock("@/lib/session", async () => {
+  const { NotSignedInError } = await import("@/lib/action-result");
+  return {
+    getSession: async () => ({ user: { id: "test-user" } }),
+    requireSession: async () => ({ user: { id: "test-user" } }),
+    NotSignedInError,
+  };
+});
+
+vi.mock("@/db/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/db/client")>();
+  const { env } = await import("cloudflare:test");
+  return {
+    ...actual,
+    getDb: async () => actual.createDb(env.DB),
+    getDbAndContext: async () => ({
+      db: actual.createDb(env.DB),
+      ctx: { waitUntil: () => {} } as unknown as ExecutionContext,
+    }),
+  };
+});
+
+const db = createDb(env.DB);
+
+function areaForm(name: string): FormData {
+  const formData = new FormData();
+  formData.set("name", name);
+  formData.set("description", "");
+  return formData;
+}
+
+function climbForm(name: string): FormData {
+  const formData = new FormData();
+  formData.set("name", name);
+  formData.set("type", "boulder");
+  formData.set("grade", "5");
+  formData.set("description", "");
+  return formData;
+}
+
+/** Fixture tree: Test Crag (1) > Test Boulders (2) > {Test Highball Alcove
+ * (4), Test Slab Area (5)}, and Test Crag (1) > Test Sport Wall (3). */
+const TEST_CRAG = 1;
+const TEST_BOULDERS = 2;
+const TEST_SPORT_WALL = 3;
+
+async function climbNamesUnder(areaId: number): Promise<string[]> {
+  const area = await getArea(db, areaId);
+  const { climbs } = await getSubtreeClimbs(db, area!, 1, "name_asc");
+  return climbs.map((c) => c.name);
+}
+
+beforeAll(async () => {
+  await seedFixtureTree(db);
+});
+
+describe("a brand-new area is immediately correct", () => {
+  it("shows its climb on its own page and every ancestor's, and nowhere else", async () => {
+    const created = await createArea(TEST_BOULDERS, areaForm("Test Roof Cave"));
+    expect(created.ok).toBe(true);
+    const newAreaId = created.ok ? created.value : 0;
+
+    const climb = await createClimb(newAreaId, climbForm("Test Roof Problem"));
+    expect(climb.ok).toBe(true);
+
+    // Its own page, with no recompute having run in between.
+    expect(await climbNamesUnder(newAreaId)).toEqual(["Test Roof Problem"]);
+
+    // Both ancestors.
+    expect(await climbNamesUnder(TEST_BOULDERS)).toContain("Test Roof Problem");
+    expect(await climbNamesUnder(TEST_CRAG)).toContain("Test Roof Problem");
+
+    // And nowhere off the ancestor chain.
+    expect(await climbNamesUnder(TEST_SPORT_WALL)).not.toContain("Test Roof Problem");
+  });
+
+  it("is resolvable by an ancestor's name — the CSV import lookup", async () => {
+    const created = await createArea(TEST_BOULDERS, areaForm("Test Import Alcove"));
+    const newAreaId = created.ok ? created.value : 0;
+    await createClimb(newAreaId, climbForm("Test Imported Climb"));
+
+    // How import.ts matches a CSV row that names a broad area rather than the
+    // exact one. Under the placeholder scheme this returned nothing until a
+    // recompute landed, so the import reported "climb not found" for a climb
+    // the user had just created.
+    const byAncestor = await findClimbsByNameAndArea(db, "Test Imported Climb", "Test Crag");
+    expect(byAncestor).toHaveLength(1);
+
+    const byOwnArea = await findClimbsByNameAndArea(db, "Test Imported Climb", "Test Import Alcove");
+    expect(byOwnArea).toHaveLength(1);
+
+    const byUnrelatedArea = await findClimbsByNameAndArea(db, "Test Imported Climb", "Test Sport Wall");
+    expect(byUnrelatedArea).toHaveLength(0);
+  });
+
+  it("keeps concurrent creates under different parents out of each other's listings", async () => {
+    const [underBoulders, underSportWall] = await Promise.all([
+      createArea(TEST_BOULDERS, areaForm("Test Parallel Boulders Bay")),
+      createArea(TEST_SPORT_WALL, areaForm("Test Parallel Sport Bay")),
+    ]);
+    const bouldersBayId = underBoulders.ok ? underBoulders.value : 0;
+    const sportBayId = underSportWall.ok ? underSportWall.value : 0;
+
+    await Promise.all([
+      createClimb(bouldersBayId, climbForm("Test Parallel Boulder Problem")),
+      createClimb(sportBayId, climbForm("Test Parallel Sport Route")),
+    ]);
+
+    // Two simultaneously-pending areas used to share the same 0/0 window, so
+    // each one's page listed the other's climbs.
+    expect(await climbNamesUnder(bouldersBayId)).toEqual(["Test Parallel Boulder Problem"]);
+    expect(await climbNamesUnder(sportBayId)).toEqual(["Test Parallel Sport Route"]);
+  });
+});
+
+describe("creating an area doesn't rewrite the rest of the tree", () => {
+  it("leaves every pre-existing area and climb row untouched", async () => {
+    const before = {
+      areas: await db.all(sqlAllAreas()),
+      climbs: await db.all(sqlAllClimbs()),
+    };
+
+    const created = await createArea(TEST_BOULDERS, areaForm("Test Untouched Bay"));
+    const newAreaId = created.ok ? created.value : 0;
+    await createClimb(newAreaId, climbForm("Test Untouched Problem"));
+
+    const after = {
+      areas: (await db.all<{ id: number }>(sqlAllAreas())).filter((r) => r.id !== newAreaId),
+      climbs: (await db.all<{ areaId: number }>(sqlAllClimbs())).filter(
+        (r) => r.areaId !== newAreaId,
+      ),
+    };
+
+    // The nested-set encoding had to renumber a share of both tables on every
+    // insert — measured at ~133k-303k rows against the production dataset.
+    // Ancestry lives in parentId now, so an insert is an insert.
+    expect(after.areas).toEqual(before.areas);
+    expect(after.climbs).toEqual(before.climbs);
+  });
+});
+
+describe("renaming an area", () => {
+  it("reorders it among its siblings immediately", async () => {
+    await createArea(TEST_CRAG, areaForm("Zzz Test Last Wall"));
+
+    const before = (await getSubareas(db, TEST_CRAG)).map((a) => a.name);
+    expect(before.at(-1)).toBe("Zzz Test Last Wall");
+
+    const target = (await getSubareas(db, TEST_CRAG)).find((a) => a.name === "Zzz Test Last Wall");
+    const renamed = await updateArea(target!.id, areaForm("Aaa Test First Wall"));
+    expect(renamed.ok).toBe(true);
+
+    // Sibling order came from areas.lft, which only moved when a full tree
+    // recompute ran — and updateArea never triggered one, so a rename used to
+    // leave the area sorted under its old name indefinitely.
+    const after = (await getSubareas(db, TEST_CRAG)).map((a) => a.name);
+    expect(after[0]).toBe("Aaa Test First Wall");
+  });
+});
+
+// Declared after use for readability above; hoisted function declarations.
+function sqlAllAreas() {
+  return sql`SELECT id, parent_id AS parentId, name, description FROM areas ORDER BY id`;
+}
+function sqlAllClimbs() {
+  return sql`
+    SELECT id, area_id AS areaId, name, type, grade, send_count AS sendCount
+    FROM climbs ORDER BY id
+  `;
+}
