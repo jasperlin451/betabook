@@ -1,6 +1,7 @@
 "use client";
 
 import { SearchField } from "@/components/ui/search-field";
+import { AreaNameAutocomplete } from "@/components/area-name-autocomplete";
 import type { ReactNode } from "react";
 import { Button, buttonVariants, Checkbox, Disclosure } from "@heroui/react";
 import clsx from "clsx";
@@ -46,12 +47,9 @@ function NameSearchFields({
         />
       )}
       {onAreaNameChange && (
-        <SearchField
-          value={areaName}
-          onChange={onAreaNameChange}
-          label="Area Name"
-          placeholder="Search areas…"
-        />
+        // Areas are a known set — an autocomplete over real area names,
+        // not a blind text field (see AreaNameAutocomplete).
+        <AreaNameAutocomplete value={areaName} onChange={onAreaNameChange} />
       )}
       {(onNameChange || onAreaNameChange) && (
         <p className="text-xs text-muted">Results update as you type.</p>
