@@ -192,6 +192,6 @@
 }
 
 @utility animate-bar-grow {
-  animation: bar-grow 0.5s ease-out backwards;
+  animation: bar-grow 0.25s ease-out backwards;
   transform-origin: bottom;
 }

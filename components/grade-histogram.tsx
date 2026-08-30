@@ -127,7 +127,7 @@ function DisciplineChart({
               )}
               style={{
                 height: `${barHeight(bucket.count, max)}px`,
-                animationDelay: `${(delayBase + i) * 40}ms`,
+                animationDelay: `${(delayBase + i) * 15}ms`,
               }}
               title={
                 active
