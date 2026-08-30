@@ -6,6 +6,7 @@ import {
   guessAscentStyleMapping,
   guessClimbTypeMapping,
   guessColumnMapping,
+  guessGradeFeelMapping,
   normalizeImportRows,
   parseCsvText,
   parseDateWithFormat,
@@ -13,10 +14,13 @@ import {
   type BatchErrorRow,
   type ClimbTypeMapping,
   type ColumnMapping,
+  type DateFormat,
+  type GradeFeelMapping,
   type InvalidImportRow,
   type NotFoundRow,
   type ParsedCsv,
 } from "./sends-import";
+import { MAX_COMMENT_LENGTH } from "./sends";
 
 const SAMPLE_HEADERS = [
   "Date",
@@ -52,6 +56,12 @@ const CLIMB_TYPE_MAPPING: ClimbTypeMapping = {
   boulder: "boulder",
   sport: "sport",
   trad: "trad",
+};
+
+const GRADE_FEEL_MAPPING: GradeFeelMapping = {
+  Low: "low",
+  Solid: "solid",
+  High: "high",
 };
 
 const TODAY = "2026-08-19";
@@ -177,9 +187,67 @@ describe("parseDateWithFormat", () => {
     expect(parseDateWithFormat("13/40/2026", "mdy")).toBeNull();
   });
 
-  it("returns null when the format doesn't match the string shape", () => {
+  it("returns null for an all-numeric date the chosen format can't read", () => {
+    // Nothing in the value says whether this is Aug 12th or Dec 8th, and the
+    // user said their file is ISO, so it's a failed row rather than a guess.
     expect(parseDateWithFormat("8/12/2026", "iso")).toBeNull();
-    expect(parseDateWithFormat("2026-08-12", "mdy")).toBeNull();
+  });
+
+  it("parses unambiguous formats whatever the chosen format is", () => {
+    for (const format of ["iso", "mdy", "dmy"] as const) {
+      // JS Date#toString, which is what a naively serialized Date looks like.
+      expect(
+        parseDateWithFormat("Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", format),
+      ).toBe("2019-10-15");
+      expect(parseDateWithFormat("2026-08-12", format)).toBe("2026-08-12");
+      expect(parseDateWithFormat("Oct 15, 2019", format)).toBe("2019-10-15");
+    }
+  });
+
+  it("parses the timestamp shapes exports tend to emit", () => {
+    const cases: [string, string][] = [
+      ["Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", "2019-10-15"],
+      ["Sat Mar 07 2020 13:45:02 GMT-0800 (Pacific Standard Time)", "2020-03-07"],
+      ["Tue, 15 Oct 2019 00:00:00 GMT", "2019-10-15"], // RFC 1123 / toUTCString
+      ["2019-10-15T00:00:00.000Z", "2019-10-15"],
+      ["2019-10-15T23:30:00-07:00", "2019-10-15"], // civil date as written, not shifted to UTC
+      ["2019-10-15 00:00:00", "2019-10-15"],
+      ["10/15/2019 2:05 PM", "2019-10-15"],
+    ];
+    for (const [raw, expected] of cases) {
+      expect(parseDateWithFormat(raw, "mdy"), raw).toBe(expected);
+    }
+  });
+
+  it("parses named-month and non-slash numeric formats", () => {
+    const cases: [string, DateFormat, string][] = [
+      ["October 15, 2019", "iso", "2019-10-15"],
+      ["oct 15 2019", "iso", "2019-10-15"],
+      ["Sept 15, 2019", "iso", "2019-09-15"],
+      ["15 October 2019", "iso", "2019-10-15"],
+      ["15-Oct-2019", "iso", "2019-10-15"], // Excel's text-date rendering
+      ["2019/10/15", "iso", "2019-10-15"],
+      ["20191015", "iso", "2019-10-15"], // ISO 8601 basic
+      ["2019-1-5", "iso", "2019-01-05"], // unpadded
+      ["15.10.2019", "dmy", "2019-10-15"], // European dotted
+      ["10-15-2019", "mdy", "2019-10-15"],
+      ["10/15/19", "mdy", "2019-10-15"], // two-digit year
+      ["15/10/19", "dmy", "2019-10-15"],
+      ["15-10-19", "dmy", "2019-10-15"], // must not be read as ISO year 15
+      ["10/15/89", "mdy", "1989-10-15"], // two-digit years pivot like a spreadsheet's
+    ];
+    for (const [raw, format, expected] of cases) {
+      expect(parseDateWithFormat(raw, format), raw).toBe(expected);
+    }
+  });
+
+  it("rejects values that only look like dates", () => {
+    expect(parseDateWithFormat("2019-10-15 extra", "iso")).toBeNull();
+    expect(parseDateWithFormat("Oct 2019", "iso")).toBeNull();
+    expect(parseDateWithFormat("last Tuesday", "iso")).toBeNull();
+    expect(parseDateWithFormat("43753", "iso")).toBeNull(); // Excel serial number
+    expect(parseDateWithFormat("2019-02-30", "iso")).toBeNull();
+    expect(parseDateWithFormat("Feb 30, 2019", "iso")).toBeNull();
   });
 });
 
@@ -195,6 +263,12 @@ describe("detectDateFormat", () => {
   it("detects DMY dates (day > 12 disambiguates from MDY)", () => {
     expect(detectDateFormat(["25/8/2026", "26/8/2026"])).toBe("dmy");
   });
+
+  it("lets the all-numeric values decide when unambiguous values are mixed in", () => {
+    expect(
+      detectDateFormat(["Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", "25/8/2026"]),
+    ).toBe("dmy");
+  });
 });
 
 describe("normalizeImportRows", () => {
@@ -204,6 +278,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -230,6 +305,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -243,6 +319,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -250,17 +327,60 @@ describe("normalizeImportRows", () => {
     expect(invalid[0].reason).toMatch(/unparseable date/i);
   });
 
-  it("rejects a date in the future", () => {
+  it("normalizes a serialized-Date timestamp to its civil date", () => {
     const { valid, invalid } = normalizeImportRows(
-      csv([row({ Date: "2026-08-20" })]),
+      csv([row({ Date: "Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)" })]),
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      TODAY,
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].dateSent).toBe("2019-10-15");
+  });
+
+  it("rejects a date two days past UTC today", () => {
+    const { valid, invalid } = normalizeImportRows(
+      csv([row({ Date: "2026-08-21" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
     expect(valid).toEqual([]);
     expect(invalid[0].reason).toMatch(/future/i);
+  });
+
+  it("accepts a date equal to UTC today", () => {
+    const { valid, invalid } = normalizeImportRows(
+      csv([row({ Date: TODAY })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      TODAY,
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].dateSent).toBe(TODAY);
+  });
+
+  it("accepts a date one day past UTC today (a UTC+14 client's local today)", () => {
+    const { valid, invalid } = normalizeImportRows(
+      csv([row({ Date: "2026-08-20" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      TODAY,
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].dateSent).toBe("2026-08-20");
   });
 
   it("rejects an unmapped ascent-style value", () => {
@@ -269,6 +389,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -282,6 +403,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       { ...ASCENT_STYLE_MAPPING, attempt: "skip" },
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -290,17 +412,18 @@ describe("normalizeImportRows", () => {
   });
 
   it("truncates an over-length comment instead of rejecting the row", () => {
-    const longComment = "a".repeat(300);
+    const longComment = "a".repeat(MAX_COMMENT_LENGTH + 20);
     const { valid, invalid } = normalizeImportRows(
       csv([row({ Comments: longComment })]),
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
     expect(invalid).toEqual([]);
-    expect(valid[0].comment).toHaveLength(280);
+    expect(valid[0].comment).toHaveLength(MAX_COMMENT_LENGTH);
   });
 
   it("treats blank optional fields as null", () => {
@@ -309,6 +432,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -323,6 +447,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       { ...CLIMB_TYPE_MAPPING, sport: "skip" },
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -330,13 +455,14 @@ describe("normalizeImportRows", () => {
     expect(valid[0].climbTypeHint).toBeNull();
   });
 
-  it("maps a mapped Grade Feel column's value, case-insensitively", () => {
+  it("resolves a Grade Feel value through the grade-feel mapping", () => {
     const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
     const { valid } = normalizeImportRows(
       { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "High" })] },
       mappingWithFeel,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -344,17 +470,33 @@ describe("normalizeImportRows", () => {
   });
 
   it("defaults gradeFeel to solid when the CSV has no matching column", () => {
-    const { valid } = normalizeImportRows(csv([row()]), FULL_MAPPING, ASCENT_STYLE_MAPPING, CLIMB_TYPE_MAPPING, "iso", TODAY);
+    const { valid } = normalizeImportRows(csv([row()]), FULL_MAPPING, ASCENT_STYLE_MAPPING, CLIMB_TYPE_MAPPING, GRADE_FEEL_MAPPING, "iso", TODAY);
     expect(valid[0].gradeFeel).toBe("solid");
   });
 
-  it("defaults gradeFeel to solid for an unrecognized value, without invalidating the row", () => {
+  it("defaults gradeFeel to solid for an unmapped value, without invalidating the row", () => {
     const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
     const { valid, invalid } = normalizeImportRows(
       { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "medium" })] },
       mappingWithFeel,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      TODAY,
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].gradeFeel).toBe("solid");
+  });
+
+  it("falls back to solid when a grade feel value is explicitly skipped", () => {
+    const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
+    const { valid, invalid } = normalizeImportRows(
+      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "High" })] },
+      mappingWithFeel,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      { ...GRADE_FEEL_MAPPING, High: "skip" },
       "iso",
       TODAY,
     );
@@ -368,6 +510,7 @@ describe("normalizeImportRows", () => {
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
       "iso",
       TODAY,
     );
@@ -524,5 +667,32 @@ describe("guessClimbTypeMapping", () => {
 
   it("maps unrecognized values to 'skip'", () => {
     expect(guessClimbTypeMapping(["nonsense"])).toEqual({ nonsense: "skip" });
+  });
+});
+
+describe("guessGradeFeelMapping", () => {
+  it("maps values that match a known grade feel, case-insensitively", () => {
+    expect(guessGradeFeelMapping(["Low", "solid", "HIGH"])).toEqual({
+      Low: "low",
+      solid: "solid",
+      HIGH: "high",
+    });
+  });
+
+  it("maps the common soft/stiff phrasings other sites use", () => {
+    expect(guessGradeFeelMapping(["Soft", "stiff", "Hard", "easy"])).toEqual({
+      Soft: "low",
+      stiff: "high",
+      Hard: "high",
+      easy: "low",
+    });
+  });
+
+  it("maps unrecognized values to 'skip'", () => {
+    expect(guessGradeFeelMapping(["nonsense"])).toEqual({ nonsense: "skip" });
+  });
+
+  it("leaves ambiguous jargon like 'sandbagged' for the user to map", () => {
+    expect(guessGradeFeelMapping(["sandbagged"])).toEqual({ sandbagged: "skip" });
   });
 });

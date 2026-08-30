@@ -1,8 +1,10 @@
+import { format as formatDate, isValid, parse } from "date-fns";
 import Papa from "papaparse";
 import {
   ASCENT_STYLES,
   GRADE_FEEL_VALUES,
   MAX_COMMENT_LENGTH,
+  latestAcceptableSendDate,
   type AscentStyle,
   type GradeFeel,
 } from "@/lib/sends";
@@ -26,11 +28,13 @@ export function distinctValues(rows: Record<string, string>[], column: string | 
 }
 
 // Cloudflare Workers cap a single invocation at 50 subrequests (Free plan).
-// Per db/mutations.ts's importSends: ~2 for the session/auth lookup, 1 for
-// getUserSentClimbIds, up to IMPORT_BATCH_SIZE for climb resolution (one
-// query per row), and a couple more for the chunked insert+climbs-aggregate
-// db.batch (one subrequest per chunk regardless of how many statements ride
-// in that batch). 25 rows -> ~31 subrequests, comfortable margin under 50.
+// Per db/mutations/import.ts's importSends: ~2 for the session/auth lookup,
+// 1 for getUserSentClimbIds, up to IMPORT_BATCH_SIZE for climb resolution
+// (one query per row), and a few more for the chunked insert and overwrite
+// loops (one subrequest per chunk regardless of how many statements ride in
+// that batch). Every row lands in exactly one of those two loops, so
+// together they add at most ceil(25/10) + 1 = 4 for an uneven split.
+// 25 rows -> ~32 subrequests, comfortable margin under 50.
 // The import wizard calls
 // importSends once per batch of this size, sequentially, rather than
 // passing the whole CSV in one call. Lives here (not in db/mutations.ts)
@@ -147,44 +151,116 @@ export function guessColumnMapping(headers: string[]): ColumnMapping {
   return mapping;
 }
 
+/**
+ * How to read an all-numeric date. This is the only genuinely ambiguous
+ * choice — "05/06/2019" is May 6th to an American export and June 5th to a
+ * European one, and nothing in the file can settle it — so it's the only
+ * thing the wizard asks the user about. Every other shape below carries its
+ * own field order and is parsed regardless of this setting.
+ */
 export type DateFormat = "iso" | "mdy" | "dmy";
 
-const ISO_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
-const SLASH_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+/**
+ * Formats that can't be misread: the month is spelled out, or the year comes
+ * first. Tried for every DateFormat, so a file that mixes (say) ISO rows into
+ * an otherwise MM/DD/YYYY export still imports cleanly.
+ *
+ * date-fns' numeric tokens tolerate missing zero-padding ("2019-1-5" parses
+ * under "yyyy-MM-dd") and month names are matched case-insensitively, so each
+ * entry covers more than its literal spelling. "MMM" and "MMMM" don't
+ * substitute for each other, though, so abbreviated and full month names are
+ * listed separately.
+ */
+const UNAMBIGUOUS_FORMATS = [
+  "yyyy-MM-dd", // ISO 8601, and what an ISO timestamp reduces to once its time part is stripped
+  "yyyy/MM/dd",
+  "yyyy.MM.dd",
+  "yyyyMMdd", // ISO 8601 basic
+  "EEE MMM d yyyy", // JS Date#toString: "Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)"
+  "EEE, d MMM yyyy", // RFC 1123 / Date#toUTCString: "Tue, 15 Oct 2019 00:00:00 GMT"
+  "MMMM d, yyyy", // "October 15, 2019"
+  "MMM d, yyyy", // "Oct 15, 2019"
+  "MMMM d yyyy",
+  "MMM d yyyy",
+  "d MMMM yyyy", // "15 October 2019"
+  "d MMM yyyy",
+  "d-MMM-yyyy", // "15-Oct-2019" — Excel's default rendering of a text date
+  "MMM-d-yyyy",
+];
 
-function isValidDate(year: number, month: number, day: number): boolean {
-  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  );
+/** All-numeric formats, read according to the user's DateFormat choice.
+ * Two-digit years are mapped to the nearest century by date-fns (69 -> 1969,
+ * 26 -> 2026), which matches how spreadsheets read them. */
+const AMBIGUOUS_FORMATS: Record<DateFormat, string[]> = {
+  // ISO's numeric shapes are unambiguous, so they're already covered above.
+  iso: [],
+  mdy: ["M/d/yyyy", "M-d-yyyy", "M.d.yyyy", "M/d/yy", "M-d-yy", "M.d.yy"],
+  dmy: ["d/M/yyyy", "d-M-yyyy", "d.M.yyyy", "d/M/yy", "d-M-yy", "d.M.yy"],
+};
+
+// A trailing timezone name in parens, as JS Date#toString emits:
+// "(GMT+00:00)", "(Pacific Daylight Time)".
+const TZ_NAME_RE = /\s*\([^)]*\)\s*$/;
+
+// A trailing time, with an optional timezone glued to it: " 00:00:00",
+// "T00:00:00.000Z", " 00:00:00 GMT+0000", " 2:05 PM". The timezone is only
+// stripped as part of a time so that the "-2019" in "15-Oct-2019" can't be
+// mistaken for a UTC offset.
+const TIME_RE =
+  /[T\s]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:[AP]\.?M\.?)?\s*(?:(?:GMT|UTC|UT)?\s*(?:Z|[+-]\d{1,2}:?\d{2})?)\s*$/i;
+
+/**
+ * Reduces a timestamp to the civil date it displays, dropping the time and
+ * timezone. Deliberately takes the date *as written* rather than converting
+ * to UTC: a log line reading "Tue Oct 15 2019 ... GMT-0700" is a send on
+ * October 15th to the person who logged it, and shifting it to the 16th
+ * because of an offset would be wrong. Sends are stored as civil dates, with
+ * no time, for the same reason.
+ */
+function stripTimeSuffix(value: string): string {
+  return value.replace(TZ_NAME_RE, "").replace(TIME_RE, "").trim();
 }
+
+// date-fns spells September "Sep"; "Sept" is common enough in hand-written
+// logs to be worth normalizing rather than rejecting.
+const SEPT_RE = /\bSept\b/gi;
+
+// `parse` fills in any field its format doesn't cover from this date. Every
+// format above supplies year, month and day, so it only ever contributes the
+// time of day — but it's fixed rather than `new Date()` to keep parsing
+// independent of when it runs.
+const REFERENCE_DATE = new Date(2000, 0, 1);
 
 /** Returns an ISO YYYY-MM-DD string, or null if unparseable/blank under the given format. */
 export function parseDateWithFormat(raw: string, format: DateFormat): string | null {
-  const trimmed = raw.trim();
+  const trimmed = stripTimeSuffix(raw.trim()).replace(SEPT_RE, "Sep");
   if (!trimmed) return null;
 
-  if (format === "iso") {
-    const m = ISO_RE.exec(trimmed);
-    if (!m) return null;
-    const [, y, mo, d] = m;
-    return isValidDate(Number(y), Number(mo), Number(d)) ? trimmed : null;
+  for (const pattern of [...UNAMBIGUOUS_FORMATS, ...AMBIGUOUS_FORMATS[format]]) {
+    // `parse` anchors on the whole string — trailing junk fails the match —
+    // and rejects impossible dates like 2019-02-30, so a valid result here
+    // means the value really was that format.
+    const parsed = parse(trimmed, pattern, REFERENCE_DATE);
+    if (isValid(parsed) && isPlausibleYear(parsed)) return formatDate(parsed, "yyyy-MM-dd");
   }
 
-  const m = SLASH_RE.exec(trimmed);
-  if (!m) return null;
-  const [, a, b, y] = m;
-  const month = format === "mdy" ? Number(a) : Number(b);
-  const day = format === "mdy" ? Number(b) : Number(a);
-  const year = Number(y);
-  if (!isValidDate(year, month, day)) return null;
-  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return null;
 }
 
-/** Tries each candidate format against the sample values, returns whichever parses the most of them (ties favor "iso"). */
+// No one logs a send from year 19, so an implausible year means a token ate
+// the wrong digits and the next format should get a shot. date-fns' "yyyy"
+// matches 1-4 digits, so without this "10/15/19" would parse as year 19 under
+// "M/d/yyyy" instead of falling through to "M/d/yy" and its 2019.
+function isPlausibleYear(date: Date): boolean {
+  const year = date.getFullYear();
+  return year >= 1900 && year <= 2100;
+}
+
+/** Tries each candidate format against the sample values, returns whichever
+ * parses the most of them (ties favor "iso"). Values in an unambiguous format
+ * parse under all three candidates, so they tie and leave the choice to
+ * whatever all-numeric values are in the sample — which is exactly the
+ * decision the setting exists to make. */
 export function detectDateFormat(sampleValues: string[]): DateFormat {
   const candidates: DateFormat[] = ["iso", "mdy", "dmy"];
   let best: DateFormat = "iso";
@@ -205,6 +281,7 @@ export function detectDateFormat(sampleValues: string[]): DateFormat {
 
 export type AscentStyleMapping = Record<string, AscentStyle | "skip">;
 export type ClimbTypeMapping = Record<string, ClimbType | "skip">;
+export type GradeFeelMapping = Record<string, GradeFeel | "skip">;
 
 /** Pre-fills the value-mapping step's ascent-style dropdowns by matching
  * each distinct CSV value against a known ascent style; anything that
@@ -224,6 +301,34 @@ export function guessClimbTypeMapping(values: string[]): ClimbTypeMapping {
   const mapping: ClimbTypeMapping = {};
   for (const value of values) {
     const match = CLIMB_TYPES.find((t) => t === value.trim().toLowerCase());
+    mapping[value] = match ?? "skip";
+  }
+  return mapping;
+}
+
+// Other sites rarely use betabook's own low/solid/high wording — soft/stiff
+// is the more common phrasing — so the guess covers the unambiguous
+// synonyms. Deliberately excludes terms like "sandbagged", which people use
+// to mean opposite things; those fall through to "skip" for the user to
+// decide rather than being guessed wrong.
+const GRADE_FEEL_ALIASES: Record<string, GradeFeel> = {
+  soft: "low",
+  easy: "low",
+  fair: "solid",
+  accurate: "solid",
+  stiff: "high",
+  hard: "high",
+};
+
+/** Same as guessAscentStyleMapping, but for the optional grade-feel column.
+ * Unmapped values fall back to the "solid" default rather than failing the
+ * row — grade feel is never required. */
+export function guessGradeFeelMapping(values: string[]): GradeFeelMapping {
+  const mapping: GradeFeelMapping = {};
+  for (const value of values) {
+    const normalized = value.trim().toLowerCase();
+    const match =
+      GRADE_FEEL_VALUES.find((t) => t === normalized) ?? GRADE_FEEL_ALIASES[normalized];
     mapping[value] = match ?? "skip";
   }
   return mapping;
@@ -259,11 +364,15 @@ export function normalizeImportRows(
   mapping: ColumnMapping,
   ascentStyleMapping: AscentStyleMapping,
   climbTypeMapping: ClimbTypeMapping,
+  gradeFeelMapping: GradeFeelMapping,
   dateFormat: DateFormat,
   today: string = new Date().toISOString().slice(0, 10),
 ): { valid: NormalizedImportRow[]; invalid: InvalidImportRow[] } {
   const valid: NormalizedImportRow[] = [];
   const invalid: InvalidImportRow[] = [];
+  // One day past UTC today, since a client's local today can be ahead of
+  // UTC's — see latestAcceptableSendDate.
+  const latestDateSent = latestAcceptableSendDate(today);
 
   parsed.rows.forEach((row, rowIndex) => {
     const fail = (reason: string) => invalid.push({ rowIndex, raw: row, reason });
@@ -293,7 +402,7 @@ export function normalizeImportRows(
     if (rawDate) {
       dateSent = parseDateWithFormat(rawDate, dateFormat);
       if (dateSent === null) return fail(`Unparseable date "${rawDate}"`);
-      if (dateSent > today) return fail(`Date "${rawDate}" is in the future`);
+      if (dateSent > latestDateSent) return fail(`Date "${rawDate}" is in the future`);
     }
 
     const rawClimbType = mapping.climbType ? (row[mapping.climbType] ?? "").trim() : "";
@@ -317,12 +426,12 @@ export function normalizeImportRows(
 
     const gradeText = mapping.grade ? (row[mapping.grade] ?? "").trim() || null : null;
 
-    const rawGradeFeel = mapping.gradeFeel
-      ? (row[mapping.gradeFeel] ?? "").trim().toLowerCase()
-      : "";
-    const gradeFeel: GradeFeel = (GRADE_FEEL_VALUES as readonly string[]).includes(rawGradeFeel)
-      ? (rawGradeFeel as GradeFeel)
-      : "solid";
+    const rawGradeFeel = mapping.gradeFeel ? (row[mapping.gradeFeel] ?? "").trim() : "";
+    const mappedGradeFeel = rawGradeFeel ? gradeFeelMapping[rawGradeFeel] : undefined;
+    // Unmapped or explicitly ignored grade feel falls back to the "solid"
+    // default — unlike ascent style, it never invalidates a row.
+    const gradeFeel: GradeFeel =
+      mappedGradeFeel && mappedGradeFeel !== "skip" ? mappedGradeFeel : "solid";
 
     valid.push({
       climbName,

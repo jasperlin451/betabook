@@ -56,7 +56,7 @@ export async function createArea(
     const { db, ctx } = await getDbAndContext();
 
     // areas_fts stays in sync via triggers (drizzle/migrations/
-    // 0014_fts_sync_triggers.sql), atomically within this same statement.
+    // 0015_fts_sync_triggers.sql), atomically within this same statement.
     const [{ id }] = await db
       .insert(areas)
       .values({ parentId, lft: 0, rght: 0, ...input })

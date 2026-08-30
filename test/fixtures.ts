@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas, climbs, user, sends } from "@/db/schema";
 
@@ -35,7 +35,7 @@ export async function seedFixtureTree(db: Database) {
   ]);
 
   // areas_fts/climbs_fts are populated by the sync triggers
-  // (drizzle/migrations/0014_fts_sync_triggers.sql) — seeding them by hand
+  // (drizzle/migrations/0015_fts_sync_triggers.sql) — seeding them by hand
   // here would double-index every row.
 }
 
@@ -109,12 +109,11 @@ type FixtureSendOverrides = Partial<typeof sends.$inferInsert> & {
   dateSent: string | null;
 };
 
-/** Inserts a `sends` row referencing an existing fixture user/climb. Also
- * keeps climbs.sendCount/ratingSum/ratingCount in sync, mirroring what
- * db/mutations.ts's createSend does for a real write — tests that seed sends
- * directly (bypassing that mutation) would otherwise leave those
- * denormalized columns at 0, breaking any getSubtreeClimbs sort/rating
- * assertion. */
+/** Inserts a `sends` row referencing an existing fixture user/climb.
+ * climbs.sendCount/ratingSum/ratingCount follow via the triggers from
+ * 0014_sends_aggregate_triggers, which the test pool applies along with
+ * every other migration — so seeding directly here stays consistent with a
+ * real write, and getSubtreeClimbs sort/rating assertions hold. */
 export async function seedFixtureSend(db: Database, overrides: FixtureSendOverrides) {
   const row = {
     ascentStyle: "redpoint" as const,
@@ -124,13 +123,5 @@ export async function seedFixtureSend(db: Database, overrides: FixtureSendOverri
     ...overrides,
   };
   await db.insert(sends).values(row);
-  await db
-    .update(climbs)
-    .set({
-      sendCount: sql`${climbs.sendCount} + 1`,
-      ratingSum: sql`${climbs.ratingSum} + ${row.rating ?? 0}`,
-      ratingCount: sql`${climbs.ratingCount} + ${row.rating != null ? 1 : 0}`,
-    })
-    .where(eq(climbs.id, row.climbId));
   return row;
 }
