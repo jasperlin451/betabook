@@ -11,21 +11,25 @@ export async function getArea(db: Database, id: number): Promise<Area | undefine
 
 /** Direct children, name-sorted.
  *
- * COLLATE NOCASE, not SQLite's default BINARY: this ordering used to come
- * from areas.lft, which encoded a JS localeCompare sort, so a plain binary
- * sort would drop every lowercase-initial name below every uppercase one —
- * visibly reordering real sibling lists ("stawamus river valley" and
- * "wrinkle rock" would jump below "Yonderland" under Squamish).
+ * Sorted in JS with localeCompare rather than by SQL ORDER BY, because
+ * neither collation SQLite offers gets this right for a worldwide area list.
+ * BINARY drops every lowercase-initial name below every uppercase one, and
+ * NOCASE only case-folds ASCII A-Z — so it sorts every accented name after
+ * `Z`, burying "Çitdibi" under Antalya and "Črni kal" under Slovenia at the
+ * bottom of their sibling lists. Measured against the previous ordering,
+ * NOCASE moved 2,623 of 10,230 areas and BINARY moved 3,436; localeCompare
+ * moves none, because it is what computeAreaBounds used to bake into
+ * areas.lft. D1 has no ICU collation to reach for instead.
  *
- * Sorting here rather than reading a stored position also means a rename
- * takes effect immediately; lft only moved when a full tree recompute ran,
- * which updateArea never triggered. */
+ * Affordable because this is one area's direct children — 1,749 at the very
+ * widest, typically under a hundred — fetched through areas_parent_idx.
+ *
+ * Sorting at read time rather than reading a stored position also means a
+ * rename takes effect immediately; lft only moved when a full tree recompute
+ * ran, which updateArea never triggered. */
 export async function getSubareas(db: Database, areaId: number): Promise<Area[]> {
-  return db
-    .select()
-    .from(areas)
-    .where(eq(areas.parentId, areaId))
-    .orderBy(sql`${areas.name} COLLATE NOCASE`);
+  const rows = await db.select().from(areas).where(eq(areas.parentId, areaId));
+  return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Root-first, immediate-parent-last. Does not include `area` itself.
