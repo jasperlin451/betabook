@@ -63,16 +63,22 @@ export async function seedManyClimbs(
   }
 }
 
-/** Inserts `count` unrelated root-level areas, each its own leaf, sharing a
- * common name prefix — for exercising an area-name filter that matches many
- * areas at once (regression coverage: matching N areas used to bind 2 SQL
- * parameters per match, blowing past D1's per-statement bound-parameter
- * limit — the same limit `seedManyClimbs`'s chunking works around). */
-export async function seedManyAreas(db: Database, count: number, startId: number) {
+/** Inserts `count` leaf areas sharing a common name prefix, root-level by
+ * default. Two uses: exercising an area-name filter that matches many areas at
+ * once (regression coverage: matching N areas used to bind 2 SQL parameters
+ * per match, blowing past D1's per-statement bound-parameter limit — the same
+ * limit `seedManyClimbs`'s chunking works around), and, with `parentId`,
+ * building a subtree wide enough to reach LARGE_AREA_SUBTREE_AREAS. */
+export async function seedManyAreas(
+  db: Database,
+  count: number,
+  startId: number,
+  { parentId = null, namePrefix = "Bulk Area" }: { parentId?: number | null; namePrefix?: string } = {},
+) {
   const rows = Array.from({ length: count }, (_, i) => ({
     id: startId + i,
-    parentId: null,
-    name: `Bulk Area ${i}`,
+    parentId,
+    name: `${namePrefix} ${i}`,
   }));
   const CHUNK_SIZE = 20;
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {

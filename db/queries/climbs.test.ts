@@ -4,7 +4,15 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
 import { getArea } from "./areas";
-import { findClimbsByNameAndArea, getClimb, getSubtreeClimbs, hasClimbsInArea, searchClimbs } from "./climbs";
+import {
+  findClimbsByNameAndArea,
+  getAreaWithSubtreeSize,
+  getClimb,
+  getSubtreeClimbs,
+  hasClimbsInArea,
+  searchClimbs,
+  LARGE_AREA_SUBTREE_AREAS,
+} from "./climbs";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyAreas } from "@/test/fixtures";
 
 // getSubtreeClimbs forces climbs_area_idx below LARGE_AREA_SUBTREE_AREAS
@@ -533,5 +541,48 @@ describe("findClimbsByNameAndArea", () => {
 
     const results = await findClimbsByNameAndArea(db, "Test Highball", "Test Crag");
     expect(results.map((c) => c.id).sort()).toEqual([1, 999]);
+  });
+});
+
+describe("getAreaWithSubtreeSize", () => {
+  it("returns the same area fields as getArea", async () => {
+    const plain = await getArea(db, 2); // Test Boulders
+    const withSize = await getAreaWithSubtreeSize(db, 2);
+    expect(withSize).toEqual({ ...plain!, largeSubtree: false });
+    // parentId specifically: this selects through drizzle's column spread, and
+    // a regression to a raw `areas.*` would hand back `parent_id` instead,
+    // leaving this undefined while every other assertion still passed.
+    expect(withSize?.parentId).toBe(1);
+  });
+
+  it("returns undefined for an unknown id", async () => {
+    expect(await getAreaWithSubtreeSize(db, 999999)).toBeUndefined();
+  });
+
+  it("gives getSubtreeClimbs the same answer as its own probe", async () => {
+    const area = await getAreaWithSubtreeSize(db, 1);
+    const threaded = await getSubtreeClimbs(db, area!, 1, "name_asc", undefined, area!.largeSubtree);
+    const probed = await getSubtreeClimbs(db, area!, 1, "name_asc");
+    expect(threaded).toEqual(probed);
+  });
+
+  // Pinned from both sides rather than only observing `false` on the small
+  // fixture tree: the threshold's failure mode is silent. An off-by-one
+  // between the probe's LIMIT and its comparison doesn't throw — it just
+  // reports every area as small and quietly hands back the slow query plan
+  // for the areas that most need the fast one. Seeded under its own root so
+  // it can't perturb the fixture tree's subtree assertions.
+  it("flips to largeSubtree exactly at LARGE_AREA_SUBTREE_AREAS", async () => {
+    const ROOT_ID = 200_000;
+    await db.insert(areas).values({ id: ROOT_ID, parentId: null, name: "Wide Root" });
+    // The root counts toward its own subtree, so this leaves it one short.
+    await seedManyAreas(db, LARGE_AREA_SUBTREE_AREAS - 2, ROOT_ID + 1, {
+      parentId: ROOT_ID,
+      namePrefix: "Wide Area",
+    });
+    expect((await getAreaWithSubtreeSize(db, ROOT_ID))?.largeSubtree).toBe(false);
+
+    await db.insert(areas).values({ id: ROOT_ID - 1, parentId: ROOT_ID, name: "Wide Area last" });
+    expect((await getAreaWithSubtreeSize(db, ROOT_ID))?.largeSubtree).toBe(true);
   });
 });

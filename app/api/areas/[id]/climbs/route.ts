@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
-import { getArea, getAreaBreadcrumbs, getClimbSendStats, getSubtreeClimbs } from "@/db/queries";
+import {
+  getAreaBreadcrumbs,
+  getAreaWithSubtreeSize,
+  getClimbSendStats,
+  getSubtreeClimbs,
+} from "@/db/queries";
 import { parseAreaClimbsFilter, parseAreaClimbsSort, toSubtreeQueryFilter } from "@/lib/area-climbs-filter";
 import { searchParamsToRecord } from "@/lib/search-params";
 import { parseId } from "@/lib/parse-id";
@@ -21,7 +26,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
 
   const db = await getDb();
-  const area = areaId === null ? undefined : await getArea(db, areaId);
+  const area = areaId === null ? undefined : await getAreaWithSubtreeSize(db, areaId);
   if (!area) {
     return NextResponse.json(
       { climbs: [], page, pageSize: 0, hasNextPage: false, sendStats: {}, areaBreadcrumbs: {} },
@@ -29,7 +34,14 @@ export async function GET(request: Request, { params }: RouteParams) {
     );
   }
 
-  const subtreeClimbs = await getSubtreeClimbs(db, area, page, sort, toSubtreeQueryFilter(filter));
+  const subtreeClimbs = await getSubtreeClimbs(
+    db,
+    area,
+    page,
+    sort,
+    toSubtreeQueryFilter(filter),
+    area.largeSubtree,
+  );
   const [sendStats, areaBreadcrumbs] = await Promise.all([
     getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),

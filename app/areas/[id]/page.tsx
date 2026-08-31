@@ -7,8 +7,8 @@ import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { getDb } from "@/db/client";
 import {
   getAncestors,
-  getArea,
   getAreaBreadcrumbs,
+  getAreaWithSubtreeSize,
   getClimbSendStats,
   getSubareas,
   getSubtreeClimbs,
@@ -37,7 +37,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   if (!Number.isInteger(areaId)) notFound();
 
   const db = await getDb();
-  const area = await getArea(db, areaId);
+  const area = await getAreaWithSubtreeSize(db, areaId);
   if (!area) notFound();
 
   const sort = parseAreaClimbsSort(search);
@@ -48,7 +48,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   const [ancestors, subareas, subtreeClimbs, hasClimbs] = await Promise.all([
     getAncestors(db, area),
     getSubareas(db, area.id),
-    getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter)),
+    getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter), area.largeSubtree),
     hasClimbsInArea(db, area.id),
   ]);
   const canDeleteArea = subareas.length === 0 && !hasClimbs;

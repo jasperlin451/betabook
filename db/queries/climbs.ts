@@ -1,6 +1,6 @@
-import { eq, sql, type SQL } from "drizzle-orm";
+import { eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { climbs } from "@/db/schema";
+import { areas, climbs } from "@/db/schema";
 import { PAGE_SIZE, toFtsPrefixQuery } from "./shared";
 import { areaNameCondition, type Area } from "./areas";
 
@@ -119,26 +119,70 @@ function subtreeAreaIds(areaId: number): SQL {
 // a subtree of N areas spans exactly 2N-1, so the classification is
 // unchanged. Unlike that span — a snapshot only as fresh as the last
 // recompute — this is a live count.
-const LARGE_AREA_SUBTREE_AREAS = 1000;
+export const LARGE_AREA_SUBTREE_AREAS = 1000;
 
 /** Whether `areaId`'s subtree reaches LARGE_AREA_SUBTREE_AREAS — the signal
- * getSubtreeClimbs forces its index from. Only the answer matters, never the
- * size, so the walk stops as soon as it has seen enough descendants to decide:
- * a continent costs the same probe as a crag (~2ms on this dataset).
+ * getSubtreeClimbs forces its index from — as a SQL expression yielding 0/1,
+ * so a caller already issuing a statement about this area can carry it along
+ * instead of spending a round trip on it (see getAreaWithSubtreeSize). Only
+ * the answer matters, never the size, so the walk stops as soon as it has seen
+ * enough descendants to decide: a continent costs the same as a crag (~2ms on
+ * this dataset).
+ *
+ * The recursive CTE sits INSIDE the scalar subquery rather than at statement
+ * level so this is a self-contained expression, embeddable in a SELECT list.
+ * `areaId` is bound, not correlated to the surrounding row, so nothing here
+ * depends on where it lands.
  *
  * The LIMIT and the comparison are deliberately kept in one expression. They
  * have to agree — the count saturates at the LIMIT, so it can only ever reach
  * the threshold by hitting it exactly — and a mismatch between them wouldn't
  * fail loudly, it would just pin every area to the small-subtree index and
  * quietly give back the slow plan for the areas that most need the fast one. */
+function reachesLargeSubtree(areaId: number): SQL<number> {
+  return sql<number>`(SELECT count(*) FROM (
+    ${subtreeAreaIds(areaId)}
+    SELECT id FROM subtree LIMIT ${LARGE_AREA_SUBTREE_AREAS}
+  )) >= ${LARGE_AREA_SUBTREE_AREAS}`;
+}
+
+/** The standalone probe — getSubtreeClimbs's fallback for callers that don't
+ * already have the answer. Costs its own round trip; prefer
+ * getAreaWithSubtreeSize, which folds the same predicate into the area lookup
+ * those callers were making anyway. */
 async function isLargeSubtree(db: Database, areaId: number): Promise<boolean> {
-  const rows = await db.all<{ count: number }>(sql`
-    SELECT count(*) AS count FROM (
-      ${subtreeAreaIds(areaId)}
-      SELECT id FROM subtree LIMIT ${LARGE_AREA_SUBTREE_AREAS}
-    )
-  `);
-  return (rows[0]?.count ?? 0) >= LARGE_AREA_SUBTREE_AREAS;
+  const rows = await db.all<{ large: number }>(
+    sql`SELECT ${reachesLargeSubtree(areaId)} AS large`,
+  );
+  return rows[0]?.large === 1;
+}
+
+export type AreaWithSubtreeSize = Area & { largeSubtree: boolean };
+
+/** `getArea` plus getSubtreeClimbs's index-selection signal, resolved in the
+ * one statement the caller was already issuing.
+ *
+ * The area page and the "load more" route both load the area before they can
+ * do anything else, so computing the signal here costs them no extra round
+ * trip — restoring what the nested-set columns used to give for free, without
+ * giving up a live value. Callers that don't list climbs (the climb page, the
+ * area/climb mutations) stay on plain getArea and don't pay the walk.
+ *
+ * Selected through drizzle's column spread rather than a raw `areas.*`: raw
+ * SQL comes back under SQLite's own snake_case names, so `parentId` would
+ * arrive as `parent_id` (the same trap searchClimbs's comment flags). */
+export async function getAreaWithSubtreeSize(
+  db: Database,
+  id: number,
+): Promise<AreaWithSubtreeSize | undefined> {
+  const row = await db
+    .select({ ...getTableColumns(areas), largeSubtree: reachesLargeSubtree(id) })
+    .from(areas)
+    .where(eq(areas.id, id))
+    .get();
+
+  // SQLite has no boolean type — the comparison comes back as 0/1.
+  return row && { ...row, largeSubtree: row.largeSubtree === 1 };
 }
 
 const SUBTREE_CLIMBS_SORT_INDEX: Record<SubtreeClimbsSort, string> = {
@@ -184,7 +228,9 @@ function climbStatsConditions(filter: ClimbStatsFilter): SQL[] {
 }
 
 /** `largeSubtree` lets a caller that already knows which branch it wants skip
- * the extra probe query; omit it and it's measured (see isLargeSubtree). */
+ * the extra probe query; omit it and it's measured (see isLargeSubtree). The
+ * production callers pass it straight from getAreaWithSubtreeSize, which
+ * resolved it as part of loading `area`. */
 export async function getSubtreeClimbs(
   db: Database,
   area: Area,
