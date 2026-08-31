@@ -41,10 +41,12 @@ export function MobileNav() {
                 <Drawer.CloseTrigger />
               </Drawer.Header>
               <Drawer.Body>
-                {/* No Search entry: the header's magnifier opens the command
-                  * palette at every width, and the desktop nav dropped its
-                  * own Search link for the same reason — a menu row pointing
-                  * at "/" just duplicates it one tap deeper. */}
+                {/* No Search entry: every screen already carries a way into
+                  * the palette — the header's magnifier, or the home page's
+                  * own full-width entry, which stands the magnifier down
+                  * (see SearchTrigger). The desktop nav dropped its Search
+                  * link for the same reason — a menu row pointing at "/"
+                  * just duplicates it one tap deeper. */}
                 <nav aria-label="Primary" className="flex flex-col items-start gap-4 text-sm">
                   <AuthNav direction="col" onNavigate={state.close} />
                 </nav>
