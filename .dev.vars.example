@@ -1,0 +1,17 @@
+# Copy to `.dev.vars` for local development.
+#
+# @opennextjs/cloudflare layers this file over the `vars` block in
+# wrangler.jsonc. Without it BETTER_AUTH_URL falls back to the production
+# value there, so local verification links point at the deployed site.
+
+BETTER_AUTH_URL=http://localhost:3000
+
+# Signs session cookies. better-auth warns below 32 characters. Changing it
+# invalidates existing local sessions. Never use this value in production.
+BETTER_AUTH_SECRET=local-development-only-secret-not-for-production
+
+# Empty means "no Resend" to lib/email.ts, which then logs verification and
+# reset links to the console. Keep the line: `pnpm cf-typegen` derives
+# CloudflareEnv from this file, and dropping it breaks lib/email.ts's
+# `env.RESEND_API_KEY` typecheck.
+RESEND_API_KEY=
