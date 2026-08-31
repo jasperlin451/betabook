@@ -2,7 +2,7 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
-import { AreaActionsMenu } from "@/components/area-actions-menu";
+import { AreaHeaderActions } from "@/components/area-header-actions";
 import { AreaClimbsSection } from "@/components/area-climbs-section";
 import { AreaClimbsToolbar } from "@/components/area-climbs-toolbar";
 import { AreaCragHeader } from "@/components/area-crag-header";
@@ -114,7 +114,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
         histogram={histogram}
         isEditor={session != null}
         filter={filter}
-        actions={session && <AreaActionsMenu area={area} canDelete={canDeleteArea} />}
+        actions={session && <AreaHeaderActions area={area} canDelete={canDeleteArea} />}
       />
 
       {/* The provider links the toolbar's in-flight navigation to the climb

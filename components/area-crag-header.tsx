@@ -3,6 +3,7 @@ import type { Area } from "@/db/queries";
 import type { AreaClimbsFilter } from "@/lib/area-climbs-filter";
 import type { GradeHistogram } from "@/lib/grade-histogram";
 import { formatCount } from "@/lib/format";
+import { AreaDescription } from "@/components/area-description";
 import { GradeHistogramChart } from "@/components/grade-histogram";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
@@ -22,10 +23,10 @@ export function AreaCragHeader({
 }: {
   area: Area;
   histogram: GradeHistogram;
-  /** The area's "…" actions menu, rendered beside the title (editors only). */
+  /** The area's editor actions, rendered beside the title (editors only). */
   actions?: ReactNode;
-  /** Signed-in viewers get invited to fill a missing description — everyone
-   * else just sees that there isn't one yet. */
+  /** Editors get the description's inline edit pencil; everyone else just
+   * sees the description, or that there isn't one yet. */
   isEditor?: boolean;
   /** The page's active climb filter — lets an applied histogram bucket
    * render selected and toggle clear on click. */
@@ -37,14 +38,15 @@ export function AreaCragHeader({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex flex-col gap-1">
+      {/* Stacked until sm: two labelled buttons plus a menu can't share a
+        * phone's width with the title, and side-by-side they pushed the whole
+        * page wider than the viewport. min-w-0 lets the title column actually
+        * shrink rather than forcing the row wide. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
+        <div className="flex min-w-0 flex-col gap-1">
           <Eyebrow>Area</Eyebrow>
           <PageTitle>{area.name}</PageTitle>
-          <p className="text-muted mt-1">
-            {area.description ||
-              (isEditor ? "No description yet — add one from the ⋯ menu." : "No description yet.")}
-          </p>
+          <AreaDescription area={area} isEditor={isEditor} />
         </div>
         {actions}
       </div>
