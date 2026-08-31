@@ -1,6 +1,6 @@
-import { eq, sql, type SQL } from "drizzle-orm";
+import { eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { climbs } from "@/db/schema";
+import { areas, climbs } from "@/db/schema";
 import { MAX_RATING } from "@/lib/climb-stats-filter";
 import {
   DEFAULT_BOULDER_RANGE,
@@ -45,7 +45,7 @@ export type SubtreeClimbsSort =
 // NULLS FIRST/LAST syntax, so this expression idiom stands in for it.
 // send_count/avg_rating are denormalized onto climbs (see
 // drizzle/schema/climbs.ts) specifically so every one of these sorts can be
-// satisfied by an index scan on climbs alone, with climbs.lft/rght as a
+// satisfied by an index scan on climbs alone, with subtree membership as a
 // residual filter, instead of joining an unscoped GROUP BY over all of
 // `sends` on every query.
 const SUBTREE_CLIMBS_ORDER_BY: Record<SubtreeClimbsSort, SQL> = {
@@ -122,25 +122,129 @@ function disciplineGradeConditions(filter: DisciplineGradeFilter): SQL[] {
   return clauses;
 }
 
+/** The set of `areaId` and every area beneath it, walked over `parent_id`.
+ * Backed by areas_parent_idx, which the plan uses as a covering index.
+ * SQLite materializes this once per query (plus a bloom filter) rather than
+ * re-walking it per candidate row.
+ *
+ * UNION ALL, not UNION: seeded from a single id, each area is reached by
+ * exactly one path down the tree, so there is nothing to dedup — and the walk
+ * terminates because the tree is acyclic, which the triggers in
+ * drizzle/migrations/0017_area_cycle_guard.sql enforce at write time. (Both
+ * produce an identical query plan here; UNION would just be a dedup b-tree
+ * doing no work.) Contrast areaNameCondition, which seeds from every
+ * FTS-matched area at once — there one matched area can nest inside another,
+ * so the same descendant really is reachable twice and UNION is doing
+ * something. */
+function subtreeAreaIds(areaId: number): SQL {
+  return sql`
+    WITH RECURSIVE subtree(id) AS (
+      SELECT ${areaId}
+      UNION ALL
+      SELECT a.id FROM areas a JOIN subtree s ON a.parent_id = s.id
+    )`;
+}
+
 // SQLite commits to one query plan per prepared-statement SHAPE, not per
 // call — it never sees bound host-parameter values at plan time, only the
 // SQL text. Verified empirically: without a forced index, the exact same
 // plan gets chosen for a tiny leaf area and a huge root area, whichever way
 // the cost estimate happens to lean, so it's cheap for one extreme and does
-// a near-full-table scan for the other. There's no query shape that lets
-// the planner adapt per `area` the way this function is called with wildly
-// different subtree sizes — INDEXED BY forces the right access path from a
-// signal we DO know at query-build time: the area's own nested-set span
-// (already loaded, no extra query).
+// a near-full-table scan for the other. (Re-verified after the move to
+// parent_id: unhinted, North America picks climbs_area_idx plus a temp
+// b-tree over all 83,916 of its climbs — 24ms against 4ms hinted.) There's
+// no query shape that lets the planner adapt per `area`, so INDEXED BY
+// forces the access path from a signal we resolve at query-build time.
 //
-// Below LARGE_AREA_SUBTREE_SPAN, climbs.lft/rght range-scans a small enough
+// Below LARGE_AREA_SUBTREE_AREAS, climbs_area_idx gathers a small enough
 // candidate set to sort in memory cheaply. At or above it, the sort-column
 // index lets SQLite scan in the needed order and stop at LIMIT without ever
 // reading the full subtree. Tuned from this dataset's actual area sizes:
-// state/country-level areas (e.g. Alberta, ~8.8k climbs) top out around a
-// span of 1200; continent-level areas (Europe, Canada, North America —
-// tens of thousands of climbs each) start above 3500. 2000 sits in that gap.
-export const LARGE_AREA_SUBTREE_SPAN = 2000;
+// state/country-level areas (e.g. Alberta, ~8.8k climbs) top out around 600
+// subtree areas; continent-level areas (Europe, Canada, North America — tens
+// of thousands of climbs each) start above 1750. 1000 sits in that gap.
+//
+// This replaces an equivalent threshold of 2000 on the old nested-set span:
+// a subtree of N areas spans exactly 2N-1, so the classification is
+// unchanged. Unlike that span — a snapshot only as fresh as the last
+// recompute — this is a live count.
+export const LARGE_AREA_SUBTREE_AREAS = 1000;
+
+/** Whether `areaId`'s subtree reaches LARGE_AREA_SUBTREE_AREAS — the signal
+ * getSubtreeClimbs forces its index from — as a SQL expression yielding 0/1,
+ * so a caller already issuing a statement about this area can carry it along
+ * instead of spending a round trip on it (see getAreaWithSubtreeSize). Only
+ * the answer matters, never the size, so the LIMIT stops the walk as soon as
+ * it has seen enough descendants to decide (EXPLAIN QUERY PLAN confirms
+ * `CO-ROUTINE subtree` — it short-circuits rather than materializing the
+ * subtree and then trimming it).
+ *
+ * That bounds the cost by the threshold, NOT by subtree size — which is a
+ * weaker claim than "constant", and the difference matters if you're thinking
+ * of putting this somewhere hotter. Emitting the LIMIT's worth of rows still
+ * enqueues roughly LIMIT x fan-out rows into the recursive queue, so cost
+ * climbs with area size up to the threshold and flattens above it: measured
+ * over a synthetic fan-out-20 tree, ~0.001ms for a leaf crag, ~0.16ms at the
+ * threshold, ~1.3ms for a 50k-area continent — where the same walk without
+ * the LIMIT costs ~9.8ms. Every area page pays this once; a leaf pays
+ * nothing, and the continents that pay ~2ms are the ones the resulting index
+ * choice saves 20ms on.
+ *
+ * The recursive CTE sits INSIDE the scalar subquery rather than at statement
+ * level so this is a self-contained expression, embeddable in a SELECT list.
+ * `areaId` is bound, not correlated to the surrounding row, so nothing here
+ * depends on where it lands.
+ *
+ * The LIMIT and the comparison are deliberately kept in one expression. They
+ * have to agree — the count saturates at the LIMIT, so it can only ever reach
+ * the threshold by hitting it exactly — and a mismatch between them wouldn't
+ * fail loudly, it would just pin every area to the small-subtree index and
+ * quietly give back the slow plan for the areas that most need the fast one. */
+function reachesLargeSubtree(areaId: number): SQL<number> {
+  return sql<number>`(SELECT count(*) FROM (
+    ${subtreeAreaIds(areaId)}
+    SELECT id FROM subtree LIMIT ${LARGE_AREA_SUBTREE_AREAS}
+  )) >= ${LARGE_AREA_SUBTREE_AREAS}`;
+}
+
+/** The standalone probe — getSubtreeClimbs's fallback for callers that don't
+ * already have the answer. Costs its own round trip; prefer
+ * getAreaWithSubtreeSize, which folds the same predicate into the area lookup
+ * those callers were making anyway. */
+async function isLargeSubtree(db: Database, areaId: number): Promise<boolean> {
+  const rows = await db.all<{ large: number }>(
+    sql`SELECT ${reachesLargeSubtree(areaId)} AS large`,
+  );
+  return rows[0]?.large === 1;
+}
+
+export type AreaWithSubtreeSize = Area & { largeSubtree: boolean };
+
+/** `getArea` plus getSubtreeClimbs's index-selection signal, resolved in the
+ * one statement the caller was already issuing.
+ *
+ * The area page and the "load more" route both load the area before they can
+ * do anything else, so computing the signal here costs them no extra round
+ * trip — restoring what the nested-set columns used to give for free, without
+ * giving up a live value. Callers that don't list climbs (the climb page, the
+ * area/climb mutations) stay on plain getArea and don't pay the walk.
+ *
+ * Selected through drizzle's column spread rather than a raw `areas.*`: raw
+ * SQL comes back under SQLite's own snake_case names, so `parentId` would
+ * arrive as `parent_id` (the same trap searchClimbs's comment flags). */
+export async function getAreaWithSubtreeSize(
+  db: Database,
+  id: number,
+): Promise<AreaWithSubtreeSize | undefined> {
+  const row = await db
+    .select({ ...getTableColumns(areas), largeSubtree: reachesLargeSubtree(id) })
+    .from(areas)
+    .where(eq(areas.id, id))
+    .get();
+
+  // SQLite has no boolean type — the comparison comes back as 0/1.
+  return row && { ...row, largeSubtree: row.largeSubtree === 1 };
+}
 
 const SUBTREE_CLIMBS_SORT_INDEX: Record<SubtreeClimbsSort, string> = {
   name_asc: "climbs_name_asc_idx",
@@ -189,21 +293,23 @@ function climbStatsConditions(filter: ClimbStatsFilter): SQL[] {
   return clauses;
 }
 
+/** Hand it an AreaWithSubtreeSize and the index-selection signal rides along
+ * on the row, costing nothing (see getAreaWithSubtreeSize, which is what both
+ * production callers load `area` with); hand it a plain Area and the signal is
+ * measured in its own round trip (see isLargeSubtree).
+ *
+ * Carried on `area` rather than passed beside it so the signal can't be about
+ * a different area than the one being listed — the two travel together or not
+ * at all. A test that wants a specific branch on a fixture too small to earn
+ * it spreads the flag on: `{ ...area, largeSubtree: true }`. */
 export async function getSubtreeClimbs(
   db: Database,
-  area: Area,
+  area: Area | AreaWithSubtreeSize,
   page = 1,
   sort: SubtreeClimbsSort = "ascents_desc",
   filter?: DisciplineGradeFilter & { name?: string } & ClimbStatsFilter,
 ): Promise<{ climbs: ClimbWithAreaName[]; page: number; pageSize: number; hasNextPage: boolean }> {
-  // Both bounds on lft (not just the lower one) so the forced range index
-  // can seek a bounded scan instead of an open-ended one — redundant given
-  // rght <= area.rght already implies it for a valid nested-set descendant,
-  // but SQLite's index-range-seek needs it spelled out on the indexed column
-  // itself to stop early.
-  const conditions: SQL[] = [
-    sql`climbs.lft >= ${area.lft} AND climbs.lft <= ${area.rght} AND climbs.rght <= ${area.rght}`,
-  ];
+  const conditions: SQL[] = [sql`climbs.area_id IN (SELECT id FROM subtree)`];
 
   if (filter?.name) {
     const nameQuery = toFtsPrefixQuery(filter.name);
@@ -219,28 +325,32 @@ export async function getSubtreeClimbs(
     conditions.push(...climbStatsConditions(filter));
   }
 
-  const indexName =
-    area.rght - area.lft >= LARGE_AREA_SUBTREE_SPAN
-      ? SUBTREE_CLIMBS_SORT_INDEX[sort]
-      : "climbs_lft_rght_idx";
-  // sql.raw inlines this as literal SQL text with no parameter binding, so
-  // it must never carry anything but one of these known index names —
-  // callers are expected to validate `sort` first, but this guard keeps the
-  // function safe even if a future caller doesn't.
-  if (indexName !== "climbs_lft_rght_idx" && !Object.values(SUBTREE_CLIMBS_SORT_INDEX).includes(indexName)) {
-    throw new Error(`Invalid index name: ${indexName}`);
+  // Callers are expected to validate `sort`, but check it here too: an
+  // unknown key yields `undefined` from both lookup tables below, which would
+  // inline a bare `undefined` into the ORDER BY and — via sql.raw, which
+  // binds nothing and interpolates literal SQL text — into the INDEXED BY.
+  // Checking the key itself rather than the resolved index name catches it on
+  // whichever branch we take.
+  if (!Object.prototype.hasOwnProperty.call(SUBTREE_CLIMBS_SORT_INDEX, sort)) {
+    throw new Error(`Invalid sort value: ${sort}`);
   }
+
+  const isLarge = "largeSubtree" in area ? area.largeSubtree : await isLargeSubtree(db, area.id);
+  const indexName = isLarge ? SUBTREE_CLIMBS_SORT_INDEX[sort] : "climbs_area_idx";
 
   // Fetch one extra row to detect a next page without a separate COUNT query.
   // Small subtrees sort their (few) rows anyway, so ties get the full
   // deterministic chain; the large-area path must keep an ORDER BY its
   // forced sort index satisfies verbatim (see SUBTREE_CLIMBS_TIE_BREAK).
-  const orderBy =
-    indexName === "climbs_lft_rght_idx"
-      ? sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, ${sortTieBreak(sort)}, climbs.id`
-      : sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, climbs.id`;
+  // Keyed on the size decision itself, not on the index name it produces:
+  // naming the index here is what silently dropped the chain when the small
+  // -area index was renamed.
+  const orderBy = isLarge
+    ? sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, climbs.id`
+    : sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, ${sortTieBreak(sort)}, climbs.id`;
 
   const rows = await db.all<ClimbWithAreaName>(sql`
+    ${subtreeAreaIds(area.id)}
     SELECT climbs.id AS id, climbs.area_id AS areaId, climbs.name AS name,
            climbs.type AS type, climbs.grade AS grade, areas.name AS areaName
     FROM climbs INDEXED BY ${sql.raw(indexName)}
@@ -260,48 +370,77 @@ export async function getSubtreeClimbs(
   };
 }
 
-/** Exact (case-insensitive, trimmed) name match, in an area matching areaName exactly or as an ancestor. Returns every match — caller decides what 0/1/many means. */
 export type GradeHistogramRow = { type: Discipline; grade: number | null; count: number };
 
-/** Grade distribution of every climb in an area's subtree — one query
- * powers the crag header's histogram, climb count, grade span, and
- * discipline list. Same residual-range predicate as getSubtreeClimbs
- * (including the redundant-looking second lft bound — see the comment
- * there); no ORDER BY/LIMIT, so the plain range index is always the right
- * access path and none of the sort-index forcing applies. Result size is
- * bounded by distinct (type, grade) pairs (≤ ~55) — but COST is a table
- * lookup per climb in range, so callers gate on the same
- * LARGE_AREA_SUBTREE_SPAN threshold the list query uses (and on the
- * lft=rght=0 placeholder a freshly created, not-yet-reindexed area
- * carries, whose "range" would match every other unindexed climb). */
+/** Grade distribution of every climb in an area's subtree — one query powers
+ * the crag header's histogram, climb count, grade span, and discipline list.
+ *
+ * The result is tiny (bounded by distinct (type, grade) pairs, ~55 at most),
+ * but the COST is a row read per climb in the subtree, so callers gate this
+ * on the same `largeSubtree` signal getSubtreeClimbs forces its index from
+ * rather than running it for a continent. */
 export async function getSubtreeGradeHistogram(
   db: Database,
   area: Area,
 ): Promise<GradeHistogramRow[]> {
   return db.all<GradeHistogramRow>(sql`
+    ${subtreeAreaIds(area.id)}
     SELECT climbs.type AS type, climbs.grade AS grade, COUNT(*) AS count
-    FROM climbs INDEXED BY climbs_lft_rght_idx
-    WHERE climbs.lft >= ${area.lft} AND climbs.lft <= ${area.rght} AND climbs.rght <= ${area.rght}
+    FROM climbs
+    WHERE climbs.area_id IN (SELECT id FROM subtree)
     GROUP BY climbs.type, climbs.grade
   `);
 }
 
+/** Exact (case-insensitive, trimmed) name match, in an area matching areaName
+ * exactly or as an ancestor. Returns every match — caller decides what
+ * 0/1/many means.
+ *
+ * Walks `parent_id` UPWARD from the candidate climbs' areas, testing each
+ * ancestor's name — the opposite direction from areaNameCondition, which
+ * resolves the named area's whole descendant set once. That difference is
+ * deliberate, and it's about which side of the join is the small one:
+ *
+ * areaNameCondition drives from a broad row set (an FTS climb search, a
+ * user's entire send history), so a per-row ancestor test ran thousands of
+ * times and materializing the descendant set once was the win. Here the
+ * driver is an EXACT climb-name match on climbs_name_lower_idx (see
+ * drizzle/migrations/0006_expression_indexes.sql), which yields a handful of
+ * rows — so the descendant set is the expensive side, and its cost scales
+ * with the named area's subtree: a country- or continent-level areaName
+ * means materializing thousands of areas to test a few climbs.
+ *
+ * An ancestor chain is bounded by tree depth regardless of subtree size (see
+ * getAncestors), so this is O(candidate areas x depth) and doesn't scale with
+ * the named area at all. That matters per CALL, not just per query:
+ * importSends resolves one of these per CSV row.
+ *
+ * Seeding `chain` with the climb's own area is what folds "matches exactly OR
+ * matches as an ancestor" into one clause. UNION ALL is safe because an
+ * ancestor chain can't cycle — enforced at write time by the triggers in
+ * drizzle/migrations/0017_area_cycle_guard.sql, not merely assumed from the
+ * current mutations. That matters most here: this runs once per CSV row on
+ * the import path, so it's the walk with the least headroom to spare. */
 export async function findClimbsByNameAndArea(
   db: Database,
   climbName: string,
   areaName: string,
 ): Promise<Climb[]> {
   return db.all<Climb>(sql`
+    WITH RECURSIVE chain(start_id, id) AS (
+      SELECT DISTINCT c.area_id, c.area_id FROM climbs c
+      WHERE LOWER(TRIM(c.name)) = LOWER(TRIM(${climbName}))
+      UNION ALL
+      SELECT chain.start_id, areas.parent_id FROM chain
+      JOIN areas ON areas.id = chain.id
+      WHERE areas.parent_id IS NOT NULL
+    )
     SELECT climbs.* FROM climbs
-    JOIN areas ON areas.id = climbs.area_id
     WHERE LOWER(TRIM(climbs.name)) = LOWER(TRIM(${climbName}))
-    AND (
-      LOWER(TRIM(areas.name)) = LOWER(TRIM(${areaName}))
-      OR EXISTS (
-        SELECT 1 FROM areas ancestor
-        WHERE ancestor.lft < areas.lft AND ancestor.rght > areas.rght
-        AND LOWER(TRIM(ancestor.name)) = LOWER(TRIM(${areaName}))
-      )
+    AND climbs.area_id IN (
+      SELECT chain.start_id FROM chain
+      JOIN areas ON areas.id = chain.id
+      WHERE LOWER(TRIM(areas.name)) = LOWER(TRIM(${areaName}))
     )
   `);
 }

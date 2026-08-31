@@ -8,11 +8,14 @@ type DeleteSendDrawerProps = {
   state: UseOverlayStateReturn;
   onConfirm: () => void;
   isPending: boolean;
+  /** Failure message from the last delete attempt, if any — shown inline so
+   * the viewer can retry or cancel. */
+  error?: string | null;
 };
 
 /** Confirmation drawer for deleting a send — a separate, smaller drawer
  * from SendFormDrawer since it's not a form, just a yes/no. */
-export function DeleteSendDrawer({ state, onConfirm, isPending }: DeleteSendDrawerProps) {
+export function DeleteSendDrawer({ state, onConfirm, isPending, error }: DeleteSendDrawerProps) {
   return (
     <Drawer.Root state={state}>
       <Drawer.Backdrop>
@@ -24,6 +27,7 @@ export function DeleteSendDrawer({ state, onConfirm, isPending }: DeleteSendDraw
             </Drawer.Header>
             <Drawer.Body>
               <p className="text-sm text-muted">This can&apos;t be undone.</p>
+              {error && <p className="text-sm text-danger">{error}</p>}
             </Drawer.Body>
             <Drawer.Footer className="flex justify-end gap-2">
               <Button variant="ghost" onPress={state.close} isDisabled={isPending}>

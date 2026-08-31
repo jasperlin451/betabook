@@ -174,11 +174,10 @@ describe("getSendsForUserPage", () => {
       // Two new climbs in Test Highball Alcove (area 4) rather than sends on
       // the shared fixture climbs — later describe blocks assert exact
       // cumulative send counts for climbs 1-4 "by this point" in the file's
-      // fixture history. lft/rght mirror the owning area, same as
-      // seedFixtureTree's climbs. Grade V4 = ordinal 5 (BOULDER_HUECO).
+      // fixture history. Grade V4 = ordinal 5 (BOULDER_HUECO).
       await db.insert(climbs).values([
-        { id: 850, areaId: 4, name: "Test Mystery Problem", type: "boulder", grade: null, lft: 3, rght: 4 },
-        { id: 851, areaId: 4, name: "Test Graded Problem", type: "boulder", grade: 5, lft: 3, rght: 4 },
+        { id: 850, areaId: 4, name: "Test Mystery Problem", type: "boulder", grade: null },
+        { id: 851, areaId: 4, name: "Test Graded Problem", type: "boulder", grade: 5 },
       ]);
       await db.run(
         sql`INSERT INTO climbs_fts(rowid, name) SELECT id, name FROM climbs WHERE id IN (850, 851)`,
@@ -693,8 +692,6 @@ describe("getSendsForClimb tie-breaking across pages", () => {
       name: "Test Tie Break Route",
       type: "sport",
       grade: 8,
-      lft: 8,
-      rght: 9,
     });
     // Three sends sharing the same dateSent — under the newest-first order,
     // only the sends.id tie-breaker gives them a defined relative order.
@@ -736,8 +733,6 @@ describe("getClimbSendSummary", () => {
       name: "Test Summary Route",
       type: "sport",
       grade: 9,
-      lft: 8,
-      rght: 9,
     });
     await seedFixtureUser(db, { id: "test-user-summary-1", name: "Summary One" });
     await seedFixtureUser(db, { id: "test-user-summary-2", name: "Summary Two" });

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import {
-  getArea,
   getAreaBreadcrumbs,
+  getAreaWithSubtreeSize,
   getClimbSendStats,
   getSubtreeClimbs,
   resolveSubareaScope,
@@ -35,7 +35,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   const limit = parseSuggestionLimit(url.searchParams);
 
   const db = await getDb();
-  const area = areaId === null ? undefined : await getArea(db, areaId);
+  const area = areaId === null ? undefined : await getAreaWithSubtreeSize(db, areaId);
   if (!area) {
     // A real error shape, not a valid-looking empty page — the client checks
     // res.ok, and an empty page body would read as "end of list".

@@ -61,16 +61,20 @@ export function ClimbForm({ areaId: fixedAreaId, climb, onDone }: ClimbFormProps
     formData.set("description", description);
 
     startTransition(async () => {
-      try {
-        if (climb) {
-          await updateClimb(climb.id, formData);
-          onDone?.(climb.id);
-        } else {
-          const climbId = await createClimb(areaId as number, formData);
-          onDone?.(climbId);
+      if (climb) {
+        const result = await updateClimb(climb.id, formData);
+        if (!result.ok) {
+          setError(result.error);
+          return;
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
+        onDone?.(climb.id);
+      } else {
+        const result = await createClimb(areaId as number, formData);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        onDone?.(result.value);
       }
     });
   }

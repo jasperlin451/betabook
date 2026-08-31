@@ -1,10 +1,12 @@
+import { ActionError } from "@/lib/action-result";
+
 export function trimOrNull(value: FormDataEntryValue | null): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 export function requireTrimmed(value: FormDataEntryValue | null, fieldName: string): string {
   const trimmed = typeof value === "string" ? value.trim() : "";
-  if (!trimmed) throw new Error(`${fieldName} is required`);
+  if (!trimmed) throw new ActionError(`${fieldName} is required`);
   return trimmed;
 }
 
@@ -18,11 +20,11 @@ export function parseGradeIndex(
   fieldName: string,
 ): number {
   if (value === null || value === "") {
-    throw new Error(`${fieldName} is required`);
+    throw new ActionError(`${fieldName} is required`);
   }
   const grade = Number(value);
   if (!Number.isInteger(grade) || grade < 0 || grade >= bounds) {
-    throw new Error(`Invalid ${fieldName.toLowerCase()}`);
+    throw new ActionError(`Invalid ${fieldName.toLowerCase()}`);
   }
   return grade;
 }

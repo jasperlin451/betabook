@@ -15,15 +15,14 @@ import { SectionHeading } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
 import {
   getAncestors,
-  getArea,
   getAreaBreadcrumbs,
+  getAreaWithSubtreeSize,
   getClimbSendStats,
   getSubareas,
   getSubtreeClimbs,
   getSubtreeGradeHistogram,
   getUserSentClimbIds,
   hasClimbsInArea,
-  LARGE_AREA_SUBTREE_SPAN,
   resolveSubareaScope,
 } from "@/db/queries";
 import {
@@ -46,7 +45,7 @@ type AreaPageProps = {
 // cache() instead, so the two consumers share one query per request.
 const getAreaById = cache(async (id: number) => {
   const db = await getDb();
-  return getArea(db, id);
+  return getAreaWithSubtreeSize(db, id);
 });
 
 export async function generateMetadata({ params }: AreaPageProps): Promise<Metadata> {
@@ -67,9 +66,9 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   if (!Number.isInteger(areaId)) notFound();
 
   // Grouped by dependency tier so independent fetches overlap instead of
-  // waterfalling — the db handle, the area row, and the session don't depend
-  // on each other.
-  const [db, area, session] = await Promise.all([getDb(), getAreaById(areaId), getSession()]);
+  // waterfalling — the area row and the session don't depend on each other.
+  const db = await getDb();
+  const [area, session] = await Promise.all([getAreaById(areaId), getSession()]);
   if (!area) notFound();
 
   const sort = parseAreaClimbsSort(search);
@@ -80,11 +79,8 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   // The histogram reads every climb row in the subtree, so it follows the
   // same size gate as the list's index strategy — a continent-scale area
   // renders its header without the strip/chart instead of scanning tens of
-  // thousands of rows per view. The lft=rght=0 check skips areas created
-  // but not yet reindexed, whose placeholder range would falsely match
-  // every other unindexed climb.
-  const histogramEligible =
-    !(area.lft === 0 && area.rght === 0) && area.rght - area.lft < LARGE_AREA_SUBTREE_SPAN;
+  // thousands of rows per view.
+  const histogramEligible = !area.largeSubtree;
 
   // The sub-area rail can scope the list to one sub-area's subtree; the
   // header, histogram, and rail always describe the whole area.

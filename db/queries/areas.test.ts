@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
+import { areas } from "@/db/schema";
 import {
   countSearchAreas,
   getAncestors,
@@ -44,6 +45,31 @@ describe("getSubareas", () => {
   it("returns an empty array for a leaf area", async () => {
     const subareas = await getSubareas(db, 3);
     expect(subareas).toEqual([]);
+  });
+
+  // Neither SQLite collation orders a worldwide area list correctly: BINARY
+  // puts every lowercase initial after every uppercase one, and NOCASE folds
+  // only ASCII A-Z, so it sorts accented names after `Z`. Against the real
+  // dataset NOCASE misplaced 2,623 of 10,230 areas and BINARY 3,436 — almost
+  // all of them non-ASCII names buried at the bottom of their sibling list.
+  it("sorts accented and lowercase names alphabetically, not after Z", async () => {
+    await db.insert(areas).values([
+      { id: 700, parentId: null, name: "Collation Root" },
+      { id: 701, parentId: 700, name: "Datca" },
+      { id: 702, parentId: 700, name: "Çitdibi" },
+      { id: 703, parentId: 700, name: "Zebra Wall" },
+      { id: 704, parentId: 700, name: "aardvark ledge" },
+      { id: 705, parentId: 700, name: "Črni kal" },
+    ]);
+
+    const names = (await getSubareas(db, 700)).map((a) => a.name);
+    expect(names).toEqual([
+      "aardvark ledge",
+      "Çitdibi",
+      "Črni kal",
+      "Datca",
+      "Zebra Wall",
+    ]);
   });
 });
 

@@ -15,8 +15,9 @@
 -- expose that pragma. sends.user_id cascades from `user`, so if account
 -- deletion is ever enabled (better-auth's deleteUser is opt-in and is
 -- currently off), it must delete the user's sends explicitly first or the
--- counts will be left inflated. scripts/reindex-areas.ts resyncs all three
--- columns from sends and remains the repair path.
+-- counts will be left inflated. To repair drifted counts, re-run the
+-- backfill UPDATE below — it recomputes all three columns from sends and is
+-- safe to run at any time.
 
 -- Backfill from a known-good state so the triggers take over from exact
 -- values, rather than inheriting whatever app code last left behind.

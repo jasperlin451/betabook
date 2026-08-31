@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { buildSendsExportCsv } from "./sends-export";
+import {
+  distinctValues,
+  guessAscentStyleMapping,
+  guessClimbTypeMapping,
+  guessColumnMapping,
+  guessGradeFeelMapping,
+  normalizeImportRows,
+  parseCsvText,
+} from "./sends-import";
+import { parseGrade } from "./grades";
 import type { UserSendRow } from "@/db/queries";
 
 function row(overrides: Partial<UserSendRow> = {}): UserSendRow {
@@ -75,5 +85,86 @@ describe("buildSendsExportCsv", () => {
       const csvText = buildSendsExportCsv([row({ gradeFeel })]);
       expect(csvText).toContain(expected);
     }
+  });
+});
+
+describe("export → import round trip", () => {
+  it("re-imports a betabook export with identical send fields", () => {
+    const exported = buildSendsExportCsv([
+      row({
+        climbName: "The Mandala",
+        climbType: "boulder",
+        climbGrade: 13, // V12 posted
+        suggestedGrade: 14, // user suggested V13
+        gradeFeel: "high",
+        ascentStyle: "flash",
+        dateSent: "2026-01-01",
+        rating: 4,
+        comment: "Great, fun climb",
+      }),
+      row({
+        climbName: "No Opinion",
+        climbType: "sport",
+        climbGrade: 16, // 5.11c posted
+        suggestedGrade: null, // no suggestion recorded on the send
+        gradeFeel: "solid",
+        ascentStyle: "onsight",
+        dateSent: null,
+        rating: null,
+        comment: null,
+      }),
+    ]);
+
+    // Parse and auto-map exactly the way the wizard does.
+    const parsed = parseCsvText(exported);
+    expect(parsed.warnings).toEqual([]);
+    const mapping = guessColumnMapping(parsed.headers);
+    const ascentStyleMapping = guessAscentStyleMapping(
+      distinctValues(parsed.rows, mapping.ascentStyle),
+    );
+    const climbTypeMapping = guessClimbTypeMapping(
+      distinctValues(parsed.rows, mapping.climbType),
+    );
+    const gradeFeelMapping = guessGradeFeelMapping(
+      distinctValues(parsed.rows, mapping.gradeFeel),
+    );
+
+    const { valid, invalid, warnings } = normalizeImportRows(
+      parsed,
+      mapping,
+      ascentStyleMapping,
+      climbTypeMapping,
+      gradeFeelMapping,
+      "iso",
+      { today: "2026-08-19" },
+    );
+    expect(invalid).toEqual([]);
+    expect(warnings).toEqual([]);
+    expect(valid).toHaveLength(2);
+
+    const [withSuggestion, withoutSuggestion] = valid;
+    expect(withSuggestion.climbName).toBe("The Mandala");
+    expect(withSuggestion.ascentStyle).toBe("flash");
+    expect(withSuggestion.dateSent).toBe("2026-01-01");
+    expect(withSuggestion.rating).toBe(4);
+    expect(withSuggestion.comment).toBe("Great, fun climb");
+    expect(withSuggestion.gradeFeel).toBe("high");
+    expect(withSuggestion.climbTypeHint).toBe("boulder");
+    // The Suggested Grade column (not the posted Grade column) round-trips
+    // to the same ordinal importSends will store.
+    expect(withSuggestion.blankGradeMeans).toBe("no-suggestion");
+    expect(withSuggestion.gradeText).not.toBeNull();
+    expect(parseGrade("boulder", withSuggestion.gradeText!, "native")).toBe(14);
+
+    // A send exported without a suggested grade stays that way: blank cell +
+    // "no-suggestion" makes importSends store null instead of falling back
+    // to the climb's posted grade.
+    expect(withoutSuggestion.gradeText).toBeNull();
+    expect(withoutSuggestion.blankGradeMeans).toBe("no-suggestion");
+    expect(withoutSuggestion.ascentStyle).toBe("onsight");
+    expect(withoutSuggestion.dateSent).toBeNull();
+    expect(withoutSuggestion.rating).toBeNull();
+    expect(withoutSuggestion.comment).toBeNull();
+    expect(withoutSuggestion.gradeFeel).toBe("solid");
   });
 });

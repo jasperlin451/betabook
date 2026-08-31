@@ -23,13 +23,19 @@ import {
   guessClimbTypeMapping,
   guessGradeFeelMapping,
   guessColumnMapping,
+  missingRequiredColumns,
+  needsDateFormatChoice,
   normalizeImportRows,
   parseCsvText,
+  parseDateWithFormat,
   detectDateFormat,
   CLIMB_TYPES,
+  DATE_SAMPLE_SIZE,
   IMPORT_BATCH_SIZE,
+  REQUIRED_COLUMN_KEYS,
   type AscentStyleMapping,
   type ClimbTypeMapping,
+  type CoercionWarning,
   type GradeFeelMapping,
   type ColumnMapping,
   type DateFormat,
@@ -79,17 +85,22 @@ function WizardSteps({ step }: { step: Step }) {
   );
 }
 
-const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string; required: boolean }[] = [
-  { key: "date", label: "Date Sent", required: false },
-  { key: "ascentStyle", label: "Ascent Style", required: true },
-  { key: "climbName", label: "Climb Name", required: true },
-  { key: "areaName", label: "Area Name", required: true },
-  { key: "climbType", label: "Climb Type (tiebreaker only)", required: false },
-  { key: "grade", label: "Grade", required: false },
-  { key: "gradeFeel", label: "Grade Feel", required: false },
-  { key: "rating", label: "Rating", required: false },
-  { key: "comment", label: "Comment", required: false },
+const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string }[] = [
+  { key: "date", label: "Date Sent" },
+  { key: "ascentStyle", label: "Ascent Style" },
+  { key: "climbName", label: "Climb Name" },
+  { key: "areaName", label: "Area Name" },
+  { key: "climbType", label: "Climb Type (tiebreaker only)" },
+  { key: "grade", label: "Grade" },
+  { key: "suggestedGrade", label: "Suggested Grade" },
+  { key: "gradeFeel", label: "Grade Feel" },
+  { key: "rating", label: "Rating" },
+  { key: "comment", label: "Comment" },
 ];
+
+function columnLabel(key: keyof ColumnMapping): string {
+  return COLUMN_FIELDS.find((f) => f.key === key)?.label ?? key;
+}
 
 const CONFLICT_MODES = [
   { value: "skip", label: "Skip" },
@@ -112,6 +123,7 @@ type WizardResult = ImportResult & { batchErrors: BatchError[] };
 export function ImportWizard() {
   const [step, setStep] = useState<Step>("upload");
   const [error, setError] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
   const [pending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -128,6 +140,7 @@ export function ImportWizard() {
   const [normalized, setNormalized] = useState<{
     valid: NormalizedImportRow[];
     invalid: InvalidImportRow[];
+    warnings: CoercionWarning[];
   } | null>(null);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [importResult, setImportResult] = useState<WizardResult | null>(null);
@@ -144,32 +157,70 @@ export function ImportWizard() {
     () => (parsedCsv && columnMapping ? distinctValues(parsedCsv.rows, columnMapping.gradeFeel) : []),
     [parsedCsv, columnMapping],
   );
+  const dateValues = useMemo(
+    () =>
+      parsedCsv && columnMapping
+        ? distinctValues(parsedCsv.rows, columnMapping.date).slice(0, DATE_SAMPLE_SIZE)
+        : [],
+    [parsedCsv, columnMapping],
+  );
+  // Most files answer the month-first/day-first question themselves, so the
+  // setting is only shown when this one doesn't — see needsDateFormatChoice.
+  const needsDateFormat = useMemo(() => needsDateFormatChoice(dateValues), [dateValues]);
+  // Prefer a value the current setting can't read as the worked example: if
+  // anything in the column is going to fail, that's what the user needs to
+  // see, not the first row that happens to work.
+  const dateSample = useMemo(
+    () =>
+      dateValues.find((v) => parseDateWithFormat(v, dateFormat) === null) ?? dateValues[0] ?? null,
+    [dateValues, dateFormat],
+  );
+  const dateSamplePreview = dateSample ? parseDateWithFormat(dateSample, dateFormat) : null;
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
 
-    const text = await file.text();
-    // Clear the input once the contents are read, so picking the same file
-    // again still fires a change event — otherwise a file rejected below
-    // couldn't be re-picked after fixing it.
-    e.target.value = "";
+    setReading(true);
+    try {
+      const text = await file.text();
+      // Clear the input once the contents are read, so picking the same file
+      // again still fires a change event — otherwise a file rejected below
+      // couldn't be re-picked after fixing it.
+      input.value = "";
 
-    const parsed = parseCsvText(text);
-    if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-      setError("Couldn't find any data rows in that file.");
-      return;
+      const parsed = parseCsvText(text);
+      if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+        setError("Couldn't find any data rows in that file.");
+        return;
+      }
+
+      const mapping = guessColumnMapping(parsed.headers);
+      setParsedCsv(parsed);
+      setColumnMapping(mapping);
+      setStep("columns");
+    } catch {
+      setError("Couldn't read that file. Re-save it as a plain CSV and try again.");
+      input.value = "";
+    } finally {
+      setReading(false);
     }
-
-    const mapping = guessColumnMapping(parsed.headers);
-    setParsedCsv(parsed);
-    setColumnMapping(mapping);
-    setStep("columns");
   }
 
   function handleColumnsNext() {
     if (!parsedCsv || !columnMapping) return;
+    const missing = missingRequiredColumns(columnMapping);
+    if (missing.length > 0) {
+      setError(
+        `Map the required column${missing.length > 1 ? "s" : ""} before continuing: ${missing
+          .map(columnLabel)
+          .join(", ")}.`,
+      );
+      return;
+    }
+    setError(null);
     const ascentStyleValues = distinctValues(parsedCsv.rows, columnMapping.ascentStyle);
     const climbValues = distinctValues(parsedCsv.rows, columnMapping.climbType);
     const feelValues = distinctValues(parsedCsv.rows, columnMapping.gradeFeel);
@@ -177,7 +228,7 @@ export function ImportWizard() {
     setClimbTypeMapping(guessClimbTypeMapping(climbValues));
     setGradeFeelMapping(guessGradeFeelMapping(feelValues));
     if (columnMapping.date) {
-      const sample = distinctValues(parsedCsv.rows, columnMapping.date).slice(0, 25);
+      const sample = distinctValues(parsedCsv.rows, columnMapping.date).slice(0, DATE_SAMPLE_SIZE);
       setDateFormat(detectDateFormat(sample));
     }
     setStep("values");
@@ -185,6 +236,7 @@ export function ImportWizard() {
 
   function handleValuesNext() {
     if (!parsedCsv || !columnMapping) return;
+    setError(null);
     const result = normalizeImportRows(
       parsedCsv,
       columnMapping,
@@ -192,9 +244,15 @@ export function ImportWizard() {
       climbTypeMapping,
       gradeFeelMapping,
       dateFormat,
+      { gradeScalePreference: gradeScale },
     );
     setNormalized(result);
     setStep("review");
+  }
+
+  function goBack(target: Step) {
+    setError(null);
+    setStep(target);
   }
 
   function handleFinalize() {
@@ -222,15 +280,21 @@ export function ImportWizard() {
         const batch = normalized.valid.slice(i, i + IMPORT_BATCH_SIZE);
         try {
           const result = await importSends(batch, { gradeScale, onConflict });
-          imported += result.imported;
-          overwritten += result.overwritten;
-          alreadyLogged += result.alreadyLogged;
-          notFound.push(...result.notFound);
-        } catch (err) {
-          batchErrors.push({
-            rows: batch,
-            message: err instanceof Error ? err.message : "Import failed",
-          });
+          if (result.ok) {
+            imported += result.value.imported;
+            overwritten += result.value.overwritten;
+            alreadyLogged += result.value.alreadyLogged;
+            notFound.push(...result.value.notFound);
+          } else {
+            batchErrors.push({ rows: batch, message: result.error });
+          }
+        } catch {
+          // The action boundary turns anything thrown server-side into
+          // { ok: false }, so a rejection here is the round-trip itself
+          // failing — offline, or the worker erroring outside the action.
+          // Still per-batch: the remaining batches run and the result step
+          // renders with a failed-rows CSV to retry from.
+          batchErrors.push({ rows: batch, message: "Import failed" });
         }
         setProgress({
           completed: Math.min(i + IMPORT_BATCH_SIZE, total),
@@ -307,11 +371,13 @@ export function ImportWizard() {
           />
           <Button
             type="button"
+            isDisabled={reading}
             onPress={() => fileInputRef.current?.click()}
             className="w-full lg:w-auto lg:self-start"
           >
             Choose CSV File
           </Button>
+          {reading && <p className="text-sm text-muted">Reading file…</p>}
         </div>
       )}
 
@@ -320,11 +386,18 @@ export function ImportWizard() {
           <p className="text-sm text-muted">
             Which column in your CSV holds each field? ({formatCount(parsedCsv.rows.length, "row")} found)
           </p>
-          {COLUMN_FIELDS.map(({ key, label, required }) => (
+          {parsedCsv.warnings.length > 0 && (
+            <ul className="flex flex-col gap-1 text-xs text-warning">
+              {parsedCsv.warnings.map((warning, i) => (
+                <li key={i}>{warning}</li>
+              ))}
+            </ul>
+          )}
+          {COLUMN_FIELDS.map(({ key, label }) => (
             <TextField key={key}>
               <Label>
                 {label}
-                {required ? " (required)" : ""}
+                {REQUIRED_COLUMN_KEYS.includes(key) ? " (required)" : ""}
               </Label>
               <select
                 value={columnMapping[key] ?? ""}
@@ -435,21 +508,49 @@ export function ImportWizard() {
           )}
 
           {columnMapping?.date && (
-            <TextField>
-              <Label>Date Format</Label>
-              <select
-                value={dateFormat}
-                onChange={(e) => setDateFormat(e.target.value as DateFormat)}
-                className={FIELD_CLASS}
-              >
-                <option value="iso">YYYY-MM-DD</option>
-                <option value="mdy">MM/DD/YYYY</option>
-                <option value="dmy">DD/MM/YYYY</option>
-              </select>
-            </TextField>
+            <div className="flex flex-col gap-2">
+              {/* Only asked when the file is genuinely ambiguous. A column of
+                  "2019-10-15" or "Sun Sep 22 2019" reads the same way under
+                  every option, and offering a choice that changes nothing
+                  reads as "your dates aren't supported". */}
+              {needsDateFormat ? (
+                <>
+                  <TextField>
+                    <Label>Date Format</Label>
+                    <select
+                      value={dateFormat}
+                      onChange={(e) => setDateFormat(e.target.value as DateFormat)}
+                      className={FIELD_CLASS}
+                    >
+                      <option value="iso">Year first — 2019-10-15</option>
+                      <option value="mdy">Month first — 10/15/2019</option>
+                      <option value="dmy">Day first — 15/10/2019</option>
+                    </select>
+                  </TextField>
+                  <p className="text-xs text-muted">
+                    This file has all-numeric dates, where 05/06/2019 could be either May 6th
+                    or June 5th — only you can settle which.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-muted">
+                  Dates are being read automatically — nothing in this column is ambiguous.
+                </p>
+              )}
+              {/* A worked example from the file itself: the setting is easy to
+                  get backwards, and this shows the mistake before the import
+                  rather than after. */}
+              {dateSample && (
+                <p className="text-xs text-muted">
+                  {dateSamplePreview
+                    ? `“${dateSample}” will import as ${dateSamplePreview}.`
+                    : `“${dateSample}” can’t be read as a date${needsDateFormat ? " this way" : ""}.`}
+                </p>
+              )}
+            </div>
           )}
 
-          {columnMapping?.grade && (
+          {(columnMapping?.grade || columnMapping?.suggestedGrade) && (
             <TextField>
               <Label>Grade Notation</Label>
               <select
@@ -464,7 +565,7 @@ export function ImportWizard() {
           )}
 
           <div className="flex gap-4">
-            <Button variant="ghost" onPress={() => setStep("columns")}>
+            <Button variant="ghost" onPress={() => goBack("columns")}>
               Back
             </Button>
             <Button onPress={handleValuesNext}>Next: Review</Button>
@@ -498,6 +599,21 @@ export function ImportWizard() {
                 ))}
               </ul>
             </details>
+          )}
+
+          {normalized.warnings.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <p className="text-sm">Some values will be adjusted during import:</p>
+              <ul className="flex flex-col gap-1 text-xs text-warning">
+                {normalized.warnings.map((warning) => (
+                  <li key={warning.field}>
+                    {warning.count} {warning.count === 1 ? "row" : "rows"}: {warning.message} (
+                    {warning.examples.join("; ")}
+                    {warning.count > warning.examples.length ? "; …" : ""})
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {pending && progress ? (
@@ -551,7 +667,7 @@ export function ImportWizard() {
               )}
 
               <div className="flex gap-4">
-                <Button variant="ghost" onPress={() => setStep("values")}>
+                <Button variant="ghost" onPress={() => goBack("values")}>
                   Back
                 </Button>
                 <Button onPress={handleFinalize} isDisabled={normalized.valid.length === 0}>

@@ -17,8 +17,6 @@ beforeAll(async () => {
   await db.insert(areas).values({
     id: 1,
     parentId: null,
-    lft: 1,
-    rght: 2,
     name: "Pagination Test Area",
   });
   await seedManyClimbs(db, 1, 55, 1000);

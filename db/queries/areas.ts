@@ -1,4 +1,4 @@
-import { asc, eq, sql, type SQL } from "drizzle-orm";
+import { eq, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas } from "@/db/schema";
 import { toFtsPrefixQuery } from "./shared";
@@ -10,10 +10,13 @@ export async function getArea(db: Database, id: number): Promise<Area | undefine
 }
 
 /** The area a subarea-scoped climb list should actually query: the given
- * sub-area when it's a real, indexed descendant of `area`, otherwise
- * `area` itself. Guards both a forged/stale id from the URL and the
- * lft=rght=0 placeholder of a not-yet-reindexed area (whose "range" would
- * match every unindexed climb). */
+ * sub-area when it really descends from `area`, otherwise `area` itself —
+ * guarding a forged or stale id from the URL, which would otherwise scope
+ * the list to an area the page isn't showing.
+ *
+ * Walks `parentId` upward from the candidate rather than testing a stored
+ * range: an ancestor chain is bounded by tree depth (a handful of levels),
+ * so this stays a few index seeks no matter how large either subtree is. */
 export async function resolveSubareaScope(
   db: Database,
   area: Area,
@@ -22,30 +25,50 @@ export async function resolveSubareaScope(
   if (subareaId == null || subareaId === area.id) return area;
   const sub = await getArea(db, subareaId);
   if (!sub) return area;
-  if (sub.lft === 0 && sub.rght === 0) return area;
-  if (!(sub.lft > area.lft && sub.rght < area.rght)) return area;
-  return sub;
+
+  const [row] = await db.all<{ found: number }>(sql`
+    WITH RECURSIVE chain(id) AS (
+      SELECT parent_id FROM areas WHERE id = ${sub.id}
+      UNION ALL
+      SELECT areas.parent_id FROM chain
+      JOIN areas ON areas.id = chain.id
+      WHERE areas.parent_id IS NOT NULL
+    )
+    SELECT 1 AS found FROM chain WHERE id = ${area.id} LIMIT 1
+  `);
+  return row ? sub : area;
 }
 
+/** Direct children, name-sorted.
+ *
+ * Sorted in JS with localeCompare rather than by SQL ORDER BY, because
+ * neither collation SQLite offers gets this right for a worldwide area list.
+ * BINARY drops every lowercase-initial name below every uppercase one, and
+ * NOCASE only case-folds ASCII A-Z — so it sorts every accented name after
+ * `Z`, burying "Çitdibi" under Antalya and "Črni kal" under Slovenia at the
+ * bottom of their sibling lists. Measured against the previous ordering,
+ * NOCASE moved 2,623 of 10,230 areas and BINARY moved 3,436; localeCompare
+ * moves none, because it is what computeAreaBounds used to bake into
+ * areas.lft. D1 has no ICU collation to reach for instead.
+ *
+ * Affordable because this is one area's direct children — 1,749 at the very
+ * widest, typically under a hundred — fetched through areas_parent_idx.
+ *
+ * Sorting at read time rather than reading a stored position also means a
+ * rename takes effect immediately; lft only moved when a full tree recompute
+ * ran, which updateArea never triggered. */
 export async function getSubareas(db: Database, areaId: number): Promise<Area[]> {
-  return db
-    .select()
-    .from(areas)
-    .where(eq(areas.parentId, areaId))
-    .orderBy(asc(areas.lft));
+  const rows = await db.select().from(areas).where(eq(areas.parentId, areaId));
+  return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** Root-first, immediate-parent-last. Does not include `area` itself.
  *
- * Walks `parentId` via a recursive CTE rather than the lft/rght nested-set
- * range — unlike subtree/descendant enumeration (getSubtreeClimbs,
- * areaNameCondition), which is what lft/rght actually exists to make cheap
- * for a potentially huge subtree, an ancestor chain is bounded by tree depth
- * (a handful of levels) regardless of subtree size, so there's no
- * performance reason to depend on it here. The upside: this is correct
- * immediately for a freshly created area, with zero dependency on the async
- * lft/rght recompute (see db/reindex-areas.ts) — parentId is written
- * synchronously at insert time and never needs fixing up. */
+ * Walks `parentId` upward via a recursive CTE. Unlike subtree/descendant
+ * enumeration (getSubtreeClimbs, areaNameCondition), which can fan out over
+ * tens of thousands of areas, an ancestor chain is bounded by tree depth (a
+ * handful of levels) regardless of subtree size, so the walk stays cheap
+ * without any index beyond the areas primary key. */
 export async function getAncestors(db: Database, area: Area): Promise<Area[]> {
   if (area.parentId == null) return [];
 
@@ -78,26 +101,40 @@ export async function getNearestAncestors(
 /** SQL condition for "this row's area equals or descends from an area whose
  * name matches (FTS prefix match)" — shared by any query that scopes rows
  * to an area name or its subtree (climb search, a user's send history).
- * Expressed as a single correlated EXISTS subquery, not one bind parameter
- * per matched area: an area name can match hundreds of areas (a common
- * word, a broad region), and one `(lft >= ? AND rght <= ?)` clause per match
- * blows past SQLite's bound-parameter limit — this is O(1) parameters no
- * matter how many areas match. Callers must have their row's own area
- * joined in as `areas` (the same alias `searchClimbs`/`getSendsForUserPage`
- * already use) for the correlation to resolve. Returns `null` when there's
- * no name to filter by (filter inactive); `sql\`0\`` when the name has no
- * matchable tokens (matches nothing) — the caller can just always push a
- * non-null result onto its condition list. */
+ *
+ * Built as a single non-correlated `IN` set, deliberately: the previous
+ * correlated `EXISTS` re-ran the containment test once per candidate row, so
+ * its cost was O(rows x matched_areas) and a broad name blew up — measured at
+ * 11.6s for a name matching 779 areas (0.4s fixed + ~14ms per matched area),
+ * against D1's 30-second statement cap. Evaluating the descendant set once
+ * instead is ~13ms for the same query and the same results.
+ *
+ * Still O(1) bound parameters no matter how many areas match — an area name
+ * can match hundreds (a common word, a broad region), and one clause per
+ * match would blow past SQLite's bound-parameter limit.
+ *
+ * Callers must
+ * have their row's own area joined in as `areas` — the same alias
+ * `searchClimbs`/`getSendsForUserPage` already use. Returns `null` when
+ * there's no name to filter by (filter inactive); `sql\`0\`` when the name
+ * has no matchable tokens (matches nothing) — the caller can just always
+ * push a non-null result onto its condition list. */
 export function areaNameCondition(areaName: string | undefined): SQL | null {
   if (!areaName) return null;
   const query = toFtsPrefixQuery(areaName);
   if (!query) return sql`0`;
 
-  return sql`EXISTS (
-    SELECT 1 FROM areas matched_area
-    JOIN areas_fts ON areas_fts.rowid = matched_area.id
-    WHERE areas_fts MATCH ${query}
-    AND matched_area.lft <= areas.lft AND matched_area.rght >= areas.rght
+  // UNION, not UNION ALL: when one matched area nests inside another, the
+  // same descendant is reachable by more than one path.
+  return sql`areas.id IN (
+    WITH RECURSIVE matched(id) AS (
+      SELECT matched_area.id FROM areas matched_area
+      JOIN areas_fts ON areas_fts.rowid = matched_area.id
+      WHERE areas_fts MATCH ${query}
+      UNION
+      SELECT child.id FROM areas child JOIN matched ON child.parent_id = matched.id
+    )
+    SELECT id FROM matched
   )`;
 }
 
@@ -112,10 +149,9 @@ type BreadcrumbRow = {
 /** Up to `depth` ancestors for each of `areaIds`, keyed by area id — one
  * query for the whole batch, not one round trip per distinct area.
  *
- * Walks `parentId` (see getAncestors's doc comment for why — ancestor
- * chains don't need the nested-set range the way subtree queries do) via a
- * recursive CTE, capped at `depth` levels per target, batched across every
- * requested id in one query. A LEFT JOIN back to the target-id list keeps
+ * Walks `parentId` via a recursive CTE (see getAncestors's doc comment),
+ * capped at `depth` levels per target, batched across every requested id in
+ * one query. A LEFT JOIN back to the target-id list keeps
  * one row per target even when it has zero (nearby) ancestors, which is
  * what lets an existing root-level area come back as `[]` rather than
  * being silently omitted like a nonexistent id is. */
@@ -168,9 +204,9 @@ export type SearchAreasPage = { areas: AreaWithAncestorPath[]; hasNextPage: bool
  * a result row place a crag identically. Ordering is pinned by the subquery
  * the concat reads from; see the note in the SQL.
  *
- * Walks `parentId` (see getAncestors's doc comment) rather than lft/rght, so
- * a freshly created area's ancestor path is correct immediately, with no
- * dependency on the async lft/rght recompute.
+ * Walks `parentId` via a recursive CTE (see getAncestors's doc comment)
+ * rather than a stored position, so a freshly created area's ancestor path
+ * is correct immediately.
  *
  * Ordered by FTS rank with `areas.id` as the deterministic tie-breaker —
  * near-identical names share a bm25 score, and without a unique final key
@@ -223,10 +259,8 @@ export async function searchAreas(
 /** Exact match count for the same FTS predicate as `searchAreas` — no
  * ancestor-path CTE, so it's cheaper than the page query it accompanies.
  * Keeps `searchAreas`'s join to `areas` (a PK seek per match) rather than
- * counting FTS rows alone: areas_fts is maintained by app code in a second
- * statement after the `areas` write (see db/mutations/areas.ts), so an
- * orphaned index row would otherwise be counted in a heading whose list
- * can't show it. */
+ * counting FTS rows alone, so the two can never disagree about what a match
+ * is and caption a list with a number it cannot reach. */
 export async function countSearchAreas(db: Database, name: string): Promise<number> {
   const query = toFtsPrefixQuery(name);
   if (!query) return 0;

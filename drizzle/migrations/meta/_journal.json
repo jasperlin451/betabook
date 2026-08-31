@@ -106,6 +106,27 @@
       "when": 1787871155256,
       "tag": "0014_sends_aggregate_triggers",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1788230400000,
+      "tag": "0015_fts_sync_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1788133987045,
+      "tag": "0016_drop_nested_set",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1788480000000,
+      "tag": "0017_area_cycle_guard",
+      "breakpoints": true
     }
   ]
 }

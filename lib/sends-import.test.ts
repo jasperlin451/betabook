@@ -7,6 +7,8 @@ import {
   guessClimbTypeMapping,
   guessColumnMapping,
   guessGradeFeelMapping,
+  missingRequiredColumns,
+  needsDateFormatChoice,
   normalizeImportRows,
   parseCsvText,
   parseDateWithFormat,
@@ -14,6 +16,7 @@ import {
   type BatchErrorRow,
   type ClimbTypeMapping,
   type ColumnMapping,
+  type DateFormat,
   type GradeFeelMapping,
   type InvalidImportRow,
   type NotFoundRow,
@@ -40,6 +43,7 @@ const FULL_MAPPING: ColumnMapping = {
   areaName: "Area",
   climbType: "Climb Type",
   grade: "Grade",
+  suggestedGrade: null,
   gradeFeel: null,
   rating: "Rating",
   comment: "Comments",
@@ -66,7 +70,7 @@ const GRADE_FEEL_MAPPING: GradeFeelMapping = {
 const TODAY = "2026-08-19";
 
 function csv(rows: Record<string, string>[]): ParsedCsv {
-  return { headers: SAMPLE_HEADERS, rows };
+  return { headers: SAMPLE_HEADERS, rows, warnings: [] };
 }
 
 function row(overrides: Partial<Record<string, string>> = {}): Record<string, string> {
@@ -114,13 +118,40 @@ describe("parseCsvText", () => {
   });
 
   it("returns empty headers and rows for empty input", () => {
-    expect(parseCsvText("")).toEqual({ headers: [], rows: [] });
+    expect(parseCsvText("")).toEqual({ headers: [], rows: [], warnings: [] });
   });
 
   it("parses quoted fields containing commas", () => {
     const text = 'Climb,Comments\n"My Route","Great, fun climb"';
     const parsed = parseCsvText(text);
     expect(parsed.rows[0].Comments).toBe("Great, fun climb");
+  });
+
+  it("reports no warnings for a well-formed file", () => {
+    const text = "Climb,Area\nMy Route,My Crag";
+    expect(parseCsvText(text).warnings).toEqual([]);
+  });
+
+  it("surfaces parser errors as warnings instead of dropping them", () => {
+    const text = 'a,b\n"unterminated,2';
+    const parsed = parseCsvText(text);
+    expect(parsed.warnings).toHaveLength(1);
+    expect(parsed.warnings[0]).toMatch(/Row 2: .*unterminated/i);
+  });
+
+  it("renames duplicate headers deterministically and warns about each", () => {
+    const text = "Grade,Grade,Notes\nV1,V2,ok";
+    const parsed = parseCsvText(text);
+    expect(parsed.headers).toEqual(["Grade", "Grade (2)", "Notes"]);
+    expect(parsed.rows[0]).toEqual({ Grade: "V1", "Grade (2)": "V2", Notes: "ok" });
+    expect(parsed.warnings).toEqual(['Duplicate column "Grade" renamed to "Grade (2)"']);
+  });
+
+  it("never renames a duplicate onto a name another column already holds", () => {
+    const text = "Grade,Grade,Grade (2)\na,b,c";
+    const parsed = parseCsvText(text);
+    expect(parsed.headers).toEqual(["Grade", "Grade (3)", "Grade (2)"]);
+    expect(parsed.rows[0]).toEqual({ Grade: "a", "Grade (3)": "b", "Grade (2)": "c" });
   });
 });
 
@@ -139,6 +170,7 @@ describe("guessColumnMapping", () => {
       areaName: "Crag",
       climbType: "Discipline",
       grade: "Difficulty",
+      suggestedGrade: null,
       gradeFeel: null,
       rating: "Stars",
       comment: "Notes",
@@ -160,6 +192,57 @@ describe("guessColumnMapping", () => {
   it("maps a 'Grade Feel' or 'Feel' header to gradeFeel", () => {
     expect(guessColumnMapping(["Grade Feel"]).gradeFeel).toBe("Grade Feel");
     expect(guessColumnMapping(["Feel"]).gradeFeel).toBe("Feel");
+  });
+
+  it("maps Suggested Grade separately from Grade", () => {
+    const mapping = guessColumnMapping(["Grade", "Suggested Grade"]);
+    expect(mapping.grade).toBe("Grade");
+    expect(mapping.suggestedGrade).toBe("Suggested Grade");
+  });
+
+  it("auto-maps every column of a betabook export", () => {
+    const mapping = guessColumnMapping([
+      "Date Sent",
+      "Ascent Style",
+      "Climb Name",
+      "Area Name",
+      "Climb Type",
+      "Grade",
+      "Suggested Grade",
+      "Grade Feel",
+      "Rating",
+      "Comment",
+    ]);
+    expect(mapping).toEqual({
+      date: "Date Sent",
+      ascentStyle: "Ascent Style",
+      climbName: "Climb Name",
+      areaName: "Area Name",
+      climbType: "Climb Type",
+      grade: "Grade",
+      suggestedGrade: "Suggested Grade",
+      gradeFeel: "Grade Feel",
+      rating: "Rating",
+      comment: "Comment",
+    });
+  });
+});
+
+describe("missingRequiredColumns", () => {
+  it("returns nothing when all required fields are mapped", () => {
+    expect(missingRequiredColumns(FULL_MAPPING)).toEqual([]);
+  });
+
+  it("names each unmapped required field so the columns step can block Next", () => {
+    expect(
+      missingRequiredColumns({ ...FULL_MAPPING, ascentStyle: null, areaName: null }),
+    ).toEqual(["ascentStyle", "areaName"]);
+  });
+
+  it("ignores unmapped optional fields", () => {
+    expect(
+      missingRequiredColumns({ ...FULL_MAPPING, date: null, grade: null, rating: null }),
+    ).toEqual([]);
   });
 });
 
@@ -186,9 +269,69 @@ describe("parseDateWithFormat", () => {
     expect(parseDateWithFormat("13/40/2026", "mdy")).toBeNull();
   });
 
-  it("returns null when the format doesn't match the string shape", () => {
+  it("returns null for an all-numeric date the chosen format can't read", () => {
+    // Nothing in the value says whether this is Aug 12th or Dec 8th, and the
+    // user said their file is ISO, so it's a failed row rather than a guess.
     expect(parseDateWithFormat("8/12/2026", "iso")).toBeNull();
-    expect(parseDateWithFormat("2026-08-12", "mdy")).toBeNull();
+  });
+
+  it("parses unambiguous formats whatever the chosen format is", () => {
+    for (const format of ["iso", "mdy", "dmy"] as const) {
+      // JS Date#toString, which is what a naively serialized Date looks like.
+      expect(
+        parseDateWithFormat("Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", format),
+      ).toBe("2019-10-15");
+      expect(parseDateWithFormat("2026-08-12", format)).toBe("2026-08-12");
+      expect(parseDateWithFormat("Oct 15, 2019", format)).toBe("2019-10-15");
+    }
+  });
+
+  it("parses the timestamp shapes exports tend to emit", () => {
+    const cases: [string, string][] = [
+      ["Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", "2019-10-15"],
+      ["Sat Mar 07 2020 13:45:02 GMT-0800 (Pacific Standard Time)", "2020-03-07"],
+      ["Sun Sep 22 2019 00:00:00 GMT+0000 (GMT+00:00)", "2019-09-22"],
+      ["Tue, 15 Oct 2019 00:00:00 GMT", "2019-10-15"], // RFC 1123 / toUTCString
+      ["Tue, Oct 15 2019 00:00:00 GMT+0000", "2019-10-15"], // punctuated weekday
+      ["2019-10-15T00:00:00.000Z", "2019-10-15"],
+      ["2019-10-15T23:30:00-07:00", "2019-10-15"], // civil date as written, not shifted to UTC
+      ["2019-10-15 00:00:00", "2019-10-15"],
+      ["10/15/2019 2:05 PM", "2019-10-15"],
+    ];
+    for (const [raw, expected] of cases) {
+      expect(parseDateWithFormat(raw, "mdy"), raw).toBe(expected);
+    }
+  });
+
+  it("parses named-month and non-slash numeric formats", () => {
+    const cases: [string, DateFormat, string][] = [
+      ["October 15, 2019", "iso", "2019-10-15"],
+      ["oct 15 2019", "iso", "2019-10-15"],
+      ["Sept 15, 2019", "iso", "2019-09-15"],
+      ["15 October 2019", "iso", "2019-10-15"],
+      ["15-Oct-2019", "iso", "2019-10-15"], // Excel's text-date rendering
+      ["2019/10/15", "iso", "2019-10-15"],
+      ["20191015", "iso", "2019-10-15"], // ISO 8601 basic
+      ["2019-1-5", "iso", "2019-01-05"], // unpadded
+      ["15.10.2019", "dmy", "2019-10-15"], // European dotted
+      ["10-15-2019", "mdy", "2019-10-15"],
+      ["10/15/19", "mdy", "2019-10-15"], // two-digit year
+      ["15/10/19", "dmy", "2019-10-15"],
+      ["15-10-19", "dmy", "2019-10-15"], // must not be read as ISO year 15
+      ["10/15/89", "mdy", "1989-10-15"], // two-digit years pivot like a spreadsheet's
+    ];
+    for (const [raw, format, expected] of cases) {
+      expect(parseDateWithFormat(raw, format), raw).toBe(expected);
+    }
+  });
+
+  it("rejects values that only look like dates", () => {
+    expect(parseDateWithFormat("2019-10-15 extra", "iso")).toBeNull();
+    expect(parseDateWithFormat("Oct 2019", "iso")).toBeNull();
+    expect(parseDateWithFormat("last Tuesday", "iso")).toBeNull();
+    expect(parseDateWithFormat("43753", "iso")).toBeNull(); // Excel serial number
+    expect(parseDateWithFormat("2019-02-30", "iso")).toBeNull();
+    expect(parseDateWithFormat("Feb 30, 2019", "iso")).toBeNull();
   });
 });
 
@@ -204,6 +347,45 @@ describe("detectDateFormat", () => {
   it("detects DMY dates (day > 12 disambiguates from MDY)", () => {
     expect(detectDateFormat(["25/8/2026", "26/8/2026"])).toBe("dmy");
   });
+
+  it("lets the all-numeric values decide when unambiguous values are mixed in", () => {
+    expect(
+      detectDateFormat(["Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", "25/8/2026"]),
+    ).toBe("dmy");
+  });
+});
+
+describe("needsDateFormatChoice", () => {
+  it("doesn't ask about a column of JS Date#toString values", () => {
+    expect(
+      needsDateFormatChoice([
+        "Sun Sep 22 2019 00:00:00 GMT+0000 (GMT+00:00)",
+        "Tue Oct 15 2019 00:00:00 GMT-0700 (Pacific Daylight Time)",
+      ]),
+    ).toBe(false);
+  });
+
+  it("doesn't ask about ISO or named-month dates", () => {
+    expect(needsDateFormatChoice(["2026-08-12", "Oct 15, 2019", "15 October 2019"])).toBe(false);
+  });
+
+  it("asks when a value reads as two different dates", () => {
+    expect(needsDateFormatChoice(["05/06/2019"])).toBe(true);
+  });
+
+  it("doesn't ask when the numbers themselves settle the order", () => {
+    // 25 can't be a month, so only "day first" parses it — detectDateFormat
+    // gets that right on its own.
+    expect(needsDateFormatChoice(["25/8/2026", "26/8/2026"])).toBe(false);
+  });
+
+  it("asks as soon as one value in the column is ambiguous", () => {
+    expect(needsDateFormatChoice(["2026-08-12", "05/06/2019"])).toBe(true);
+  });
+
+  it("ignores blanks and values that aren't dates at all", () => {
+    expect(needsDateFormatChoice(["", "   ", "banana"])).toBe(false);
+  });
 });
 
 describe("normalizeImportRows", () => {
@@ -215,7 +397,7 @@ describe("normalizeImportRows", () => {
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(invalid).toEqual([]);
     expect(valid).toEqual([
@@ -228,6 +410,7 @@ describe("normalizeImportRows", () => {
         rating: 4,
         comment: "Very fun climbing",
         gradeText: "5.11c",
+        blankGradeMeans: "posted-grade",
         gradeFeel: "solid",
         raw: row(),
       },
@@ -242,7 +425,7 @@ describe("normalizeImportRows", () => {
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(invalid).toEqual([]);
     expect(valid[0].dateSent).toBeNull();
@@ -256,13 +439,55 @@ describe("normalizeImportRows", () => {
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(valid).toEqual([]);
     expect(invalid[0].reason).toMatch(/unparseable date/i);
   });
 
-  it("rejects a date in the future", () => {
+  it("normalizes a serialized-Date timestamp to its civil date", () => {
+    const { valid, invalid } = normalizeImportRows(
+      csv([row({ Date: "Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].dateSent).toBe("2019-10-15");
+  });
+
+  it("rejects a date two days past UTC today", () => {
+    const { valid, invalid } = normalizeImportRows(
+      csv([row({ Date: "2026-08-21" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid).toEqual([]);
+    expect(invalid[0].reason).toMatch(/future/i);
+  });
+
+  it("accepts a date equal to UTC today", () => {
+    const { valid, invalid } = normalizeImportRows(
+      csv([row({ Date: TODAY })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].dateSent).toBe(TODAY);
+  });
+
+  it("accepts a date one day past UTC today (a UTC+14 client's local today)", () => {
     const { valid, invalid } = normalizeImportRows(
       csv([row({ Date: "2026-08-20" })]),
       FULL_MAPPING,
@@ -270,10 +495,10 @@ describe("normalizeImportRows", () => {
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
-    expect(valid).toEqual([]);
-    expect(invalid[0].reason).toMatch(/future/i);
+    expect(invalid).toEqual([]);
+    expect(valid[0].dateSent).toBe("2026-08-20");
   });
 
   it("rejects an unmapped ascent-style value", () => {
@@ -284,7 +509,7 @@ describe("normalizeImportRows", () => {
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(valid).toEqual([]);
     expect(invalid[0].reason).toMatch(/unmapped ascent style/i);
@@ -298,7 +523,7 @@ describe("normalizeImportRows", () => {
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(valid).toEqual([]);
     expect(invalid).toHaveLength(1);
@@ -313,7 +538,7 @@ describe("normalizeImportRows", () => {
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(invalid).toEqual([]);
     expect(valid[0].comment).toHaveLength(MAX_COMMENT_LENGTH);
@@ -327,7 +552,7 @@ describe("normalizeImportRows", () => {
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(valid[0].gradeText).toBeNull();
     expect(valid[0].rating).toBeNull();
@@ -342,7 +567,7 @@ describe("normalizeImportRows", () => {
       { ...CLIMB_TYPE_MAPPING, sport: "skip" },
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(invalid).toEqual([]);
     expect(valid[0].climbTypeHint).toBeNull();
@@ -351,32 +576,32 @@ describe("normalizeImportRows", () => {
   it("resolves a Grade Feel value through the grade-feel mapping", () => {
     const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
     const { valid } = normalizeImportRows(
-      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "High" })] },
+      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "High" })], warnings: [] },
       mappingWithFeel,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(valid[0].gradeFeel).toBe("high");
   });
 
   it("defaults gradeFeel to solid when the CSV has no matching column", () => {
-    const { valid } = normalizeImportRows(csv([row()]), FULL_MAPPING, ASCENT_STYLE_MAPPING, CLIMB_TYPE_MAPPING, GRADE_FEEL_MAPPING, "iso", TODAY);
+    const { valid } = normalizeImportRows(csv([row()]), FULL_MAPPING, ASCENT_STYLE_MAPPING, CLIMB_TYPE_MAPPING, GRADE_FEEL_MAPPING, "iso", { today: TODAY });
     expect(valid[0].gradeFeel).toBe("solid");
   });
 
   it("defaults gradeFeel to solid for an unmapped value, without invalidating the row", () => {
     const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
     const { valid, invalid } = normalizeImportRows(
-      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "medium" })] },
+      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "medium" })], warnings: [] },
       mappingWithFeel,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(invalid).toEqual([]);
     expect(valid[0].gradeFeel).toBe("solid");
@@ -385,13 +610,13 @@ describe("normalizeImportRows", () => {
   it("falls back to solid when a grade feel value is explicitly skipped", () => {
     const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
     const { valid, invalid } = normalizeImportRows(
-      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "High" })] },
+      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "High" })], warnings: [] },
       mappingWithFeel,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       { ...GRADE_FEEL_MAPPING, High: "skip" },
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(invalid).toEqual([]);
     expect(valid[0].gradeFeel).toBe("solid");
@@ -405,10 +630,209 @@ describe("normalizeImportRows", () => {
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
       "iso",
-      TODAY,
+      { today: TODAY },
     );
     expect(valid).toEqual([]);
     expect(invalid).toHaveLength(2);
+  });
+});
+
+describe("normalizeImportRows suggested-grade semantics", () => {
+  const HEADERS_WITH_SUGGESTED = [...SAMPLE_HEADERS, "Suggested Grade"];
+  const MAPPING_WITH_SUGGESTED: ColumnMapping = {
+    ...FULL_MAPPING,
+    suggestedGrade: "Suggested Grade",
+  };
+
+  function csvWithSuggested(rows: Record<string, string>[]): ParsedCsv {
+    return { headers: HEADERS_WITH_SUGGESTED, rows, warnings: [] };
+  }
+
+  it("prefers a mapped Suggested Grade column over the Grade column", () => {
+    const { valid, invalid } = normalizeImportRows(
+      csvWithSuggested([row({ Grade: "5.11c", "Suggested Grade": "5.12a" })]),
+      MAPPING_WITH_SUGGESTED,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(invalid).toEqual([]);
+    expect(valid[0].gradeText).toBe("5.12a");
+    expect(valid[0].blankGradeMeans).toBe("no-suggestion");
+  });
+
+  it("treats a blank Suggested Grade cell as no suggestion, not as the Grade column's value", () => {
+    const { valid } = normalizeImportRows(
+      csvWithSuggested([row({ Grade: "5.11c", "Suggested Grade": "" })]),
+      MAPPING_WITH_SUGGESTED,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid[0].gradeText).toBeNull();
+    expect(valid[0].blankGradeMeans).toBe("no-suggestion");
+  });
+
+  it("keeps posted-grade fallback semantics when only a Grade column is mapped", () => {
+    const { valid } = normalizeImportRows(
+      csv([row({ Grade: "" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid[0].gradeText).toBeNull();
+    expect(valid[0].blankGradeMeans).toBe("posted-grade");
+  });
+});
+
+describe("normalizeImportRows coercion warnings", () => {
+  it("returns no warnings for clean rows", () => {
+    const { warnings } = normalizeImportRows(
+      csv([row()]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(warnings).toEqual([]);
+  });
+
+  it("counts invalid ratings without invalidating the rows, with example rows", () => {
+    const { valid, warnings } = normalizeImportRows(
+      csv([row({ Rating: "6" }), row({ Rating: "banana" }), row({ Rating: "4" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid).toHaveLength(3);
+    expect(valid[0].rating).toBeNull();
+    expect(valid[2].rating).toBe(4);
+    const warning = warnings.find((w) => w.field === "rating");
+    expect(warning?.count).toBe(2);
+    expect(warning?.examples).toEqual(['Row 1: "6"', 'Row 2: "banana"']);
+  });
+
+  it("warns on a grade that doesn't parse for the hinted climb type", () => {
+    const { valid, warnings } = normalizeImportRows(
+      csv([row({ Grade: "V4" })]), // hinted sport via the Climb Type column
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid).toHaveLength(1);
+    const warning = warnings.find((w) => w.field === "suggestedGrade");
+    expect(warning?.count).toBe(1);
+    expect(warning?.examples).toEqual(['Row 1: "V4"']);
+  });
+
+  it("without a climb-type hint, warns only when the grade parses in no discipline", () => {
+    const skipAllTypes: ClimbTypeMapping = { boulder: "skip", sport: "skip", trad: "skip" };
+    const { warnings } = normalizeImportRows(
+      csv([row({ Grade: "V4" }), row({ Grade: "5.11c" }), row({ Grade: "nonsense" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      skipAllTypes,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    const warning = warnings.find((w) => w.field === "suggestedGrade");
+    expect(warning?.count).toBe(1);
+    expect(warning?.examples).toEqual(['Row 3: "nonsense"']);
+  });
+
+  it("checks grade parseability against the chosen grade-scale preference", () => {
+    const { warnings } = normalizeImportRows(
+      csv([row({ Grade: "7a" })]), // French sport grade
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY, gradeScalePreference: "converted" },
+    );
+    expect(warnings).toEqual([]);
+  });
+
+  it("warns on a grade feel value that isn't mapped and defaults to solid", () => {
+    const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
+    const { valid, warnings } = normalizeImportRows(
+      {
+        headers: [...SAMPLE_HEADERS, "Grade Feel"],
+        rows: [row({ "Grade Feel": "medium" }), row({ "Grade Feel": "High" })],
+        warnings: [],
+      },
+      mappingWithFeel,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid[0].gradeFeel).toBe("solid");
+    expect(valid[1].gradeFeel).toBe("high");
+    const warning = warnings.find((w) => w.field === "gradeFeel");
+    expect(warning?.count).toBe(1);
+    expect(warning?.examples).toEqual(['Row 1: "medium"']);
+  });
+
+  it("counts truncated comments with the original length as the example", () => {
+    const { warnings } = normalizeImportRows(
+      csv([row({ Comments: "a".repeat(MAX_COMMENT_LENGTH + 20) })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    const warning = warnings.find((w) => w.field === "comment");
+    expect(warning?.count).toBe(1);
+    expect(warning?.examples).toEqual([`Row 1: ${MAX_COMMENT_LENGTH + 20} characters`]);
+  });
+
+  it("caps examples at 3 while still counting every affected row", () => {
+    const { warnings } = normalizeImportRows(
+      csv([1, 2, 3, 4, 5].map(() => row({ Rating: "99" }))),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    const warning = warnings.find((w) => w.field === "rating");
+    expect(warning?.count).toBe(5);
+    expect(warning?.examples).toHaveLength(3);
+  });
+
+  it("doesn't count warnings for rows that are already invalid", () => {
+    const { invalid, warnings } = normalizeImportRows(
+      csv([row({ Climb: "", Rating: "banana" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(invalid).toHaveLength(1);
+    expect(warnings).toEqual([]);
   });
 });
 
@@ -474,6 +898,7 @@ describe("buildFailedRowsCsv", () => {
             rating: 5,
             comment: "Great",
             gradeText: "5.10a",
+            blankGradeMeans: "posted-grade",
             gradeFeel: "solid",
             raw: row({ Climb: "Some Route", Area: "Some Crag" }),
           },
@@ -509,6 +934,7 @@ describe("buildFailedRowsCsv", () => {
             rating: null,
             comment: null,
             gradeText: null,
+            blankGradeMeans: "posted-grade",
             gradeFeel: "solid",
             raw: row({ Climb: "Batch Route", Area: "Batch Crag" }),
           },
