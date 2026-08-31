@@ -4,11 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
 import { getArea, type Area } from "./areas";
-import {
-  getSubtreeClimbs,
-  LARGE_AREA_SUBTREE_AREAS,
-  type SubtreeClimbsSort,
-} from "./climbs";
+import { getSubtreeClimbs, type SubtreeClimbsSort } from "./climbs";
 import { seedFixtureSend, seedFixtureUser } from "@/test/fixtures";
 
 // getSubtreeClimbs forces a different index (climbs_area_idx vs a per-sort
@@ -17,9 +13,8 @@ import { seedFixtureSend, seedFixtureUser } from "@/test/fixtures";
 // not per call, so this "large area" path is a genuinely different code path
 // from climbs.test.ts's small-fixture-tree coverage, not just a bigger
 // version of the same query. Seeding 1000+ real sub-areas just to reach the
-// threshold would say nothing extra, so every call here passes
-// `subtreeAreaCount` to select the branch directly — which is what that
-// parameter is for.
+// threshold would say nothing extra, so every call here passes `largeSubtree`
+// to select the branch directly — which is what that parameter is for.
 
 let db: Database;
 const AREA_ID = 9000;
@@ -27,7 +22,7 @@ const START_ID = 9001;
 
 /** getSubtreeClimbs on the large-subtree branch, whatever the fixture's real size. */
 function largeSubtreeClimbs(area: Area, sort: SubtreeClimbsSort = "ascents_desc") {
-  return getSubtreeClimbs(db, area, 1, sort, undefined, LARGE_AREA_SUBTREE_AREAS);
+  return getSubtreeClimbs(db, area, 1, sort, undefined, true);
 }
 
 beforeAll(async () => {
@@ -161,7 +156,7 @@ describe("getSubtreeClimbs on a large-area-shaped subtree", () => {
   it("rejects a sort value on the small-subtree branch as well", async () => {
     const area = await getArea(db, AREA_ID);
     await expect(
-      getSubtreeClimbs(db, area!, 1, "not_a_real_sort" as never, undefined, 1),
+      getSubtreeClimbs(db, area!, 1, "not_a_real_sort" as never, undefined, false),
     ).rejects.toThrow("Invalid sort value");
   });
 

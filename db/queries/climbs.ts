@@ -119,19 +119,26 @@ function subtreeAreaIds(areaId: number): SQL {
 // a subtree of N areas spans exactly 2N-1, so the classification is
 // unchanged. Unlike that span — a snapshot only as fresh as the last
 // recompute — this is a live count.
-export const LARGE_AREA_SUBTREE_AREAS = 1000;
+const LARGE_AREA_SUBTREE_AREAS = 1000;
 
-/** How many areas are in `areaId`'s subtree, counting no further than `cap`
- * — only which side of LARGE_AREA_SUBTREE_AREAS we land on matters, and the
- * LIMIT keeps a continent-sized walk from reading every descendant. */
-async function countSubtreeAreas(db: Database, areaId: number, cap: number): Promise<number> {
+/** Whether `areaId`'s subtree reaches LARGE_AREA_SUBTREE_AREAS — the signal
+ * getSubtreeClimbs forces its index from. Only the answer matters, never the
+ * size, so the walk stops as soon as it has seen enough descendants to decide:
+ * a continent costs the same probe as a crag (~2ms on this dataset).
+ *
+ * The LIMIT and the comparison are deliberately kept in one expression. They
+ * have to agree — the count saturates at the LIMIT, so it can only ever reach
+ * the threshold by hitting it exactly — and a mismatch between them wouldn't
+ * fail loudly, it would just pin every area to the small-subtree index and
+ * quietly give back the slow plan for the areas that most need the fast one. */
+async function isLargeSubtree(db: Database, areaId: number): Promise<boolean> {
   const rows = await db.all<{ count: number }>(sql`
     SELECT count(*) AS count FROM (
       ${subtreeAreaIds(areaId)}
-      SELECT id FROM subtree LIMIT ${cap}
+      SELECT id FROM subtree LIMIT ${LARGE_AREA_SUBTREE_AREAS}
     )
   `);
-  return rows[0]?.count ?? 0;
+  return (rows[0]?.count ?? 0) >= LARGE_AREA_SUBTREE_AREAS;
 }
 
 const SUBTREE_CLIMBS_SORT_INDEX: Record<SubtreeClimbsSort, string> = {
@@ -176,16 +183,15 @@ function climbStatsConditions(filter: ClimbStatsFilter): SQL[] {
   return clauses;
 }
 
-/** `subtreeAreaCount` lets a caller that already knows the subtree size skip
- * the extra probe query; omit it and it's measured (capped, ~2ms worst case
- * on this dataset). */
+/** `largeSubtree` lets a caller that already knows which branch it wants skip
+ * the extra probe query; omit it and it's measured (see isLargeSubtree). */
 export async function getSubtreeClimbs(
   db: Database,
   area: Area,
   page = 1,
   sort: SubtreeClimbsSort = "ascents_desc",
   filter?: DisciplineGradeFilter & { name?: string } & ClimbStatsFilter,
-  subtreeAreaCount?: number,
+  largeSubtree?: boolean,
 ): Promise<{ climbs: ClimbWithAreaName[]; page: number; pageSize: number; hasNextPage: boolean }> {
   const conditions: SQL[] = [sql`climbs.area_id IN (SELECT id FROM subtree)`];
 
@@ -213,10 +219,8 @@ export async function getSubtreeClimbs(
     throw new Error(`Invalid sort value: ${sort}`);
   }
 
-  const areaCount =
-    subtreeAreaCount ?? (await countSubtreeAreas(db, area.id, LARGE_AREA_SUBTREE_AREAS));
-  const indexName =
-    areaCount >= LARGE_AREA_SUBTREE_AREAS ? SUBTREE_CLIMBS_SORT_INDEX[sort] : "climbs_area_idx";
+  const isLarge = largeSubtree ?? (await isLargeSubtree(db, area.id));
+  const indexName = isLarge ? SUBTREE_CLIMBS_SORT_INDEX[sort] : "climbs_area_idx";
 
   // Fetch one extra row to detect a next page without a separate COUNT query.
   const rows = await db.all<ClimbWithAreaName>(sql`
