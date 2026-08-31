@@ -1,0 +1,37 @@
+"use client"; // Error boundaries must be Client Components
+
+import { useEffect } from "react";
+import { Button } from "@heroui/react";
+import { AppLink } from "@/components/ui/app-link";
+import { PageTitle } from "@/components/ui/typography";
+
+/** Root error boundary — renders inside the root layout (header/footer stay),
+ * catching render errors from every page. `retry()` re-fetches and re-renders
+ * the failed segment, which is often enough for transient failures. */
+export default function ErrorPage({
+  error,
+  retry,
+}: {
+  error: Error & { digest?: string };
+  retry: () => void;
+}) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <PageTitle className="text-2xl">Something went wrong</PageTitle>
+        <p className="text-muted">
+          An unexpected error kept this page from loading. It may be temporary
+          — trying again often fixes it.
+        </p>
+      </div>
+      <div className="flex items-center gap-4">
+        <Button onPress={() => retry()}>Try again</Button>
+        <AppLink href="/">Search from the home page</AppLink>
+      </div>
+    </div>
+  );
+}

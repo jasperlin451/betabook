@@ -1,5 +1,7 @@
 "use client";
 
+import { SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { FIELD_CLASS } from "@/components/ui/field";
 import { useState, useTransition } from "react";
 import { Button, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
 import { AreaPicker, type PickedArea } from "@/components/area-picker";
@@ -80,7 +82,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, onDone }: ClimbFormProps
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6"
+      className={SURFACE_CARD_CLASS}
     >
       {fixedAreaId == null && (
         <TextField>
@@ -99,9 +101,8 @@ export function ClimbForm({ areaId: fixedAreaId, climb, onDone }: ClimbFormProps
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className={`rounded-md border bg-surface px-3 py-2 text-sm ${
-            nameInvalid ? "border-danger" : "border-separator"
-          }`}
+          aria-invalid={nameInvalid}
+          className={`${FIELD_CLASS} aria-invalid:border-danger`}
         />
         {nameInvalid && <p className="text-sm text-danger">Name is required.</p>}
       </TextField>
@@ -112,7 +113,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, onDone }: ClimbFormProps
           value={type}
           disabled={disciplineLocked}
           onChange={(e) => handleTypeChange(e.target.value as ClimbType)}
-          className="rounded-md border border-separator bg-surface px-3 py-2 text-sm disabled:opacity-60"
+          className={`${FIELD_CLASS} disabled:opacity-60`}
         >
           {Object.entries(CLIMB_TYPE_LABELS).map(([value, label]) => (
             <option key={value} value={value}>

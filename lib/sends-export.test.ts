@@ -58,9 +58,9 @@ describe("buildSendsExportCsv", () => {
     expect(csvText).toContain("V4");
   });
 
-  it("renders an unknown grade using formatGrade's own label", () => {
+  it("renders an unknown grade using formatGrade's own fallback", () => {
     const csvText = buildSendsExportCsv([row({ climbGrade: null })]);
-    expect(csvText).toContain("Grade unknown");
+    expect(csvText).toContain("—");
   });
 
   it("renders a null suggested grade, rating, and comment as blank", () => {

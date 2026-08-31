@@ -1,7 +1,21 @@
-import { buttonVariants, Link } from "@heroui/react";
+"use client";
+
+import { useState, type ReactNode } from "react";
+import { buttonVariants, Button } from "@heroui/react";
 import type { Area } from "@/db/queries";
+import { AppLink } from "@/components/ui/app-link";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ListRow } from "@/components/ui/list-row";
+import { LoadMoreButton } from "@/components/ui/load-more-button";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
+
+/** How many sub-area pills the card variant shows before collapsing behind a
+ * "Show all N" toggle — a state-level area can have hundreds of sub-areas,
+ * which would otherwise wall off everything below the fold. */
+const PILL_CAP = 24;
+
+/** Above this many sub-areas, pills give way to the columned index. */
+const PILL_LAYOUT_MAX = 10;
 
 type AreaListProps = {
   areas: (Area & { ancestorPath?: string | null })[];
@@ -10,6 +24,17 @@ type AreaListProps = {
   /** Up to two nearest ancestors per area, keyed by area id — only
    * meaningful for `variant="search"`. */
   areaBreadcrumbs?: Record<number, { id: number; name: string }[]>;
+  /** A "load more" button shown at the bottom of the list, in place of
+   * numbered pagination — same pattern as ClimbList. Only meaningful for
+   * `variant="search"`. */
+  pagination?: {
+    hasNextPage: boolean;
+    loadingMore: boolean;
+    onLoadMore: () => void;
+    /** Inline error shown above the button when a page fetch failed — the
+     * button itself stays as the retry affordance. */
+    error?: ReactNode;
+  };
 };
 
 export function AreaList({
@@ -17,26 +42,41 @@ export function AreaList({
   emptyMessage = "No areas found.",
   variant = "card",
   areaBreadcrumbs,
+  pagination,
 }: AreaListProps) {
+  // Unconditional (React hooks rule) even though only the card variant uses it.
+  const [showAllPills, setShowAllPills] = useState(false);
+
   if (areas.length === 0) {
-    return <p className="text-muted text-sm">{emptyMessage}</p>;
+    return <EmptyState message={emptyMessage} />;
   }
 
   if (variant === "search") {
+    const loadMoreBlock = pagination?.hasNextPage && (
+      <div className="flex flex-col items-center gap-2">
+        {pagination.error}
+        <LoadMoreButton onPress={pagination.onLoadMore} loading={pagination.loadingMore} />
+      </div>
+    );
+
     return (
-      <div className="flex flex-col divide-y divide-separator">
-        {areas.map((area, index) => (
-          <ListRow
-            key={area.id}
-            leading={
-              <span className="w-6 shrink-0 text-sm tabular-nums text-muted">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-            }
-            title={<Link href={`/areas/${area.id}`}>{area.name}</Link>}
-            subtitle={<AreaBreadcrumb ancestors={areaBreadcrumbs?.[area.id] ?? []} />}
-          />
-        ))}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col divide-y divide-separator">
+          {areas.map((area, index) => (
+            <ListRow
+              key={area.id}
+              leading={
+                <span className="w-6 shrink-0 text-sm tabular-nums text-muted">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+              }
+              title={area.name}
+              href={`/areas/${area.id}`}
+              subtitle={<AreaBreadcrumb ancestors={areaBreadcrumbs?.[area.id] ?? []} />}
+            />
+          ))}
+        </div>
+        {loadMoreBlock}
       </div>
     );
   }
@@ -46,7 +86,7 @@ export function AreaList({
       <div className="flex flex-col gap-3">
         {areas.map((area) => (
           <div key={area.id}>
-            <Link href={`/areas/${area.id}`}>{area.name}</Link>
+            <AppLink href={`/areas/${area.id}`}>{area.name}</AppLink>
             {area.ancestorPath && (
               <p className="text-muted text-sm">Parent: {area.ancestorPath}</p>
             )}
@@ -56,16 +96,45 @@ export function AreaList({
     );
   }
 
+  // A handful of sub-areas read fine as pills; past that a pill wall turns
+  // into visual porridge, so larger sets switch to an alphabetized
+  // multi-column index — the way a guidebook lists a region's crags.
+  if (areas.length > PILL_LAYOUT_MAX) {
+    const sorted = [...areas].sort((a, b) => a.name.localeCompare(b.name));
+    const shownAreas = showAllPills ? sorted : sorted.slice(0, PILL_CAP);
+    return (
+      <div className="flex flex-col gap-3">
+        <ul className="columns-2 gap-x-8 sm:columns-3 lg:columns-4">
+          {shownAreas.map((area) => (
+            <li key={area.id} className="mb-1.5 break-inside-avoid text-sm">
+              <AppLink href={`/areas/${area.id}`}>{area.name}</AppLink>
+            </li>
+          ))}
+        </ul>
+        {areas.length > PILL_CAP && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start"
+            onPress={() => setShowAllPills((shown) => !shown)}
+          >
+            {showAllPills ? "Show fewer" : `Show all ${areas.length}`}
+          </Button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap gap-2">
       {areas.map((area) => (
-        <Link
+        <AppLink
           key={area.id}
           href={`/areas/${area.id}`}
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           {area.name}
-        </Link>
+        </AppLink>
       ))}
     </div>
   );

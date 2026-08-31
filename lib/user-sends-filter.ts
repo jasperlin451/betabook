@@ -1,3 +1,4 @@
+import { MAX_RATING } from "@/lib/climb-stats-filter";
 import {
   DEFAULT_DISCIPLINE_FILTER,
   appendDisciplineFilterParams,
@@ -14,6 +15,14 @@ const USER_SENDS_SORTS: UserSendsSort[] = [
   "rating_desc",
   "rating_asc",
 ];
+
+/** Upper bound on /api/users/[id]/sends's `limit` param, shared by the
+ * route (which clamps to it), UserSendList's post-mutation reconcile
+ * (which won't request beyond it — see the reconcile comment there for the
+ * fallback when more rows than this are loaded), and ExportSendsButton's
+ * paged CSV export (which requests exactly this per page). Sized for "one
+ * bounded request", not "arbitrary bulk fetch". */
+export const MAX_USER_SENDS_LIMIT = 200;
 
 // No disciplines checked means "don't filter on discipline or grade at
 // all" — not "match nothing". Checking one activates that filter (and
@@ -43,7 +52,7 @@ export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilte
     sort,
     ascentStyles: parseAscentStyles(params),
     minRating:
-      Number.isFinite(minRating) && minRating >= 0 && minRating <= 5
+      Number.isFinite(minRating) && minRating >= 0 && minRating <= MAX_RATING
         ? minRating
         : DEFAULT_USER_SENDS_FILTER.minRating,
   };

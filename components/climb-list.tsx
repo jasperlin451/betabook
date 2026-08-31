@@ -1,24 +1,18 @@
 "use client";
 
-import { Chip, Link } from "@heroui/react";
+import type { ReactNode } from "react";
 import { describeGradeTrend } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
+import { formatCount } from "@/lib/format";
 import type { ClimbWithAreaName } from "@/db/queries";
+import { DisciplineChip } from "@/components/ui/discipline-chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Grade } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { ClimbSentIndicator } from "@/components/climb-sent-indicator";
-
-// success/warning/danger are reserved for ascent-style chips (AscentStyle), and
-// HeroUI's only other built-in tokens are accent/default — too few hues for
-// three disciplines that need to read as distinct from each other and from
-// gray. Overriding background/text directly gives each one its own color.
-const STYLE_CHIP_CLASSNAME: Record<ClimbType, string> = {
-  boulder: "bg-blue-100! text-blue-700!",
-  sport: "bg-violet-100! text-violet-700!",
-  trad: "bg-teal-100! text-teal-700!",
-};
 
 type ClimbListProps = {
   climbs: ClimbWithAreaName[];
@@ -29,6 +23,9 @@ type ClimbListProps = {
     hasNextPage: boolean;
     loadingMore: boolean;
     onLoadMore: () => void;
+    /** Inline error shown above the button when a page fetch failed — the
+     * button itself stays as the retry affordance. */
+    error?: ReactNode;
   };
   /** Average rating, logged-ascent count, and average suggested grade per
    * climb, keyed by climb id. */
@@ -53,11 +50,14 @@ export function ClimbList({
   sentClimbIds,
 }: ClimbListProps) {
   if (climbs.length === 0) {
-    return <p className="text-muted text-sm">{emptyMessage}</p>;
+    return <EmptyState message={emptyMessage} />;
   }
 
   const loadMoreBlock = pagination?.hasNextPage && (
-    <LoadMoreButton onPress={pagination.onLoadMore} loading={pagination.loadingMore} />
+    <div className="flex flex-col items-center gap-2">
+      {pagination.error}
+      <LoadMoreButton onPress={pagination.onLoadMore} loading={pagination.loadingMore} />
+    </div>
   );
 
   return (
@@ -71,7 +71,8 @@ export function ClimbList({
                 <ClimbSentIndicator climb={climb} sent={sentClimbIds.has(climb.id)} />
               )
             }
-            title={<Link href={`/climbs/${climb.id}`}>{climb.name}</Link>}
+            title={climb.name}
+            href={`/climbs/${climb.id}`}
             subtitle={
               <AreaBreadcrumb
                 areaId={climb.areaId}
@@ -80,26 +81,23 @@ export function ClimbList({
               />
             }
             trailing={
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-foreground">
+              <div className="flex flex-col items-end gap-1.5">
+                <div className="flex items-center gap-2">
+                  <Grade>
                     <GradeWithTrend
                       type={climb.type}
                       grade={climb.grade}
                       avgSuggestedGrade={sendStats?.[climb.id]?.avgSuggestedGrade ?? null}
                     />
-                  </span>
-                  <span className="text-muted" aria-hidden>
-                    •
-                  </span>
+                  </Grade>
                   <RatingStars rating={sendStats?.[climb.id]?.avgRating ?? null} precision="decimal" />
                 </div>
-                <Chip variant="soft" className={STYLE_CHIP_CLASSNAME[climb.type]}>
-                  {climb.type.toUpperCase()}
-                </Chip>
-                <span className="text-muted text-sm">
-                  {sendStats?.[climb.id]?.sendCount ?? 0} ascents
-                </span>
+                <div className="flex items-center gap-2">
+                  <DisciplineChip type={climb.type} />
+                  <span className="text-xs text-muted">
+                    {formatCount(sendStats?.[climb.id]?.sendCount ?? 0, "ascent")}
+                  </span>
+                </div>
               </div>
             }
           />

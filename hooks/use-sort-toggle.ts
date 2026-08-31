@@ -31,7 +31,11 @@ export function useSortToggle<Field extends string, Sort extends string>({
     return value.endsWith("_asc") ? "asc" : "desc";
   }
 
-  const field = fields.find((f) => sort.startsWith(f)) ?? defaultField;
+  // Exact field match (a field that happens to prefix another must not
+  // shadow it), by rebuilding each candidate's two sort strings rather than
+  // prefix-matching the raw sort.
+  const field =
+    fields.find((f) => sort === toSort(f, "asc") || sort === toSort(f, "desc")) ?? defaultField;
   const direction = directionOf(sort);
 
   function handleFieldChange(nextField: Field) {

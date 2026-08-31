@@ -88,27 +88,27 @@ describe("FTS sync triggers", () => {
   // seeds the FTS tables by hand, so a duplicate here would mean the
   // triggers and some manual insert both indexed the same row.
   it("indexes each seeded row exactly once", async () => {
-    expect(await searchAreas(db, "Test Crag")).toHaveLength(1);
-    expect(await searchClimbs(db, { name: "Test Crack", disciplines: [] })).toHaveLength(1);
+    expect((await searchAreas(db, "Test Crag")).areas).toHaveLength(1);
+    expect((await searchClimbs(db, { name: "Test Crack", disciplines: [] })).climbs).toHaveLength(1);
   });
 
   it("makes a renamed area searchable under its new name and not its old one", async () => {
     // Area 2 is "Test Boulders".
-    expect((await searchAreas(db, "Boulders")).map((a) => a.id)).toEqual([2]);
+    expect((await searchAreas(db, "Boulders")).areas.map((a) => a.id)).toEqual([2]);
 
     expect(await updateArea(2, areaFormData("Granite Garden"))).toEqual({
       ok: true,
       value: undefined,
     });
 
-    expect((await searchAreas(db, "Granite Garden")).map((a) => a.id)).toEqual([2]);
-    expect(await searchAreas(db, "Boulders")).toEqual([]);
+    expect((await searchAreas(db, "Granite Garden")).areas.map((a) => a.id)).toEqual([2]);
+    expect((await searchAreas(db, "Boulders")).areas).toEqual([]);
   });
 
   it("makes a renamed climb searchable under its new name and not its old one", async () => {
     // Climb 3 is "Test Crimper" (sport 5.10a — grade index 10).
     expect(
-      (await searchClimbs(db, { name: "Crimper", disciplines: [] })).map((c) => c.id),
+      (await searchClimbs(db, { name: "Crimper", disciplines: [] })).climbs.map((c) => c.id),
     ).toEqual([3]);
 
     expect(
@@ -116,16 +116,16 @@ describe("FTS sync triggers", () => {
     ).toEqual({ ok: true, value: undefined });
 
     expect(
-      (await searchClimbs(db, { name: "Dyno Dance", disciplines: [] })).map((c) => c.id),
+      (await searchClimbs(db, { name: "Dyno Dance", disciplines: [] })).climbs.map((c) => c.id),
     ).toEqual([3]);
-    expect(await searchClimbs(db, { name: "Crimper", disciplines: [] })).toEqual([]);
+    expect((await searchClimbs(db, { name: "Crimper", disciplines: [] })).climbs).toEqual([]);
   });
 
   it("makes a created area searchable immediately", async () => {
     const result = await createArea(1, areaFormData("Fresh Gully"));
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect((await searchAreas(db, "Fresh Gully")).map((a) => a.id)).toEqual([result.value]);
+      expect((await searchAreas(db, "Fresh Gully")).areas.map((a) => a.id)).toEqual([result.value]);
     }
   });
 
@@ -134,7 +134,7 @@ describe("FTS sync triggers", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(
-        (await searchClimbs(db, { name: "Fresh Problem", disciplines: [] })).map((c) => c.id),
+        (await searchClimbs(db, { name: "Fresh Problem", disciplines: [] })).climbs.map((c) => c.id),
       ).toEqual([result.value]);
     }
   });
@@ -143,10 +143,10 @@ describe("FTS sync triggers", () => {
     const created = await createArea(1, areaFormData("Ephemeral Cove"));
     expect(created.ok).toBe(true);
     if (!created.ok) return;
-    expect(await searchAreas(db, "Ephemeral Cove")).toHaveLength(1);
+    expect((await searchAreas(db, "Ephemeral Cove")).areas).toHaveLength(1);
 
     expect(await deleteArea(created.value)).toEqual({ ok: true, value: undefined });
-    expect(await searchAreas(db, "Ephemeral Cove")).toEqual([]);
+    expect((await searchAreas(db, "Ephemeral Cove")).areas).toEqual([]);
   });
 
   // Regression: deleteClimb never issued the manual climbs_fts cleanup, so a
@@ -155,10 +155,10 @@ describe("FTS sync triggers", () => {
   it("removes a deleted climb from the index", async () => {
     // Climb 2 is "Test Slab" (no sends seeded, so it's deletable).
     expect(
-      (await searchClimbs(db, { name: "Slab", disciplines: [] })).map((c) => c.id),
+      (await searchClimbs(db, { name: "Slab", disciplines: [] })).climbs.map((c) => c.id),
     ).toEqual([2]);
 
     expect(await deleteClimb(2)).toEqual({ ok: true, value: undefined });
-    expect(await searchClimbs(db, { name: "Slab", disciplines: [] })).toEqual([]);
+    expect((await searchClimbs(db, { name: "Slab", disciplines: [] })).climbs).toEqual([]);
   });
 });

@@ -11,10 +11,10 @@ import {
 } from "./grades";
 
 describe("formatGrade", () => {
-  it("returns 'Grade unknown' when grade is null or undefined", () => {
-    expect(formatGrade("boulder", null)).toBe("Grade unknown");
-    expect(formatGrade("boulder", undefined)).toBe("Grade unknown");
-    expect(formatGrade("sport", null)).toBe("Grade unknown");
+  it("returns the '—' fallback when grade is null or undefined", () => {
+    expect(formatGrade("boulder", null)).toBe("—");
+    expect(formatGrade("boulder", undefined)).toBe("—");
+    expect(formatGrade("sport", null)).toBe("—");
   });
 
   it("formats a boulder grade in its native Hueco scale by default", () => {
@@ -37,9 +37,9 @@ describe("formatGrade", () => {
     expect(formatGrade("trad", 10, "french")).toBe(YDS_TO_FRENCH[10]);
   });
 
-  it("returns 'Grade unknown' for an out-of-range grade", () => {
-    expect(formatGrade("boulder", 999)).toBe("Grade unknown");
-    expect(formatGrade("boulder", -1)).toBe("Grade unknown");
+  it("returns the '—' fallback for an out-of-range grade", () => {
+    expect(formatGrade("boulder", 999)).toBe("—");
+    expect(formatGrade("boulder", -1)).toBe("—");
   });
 
   it("treats sport and trad as the same discipline for grade formatting", () => {
@@ -115,7 +115,7 @@ describe("describeGradeTrend", () => {
       arrow: null,
     });
     expect(describeGradeTrend("boulder", null, 5)).toEqual({
-      postedLabel: "Grade unknown",
+      postedLabel: "—",
       suggestedLabel: null,
       arrow: null,
     });

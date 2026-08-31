@@ -36,4 +36,17 @@ describe("getSubtreeClimbs pagination", () => {
     expect(page2.climbs.length).toBe(5);
     expect(page2.hasNextPage).toBe(false);
   });
+
+  // The seeded grades are `i % 19`, so every grade is shared by ~3 climbs —
+  // exactly the tie-heavy shape where a missing unique tie-breaker
+  // (`climbs.id`, appended to every SUBTREE_CLIMBS_ORDER_BY variant) makes
+  // OFFSET pagination duplicate or skip rows across pages.
+  it("pages over climbs sharing a grade without duplicating or skipping any", async () => {
+    const area = await getArea(db, 1);
+    const page1 = await getSubtreeClimbs(db, area!, 1, "grade_asc");
+    const page2 = await getSubtreeClimbs(db, area!, 2, "grade_asc");
+    const ids = [...page1.climbs, ...page2.climbs].map((c) => c.id);
+    expect(ids.length).toBe(55);
+    expect(new Set(ids).size).toBe(55);
+  });
 });

@@ -1,6 +1,12 @@
 import { eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
+import { MAX_RATING } from "@/lib/climb-stats-filter";
+import {
+  DEFAULT_BOULDER_RANGE,
+  DEFAULT_SPORT_RANGE,
+  DEFAULT_TRAD_RANGE,
+} from "@/lib/discipline-filter";
 import { PAGE_SIZE, toFtsPrefixQuery } from "./shared";
 import { areaNameCondition, type Area } from "./areas";
 
@@ -53,6 +59,25 @@ const SUBTREE_CLIMBS_ORDER_BY: Record<SubtreeClimbsSort, SQL> = {
   ascents_desc: sql`climbs.send_count DESC`,
 };
 
+/** Deterministic tie-breaks after the chosen sort, in name → grade →
+ * rating → ascents priority (minus whichever is primary), impressive-first
+ * directions. Only appended on paths that sort anyway (search, and
+ * small-area subtrees on the plain range index): the large-area path's
+ * whole point is that its forced sort index satisfies the ORDER BY without
+ * sorting the subtree, and extra keys would void that — there, ties fall
+ * back to climbs.id as before. */
+const SUBTREE_CLIMBS_TIE_BREAK: Record<"name" | "grade" | "rating" | "ascents", SQL> = {
+  name: sql`climbs.grade DESC, climbs.avg_rating DESC, climbs.send_count DESC`,
+  grade: sql`climbs.name ASC, climbs.avg_rating DESC, climbs.send_count DESC`,
+  rating: sql`climbs.name ASC, climbs.grade DESC, climbs.send_count DESC`,
+  ascents: sql`climbs.name ASC, climbs.grade DESC, climbs.avg_rating DESC`,
+};
+
+function sortTieBreak(sort: SubtreeClimbsSort): SQL {
+  const field = sort.replace(/_(asc|desc)$/, "") as keyof typeof SUBTREE_CLIMBS_TIE_BREAK;
+  return SUBTREE_CLIMBS_TIE_BREAK[field];
+}
+
 export type Discipline = "boulder" | "sport" | "trad";
 
 export type DisciplineGradeFilter = {
@@ -65,20 +90,34 @@ export type DisciplineGradeFilter = {
 /** Builds the discipline/grade OR-clause shared by `searchClimbs` and
  * `getSubtreeClimbs` — a climb matches if its own type is checked and its
  * grade falls in that discipline's range. Returns `[]` (no filtering) when
- * no disciplines are checked, per DEFAULT_USER_SENDS_FILTER's convention. */
+ * no disciplines are checked, per DEFAULT_USER_SENDS_FILTER's convention.
+ *
+ * Same NULL-grade semantics as the user-sends filter's
+ * disciplineGradeClause: at the full default range there's no grade
+ * predicate, so ungraded climbs stay (ticking "Boulder" used to silently
+ * drop every ungraded boulder — right under a crag header advertising
+ * them); once a bound is narrowed, NULL fails the BETWEEN and is excluded,
+ * since an unknown grade can't be known to fall inside a narrowed range. */
+function disciplineGradeCondition(
+  type: Discipline,
+  range: [number, number],
+  fullRange: [number, number],
+): SQL {
+  const [min, max] = range;
+  if (min <= fullRange[0] && max >= fullRange[1]) return sql`climbs.type = ${type}`;
+  return sql`(climbs.type = ${type} AND climbs.grade BETWEEN ${min} AND ${max})`;
+}
+
 function disciplineGradeConditions(filter: DisciplineGradeFilter): SQL[] {
   const clauses: SQL[] = [];
   if (filter.disciplines.includes("boulder") && filter.boulderRange) {
-    const [min, max] = filter.boulderRange;
-    clauses.push(sql`(climbs.type = 'boulder' AND climbs.grade BETWEEN ${min} AND ${max})`);
+    clauses.push(disciplineGradeCondition("boulder", filter.boulderRange, DEFAULT_BOULDER_RANGE));
   }
   if (filter.disciplines.includes("sport") && filter.sportRange) {
-    const [min, max] = filter.sportRange;
-    clauses.push(sql`(climbs.type = 'sport' AND climbs.grade BETWEEN ${min} AND ${max})`);
+    clauses.push(disciplineGradeCondition("sport", filter.sportRange, DEFAULT_SPORT_RANGE));
   }
   if (filter.disciplines.includes("trad") && filter.tradRange) {
-    const [min, max] = filter.tradRange;
-    clauses.push(sql`(climbs.type = 'trad' AND climbs.grade BETWEEN ${min} AND ${max})`);
+    clauses.push(disciplineGradeCondition("trad", filter.tradRange, DEFAULT_TRAD_RANGE));
   }
   return clauses;
 }
@@ -233,15 +272,20 @@ export type ClimbStatsFilter = {
 /** Adds the rating-range/min-ascents WHERE fragments shared by `searchClimbs`
  * and `getSubtreeClimbs` — both filter on climbs.avg_rating/send_count,
  * real denormalized columns (see drizzle/schema/climbs.ts), so this is a
- * plain predicate, no join or HAVING needed. A range at its full default
- * (or minAscents of 0) means the filter isn't active. A climb with no sends
- * has avg_rating IS NULL and send_count = 0, so it naturally fails either
- * condition once actually narrowed — no NULL special-casing required. */
+ * plain predicate, no join or HAVING needed. Each rating bound is emitted
+ * independently: a bound of 0 is the "Any" sentinel (that side is inactive
+ * — see lib/climb-stats-filter.ts), and a max at MAX_RATING is inactive
+ * too, since no avg_rating exceeds it and emitting it anyway would wrongly
+ * drop unrated climbs from the default view. A climb with no ratings has
+ * avg_rating IS NULL (and send_count = 0 with no sends), so it naturally
+ * fails whichever bound is actually active — no NULL special-casing
+ * required; minAscents of 0 likewise means inactive. */
 function climbStatsConditions(filter: ClimbStatsFilter): SQL[] {
   const clauses: SQL[] = [];
-  if (filter.ratingRange && (filter.ratingRange[0] > 0 || filter.ratingRange[1] < 5)) {
+  if (filter.ratingRange) {
     const [min, max] = filter.ratingRange;
-    clauses.push(sql`climbs.avg_rating BETWEEN ${min} AND ${max}`);
+    if (min > 0) clauses.push(sql`climbs.avg_rating >= ${min}`);
+    if (max > 0 && max < MAX_RATING) clauses.push(sql`climbs.avg_rating <= ${max}`);
   }
   if (filter.minAscents) {
     clauses.push(sql`climbs.send_count >= ${filter.minAscents}`);
@@ -295,6 +339,16 @@ export async function getSubtreeClimbs(
   const indexName = isLarge ? SUBTREE_CLIMBS_SORT_INDEX[sort] : "climbs_area_idx";
 
   // Fetch one extra row to detect a next page without a separate COUNT query.
+  // Small subtrees sort their (few) rows anyway, so ties get the full
+  // deterministic chain; the large-area path must keep an ORDER BY its
+  // forced sort index satisfies verbatim (see SUBTREE_CLIMBS_TIE_BREAK).
+  // Keyed on the size decision itself, not on the index name it produces:
+  // naming the index here is what silently dropped the chain when the small
+  // -area index was renamed.
+  const orderBy = isLarge
+    ? sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, climbs.id`
+    : sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, ${sortTieBreak(sort)}, climbs.id`;
+
   const rows = await db.all<ClimbWithAreaName>(sql`
     ${subtreeAreaIds(area.id)}
     SELECT climbs.id AS id, climbs.area_id AS areaId, climbs.name AS name,
@@ -302,7 +356,7 @@ export async function getSubtreeClimbs(
     FROM climbs INDEXED BY ${sql.raw(indexName)}
     JOIN areas ON areas.id = climbs.area_id
     WHERE ${sql.join(conditions, sql` AND `)}
-    ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[sort]}, climbs.id
+    ORDER BY ${orderBy}
     LIMIT ${PAGE_SIZE + 1}
     OFFSET ${(page - 1) * PAGE_SIZE}
   `);
@@ -314,6 +368,28 @@ export async function getSubtreeClimbs(
     pageSize: PAGE_SIZE,
     hasNextPage,
   };
+}
+
+export type GradeHistogramRow = { type: Discipline; grade: number | null; count: number };
+
+/** Grade distribution of every climb in an area's subtree — one query powers
+ * the crag header's histogram, climb count, grade span, and discipline list.
+ *
+ * The result is tiny (bounded by distinct (type, grade) pairs, ~55 at most),
+ * but the COST is a row read per climb in the subtree, so callers gate this
+ * on the same `largeSubtree` signal getSubtreeClimbs forces its index from
+ * rather than running it for a continent. */
+export async function getSubtreeGradeHistogram(
+  db: Database,
+  area: Area,
+): Promise<GradeHistogramRow[]> {
+  return db.all<GradeHistogramRow>(sql`
+    ${subtreeAreaIds(area.id)}
+    SELECT climbs.type AS type, climbs.grade AS grade, COUNT(*) AS count
+    FROM climbs
+    WHERE climbs.area_id IN (SELECT id FROM subtree)
+    GROUP BY climbs.type, climbs.grade
+  `);
 }
 
 /** The subset of climb fields findClimbsByNameAndArea selects — everything
@@ -388,15 +464,22 @@ export type SearchClimbsParams = DisciplineGradeFilter &
 
 export type ClimbWithAreaName = Climb & { areaName: string };
 
-export async function searchClimbs(
-  db: Database,
-  params: SearchClimbsParams,
-): Promise<ClimbWithAreaName[]> {
+/** Search pages are smaller than the area page's PAGE_SIZE — the search
+ * surface renders richer per-row context (breadcrumbs, send stats) for
+ * results spanning the whole database, so the first paint stays light and
+ * "load more" (see /api/search/climbs) fetches the rest on demand. */
+export const SEARCH_PAGE_SIZE = 25;
+
+/** The shared WHERE fragments for `searchClimbs`/`countSearchClimbs`, so the
+ * page and its count can never drift apart. Returns `null` when the name has
+ * no matchable FTS tokens — "matches nothing", as distinct from `[]`, which
+ * means "no filtering at all". */
+function searchClimbsConditions(params: SearchClimbsParams): SQL[] | null {
   const conditions: SQL[] = [];
 
   if (params.name) {
     const nameQuery = toFtsPrefixQuery(params.name);
-    if (!nameQuery) return [];
+    if (!nameQuery) return null;
     conditions.push(
       sql`climbs.id IN (SELECT rowid FROM climbs_fts WHERE climbs_fts MATCH ${nameQuery})`,
     );
@@ -411,15 +494,31 @@ export async function searchClimbs(
   }
   conditions.push(...climbStatsConditions(params));
 
-  const whereClause =
-    conditions.length > 0
-      ? sql`WHERE ${sql.join(conditions, sql` AND `)}`
-      : sql``;
+  return conditions;
+}
+
+function searchClimbsWhereClause(conditions: SQL[]): SQL {
+  return conditions.length > 0 ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
+}
+
+export type SearchClimbsPage = { climbs: ClimbWithAreaName[]; hasNextPage: boolean };
+
+export async function searchClimbs(
+  db: Database,
+  params: SearchClimbsParams,
+  page = 1,
+): Promise<SearchClimbsPage> {
+  const conditions = searchClimbsConditions(params);
+  if (conditions === null) return { climbs: [], hasNextPage: false };
 
   // Explicit column aliases, not `climbs.*` — a raw-SQL wildcard returns
   // SQLite's actual (snake_case) column names, not drizzle's camelCase
   // field names, so `area_id` would come back as `area_id`, not `areaId`.
-  return db.all<ClimbWithAreaName>(sql`
+  //
+  // Fetch one extra row to detect a next page without a separate COUNT query
+  // (the count exists — see countSearchClimbs — but only the first
+  // server-rendered page pays for it, not every "load more").
+  const rows = await db.all<ClimbWithAreaName>(sql`
     SELECT
       climbs.id AS id,
       climbs.area_id AS areaId,
@@ -429,8 +528,40 @@ export async function searchClimbs(
       areas.name AS areaName
     FROM climbs
     JOIN areas ON areas.id = climbs.area_id
-    ${whereClause}
-    ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[params.sort ?? "ascents_desc"]}, climbs.id
-    LIMIT 25
+    ${searchClimbsWhereClause(conditions)}
+    ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[params.sort ?? "ascents_desc"]}, ${sortTieBreak(params.sort ?? "ascents_desc")}, climbs.id
+    LIMIT ${SEARCH_PAGE_SIZE + 1}
+    OFFSET ${(page - 1) * SEARCH_PAGE_SIZE}
   `);
+
+  return {
+    climbs: rows.slice(0, SEARCH_PAGE_SIZE),
+    hasNextPage: rows.length > SEARCH_PAGE_SIZE,
+  };
+}
+
+/** Exact match count for the same conditions as `searchClimbs` — a single
+ * aggregate over index/FTS-backed predicates, cheap relative to the page
+ * query itself, so the search heading can show a real total instead of a
+ * silent cap. The areas join exists only for areaNameCondition's
+ * correlation (it references the outer `areas` row); with no area-name
+ * filter it would add a pointless per-climb PK seek to the scan, so it's
+ * joined only when needed. Callers should skip the count entirely for a
+ * fully unfiltered search (see app/page.tsx) — COUNT(*) over every climb
+ * is a full index scan with nothing to show for it on a default landing. */
+export async function countSearchClimbs(
+  db: Database,
+  params: SearchClimbsParams,
+): Promise<number> {
+  const conditions = searchClimbsConditions(params);
+  if (conditions === null) return 0;
+
+  const areasJoin = params.areaName ? sql`JOIN areas ON areas.id = climbs.area_id` : sql``;
+  const [row] = await db.all<{ count: number }>(sql`
+    SELECT COUNT(*) AS count
+    FROM climbs
+    ${areasJoin}
+    ${searchClimbsWhereClause(conditions)}
+  `);
+  return row?.count ?? 0;
 }

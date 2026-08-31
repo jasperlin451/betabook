@@ -1,9 +1,17 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { AreaActionsMenu } from "@/components/area-actions-menu";
-import { AreaList } from "@/components/area-list";
-import { AreaClimbsFilterPanel, AreaClimbsSection } from "@/components/area-climbs-section";
+import { AreaClimbsSection } from "@/components/area-climbs-section";
+import { AreaClimbsToolbar } from "@/components/area-climbs-toolbar";
+import { AreaCragHeader } from "@/components/area-crag-header";
+import { RegisterSearchScope } from "@/components/search-scope";
+import { NavigationPendingProvider } from "@/components/navigation-pending";
+import { SubareaRail } from "@/components/subarea-rail";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { SidebarLayout } from "@/components/ui/page-shell";
+import { SectionHeading } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
 import {
   getAncestors,
@@ -12,15 +20,17 @@ import {
   getClimbSendStats,
   getSubareas,
   getSubtreeClimbs,
+  getSubtreeGradeHistogram,
   getUserSentClimbIds,
   hasClimbsInArea,
+  resolveSubareaScope,
 } from "@/db/queries";
 import {
   parseAreaClimbsFilter,
   parseAreaClimbsSort,
   toSubtreeQueryFilter,
 } from "@/lib/area-climbs-filter";
-import { missingDescriptionMessage } from "@/lib/descriptions";
+import { buildGradeHistogram } from "@/lib/grade-histogram";
 import { getSession } from "@/lib/session";
 import type { SearchParamsRecord } from "@/lib/search-params";
 
@@ -29,15 +39,36 @@ type AreaPageProps = {
   searchParams: Promise<SearchParamsRecord>;
 };
 
-export default async function AreaPage({ params, searchParams }: AreaPageProps) {
+// generateMetadata and the page both need the area. The query helpers are
+// plain async functions keyed on a per-call db handle, so memoizing them
+// directly would never hit — memoize the whole id -> area lookup with React
+// cache() instead, so the two consumers share one query per request.
+const getAreaById = cache(async (id: number) => {
+  const db = await getDb();
+  return getAreaWithSubtreeSize(db, id);
+});
+
+export async function generateMetadata({ params }: AreaPageProps): Promise<Metadata> {
   const { id } = await params;
-  const search = await searchParams;
+  const areaId = Number(id);
+  if (!Number.isInteger(areaId)) notFound();
+
+  const area = await getAreaById(areaId);
+  if (!area) notFound();
+
+  return { title: area.name };
+}
+
+export default async function AreaPage({ params, searchParams }: AreaPageProps) {
+  const [{ id }, search] = await Promise.all([params, searchParams]);
   const areaId = Number(id);
 
   if (!Number.isInteger(areaId)) notFound();
 
+  // Grouped by dependency tier so independent fetches overlap instead of
+  // waterfalling — the area row and the session don't depend on each other.
   const db = await getDb();
-  const area = await getAreaWithSubtreeSize(db, areaId);
+  const [area, session] = await Promise.all([getAreaById(areaId), getSession()]);
   if (!area) notFound();
 
   const sort = parseAreaClimbsSort(search);
@@ -45,67 +76,95 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
 
   // Only the first page is server-rendered — AreaClimbsSection fetches
   // subsequent pages itself via "load more" (see app/api/areas/[id]/climbs).
-  const [ancestors, subareas, subtreeClimbs, hasClimbs] = await Promise.all([
-    getAncestors(db, area),
-    getSubareas(db, area.id),
-    getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter)),
-    hasClimbsInArea(db, area.id),
-  ]);
-  const canDeleteArea = subareas.length === 0 && !hasClimbs;
+  // The histogram reads every climb row in the subtree, so it follows the
+  // same size gate as the list's index strategy — a continent-scale area
+  // renders its header without the strip/chart instead of scanning tens of
+  // thousands of rows per view.
+  const histogramEligible = !area.largeSubtree;
 
-  const session = await getSession();
-  const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
+  // The sub-area rail can scope the list to one sub-area's subtree; the
+  // header, histogram, and rail always describe the whole area.
+  const listScope = await resolveSubareaScope(db, area, filter.subareaId);
+
+  const [ancestors, subareas, subtreeClimbs, hasClimbs, sentClimbIds, histogramRows] =
+    await Promise.all([
+      getAncestors(db, area),
+      getSubareas(db, area.id),
+      getSubtreeClimbs(db, listScope, 1, sort, toSubtreeQueryFilter(filter)),
+      hasClimbsInArea(db, area.id),
+      session ? getUserSentClimbIds(db, session.user.id) : undefined,
+      histogramEligible ? getSubtreeGradeHistogram(db, area) : [],
+    ]);
+  const canDeleteArea = subareas.length === 0 && !hasClimbs;
+  const histogram = buildGradeHistogram(histogramRows);
+
+  const [sendStats, areaBreadcrumbs] = await Promise.all([
     getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),
-    session ? getUserSentClimbIds(db, session.user.id) : Promise.resolve(undefined),
   ]);
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Lets ⌘K lead with this area's own routes while the viewer is here. */}
+      <RegisterSearchScope areaId={area.id} areaName={area.name} />
       <AreaBreadcrumbs ancestors={ancestors} current={area} />
 
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold">{area.name}</h1>
-          <p className="text-muted mt-1">
-            {area.description || missingDescriptionMessage("area")}
-          </p>
-        </div>
-        {session && <AreaActionsMenu area={area} canDelete={canDeleteArea} />}
-      </div>
+      <AreaCragHeader
+        area={area}
+        histogram={histogram}
+        isEditor={session != null}
+        filter={filter}
+        actions={session && <AreaActionsMenu area={area} canDelete={canDeleteArea} />}
+      />
 
-      <CollapsibleSection title="Sub-areas">
-        <AreaList areas={subareas} emptyMessage="No sub-areas." />
-      </CollapsibleSection>
+      {/* The provider links the toolbar's in-flight navigation to the climb
+       * list it re-fetches, which dims while pending. */}
+      <NavigationPendingProvider>
+        {(() => {
+          const climbsBlock = (
+            <div className="flex flex-col gap-3">
+              <SectionHeading>Climbs</SectionHeading>
+              <AreaClimbsToolbar areaId={area.id} sort={sort} filter={filter} />
+              <AreaClimbsSection
+                // Remounts with fresh initial* state on a sort/filter change,
+                // rather than syncing local "load more" state to changed props
+                // via an effect — same reasoning as UserSendList.
+                key={JSON.stringify({ sort, filter })}
+                areaId={area.id}
+                sort={sort}
+                filter={filter}
+                initialClimbs={subtreeClimbs.climbs}
+                initialHasNextPage={subtreeClimbs.hasNextPage}
+                initialSendStats={sendStats}
+                initialAreaBreadcrumbs={areaBreadcrumbs}
+                sentClimbIds={sentClimbIds}
+                emptyMessage={
+                  filter.subareaId != null
+                    ? "No climbs match in this sub-area."
+                    : "No climbs found in this area or its sub-areas."
+                }
+              />
+            </div>
+          );
 
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-        <div className="order-2 flex min-w-0 flex-1 flex-col gap-2 lg:order-1">
-          <AreaClimbsSection
-            // Remounts with fresh initial* state on a sort/filter change,
-            // rather than syncing local "load more" state to changed props
-            // via an effect — same reasoning as UserSendList.
-            key={JSON.stringify({ sort, filter })}
-            areaId={area.id}
-            sort={sort}
-            filter={filter}
-            initialClimbs={subtreeClimbs.climbs}
-            initialHasNextPage={subtreeClimbs.hasNextPage}
-            initialSendStats={sendStats}
-            initialAreaBreadcrumbs={areaBreadcrumbs}
-            sentClimbIds={sentClimbIds}
-            emptyMessage="No climbs found in this area or its sub-areas."
-          />
-        </div>
+          if (subareas.length === 0) return climbsBlock;
 
-        <div className="order-1 lg:order-2 lg:w-80 lg:shrink-0">
-          {/* Gated on lg, not CollapsibleSection's md default, to match
-           * where this column switches from a stacked mobile block to the
-           * sidebar (see the lg:flex-row container below). */}
-          <CollapsibleSection title="Filters" breakpoint="lg" showTitleOnDesktop={false}>
-            <AreaClimbsFilterPanel areaId={area.id} sort={sort} filter={filter} />
-          </CollapsibleSection>
-        </div>
-      </div>
+          return (
+            <SidebarLayout
+              sidebarWidthClass="lg:w-64"
+              sidebar={
+                /* Gated on lg to match where the rail becomes a side column;
+                 * on mobile it's a collapsed accordion above the list. */
+                <CollapsibleSection title="Sub-areas" breakpoint="lg">
+                  <SubareaRail subareas={subareas.map(({ id, name }) => ({ id, name }))} />
+                </CollapsibleSection>
+              }
+            >
+              {climbsBlock}
+            </SidebarLayout>
+          );
+        })()}
+      </NavigationPendingProvider>
     </div>
   );
 }

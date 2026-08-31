@@ -1,22 +1,111 @@
 @import "@heroui/styles";
 
+/* Fixed palette tokens: these values do not change by theme. Every themed
+   color below is one of these five or a color-mix() of two of them, so the
+   whole UI re-themes from this block alone. */
+:root {
+  --palette-ink: #000000;
+  --palette-primary: #83ba73;
+  --palette-support: #557bb5;
+  --palette-accent: #a4585a;
+  --palette-paper: #eaf7ef;
+}
+
 @layer theme {
-  /* Deep-navy "night session" theme — layers the same brand teal/coral on
-     top of HeroUI's existing dark-mode neutrals (foreground, muted, field
-     colors, etc. are already tuned for a dark background, so only the
-     background/surface hierarchy and brand accents need overriding here). */
+  /* Semantic roles, light ("paper") theme. These are HeroUI's theme tokens;
+     Tailwind utilities (bg-background, text-muted, …) and every HeroUI
+     component read from them, so components need no CSS changes. HeroUI's
+     own aliases keep --color-background/--color-foreground pointing here.
+     Hover, soft, and secondary/tertiary variants are calculated by HeroUI
+     from these bases, so they re-derive automatically. */
+  :root,
+  .light,
+  [data-theme="light"] {
+    --background: var(--palette-paper);
+    --foreground: var(--palette-ink);
+
+    /* Cards float above the paper, so they mix toward white; recessed
+       surfaces mix a few percent of ink into the paper instead. */
+    --surface: color-mix(in oklab, var(--palette-paper) 35%, var(--white));
+    --surface-secondary: color-mix(in oklab, var(--palette-paper) 96%, var(--palette-ink));
+    --surface-tertiary: color-mix(in oklab, var(--palette-paper) 92%, var(--palette-ink));
+    --overlay: color-mix(in oklab, var(--palette-paper) 35%, var(--white));
+
+    --muted: color-mix(in oklab, var(--palette-ink) 56%, var(--palette-paper));
+    --default: color-mix(in oklab, var(--palette-paper) 92%, var(--palette-ink));
+    --default-foreground: var(--palette-ink);
+    --border: color-mix(in oklab, var(--palette-paper) 88%, var(--palette-ink));
+    --separator: color-mix(in oklab, var(--palette-paper) 91%, var(--palette-ink));
+
+    --field-background: color-mix(in oklab, var(--palette-paper) 35%, var(--white));
+    --segment: color-mix(in oklab, var(--palette-paper) 35%, var(--white));
+    --segment-foreground: var(--palette-ink);
+
+    /* Brand green is mid-lightness: ink text clears 9:1 on it where white
+       lands under 2.5:1, so accent flips HeroUI's usual light-on-color. */
+    --accent: var(--palette-primary);
+    --accent-foreground: var(--palette-ink);
+    --success: var(--palette-primary);
+    --success-foreground: var(--palette-ink);
+    /* Deepened toward ink: raw #A4585A is ~4.1:1 as text on paper and
+       lower on the secondary-surface cards where every error message
+       renders — the mix clears AA on both, and paper text on the fill
+       gets easier too. */
+    --danger: color-mix(in oklab, var(--palette-accent) 85%, var(--palette-ink));
+    --danger-foreground: var(--palette-paper);
+    /* Warning stays HeroUI's amber: the palette has no yellow slot, and
+       green/red already carry success/danger. */
+
+    /* Support blue at full strength is only ~3.9:1 on paper, so text uses
+       it darkened; the focus ring is thick enough to wear it straight. */
+    --focus: var(--palette-support);
+    --link: color-mix(in oklab, var(--palette-support) 78%, var(--palette-ink));
+
+    /* Discipline chip colors (boulder/sport/trad). HeroUI's built-in chip
+       colors are spoken for — success/warning are reserved for ascent-style
+       chips (AscentStyle), and accent/default are too few hues for three
+       disciplines that need to read as distinct from each other and from
+       gray — so each discipline gets its own themed bg/fg pair from the
+       palette (trad = green, sport = support blue, boulder = rose),
+       consumed by STYLE_CHIP_CLASSNAME in components/climb-list.tsx. */
+    --discipline-trad-bg: color-mix(in oklab, var(--palette-primary) 22%, var(--white));
+    --discipline-trad-fg: color-mix(in oklab, var(--palette-primary) 60%, var(--palette-ink));
+    --discipline-sport-bg: color-mix(in oklab, var(--palette-support) 22%, var(--white));
+    --discipline-sport-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-ink));
+    --discipline-boulder-bg: color-mix(in oklab, var(--palette-accent) 22%, var(--white));
+    --discipline-boulder-fg: color-mix(in oklab, var(--palette-accent) 60%, var(--palette-ink));
+
+    /* Flash ascent chip: support-blue tint (same recipe as the discipline
+       chips). Flash used to wear HeroUI's amber `warning`, the one hue the
+       rating stars also use — this frees the stars to own amber. */
+    --ascent-flash-bg: color-mix(in oklab, var(--palette-support) 22%, var(--white));
+    --ascent-flash-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-ink));
+
+    /* Magnifier for combobox inputs (see search-combo-input) — data URIs
+       can't reference CSS vars, so each theme pins its own muted stroke. */
+    --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f6c63' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+  }
+
+  /* Semantic roles, dark ("ink") theme: the same palette with paper and ink
+     swapped. Surfaces lift off the pure-black background by mixing paper
+     back in — one knob (the paper %) sets the whole elevation ramp. */
   .dark,
   [data-theme="dark"] {
-    --background: #0d1526;
-    --surface: #141d33;
-    --surface-secondary: #1b2540;
-    --surface-tertiary: #212c4a;
-    --overlay: #141d33;
-    --default: #1b2540;
-    --muted: #7d8aa8;
-    --border: #26314f;
-    --separator: #1c243c;
-    --field-background: #141d33;
+    --background: var(--palette-ink);
+    --foreground: var(--palette-paper);
+
+    --surface: color-mix(in oklab, var(--palette-paper) 16%, var(--palette-ink));
+    --surface-secondary: color-mix(in oklab, var(--palette-paper) 20%, var(--palette-ink));
+    --surface-tertiary: color-mix(in oklab, var(--palette-paper) 24%, var(--palette-ink));
+    --overlay: color-mix(in oklab, var(--palette-paper) 20%, var(--palette-ink));
+
+    --muted: color-mix(in oklab, var(--palette-paper) 66%, var(--palette-ink));
+    --default: color-mix(in oklab, var(--palette-paper) 24%, var(--palette-ink));
+    --default-foreground: var(--palette-paper);
+    --border: color-mix(in oklab, var(--palette-paper) 26%, var(--palette-ink));
+    --separator: color-mix(in oklab, var(--palette-paper) 20%, var(--palette-ink));
+
+    --field-background: color-mix(in oklab, var(--palette-paper) 18%, var(--palette-ink));
     /* HeroUI leaves this transparent and 0-width by default (--field-border-width
        is hardcoded to 0px globally) and relies on --field-shadow for definition
        instead, but a shadow reads as nothing against a dark background —
@@ -24,24 +113,146 @@
        surface behind them. */
     --field-border: var(--border);
     --field-border-width: 2px;
-    --accent: #2bcfce;
-    --accent-foreground: var(--eclipse);
-    --danger: #ec4d25;
-    --danger-foreground: var(--snow);
-    /* Vivid teal has plenty of contrast directly on this near-black
-       background, so unlike a light background it needs no darkening for
-       text/link use. */
-    --link: var(--accent);
+    --segment: color-mix(in oklab, var(--palette-paper) 30%, var(--palette-ink));
+    --segment-foreground: var(--palette-paper);
+
+    --accent: var(--palette-primary);
+    --accent-foreground: var(--palette-ink);
+    --success: var(--palette-primary);
+    --success-foreground: var(--palette-ink);
+    /* Lightened toward paper: raw #A4585A reads ~3.6:1 as error text on the
+       lifted dark surfaces — under AA. The lighter fill flips its own text
+       to ink (paper on the lightened red would fail instead). */
+    --danger: color-mix(in oklab, var(--palette-accent) 70%, var(--palette-paper));
+    --danger-foreground: var(--palette-ink);
+
+    /* Support blue leans toward paper here for the same contrast reason the
+       light theme leans it toward ink. */
+    --focus: color-mix(in oklab, var(--palette-support) 75%, var(--palette-paper));
+    --link: color-mix(in oklab, var(--palette-support) 70%, var(--palette-paper));
+
+    /* Discipline chips: translucent tint + a pastel of the same palette hue
+       (same recipe as HeroUI's dark soft chip variants). */
+    --discipline-trad-bg: color-mix(in oklab, var(--palette-primary) 25%, transparent);
+    --discipline-trad-fg: color-mix(in oklab, var(--palette-primary) 60%, var(--palette-paper));
+    --discipline-sport-bg: color-mix(in oklab, var(--palette-support) 25%, transparent);
+    --discipline-sport-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-paper));
+    --discipline-boulder-bg: color-mix(in oklab, var(--palette-accent) 25%, transparent);
+    --discipline-boulder-fg: color-mix(in oklab, var(--palette-accent) 60%, var(--palette-paper));
+
+    --ascent-flash-bg: color-mix(in oklab, var(--palette-support) 25%, transparent);
+    --ascent-flash-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-paper));
+
+    --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3b0a7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
   }
 }
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  /* The guidebook display voice — Barlow Condensed (loaded in
+     app/layout.tsx), reserved for the wordmark, page titles, and entity
+     names. Everything else, grades included, stays on Geist Sans. */
+  --font-display: var(--font-barlow-condensed);
+
+  /* Raw palette as utilities (bg-palette-primary, text-palette-support, …)
+     for the rare spot that wants a fixed brand color regardless of theme. */
+  --color-palette-ink: var(--palette-ink);
+  --color-palette-primary: var(--palette-primary);
+  --color-palette-support: var(--palette-support);
+  --color-palette-accent: var(--palette-accent);
+  --color-palette-paper: var(--palette-paper);
 }
 
 @layer base {
   html {
     @apply font-sans;
   }
+}
+
+/* Stroke draw-in for the sent tick (climb-sent-indicator) — used behind
+   motion-safe: so reduced-motion users get the tick instantly. */
+@keyframes tick-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@utility animate-tick-draw {
+  animation: tick-draw 0.4s ease-out;
+}
+
+/* The magnifier for combobox search inputs, as a background image — HeroUI's
+   ComboBox builds its input group from its DIRECT children, so any injected
+   icon element (or wrapper) corrupts that wiring; a background on the input
+   itself can't. Per-theme URIs because a data: SVG can't read CSS vars —
+   colors approximate --muted in each theme. */
+/* A page that carries its own prominent search entry stands the header's
+   compact one down: two search affordances on one screen, both badged with
+   the same shortcut, read as two different searches. Expressed here rather
+   than by unmounting the header button, because the page that owns the
+   entry and the header that owns the button sit in different subtrees — and
+   because a CSS rule applies on the first paint, where a hydration-time
+   unmount would flash a button and then take it away. */
+body:has([data-page-search]) [data-header-search] {
+  display: none;
+}
+
+@utility search-combo-input {
+  padding-inline-start: --spacing(9);
+  background-image: var(--search-icon);
+  background-repeat: no-repeat;
+  background-position: 0.75rem center;
+  background-size: 1rem 1rem;
+}
+
+/* Grow-in for the crag header's grade histogram bars — staggered per bar
+   via an inline animation-delay, used behind motion-safe:. `backwards`
+   keeps a delayed bar at scale 0 until its turn. */
+@keyframes bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@utility animate-bar-grow {
+  animation: bar-grow 0.25s ease-out backwards;
+  transform-origin: bottom;
+}
+
+/* Horizontal variant for the climb page's logged-grades bars. */
+@keyframes bar-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@utility animate-bar-grow-x {
+  animation: bar-grow-x 0.25s ease-out backwards;
+  transform-origin: left;
+}
+
+/* Draw-in for the analytics progression line — the path carries
+   pathLength="1" so the dash math is size-independent. */
+@keyframes line-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@utility animate-line-draw {
+  stroke-dasharray: 1;
+  animation: line-draw 0.8s ease-out;
 }

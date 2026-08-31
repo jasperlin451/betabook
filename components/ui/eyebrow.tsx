@@ -8,12 +8,15 @@ type EyebrowProps = {
   className?: string;
 };
 
-/** Small-caps icon + label row, e.g. above a page's breadcrumbs or title. */
+/** The letterspaced micro-label that names what kind of thing a page or
+ * card is about ("AREA", "CLIMB", "CLIMBER", "ASCENT BREAKDOWN") — the one
+ * eyebrow treatment everywhere, replacing three near-identical inline
+ * variants that disagreed on weight. */
 export function Eyebrow({ icon: Icon, children, className }: EyebrowProps) {
   return (
     <div
       className={clsx(
-        "flex items-center gap-2 text-xs font-medium tracking-wide text-muted uppercase",
+        "flex items-center gap-2 text-xs font-medium tracking-widest text-muted uppercase",
         className,
       )}
     >

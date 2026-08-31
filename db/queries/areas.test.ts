@@ -1,8 +1,10 @@
 import { env } from "cloudflare:test";
+import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
 import { areas } from "@/db/schema";
 import {
+  countSearchAreas,
   getAncestors,
   getArea,
   getAreaBreadcrumbs,
@@ -10,7 +12,7 @@ import {
   getSubareas,
   searchAreas,
 } from "./areas";
-import { seedFixtureTree } from "@/test/fixtures";
+import { seedFixtureTree, seedManyAreas } from "@/test/fixtures";
 
 let db: Database;
 
@@ -149,17 +151,82 @@ describe("getAreaBreadcrumbs", () => {
 
 describe("searchAreas", () => {
   it("fuzzy-matches on partial area name", async () => {
-    const results = await searchAreas(db, "Bould");
-    expect(results.map((a) => a.name)).toContain("Test Boulders");
+    const { areas } = await searchAreas(db, "Bould");
+    expect(areas.map((a) => a.name)).toContain("Test Boulders");
   });
 
   it("does not throw on FTS5 query-syntax characters in the input", async () => {
-    const results = await searchAreas(db, 'Boulders"');
-    expect(results.map((a) => a.name)).toContain("Test Boulders");
+    const { areas } = await searchAreas(db, 'Boulders"');
+    expect(areas.map((a) => a.name)).toContain("Test Boulders");
   });
 
-  it("returns an empty array when nothing matches", async () => {
+  it("returns an empty page when nothing matches", async () => {
     const results = await searchAreas(db, "NoSuchAreaNameAtAll");
-    expect(results).toEqual([]);
+    expect(results).toEqual({ areas: [], hasNextPage: false });
+  });
+
+  // Load-bearing for every rendered ancestor path (see toBreadcrumbPath):
+  // GROUP_CONCAT concatenates rows in the order it receives them, so the
+  // ordering lives in the subquery feeding it — an ORDER BY beside the
+  // aggregate itself would order the single output row and silently leave
+  // the sequence to the scan.
+  it("builds ancestorPath root-first", async () => {
+    const { areas } = await searchAreas(db, "Highball Alcove");
+    expect(areas[0]?.ancestorPath).toBe("Test Crag > Test Boulders");
+  });
+
+  it("leaves ancestorPath null for a root area", async () => {
+    const { areas } = await searchAreas(db, "Test Crag");
+    expect(areas.find((a) => a.name === "Test Crag")?.ancestorPath).toBeNull();
+  });
+});
+
+// Placed last in the file: this seeds 30 more areas, which would otherwise
+// bleed into the exact-match expectations above.
+describe("searchAreas pagination", () => {
+  beforeAll(async () => {
+    // 30 areas sharing a name prefix — more than one AREA_SEARCH_PAGE_SIZE
+    // (25) page, and near-identical names share a bm25 rank, so only the
+    // areas.id tie-breaker gives OFFSET pagination a defined order.
+    await seedManyAreas(db, 30, 300_000);
+  });
+
+  it("returns a full page and reports hasNextPage when more rows remain", async () => {
+    const page1 = await searchAreas(db, "Bulk Area", 1);
+    expect(page1.areas).toHaveLength(25);
+    expect(page1.hasNextPage).toBe(true);
+  });
+
+  it("returns the remainder and reports no next page on the last page", async () => {
+    const page2 = await searchAreas(db, "Bulk Area", 2);
+    expect(page2.areas).toHaveLength(5);
+    expect(page2.hasNextPage).toBe(false);
+  });
+
+  it("pages over rank-tied areas without duplicating or skipping any", async () => {
+    const page1 = await searchAreas(db, "Bulk Area", 1);
+    const page2 = await searchAreas(db, "Bulk Area", 2);
+    const ids = [...page1.areas, ...page2.areas].map((a) => a.id);
+    expect(ids).toHaveLength(30);
+    expect(new Set(ids).size).toBe(30);
+  });
+
+  it("counts every match, not just the first page", async () => {
+    expect(await countSearchAreas(db, "Bulk Area")).toBe(30);
+  });
+
+  it("counts zero for an unmatchable name", async () => {
+    expect(await countSearchAreas(db, "NoSuchAreaNameAtAll")).toBe(0);
+  });
+
+  // areas_fts is maintained by app code in a second statement after the
+  // `areas` write, so an index row can outlive the row it describes. The
+  // count heads a list that joins `areas`, so it has to skip what the list
+  // can't render.
+  it("ignores an orphaned index row the search itself cannot return", async () => {
+    await db.run(sql`INSERT INTO areas_fts(rowid, name) VALUES (987654, 'Orphaned Ghost Area')`);
+    const page = await searchAreas(db, "Orphaned Ghost Area");
+    expect(page.areas).toHaveLength(0);
+    expect(await countSearchAreas(db, "Orphaned Ghost Area")).toBe(0);
   });
 });

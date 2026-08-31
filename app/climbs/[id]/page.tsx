@@ -1,24 +1,66 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { MapPin } from "lucide-react";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { LogSendButton } from "@/components/log-send-button";
+import { EditSendButton } from "@/components/edit-send-button";
 import { ClimbActionsMenu } from "@/components/climb-actions-menu";
 import { ClimbSendList } from "@/components/climb-send-list";
 import { GradeWithTrend } from "@/components/climb-list";
+import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import { DisciplineChip } from "@/components/ui/discipline-chip";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { Grade } from "@/components/ui/grade";
+import { PageTitle, SectionHeading } from "@/components/ui/typography";
 import { PageWithStats } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { RatingStars } from "@/components/ui/rating-stars";
-import { averageRating, ascentStyleBreakdown, averageSuggestedGrade } from "@/lib/send-stats";
-import { getAncestors, getArea, getClimb, getSendsForClimb, getUserSendForClimb } from "@/db/queries";
+import {
+  getAncestors,
+  getArea,
+  getClimb,
+  getClimbSendSummary,
+  getSendsForClimb,
+  getUserSendForClimb,
+} from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
+import { buildLoggedGradeRows } from "@/lib/grade-histogram";
+import type { AscentStyle as AscentStyleType } from "@/lib/sends";
 import { missingDescriptionMessage } from "@/lib/descriptions";
+import { LoggedGradeHistogram } from "@/components/logged-grade-histogram";
 import { getDb } from "@/db/client";
 import { getSession } from "@/lib/session";
+import { signInUrl } from "@/lib/sign-in-redirect";
+import { AppLink } from "@/components/ui/app-link";
 
 type ClimbPageProps = {
   params: Promise<{ id: string }>;
 };
+
+// Shared between generateMetadata and the page — see the identical pattern in
+// app/areas/[id]/page.tsx for why the whole id -> climb lookup is memoized
+// rather than the (db, id)-keyed query helper.
+const getClimbById = cache(async (id: number) => {
+  const db = await getDb();
+  return getClimb(db, id);
+});
+
+export async function generateMetadata({ params }: ClimbPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const climbId = Number(id);
+  if (!Number.isInteger(climbId)) notFound();
+
+  const climb = await getClimbById(climbId);
+  if (!climb) notFound();
+
+  return {
+    title:
+      climb.grade == null
+        ? climb.name
+        : `${climb.name} (${formatGrade(climb.type, climb.grade)})`,
+  };
+}
 
 export default async function ClimbPage({ params }: ClimbPageProps) {
   const { id } = await params;
@@ -26,41 +68,47 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
 
   if (!Number.isInteger(climbId)) notFound();
 
-  const db = await getDb();
-  const climb = await getClimb(db, climbId);
-
+  // Grouped by dependency tier so independent fetches overlap instead of
+  // waterfalling: the db handle, the climb row, and the session don't depend
+  // on each other; the sends queries need only the climb; and the ancestor
+  // chain needs the area row's parentId.
+  const [db, climb, session] = await Promise.all([getDb(), getClimbById(climbId), getSession()]);
   if (!climb) notFound();
 
-  const area = await getArea(db, climb.areaId);
+  // Stats come from whole-history aggregates and the list from a paginated
+  // query — a popular climb's full send history never ships in the RSC
+  // payload (ClimbSendList "load more"-fetches the rest on demand).
+  const [area, userSend, sendsPage, summary] = await Promise.all([
+    getArea(db, climb.areaId),
+    session ? getUserSendForClimb(db, session.user.id, climb.id).then((s) => s ?? null) : null,
+    getSendsForClimb(db, climb.id),
+    getClimbSendSummary(db, climb.id),
+  ]);
   if (!area) notFound();
 
   const ancestors = await getAncestors(db, area);
 
-  const session = await getSession();
-  const userSend = session
-    ? ((await getUserSendForClimb(db, session.user.id, climb.id)) ?? null)
-    : null;
-  const climbSends = await getSendsForClimb(db, climb.id);
-
-  const rating = averageRating(climbSends);
-  const avgSuggestedGrade = averageSuggestedGrade(climbSends);
-  const breakdown = ascentStyleBreakdown(climbSends);
-  const loggedBreakdown = Object.entries(breakdown).filter(([, count]) => count > 0);
+  const loggedBreakdown = Object.entries(summary.styleBreakdown).filter(([, count]) => count > 0);
+  const loggedGradeRows = buildLoggedGradeRows(
+    climb.type,
+    summary.suggestedGradeCounts,
+    climb.grade,
+  );
 
   return (
     <div className="flex flex-col gap-6">
-      <Eyebrow icon={MapPin}>
-        <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
-      </Eyebrow>
+      <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
 
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold">{climb.name}</h1>
-          <p className="text-muted mt-1 capitalize">
-            {climb.type} &middot; {formatGrade(climb.type, climb.grade)}
-          </p>
+        <div className="flex flex-col gap-1">
+          <Eyebrow>Climb</Eyebrow>
+          <PageTitle>{climb.name}</PageTitle>
+          <div className="mt-1 flex items-center gap-2">
+            <Grade size="md">{formatGrade(climb.type, climb.grade)}</Grade>
+            <DisciplineChip type={climb.type} />
+          </div>
           <p className="text-muted mt-1">
-            {climb.description || missingDescriptionMessage("climb")}
+            {climb.description || missingDescriptionMessage()}
           </p>
         </div>
         {session && <ClimbActionsMenu climb={climb} />}
@@ -69,7 +117,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
       <PageWithStats
         statsPosition="before"
         stats={
-          <div className="flex flex-col gap-4 lg:w-72 lg:shrink-0">
+          <div className="flex flex-col gap-4 lg:w-80 lg:shrink-0">
             <StatStrip
               cards={[
                 {
@@ -77,10 +125,10 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                   stats: [
                     {
                       label: "Community rating",
-                      value: <RatingStars rating={rating} precision="decimal" />,
+                      value: <RatingStars rating={summary.avgRating} precision="decimal" />,
                     },
-                    { label: "Logged ascents", value: climbSends.length },
-                    ...(avgSuggestedGrade != null
+                    { label: "Logged ascents", value: summary.sendCount },
+                    ...(summary.avgSuggestedGrade != null
                       ? [
                           {
                             label: "Suggested grade",
@@ -88,7 +136,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                               <GradeWithTrend
                                 type={climb.type}
                                 grade={climb.grade}
-                                avgSuggestedGrade={avgSuggestedGrade}
+                                avgSuggestedGrade={summary.avgSuggestedGrade}
                               />
                             ),
                           },
@@ -100,13 +148,9 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                   ? [
                       {
                         key: "breakdown",
-                        heading: (
-                          <span className="text-xs font-semibold tracking-wide text-muted uppercase">
-                            Ascent breakdown
-                          </span>
-                        ),
+                        heading: <Eyebrow>Ascent breakdown</Eyebrow>,
                         stats: loggedBreakdown.map(([type, count]) => ({
-                          label: type,
+                          label: ASCENT_STYLE_LABELS[type as AscentStyleType],
                           value: count,
                         })),
                       },
@@ -114,13 +158,56 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                   : []),
               ]}
             />
-            {session && !userSend && <LogSendButton climb={climb} />}
+            {loggedGradeRows.length > 0 && (
+              <div className="rounded-xl bg-surface-secondary p-4">
+                <div className="mb-3">
+                  <Eyebrow>Logged grades</Eyebrow>
+                </div>
+                <LoggedGradeHistogram type={climb.type} rows={loggedGradeRows} />
+              </div>
+            )}
+            {session ? (
+              userSend ? (
+                <EditSendButton climb={climb} send={userSend} />
+              ) : (
+                <LogSendButton climb={climb} />
+              )
+            ) : (
+              // Quiet stand-in for Log Send: signed-out visitors otherwise
+              // never learn ascents can be logged. The continuation brings
+              // them straight back here after signing in.
+              <AppLink
+                href={signInUrl(`/climbs/${climb.id}`)}
+                className="text-center text-sm text-muted"
+              >
+                Sign in to log this climb
+              </AppLink>
+            )}
           </div>
         }
       >
         <div className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold">Sends</h2>
-          <ClimbSendList sends={climbSends} climb={climb} currentUserId={session?.user.id} />
+          <SectionHeading>Sends</SectionHeading>
+          <ClimbSendList
+            climb={climb}
+            initialSends={sendsPage.sends}
+            initialHasMore={sendsPage.hasMore}
+            currentUserId={session?.user.id}
+            emptyState={
+              <EmptyState
+                message="No sends yet — this line is waiting for its first ascent."
+                cta={
+                  session ? (
+                    userSend ? undefined : <LogSendButton climb={climb} />
+                  ) : (
+                    <AppLink href={signInUrl(`/climbs/${climb.id}`)} className="text-sm">
+                      Sign in to log the first send
+                    </AppLink>
+                  )
+                }
+              />
+            }
+          />
         </div>
       </PageWithStats>
     </div>

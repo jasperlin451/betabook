@@ -9,6 +9,36 @@ export async function getArea(db: Database, id: number): Promise<Area | undefine
   return db.select().from(areas).where(eq(areas.id, id)).get();
 }
 
+/** The area a subarea-scoped climb list should actually query: the given
+ * sub-area when it really descends from `area`, otherwise `area` itself —
+ * guarding a forged or stale id from the URL, which would otherwise scope
+ * the list to an area the page isn't showing.
+ *
+ * Walks `parentId` upward from the candidate rather than testing a stored
+ * range: an ancestor chain is bounded by tree depth (a handful of levels),
+ * so this stays a few index seeks no matter how large either subtree is. */
+export async function resolveSubareaScope(
+  db: Database,
+  area: Area,
+  subareaId: number | null,
+): Promise<Area> {
+  if (subareaId == null || subareaId === area.id) return area;
+  const sub = await getArea(db, subareaId);
+  if (!sub) return area;
+
+  const [row] = await db.all<{ found: number }>(sql`
+    WITH RECURSIVE chain(id) AS (
+      SELECT parent_id FROM areas WHERE id = ${sub.id}
+      UNION ALL
+      SELECT areas.parent_id FROM chain
+      JOIN areas ON areas.id = chain.id
+      WHERE areas.parent_id IS NOT NULL
+    )
+    SELECT 1 AS found FROM chain WHERE id = ${area.id} LIMIT 1
+  `);
+  return row ? sub : area;
+}
+
 /** Direct children, name-sorted.
  *
  * Sorted in JS with localeCompare rather than by SQL ORDER BY, because
@@ -162,17 +192,35 @@ export async function getAreaBreadcrumbs(
 
 export type AreaWithAncestorPath = Area & { ancestorPath: string | null };
 
-/** `ancestorPath` reads immediate-parent-first, e.g. "Squamish > British Columbia > Canada".
+/** Same page size as climb search (see SEARCH_PAGE_SIZE in climbs.ts) — kept
+ * as its own constant here to avoid a circular import between the two query
+ * modules. */
+export const AREA_SEARCH_PAGE_SIZE = 25;
+
+export type SearchAreasPage = { areas: AreaWithAncestorPath[]; hasNextPage: boolean };
+
+/** `ancestorPath` reads root-first, e.g. "Canada > British Columbia > Squamish"
+ * — the same outside-in reading as `AreaBreadcrumb`, so a suggestion row and
+ * a result row place a crag identically. Ordering is pinned by the subquery
+ * the concat reads from; see the note in the SQL.
  *
- * Walks `parentId` via a recursive CTE (see getAncestors's doc comment). */
+ * Walks `parentId` via a recursive CTE (see getAncestors's doc comment)
+ * rather than a stored position, so a freshly created area's ancestor path
+ * is correct immediately.
+ *
+ * Ordered by FTS rank with `areas.id` as the deterministic tie-breaker —
+ * near-identical names share a bm25 score, and without a unique final key
+ * OFFSET pagination can duplicate or skip rows across pages. */
 export async function searchAreas(
   db: Database,
   name: string,
-): Promise<AreaWithAncestorPath[]> {
+  page = 1,
+): Promise<SearchAreasPage> {
   const query = toFtsPrefixQuery(name);
-  if (!query) return [];
+  if (!query) return { areas: [], hasNextPage: false };
 
-  return db.all<AreaWithAncestorPath>(sql`
+  // Fetch one extra row to detect a next page without a separate COUNT query.
+  const rows = await db.all<AreaWithAncestorPath>(sql`
     WITH RECURSIVE ancestor_chain(area_id, ancestor_id, dist) AS (
       SELECT id, parent_id, 1 FROM areas WHERE parent_id IS NOT NULL
       UNION ALL
@@ -182,16 +230,46 @@ export async function searchAreas(
       WHERE areas.parent_id IS NOT NULL
     )
     SELECT areas.*, (
-      SELECT GROUP_CONCAT(ancestor.name, ' > ')
-      FROM ancestor_chain
-      JOIN areas ancestor ON ancestor.id = ancestor_chain.ancestor_id
-      WHERE ancestor_chain.area_id = areas.id
-      ORDER BY ancestor_chain.dist ASC
+      -- GROUP_CONCAT joins rows in the order it receives them, so the
+      -- ORDER BY belongs on a subquery it consumes. Placed beside the
+      -- aggregate it would order that query's single output row instead,
+      -- leaving the concatenation to follow incidental scan order.
+      SELECT GROUP_CONCAT(name, ' > ') FROM (
+        SELECT ancestor.name AS name
+        FROM ancestor_chain
+        JOIN areas ancestor ON ancestor.id = ancestor_chain.ancestor_id
+        WHERE ancestor_chain.area_id = areas.id
+        ORDER BY ancestor_chain.dist DESC
+      )
     ) AS ancestorPath
     FROM areas
     JOIN areas_fts ON areas_fts.rowid = areas.id
     WHERE areas_fts MATCH ${query}
-    ORDER BY rank
-    LIMIT 25
+    ORDER BY rank, areas.id
+    LIMIT ${AREA_SEARCH_PAGE_SIZE + 1}
+    OFFSET ${(page - 1) * AREA_SEARCH_PAGE_SIZE}
   `);
+
+  return {
+    areas: rows.slice(0, AREA_SEARCH_PAGE_SIZE),
+    hasNextPage: rows.length > AREA_SEARCH_PAGE_SIZE,
+  };
+}
+
+/** Exact match count for the same FTS predicate as `searchAreas` — no
+ * ancestor-path CTE, so it's cheaper than the page query it accompanies.
+ * Keeps `searchAreas`'s join to `areas` (a PK seek per match) rather than
+ * counting FTS rows alone, so the two can never disagree about what a match
+ * is and caption a list with a number it cannot reach. */
+export async function countSearchAreas(db: Database, name: string): Promise<number> {
+  const query = toFtsPrefixQuery(name);
+  if (!query) return 0;
+
+  const [row] = await db.all<{ count: number }>(sql`
+    SELECT COUNT(*) AS count
+    FROM areas
+    JOIN areas_fts ON areas_fts.rowid = areas.id
+    WHERE areas_fts MATCH ${query}
+  `);
+  return row?.count ?? 0;
 }

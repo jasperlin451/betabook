@@ -1,5 +1,7 @@
 "use client";
 
+import { SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { FIELD_CLASS } from "@/components/ui/field";
 import { useState, useTransition } from "react";
 import { Button, Label, TextArea, TextField } from "@heroui/react";
 import { AreaPicker, type PickedArea } from "@/components/area-picker";
@@ -71,7 +73,7 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-4 rounded-xl bg-surface-secondary p-6"
+      className={SURFACE_CARD_CLASS}
     >
       {!area && fixedParentId == null && (
         <TextField>
@@ -91,7 +93,7 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className="rounded-md border border-separator bg-surface px-3 py-2 text-sm"
+          className={FIELD_CLASS}
         />
       </TextField>
 

@@ -5,15 +5,23 @@ import { createDb, type Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
 import { getArea } from "./areas";
 import {
+  countSearchClimbs,
   findClimbsByNameAndArea,
   getAreaWithSubtreeSize,
   getClimb,
   getSubtreeClimbs,
+  getSubtreeGradeHistogram,
   hasClimbsInArea,
   searchClimbs,
   LARGE_AREA_SUBTREE_AREAS,
 } from "./climbs";
-import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyAreas } from "@/test/fixtures";
+import {
+  seedFixtureSend,
+  seedFixtureTree,
+  seedFixtureUser,
+  seedManyAreas,
+  seedManyClimbs,
+} from "@/test/fixtures";
 
 // getSubtreeClimbs forces climbs_area_idx below LARGE_AREA_SUBTREE_AREAS
 // (see climbs.ts) — this fixture tree has a handful of areas, so it always
@@ -168,25 +176,27 @@ describe("getSubtreeClimbs", () => {
       ]);
     });
 
-    it("sorts by rating ascending, with unrated climbs last (tie-broken by id)", async () => {
+    it("sorts by rating ascending, with unrated climbs last (ties broken by name)", async () => {
       const root = await getArea(db, 1);
       const { climbs } = await getSubtreeClimbs(db, root!, 1, "rating_asc");
       expect(climbs.map((c) => c.name)).toEqual([
         "Test Crimper", // avg 1
         "Test Slab", // avg 4
-        "Test Highball", // unrated (id 1)
-        "Test Crack", // unrated, no sends at all (id 4)
+        // Both unrated — the deterministic tie-break chain (name first)
+        // orders them alphabetically, not by insertion id.
+        "Test Crack",
+        "Test Highball",
       ]);
     });
 
-    it("sorts by rating descending, with unrated climbs last (tie-broken by id)", async () => {
+    it("sorts by rating descending, with unrated climbs last (ties broken by name)", async () => {
       const root = await getArea(db, 1);
       const { climbs } = await getSubtreeClimbs(db, root!, 1, "rating_desc");
       expect(climbs.map((c) => c.name)).toEqual([
         "Test Slab", // avg 4
         "Test Crimper", // avg 1
-        "Test Highball",
         "Test Crack",
+        "Test Highball",
       ]);
     });
 
@@ -324,6 +334,44 @@ describe("getSubtreeClimbs", () => {
       expect(climbs.map((c) => c.name)).toEqual(["Test Slab"]);
     });
 
+    it("treats the default rating range as no filter at all, keeping unrated climbs", async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        ratingRange: [0, 5],
+      });
+      expect(climbs).toHaveLength(4);
+    });
+
+    it('returns every climb for an "Any"–"Any" rating range (0 = unbounded), not zero results', async () => {
+      // Regression: "Any" as the max used to reach the query as 0, turning
+      // the filter into `avg_rating BETWEEN 0 AND 0` — zero results.
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        ratingRange: [0, 0],
+      });
+      expect(climbs).toHaveLength(4);
+    });
+
+    it('applies only the lower bound when the max is "Any" (0)', async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        ratingRange: [3, 0],
+      });
+      expect(climbs.map((c) => c.name)).toEqual(["Test Slab"]); // avg 4
+    });
+
+    it('applies only the upper bound when the min is "Any" (0), still excluding unrated climbs', async () => {
+      const root = await getArea(db, 1);
+      const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
+        disciplines: [],
+        ratingRange: [0, 3],
+      });
+      expect(climbs.map((c) => c.name)).toEqual(["Test Crimper"]); // avg 1
+    });
+
     it("combines a min-ascents filter with a discipline filter", async () => {
       const root = await getArea(db, 1);
       const { climbs } = await getSubtreeClimbs(db, root!, 1, "ascents_desc", {
@@ -336,65 +384,112 @@ describe("getSubtreeClimbs", () => {
   });
 });
 
+describe("getSubtreeGradeHistogram", () => {
+  // Fixture grades: Test Highball boulder/5, Test Slab boulder/2,
+  // Test Crimper sport/10, Test Crack trad/6 — all under root area 1.
+  it("counts climbs per (type, grade) across the whole subtree", async () => {
+    const root = await getArea(db, 1);
+    const rows = await getSubtreeGradeHistogram(db, root!);
+    const byKey = Object.fromEntries(rows.map((r) => [`${r.type}/${r.grade}`, r.count]));
+    expect(byKey["boulder/5"]).toBe(1);
+    expect(byKey["boulder/2"]).toBe(1);
+    expect(byKey["sport/10"]).toBe(1);
+    expect(byKey["trad/6"]).toBe(1);
+    expect(rows.reduce((sum, r) => sum + r.count, 0)).toBe(4);
+  });
+
+  it("scopes to the given subtree, not the whole table", async () => {
+    const sportWall = await getArea(db, 3); // holds Test Crimper + Test Crack
+    const rows = await getSubtreeGradeHistogram(db, sportWall!);
+    expect(rows.sort((a, b) => a.type.localeCompare(b.type))).toEqual([
+      { type: "sport", grade: 10, count: 1 },
+      { type: "trad", grade: 6, count: 1 },
+    ]);
+  });
+
+  it("reaches its climbs through the area index, not a table scan", async () => {
+    const root = await getArea(db, 1);
+    const plan = await db.all<{ detail: string }>(sql`
+      EXPLAIN QUERY PLAN
+      WITH RECURSIVE subtree(id) AS (
+        SELECT ${root!.id}
+        UNION ALL
+        SELECT a.id FROM areas a JOIN subtree s ON a.parent_id = s.id
+      )
+      SELECT climbs.type, climbs.grade, COUNT(*)
+      FROM climbs
+      WHERE climbs.area_id IN (SELECT id FROM subtree)
+      GROUP BY climbs.type, climbs.grade
+    `);
+    expect(plan.some((row) => row.detail.includes("climbs_area_idx"))).toBe(true);
+    expect(plan.every((row) => !row.detail.startsWith("SCAN climbs"))).toBe(true);
+  });
+});
+
 describe("searchClimbs", () => {
   it("matches by climb name", async () => {
-    const results = await searchClimbs(db, { name: "Crimper", disciplines: [] });
-    expect(results.map((c) => c.name)).toEqual(["Test Crimper"]);
+    const { climbs } = await searchClimbs(db, { name: "Crimper", disciplines: [] });
+    expect(climbs.map((c) => c.name)).toEqual(["Test Crimper"]);
   });
 
   it("fuzzy-matches by partial climb name", async () => {
-    const results = await searchClimbs(db, { name: "Crim", disciplines: [] });
-    expect(results.map((c) => c.name)).toEqual(["Test Crimper"]);
+    const { climbs } = await searchClimbs(db, { name: "Crim", disciplines: [] });
+    expect(climbs.map((c) => c.name)).toEqual(["Test Crimper"]);
   });
 
   it("matches by area name against the climb's own area or any ancestor", async () => {
     // "Test Boulders" is an ancestor of the climbs' actual areas (the alcove/slab
     // sub-areas), not their direct area — this exercises the descendant walk
     // over parent_id, not just the exact-area match.
-    const results = await searchClimbs(db, { areaName: "Boulders", disciplines: [] });
-    expect(results.map((c) => c.name).sort()).toEqual(["Test Highball", "Test Slab"]);
+    const { climbs } = await searchClimbs(db, { areaName: "Boulders", disciplines: [] });
+    expect(climbs.map((c) => c.name).sort()).toEqual(["Test Highball", "Test Slab"]);
   });
 
-  it("returns an empty array when the area name matches nothing", async () => {
+  it("returns an empty page when the area name matches nothing", async () => {
     const results = await searchClimbs(db, {
       areaName: "NoSuchAreaNameAtAll",
       disciplines: [],
     });
-    expect(results).toEqual([]);
+    expect(results).toEqual({ climbs: [], hasNextPage: false });
+  });
+
+  it("returns an empty page when the name has no matchable tokens", async () => {
+    const results = await searchClimbs(db, { name: " ", disciplines: [] });
+    expect(results).toEqual({ climbs: [], hasNextPage: false });
   });
 
   it("filters by a single discipline's grade range", async () => {
-    const results = await searchClimbs(db, {
+    const { climbs } = await searchClimbs(db, {
       disciplines: ["boulder"],
       boulderRange: [5, 5],
     });
-    expect(results.map((c) => c.name)).toEqual(["Test Highball"]);
+    expect(climbs.map((c) => c.name)).toEqual(["Test Highball"]);
   });
 
   it("filters by both disciplines independently without interleaving", async () => {
-    const results = await searchClimbs(db, {
+    const { climbs } = await searchClimbs(db, {
       disciplines: ["boulder", "trad"],
       boulderRange: [5, 5],
       tradRange: [6, 6],
     });
-    expect(results.map((c) => c.name).sort()).toEqual(["Test Crack", "Test Highball"]);
+    expect(climbs.map((c) => c.name).sort()).toEqual(["Test Crack", "Test Highball"]);
   });
 
   it("filters sport and trad independently by their own grade ranges", async () => {
-    const results = await searchClimbs(db, {
+    const { climbs } = await searchClimbs(db, {
       disciplines: ["sport", "trad"],
       sportRange: [10, 10],
       tradRange: [0, 0],
     });
-    expect(results.map((c) => c.name)).toEqual(["Test Crimper"]);
+    expect(climbs.map((c) => c.name)).toEqual(["Test Crimper"]);
   });
 
   it("excludes climbs outside the requested grade range", async () => {
-    const results = await searchClimbs(db, {
+    const { climbs } = await searchClimbs(db, {
       disciplines: ["boulder"],
       boulderRange: [0, 3],
     });
-    expect(results.map((c) => c.name)).toEqual(["Test Slab"]);
+    expect(climbs.map((c) => c.name)).toEqual(["Test Slab"]);
   });
 
   it("returns a real numeric areaId, not the raw snake_case column", async () => {
@@ -402,27 +497,44 @@ describe("searchClimbs", () => {
     // column name (`area_id`), not drizzle's camelCase `areaId` field — that
     // silently produced `undefined` here until the query explicitly aliased
     // every column.
-    const results = await searchClimbs(db, { name: "Test Highball", disciplines: [] });
-    expect(results).toHaveLength(1);
-    expect(results[0].areaId).toBe(4); // Test Highball Alcove
+    const { climbs } = await searchClimbs(db, { name: "Test Highball", disciplines: [] });
+    expect(climbs).toHaveLength(1);
+    expect(climbs[0].areaId).toBe(4); // Test Highball Alcove
   });
 
   // Reuses the ratings/ascent counts seeded in getSubtreeClimbs's "sort"
   // describe above: Slab (2 sends, avg 4), Highball (1 send, unrated),
   // Crimper (3 sends, avg 1), Crack (0 sends, unrated).
   it("filters by minimum ascent count", async () => {
-    const results = await searchClimbs(db, { disciplines: [], minAscents: 2 });
-    expect(results.map((c) => c.name).sort()).toEqual(["Test Crimper", "Test Slab"]);
+    const { climbs } = await searchClimbs(db, { disciplines: [], minAscents: 2 });
+    expect(climbs.map((c) => c.name).sort()).toEqual(["Test Crimper", "Test Slab"]);
   });
 
   it("filters by rating range, excluding unrated climbs and climbs outside the range", async () => {
-    const results = await searchClimbs(db, { disciplines: [], ratingRange: [3, 5] });
-    expect(results.map((c) => c.name)).toEqual(["Test Slab"]);
+    const { climbs } = await searchClimbs(db, { disciplines: [], ratingRange: [3, 5] });
+    expect(climbs.map((c) => c.name)).toEqual(["Test Slab"]);
+  });
+
+  it('returns every climb for an "Any"–"Any" rating range (0 = unbounded), not zero results', async () => {
+    // Same regression as getSubtreeClimbs: an "Any" max used to become
+    // `avg_rating BETWEEN 0 AND 0` and match nothing.
+    const { climbs } = await searchClimbs(db, { disciplines: [], ratingRange: [0, 0] });
+    expect(climbs.map((c) => c.name).sort()).toEqual([
+      "Test Crack",
+      "Test Crimper",
+      "Test Highball",
+      "Test Slab",
+    ]);
+  });
+
+  it('applies only the lower bound when the max is "Any" (0)', async () => {
+    const { climbs } = await searchClimbs(db, { disciplines: [], ratingRange: [3, 0] });
+    expect(climbs.map((c) => c.name)).toEqual(["Test Slab"]); // avg 4
   });
 
   it("defaults to sorting by ascent count descending", async () => {
-    const results = await searchClimbs(db, { disciplines: [] });
-    expect(results.map((c) => c.name)).toEqual([
+    const { climbs } = await searchClimbs(db, { disciplines: [] });
+    expect(climbs.map((c) => c.name)).toEqual([
       "Test Crimper", // 3 ascents
       "Test Slab", // 2 ascents
       "Test Highball", // 1 ascent
@@ -431,8 +543,8 @@ describe("searchClimbs", () => {
   });
 
   it("sorts by an explicit field", async () => {
-    const results = await searchClimbs(db, { disciplines: [], sort: "name_asc" });
-    expect(results.map((c) => c.name)).toEqual([
+    const { climbs } = await searchClimbs(db, { disciplines: [], sort: "name_asc" });
+    expect(climbs.map((c) => c.name)).toEqual([
       "Test Crack",
       "Test Crimper",
       "Test Highball",
@@ -466,11 +578,82 @@ describe("searchClimbs", () => {
       await db.insert(climbs).values(climbRows.slice(i, i + CHUNK_SIZE));
     }
 
-    // searchClimbs caps results at 25 regardless of match count — the point
+    // searchClimbs returns one SEARCH_PAGE_SIZE page at a time — the point
     // here is that the query doesn't throw with 60 areas matched, not that
-    // every match comes back.
-    const results = await searchClimbs(db, { areaName: "Bulk Area", disciplines: [] });
+    // every match comes back at once.
+    const { climbs: results, hasNextPage } = await searchClimbs(db, {
+      areaName: "Bulk Area",
+      disciplines: [],
+    });
     expect(results).toHaveLength(25);
+    expect(hasNextPage).toBe(true);
+  });
+});
+
+// Placed after the searchClimbs describe: this seeds its own area with 55
+// more climbs, which would otherwise bleed into the exact result sets above.
+describe("searchClimbs pagination", () => {
+  const AREA_ID = 200_000;
+  // Scopes every query here to just this describe's fixtures — a name unique
+  // in this file, matched via areaNameCondition.
+  const SCOPE = { areaName: "Paged Search Area", disciplines: [] as [] };
+
+  beforeAll(async () => {
+    await db.insert(areas).values({
+      id: AREA_ID,
+      parentId: null,
+      name: "Paged Search Area",
+    });
+    await db.run(sql`INSERT INTO areas_fts(rowid, name) VALUES (${AREA_ID}, 'Paged Search Area')`);
+    await seedManyClimbs(db, AREA_ID, 55, AREA_ID);
+  });
+
+  it("returns a full page and reports hasNextPage when more rows remain", async () => {
+    const page1 = await searchClimbs(db, SCOPE, 1);
+    expect(page1.climbs).toHaveLength(25);
+    expect(page1.hasNextPage).toBe(true);
+  });
+
+  it("returns the remainder and reports no next page on the last page", async () => {
+    const page3 = await searchClimbs(db, SCOPE, 3);
+    expect(page3.climbs).toHaveLength(5);
+    expect(page3.hasNextPage).toBe(false);
+  });
+
+  // Every seeded climb has send_count 0 (default-sort tie) and grades of
+  // `i % 19` (~3 climbs per grade) — exactly the tie-heavy shapes where a
+  // missing unique tie-breaker (`climbs.id`) makes OFFSET pagination
+  // duplicate or skip rows across pages.
+  it("pages over fully tied climbs without duplicating or skipping any", async () => {
+    for (const sort of [undefined, "grade_asc"] as const) {
+      const ids: number[] = [];
+      for (let page = 1; page <= 3; page++) {
+        const result = await searchClimbs(db, { ...SCOPE, sort }, page);
+        ids.push(...result.climbs.map((c) => c.id));
+      }
+      expect(ids).toHaveLength(55);
+      expect(new Set(ids).size).toBe(55);
+    }
+  });
+
+  it("counts every match, not just the first page", async () => {
+    expect(await countSearchClimbs(db, SCOPE)).toBe(55);
+  });
+
+  it("counts with the same filters as the page query", async () => {
+    // Grades are i % 19 over 55 climbs: each grade in [0, 4] appears 3
+    // times, so a boulder range of [0, 4] matches 15.
+    expect(
+      await countSearchClimbs(db, {
+        ...SCOPE,
+        disciplines: ["boulder"],
+        boulderRange: [0, 4],
+      }),
+    ).toBe(15);
+  });
+
+  it("counts zero for a name with no matchable tokens", async () => {
+    expect(await countSearchClimbs(db, { name: " ", disciplines: [] })).toBe(0);
   });
 });
 
@@ -577,7 +760,8 @@ describe("getAreaWithSubtreeSize", () => {
   // for the areas that most need the fast one. Seeded under its own root so
   // it can't perturb the fixture tree's subtree assertions.
   it("flips to largeSubtree exactly at LARGE_AREA_SUBTREE_AREAS", async () => {
-    const ROOT_ID = 200_000;
+    // 700_000+ because 200_000 is the paged-search fixture's area above.
+    const ROOT_ID = 700_000;
     await db.insert(areas).values({ id: ROOT_ID, parentId: null, name: "Wide Root" });
     // The root counts toward its own subtree, so this leaves it one short.
     await seedManyAreas(db, LARGE_AREA_SUBTREE_AREAS - 2, ROOT_ID + 1, {

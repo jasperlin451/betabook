@@ -1,12 +1,14 @@
 "use client";
 
-import { Label, NumberField } from "@heroui/react";
+import { NumberField } from "@heroui/react";
 import { IndexRangeSelect } from "@/components/ui/index-select";
-import { MAX_RATING_OPTIONS, MIN_RATING_OPTIONS } from "@/lib/climb-stats-filter";
+import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
 
 /** Climb search's and the area page's rating-range filter — shared since
  * both list climbs via the same <ClimbList> and filter on the same
- * denormalized climbs.avg_rating column. */
+ * denormalized climbs.avg_rating column. Index = rating value on both
+ * sides, with 0 ("Any", `anyIndex`) meaning that bound is inactive — see
+ * RATING_OPTIONS in lib/climb-stats-filter.ts. */
 export function RatingRangeSelect({
   range,
   onChange,
@@ -17,12 +19,13 @@ export function RatingRangeSelect({
   return (
     <IndexRangeSelect
       label="Rating"
-      minOptions={MIN_RATING_OPTIONS}
-      maxOptions={MAX_RATING_OPTIONS}
+      minOptions={RATING_OPTIONS}
+      maxOptions={RATING_OPTIONS}
       minLabel="Min Rating"
       maxLabel="Max Rating"
       range={range}
       onChange={onChange}
+      anyIndex={0}
     />
   );
 }
@@ -38,14 +41,25 @@ export function MinAscentsField({
   onChange: (value: number) => void;
 }) {
   return (
-    <NumberField value={value} onChange={onChange} minValue={0} fullWidth>
-      <Label>Min Ascents</Label>
-      <NumberField.Group>
-        <NumberField.DecrementButton />
-        <NumberField.Input />
-        <NumberField.IncrementButton />
-      </NumberField.Group>
-    </NumberField>
+    // Inline label + compact stepper, matching the Rating row's
+    // label-beside-controls rhythm — a count field has no business
+    // spanning the whole filter panel.
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="text-sm font-medium text-foreground">Min Ascents</span>
+      <NumberField
+        value={value}
+        onChange={onChange}
+        minValue={0}
+        aria-label="Min Ascents"
+        className="w-32"
+      >
+        <NumberField.Group>
+          <NumberField.DecrementButton />
+          <NumberField.Input />
+          <NumberField.IncrementButton />
+        </NumberField.Group>
+      </NumberField>
+    </div>
   );
 }
 
