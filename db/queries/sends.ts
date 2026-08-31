@@ -138,7 +138,7 @@ export async function getRecentSends(db: Database, page = 1): Promise<RecentSend
     .innerJoin(user, eq(sends.userId, user.id))
     .innerJoin(climbs, eq(sends.climbId, climbs.id))
     .innerJoin(areas, eq(climbs.areaId, areas.id))
-    .orderBy(desc(sends.createdAt), desc(sends.id))
+    .orderBy(desc(sends.dateSent), desc(sends.id))
     .limit(RECENT_SENDS_PAGE_SIZE + 1)
     .offset((page - 1) * RECENT_SENDS_PAGE_SIZE);
 
