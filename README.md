@@ -81,3 +81,14 @@ Deployed to Cloudflare Workers via `@opennextjs/cloudflare`:
 pnpm preview   # build and run the Workers bundle locally
 pnpm deploy    # build and deploy
 ```
+
+Merging to `main` does the same thing automatically
+(`.github/workflows/deploy.yml`): lint, build, apply D1 migrations, deploy.
+Migrations run before the worker does, so the live worker briefly sees the new
+schema — keep each one backward-compatible. `workflow_dispatch` re-runs a
+deploy without a commit, and `pnpm exec wrangler rollback` reverts one.
+
+The workflow needs two repository secrets, `CLOUDFLARE_API_TOKEN` (scoped to
+Workers Scripts:Edit and D1:Edit) and `CLOUDFLARE_ACCOUNT_ID`. Runtime secrets
+like `BETTER_AUTH_SECRET` and `RESEND_API_KEY` stay Worker secrets set with
+`wrangler secret put`; deploying does not touch them.

@@ -1,0 +1,61 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Serialize deploys so two quick merges can't land out of order. Not cancelling
+# in progress: a half-finished deploy is worse than a redundant one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Forks inherit the workflow but not the secrets, so every push to their
+    # main would fail the wrangler steps.
+    if: github.repository == 'smwoo/betabook'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # worker-configuration.d.ts is gitignored and `wrangler types` derives it
+      # from wrangler.jsonc *and* .dev.vars. Without this copy CloudflareEnv
+      # lacks RESEND_API_KEY and lib/email.ts fails the build's typecheck.
+      - name: Generate Cloudflare env types
+        run: |
+          cp .dev.vars.example .dev.vars
+          pnpm cf-typegen
+
+      - run: pnpm lint
+
+      # Split from the deploy step below: `next build` typechecks, so a broken
+      # compile stops here instead of shipping.
+      - name: Build
+        run: pnpm exec opennextjs-cloudflare build
+
+      # Ahead of the worker deploy so new code never meets an old schema. The
+      # running worker does see the new schema for the seconds in between, so
+      # each migration has to stay backward-compatible.
+      - name: Apply D1 migrations
+        run: pnpm exec wrangler d1 migrations apply DB --remote
+
+      - name: Deploy
+        run: pnpm exec opennextjs-cloudflare deploy
