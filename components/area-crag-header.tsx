@@ -65,7 +65,19 @@ export function AreaCragHeader({
         </div>
       )}
 
-      <GradeHistogramChart histogram={histogram} areaId={area.id} filter={filter} />
+      {/* Desktop only. Below md the discipline charts stack, and three of
+        * them push the climb list — the reason to open an area — off the
+        * first screen. The summary row above still carries the count, grade
+        * spans and disciplines, and the toolbar's grade filters reach the
+        * same rows a bar would, so nothing is only available here.
+        *
+        * Guarded rather than always wrapped: the chart renders nothing when
+        * there are no groups, and a bare wrapper would still claim a gap. */}
+      {histogram.groups.length > 0 && (
+        <div className="hidden md:block">
+          <GradeHistogramChart histogram={histogram} areaId={area.id} filter={filter} />
+        </div>
+      )}
     </div>
   );
 }
