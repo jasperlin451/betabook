@@ -5,7 +5,7 @@ import { createDb } from "@/db/client";
 import { climbs, sends } from "@/db/schema";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
-import { createClimb, createSend, deleteClimb } from "@/db/mutations";
+import { createClimb, createSend, deleteClimb, updateSend } from "@/db/mutations";
 
 /** The action boundary must never throw — Next.js redacts uncaught
  * server-action errors in production, so these tests pin the structured
@@ -109,6 +109,65 @@ describe("createSend action boundary", () => {
     const climb = await db.select().from(climbs).where(eq(climbs.id, 3)).get();
     expect(climb?.sendCount).toBe(1);
     expect(climb?.ratingSum).toBe(4);
+  });
+});
+
+describe("updateSend action boundary", () => {
+  // Climb 4 is this describe's alone — re-seeded per test, per the
+  // one-test-one-row convention above.
+  async function seedSend(dateSent: string | null): Promise<number> {
+    await db.delete(sends).where(eq(sends.climbId, 4));
+    await seedFixtureSend(db, { userId: "test-user", climbId: 4, dateSent });
+    const row = await db.select().from(sends).where(eq(sends.climbId, 4)).get();
+    return row!.id;
+  }
+
+  // drizzle's .set() drops `undefined` keys, so a dateSent gone missing from
+  // validateSendInput's result would make this clear a silent no-op.
+  it("clears the date on a dated send when the form submits a blank date", async () => {
+    const sendId = await seedSend("2026-01-15");
+
+    const result = await updateSend(sendId, sendFormData({ dateSent: "" }));
+    expect(result).toEqual({ ok: true, value: undefined });
+
+    const row = await db.select().from(sends).where(eq(sends.id, sendId)).get();
+    expect(row?.dateSent).toBeNull();
+  });
+
+  it("sets a date on a previously undated send", async () => {
+    const sendId = await seedSend(null);
+
+    const result = await updateSend(sendId, sendFormData({ dateSent: "2026-02-20" }));
+    expect(result).toEqual({ ok: true, value: undefined });
+
+    const row = await db.select().from(sends).where(eq(sends.id, sendId)).get();
+    expect(row?.dateSent).toBe("2026-02-20");
+  });
+
+  it("leaves the rest of the send intact when only the date is cleared", async () => {
+    const sendId = await seedSend("2026-01-15");
+
+    const result = await updateSend(
+      sendId,
+      sendFormData({ dateSent: "", rating: "5", comment: "Classic" }),
+    );
+    expect(result).toEqual({ ok: true, value: undefined });
+
+    const row = await db.select().from(sends).where(eq(sends.id, sendId)).get();
+    expect(row?.dateSent).toBeNull();
+    expect(row?.rating).toBe(5);
+    expect(row?.comment).toBe("Classic");
+    expect(row?.ascentStyle).toBe("redpoint");
+  });
+
+  it("rejects a malformed date without touching the stored one", async () => {
+    const sendId = await seedSend("2026-01-15");
+
+    const result = await updateSend(sendId, sendFormData({ dateSent: "15/01/2026" }));
+    expect(result).toEqual({ ok: false, error: "Invalid send date" });
+
+    const row = await db.select().from(sends).where(eq(sends.id, sendId)).get();
+    expect(row?.dateSent).toBe("2026-01-15");
   });
 });
 
