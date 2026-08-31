@@ -86,7 +86,17 @@ function disciplineGradeConditions(filter: DisciplineGradeFilter): SQL[] {
 /** The set of `areaId` and every area beneath it, walked over `parent_id`.
  * Backed by areas_parent_idx, which the plan uses as a covering index.
  * SQLite materializes this once per query (plus a bloom filter) rather than
- * re-walking it per candidate row. */
+ * re-walking it per candidate row.
+ *
+ * UNION ALL, not UNION: seeded from a single id, each area is reached by
+ * exactly one path down the tree, so there is nothing to dedup — and the walk
+ * terminates because the tree is acyclic, which the triggers in
+ * drizzle/migrations/0017_area_cycle_guard.sql enforce at write time. (Both
+ * produce an identical query plan here; UNION would just be a dedup b-tree
+ * doing no work.) Contrast areaNameCondition, which seeds from every
+ * FTS-matched area at once — there one matched area can nest inside another,
+ * so the same descendant really is reachable twice and UNION is doing
+ * something. */
 function subtreeAreaIds(areaId: number): SQL {
   return sql`
     WITH RECURSIVE subtree(id) AS (
@@ -314,9 +324,11 @@ export async function getSubtreeClimbs(
  * importSends resolves one of these per CSV row.
  *
  * Seeding `chain` with the climb's own area is what folds "matches exactly OR
- * matches as an ancestor" into one clause. UNION ALL is safe because
- * areas.parentId is write-once at insert and never reparented (see
- * db/mutations/areas.ts), so a chain can't cycle. */
+ * matches as an ancestor" into one clause. UNION ALL is safe because an
+ * ancestor chain can't cycle — enforced at write time by the triggers in
+ * drizzle/migrations/0017_area_cycle_guard.sql, not merely assumed from the
+ * current mutations. That matters most here: this runs once per CSV row on
+ * the import path, so it's the walk with the least headroom to spare. */
 export async function findClimbsByNameAndArea(
   db: Database,
   climbName: string,

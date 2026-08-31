@@ -10,6 +10,11 @@ export const areas = sqliteTable(
   "areas",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
+    // Acyclic by construction, enforced in the database: the triggers in
+    // drizzle/migrations/0017_area_cycle_guard.sql reject any insert or
+    // parent_id update that would make an area reachable from itself.
+    // Declared there rather than here because drizzle-kit doesn't model
+    // triggers — nothing in this file will tell you they exist.
     parentId: integer("parent_id").references(
       (): AnySQLiteColumn => areas.id,
       { onDelete: "restrict" },
