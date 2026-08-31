@@ -559,11 +559,15 @@ describe("getAreaWithSubtreeSize", () => {
     expect(await getAreaWithSubtreeSize(db, 999999)).toBeUndefined();
   });
 
+  // The carried signal and the standalone probe are two independent
+  // implementations of the same predicate, so they can disagree; passing the
+  // richer row must not change what comes back.
   it("gives getSubtreeClimbs the same answer as its own probe", async () => {
-    const area = await getAreaWithSubtreeSize(db, 1);
-    const threaded = await getSubtreeClimbs(db, area!, 1, "name_asc", undefined, area!.largeSubtree);
-    const probed = await getSubtreeClimbs(db, area!, 1, "name_asc");
-    expect(threaded).toEqual(probed);
+    const carried = await getAreaWithSubtreeSize(db, 1);
+    const plain = await getArea(db, 1);
+    expect(await getSubtreeClimbs(db, carried!, 1, "name_asc")).toEqual(
+      await getSubtreeClimbs(db, plain!, 1, "name_asc"),
+    );
   });
 
   // Pinned from both sides rather than only observing `false` on the small

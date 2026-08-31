@@ -34,14 +34,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     );
   }
 
-  const subtreeClimbs = await getSubtreeClimbs(
-    db,
-    area,
-    page,
-    sort,
-    toSubtreeQueryFilter(filter),
-    area.largeSubtree,
-  );
+  const subtreeClimbs = await getSubtreeClimbs(db, area, page, sort, toSubtreeQueryFilter(filter));
   const [sendStats, areaBreadcrumbs] = await Promise.all([
     getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),

@@ -249,17 +249,21 @@ function climbStatsConditions(filter: ClimbStatsFilter): SQL[] {
   return clauses;
 }
 
-/** `largeSubtree` lets a caller that already knows which branch it wants skip
- * the extra probe query; omit it and it's measured (see isLargeSubtree). The
- * production callers pass it straight from getAreaWithSubtreeSize, which
- * resolved it as part of loading `area`. */
+/** Hand it an AreaWithSubtreeSize and the index-selection signal rides along
+ * on the row, costing nothing (see getAreaWithSubtreeSize, which is what both
+ * production callers load `area` with); hand it a plain Area and the signal is
+ * measured in its own round trip (see isLargeSubtree).
+ *
+ * Carried on `area` rather than passed beside it so the signal can't be about
+ * a different area than the one being listed — the two travel together or not
+ * at all. A test that wants a specific branch on a fixture too small to earn
+ * it spreads the flag on: `{ ...area, largeSubtree: true }`. */
 export async function getSubtreeClimbs(
   db: Database,
-  area: Area,
+  area: Area | AreaWithSubtreeSize,
   page = 1,
   sort: SubtreeClimbsSort = "ascents_desc",
   filter?: DisciplineGradeFilter & { name?: string } & ClimbStatsFilter,
-  largeSubtree?: boolean,
 ): Promise<{ climbs: ClimbWithAreaName[]; page: number; pageSize: number; hasNextPage: boolean }> {
   const conditions: SQL[] = [sql`climbs.area_id IN (SELECT id FROM subtree)`];
 
@@ -287,7 +291,7 @@ export async function getSubtreeClimbs(
     throw new Error(`Invalid sort value: ${sort}`);
   }
 
-  const isLarge = largeSubtree ?? (await isLargeSubtree(db, area.id));
+  const isLarge = "largeSubtree" in area ? area.largeSubtree : await isLargeSubtree(db, area.id);
   const indexName = isLarge ? SUBTREE_CLIMBS_SORT_INDEX[sort] : "climbs_area_idx";
 
   // Fetch one extra row to detect a next page without a separate COUNT query.

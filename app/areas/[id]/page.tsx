@@ -48,7 +48,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   const [ancestors, subareas, subtreeClimbs, hasClimbs] = await Promise.all([
     getAncestors(db, area),
     getSubareas(db, area.id),
-    getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter), area.largeSubtree),
+    getSubtreeClimbs(db, area, 1, sort, toSubtreeQueryFilter(filter)),
     hasClimbsInArea(db, area.id),
   ]);
   const canDeleteArea = subareas.length === 0 && !hasClimbs;
