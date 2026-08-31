@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
-import { climbSearchFilterToSearchParams, type ClimbSearchFilter } from "@/lib/climb-search-filter";
+import { type ClimbSearchFilter } from "@/lib/climb-search-filter";
+import { appendPage, fetchClimbSearchPage } from "@/lib/climb-search-pages";
+import type { ClimbSearchPages } from "@/lib/climb-search-pages";
 import type {
   AreaBreadcrumbs,
   AreaWithAncestorPath,
@@ -38,35 +40,24 @@ export function ClimbSearchResults({
    * later pages too, so it never needs re-fetching on "load more". */
   sentClimbIds?: Set<number>;
 }) {
-  const [climbs, setClimbs] = useState(initialClimbs);
-  const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
-  const [sendStats, setSendStats] = useState(initialSendStats);
-  const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   // Results are fetched SEARCH_PAGE_SIZE at a time (see db/queries/climbs.ts),
   // so the next page to request is however many full pages are already loaded.
-  const [loadedPages, setLoadedPages] = useState(1);
+  const [pages, setPages] = useState<ClimbSearchPages>({
+    climbs: initialClimbs,
+    sendStats: initialSendStats,
+    areaBreadcrumbs: initialAreaBreadcrumbs,
+    hasNextPage: initialHasNextPage,
+    loadedPages: 1,
+  });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
 
   async function handleLoadMore() {
     setLoadingMore(true);
     setLoadMoreFailed(false);
     try {
-      const params = climbSearchFilterToSearchParams(sort, filter);
-      params.set("page", String(loadedPages + 1));
-      const res = await fetch(`/api/search/climbs?${params.toString()}`);
-      if (!res.ok) throw new Error(`Loading more results failed: ${res.status}`);
-      const data: {
-        climbs: ClimbWithAreaName[];
-        hasNextPage: boolean;
-        sendStats: Record<number, ClimbSendStats>;
-        areaBreadcrumbs: AreaBreadcrumbs;
-      } = await res.json();
-      setClimbs((prev) => [...prev, ...data.climbs]);
-      setHasNextPage(data.hasNextPage);
-      setSendStats((prev) => ({ ...prev, ...data.sendStats }));
-      setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
-      setLoadedPages((prev) => prev + 1);
+      const next = await fetchClimbSearchPage(sort, filter, pages.loadedPages + 1);
+      setPages((prev) => appendPage(prev, next));
     } catch {
       // Network failure or a non-2xx response — keep what's loaded, surface
       // an inline error, and leave the button as the retry affordance.
@@ -78,13 +69,13 @@ export function ClimbSearchResults({
 
   return (
     <ClimbList
-      climbs={climbs}
-      sendStats={sendStats}
-      areaBreadcrumbs={areaBreadcrumbs}
+      climbs={pages.climbs}
+      sendStats={pages.sendStats}
+      areaBreadcrumbs={pages.areaBreadcrumbs}
       sentClimbIds={sentClimbIds}
       emptyMessage="No climbs match your search."
       pagination={{
-        hasNextPage,
+        hasNextPage: pages.hasNextPage,
         loadingMore,
         onLoadMore: handleLoadMore,
         error: loadMoreFailed && (

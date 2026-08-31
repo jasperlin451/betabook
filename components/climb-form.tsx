@@ -15,6 +15,10 @@ type ClimbFormProps = {
    * creating a climb with no area yet in context. */
   areaId: number | null;
   climb?: Climb;
+  /** Starting values for a new climb, carried over from a search that failed
+   * to find it (see ClimbPicker's empty state) so nothing is retyped. Ignored
+   * when `climb` is given — an edit starts from the climb itself. */
+  initial?: { name?: string; type?: ClimbType; areaName?: string };
   onDone?: (climbId: number) => void;
 };
 
@@ -24,11 +28,11 @@ const CLIMB_TYPE_LABELS: Record<ClimbType, string> = {
   trad: "Trad",
 };
 
-export function ClimbForm({ areaId: fixedAreaId, climb, onDone }: ClimbFormProps) {
+export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: ClimbFormProps) {
   const disciplineLocked = (climb?.sendCount ?? 0) > 0;
 
-  const [name, setName] = useState(climb?.name ?? "");
-  const [type, setType] = useState<ClimbType>(climb?.type ?? "boulder");
+  const [name, setName] = useState(climb?.name ?? initial?.name ?? "");
+  const [type, setType] = useState<ClimbType>(climb?.type ?? initial?.type ?? "boulder");
   const [grade, setGrade] = useState(String(climb?.grade ?? 0));
   const [description, setDescription] = useState(climb?.description ?? "");
   const [pickedArea, setPickedArea] = useState<PickedArea | null>(null);
@@ -91,6 +95,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, onDone }: ClimbFormProps
             selected={pickedArea}
             onSelectedChange={setPickedArea}
             isInvalid={areaInvalid}
+            defaultQuery={climb ? undefined : initial?.areaName}
           />
           {areaInvalid && <p className="text-sm text-danger">Select an area.</p>}
         </TextField>

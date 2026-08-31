@@ -11,6 +11,10 @@ type AreaPickerProps = {
   selected: PickedArea | null;
   onSelectedChange: (area: PickedArea | null) => void;
   isInvalid?: boolean;
+  /** Text to start the field with when nothing is picked yet — carried over
+   * from a search that came up empty, so the area doesn't have to be retyped.
+   * A starting point only; picking is still what binds an area. */
+  defaultQuery?: string;
 };
 
 /** How the current text's search ended, or `null` while it has no answer yet
@@ -23,8 +27,13 @@ type SearchStatus = "ok" | "failed";
  * in the app an area is chosen as a form field rather than via a whole-page
  * search. Debounces the query into `searchAreasForPicker` the same way
  * `useDebouncedReplace` debounces navigation-driven search elsewhere. */
-export function AreaPicker({ selected, onSelectedChange, isInvalid }: AreaPickerProps) {
-  const [query, setQuery] = useState(selected?.name ?? "");
+export function AreaPicker({
+  selected,
+  onSelectedChange,
+  isInvalid,
+  defaultQuery,
+}: AreaPickerProps) {
+  const [query, setQuery] = useState(selected?.name ?? defaultQuery ?? "");
   const [results, setResults] = useState<AreaWithAncestorPath[]>([]);
   const [status, setStatus] = useState<SearchStatus | null>(null);
   // Bumped to re-run the search effect for text that hasn't changed, which is
