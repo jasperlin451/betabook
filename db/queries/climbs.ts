@@ -248,27 +248,49 @@ export async function getSubtreeClimbs(
  * exactly or as an ancestor. Returns every match — caller decides what
  * 0/1/many means.
  *
- * The area set is resolved once by walking `parent_id` down from every
- * name-matching area, rather than by a correlated per-climb ancestor test —
- * same reasoning (and same order-of-magnitude speedup) as areaNameCondition.
- * Seeding the walk with the matching areas themselves is what folds the old
- * "matches exactly OR matches as an ancestor" disjunction into one clause. */
+ * Walks `parent_id` UPWARD from the candidate climbs' areas, testing each
+ * ancestor's name — the opposite direction from areaNameCondition, which
+ * resolves the named area's whole descendant set once. That difference is
+ * deliberate, and it's about which side of the join is the small one:
+ *
+ * areaNameCondition drives from a broad row set (an FTS climb search, a
+ * user's entire send history), so a per-row ancestor test ran thousands of
+ * times and materializing the descendant set once was the win. Here the
+ * driver is an EXACT climb-name match on climbs_name_lower_idx (see
+ * drizzle/migrations/0006_expression_indexes.sql), which yields a handful of
+ * rows — so the descendant set is the expensive side, and its cost scales
+ * with the named area's subtree: a country- or continent-level areaName
+ * means materializing thousands of areas to test a few climbs.
+ *
+ * An ancestor chain is bounded by tree depth regardless of subtree size (see
+ * getAncestors), so this is O(candidate areas x depth) and doesn't scale with
+ * the named area at all. That matters per CALL, not just per query:
+ * importSends resolves one of these per CSV row.
+ *
+ * Seeding `chain` with the climb's own area is what folds "matches exactly OR
+ * matches as an ancestor" into one clause. UNION ALL is safe because
+ * areas.parentId is write-once at insert and never reparented (see
+ * db/mutations/areas.ts), so a chain can't cycle. */
 export async function findClimbsByNameAndArea(
   db: Database,
   climbName: string,
   areaName: string,
 ): Promise<Climb[]> {
   return db.all<Climb>(sql`
+    WITH RECURSIVE chain(start_id, id) AS (
+      SELECT DISTINCT c.area_id, c.area_id FROM climbs c
+      WHERE LOWER(TRIM(c.name)) = LOWER(TRIM(${climbName}))
+      UNION ALL
+      SELECT chain.start_id, areas.parent_id FROM chain
+      JOIN areas ON areas.id = chain.id
+      WHERE areas.parent_id IS NOT NULL
+    )
     SELECT climbs.* FROM climbs
     WHERE LOWER(TRIM(climbs.name)) = LOWER(TRIM(${climbName}))
     AND climbs.area_id IN (
-      WITH RECURSIVE matched(id) AS (
-        SELECT m.id FROM areas m
-        WHERE LOWER(TRIM(m.name)) = LOWER(TRIM(${areaName}))
-        UNION
-        SELECT child.id FROM areas child JOIN matched ON child.parent_id = matched.id
-      )
-      SELECT id FROM matched
+      SELECT chain.start_id FROM chain
+      JOIN areas ON areas.id = chain.id
+      WHERE LOWER(TRIM(areas.name)) = LOWER(TRIM(${areaName}))
     )
   `);
 }

@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
-import { climbs } from "@/db/schema";
+import { areas, climbs } from "@/db/schema";
 import { getArea } from "./areas";
 import { findClimbsByNameAndArea, getClimb, getSubtreeClimbs, hasClimbsInArea, searchClimbs } from "./climbs";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyAreas } from "@/test/fixtures";
@@ -491,6 +491,34 @@ describe("findClimbsByNameAndArea", () => {
   it("returns an empty array when the area doesn't match (even if the climb name does)", async () => {
     const results = await findClimbsByNameAndArea(db, "Test Crimper", "No Such Area");
     expect(results).toEqual([]);
+  });
+
+  // The lookup walks parent_id upward from the climb's own area (see
+  // findClimbsByNameAndArea), so depth is the dimension its cost scales with
+  // — and the shared fixture tree is only two levels deep. This chain is its
+  // own root so it can't perturb the fixture tree's subtree assertions.
+  it("matches a climb four levels below the named area", async () => {
+    await db.insert(areas).values([
+      { id: 8000, parentId: null, name: "Test Deep Range" },
+      { id: 8001, parentId: 8000, name: "Test Deep Massif" },
+      { id: 8002, parentId: 8001, name: "Test Deep Valley" },
+      { id: 8003, parentId: 8002, name: "Test Deep Buttress" },
+    ]);
+    await db.insert(climbs).values({
+      id: 8100,
+      areaId: 8003,
+      name: "Test Deep Route",
+      type: "trad",
+      grade: 7,
+    });
+
+    const results = await findClimbsByNameAndArea(db, "Test Deep Route", "Test Deep Range");
+    expect(results.map((c) => c.id)).toEqual([8100]);
+
+    // A sibling branch of the same chain must not match — the walk goes up
+    // one parent chain, not across the tree.
+    const unrelated = await findClimbsByNameAndArea(db, "Test Deep Route", "Test Crag");
+    expect(unrelated).toEqual([]);
   });
 
   it("returns every match when the (name, area) pair is ambiguous", async () => {
