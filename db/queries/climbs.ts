@@ -135,9 +135,21 @@ export const LARGE_AREA_SUBTREE_AREAS = 1000;
  * getSubtreeClimbs forces its index from — as a SQL expression yielding 0/1,
  * so a caller already issuing a statement about this area can carry it along
  * instead of spending a round trip on it (see getAreaWithSubtreeSize). Only
- * the answer matters, never the size, so the walk stops as soon as it has seen
- * enough descendants to decide: a continent costs the same as a crag (~2ms on
- * this dataset).
+ * the answer matters, never the size, so the LIMIT stops the walk as soon as
+ * it has seen enough descendants to decide (EXPLAIN QUERY PLAN confirms
+ * `CO-ROUTINE subtree` — it short-circuits rather than materializing the
+ * subtree and then trimming it).
+ *
+ * That bounds the cost by the threshold, NOT by subtree size — which is a
+ * weaker claim than "constant", and the difference matters if you're thinking
+ * of putting this somewhere hotter. Emitting the LIMIT's worth of rows still
+ * enqueues roughly LIMIT x fan-out rows into the recursive queue, so cost
+ * climbs with area size up to the threshold and flattens above it: measured
+ * over a synthetic fan-out-20 tree, ~0.001ms for a leaf crag, ~0.16ms at the
+ * threshold, ~1.3ms for a 50k-area continent — where the same walk without
+ * the LIMIT costs ~9.8ms. Every area page pays this once; a leaf pays
+ * nothing, and the continents that pay ~2ms are the ones the resulting index
+ * choice saves 20ms on.
  *
  * The recursive CTE sits INSIDE the scalar subquery rather than at statement
  * level so this is a self-contained expression, embeddable in a SELECT list.
