@@ -12,6 +12,15 @@ import { SendFormDrawer } from "@/components/send-form-drawer";
  * ClimbListProps) — instantiated as a real per-row component, not called as
  * a plain function in `.map()`, so useOverlayState here is a normal
  * one-hook-per-row-component pattern, not a hooks-in-a-loop violation. */
+/** The column both branches occupy. Fixed here rather than left to whatever
+ * each branch happens to measure: the tick is bare markup while the trigger is
+ * a HeroUI icon button, and a 4px difference between them staggered every sent
+ * row's title against every unsent one. `size-9 md:size-8` mirrors
+ * `.button--icon-only.button--sm` (w-9 md:w-8), which bumps its touch target
+ * below md — so the box tracks the button at both breakpoints instead of
+ * matching it at one and drifting at the other. */
+const INDICATOR_BOX_CLASS = "flex size-9 shrink-0 items-center justify-center md:size-8";
+
 export function ClimbSentIndicator({ climb, sent }: { climb: Climb; sent: boolean }) {
   const state = useOverlayState();
 
@@ -20,7 +29,7 @@ export function ClimbSentIndicator({ climb, sent }: { climb: Climb; sent: boolea
       <span
         title="You've sent this climb"
         aria-label="You've sent this climb"
-        className="flex size-8 shrink-0 items-center justify-center"
+        className={INDICATOR_BOX_CLASS}
       >
         {/* The guidebook tick, drawn in on mount (stroke-dash draw — see
           * tick-draw in globals.css); reduced-motion users get it static. */}
@@ -46,16 +55,18 @@ export function ClimbSentIndicator({ climb, sent }: { climb: Climb; sent: boolea
 
   return (
     <>
-      <Button
-        isIconOnly
-        variant="ghost"
-        size="sm"
-        aria-label="Log send"
-        onPress={state.open}
-        className="shrink-0"
-      >
-        <CirclePlus className="size-5" />
-      </Button>
+      <span className={INDICATOR_BOX_CLASS}>
+        <Button
+          isIconOnly
+          variant="ghost"
+          size="sm"
+          aria-label="Log send"
+          onPress={state.open}
+          className="shrink-0"
+        >
+          <CirclePlus className="size-5" />
+        </Button>
+      </span>
       <SendFormDrawer climb={climb} state={state} />
     </>
   );

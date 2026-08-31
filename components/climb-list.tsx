@@ -94,7 +94,10 @@ export function ClimbList({
                 </div>
                 <div className="flex items-center gap-2">
                   <DisciplineChip type={climb.type} />
-                  <span className="text-xs text-muted">
+                  {/* Fixed width so the singular/plural swap ("1 ascent" vs
+                    * "0 ascents") can't change the column's width and shift
+                    * every neighbouring row's chip sideways. */}
+                  <span className="w-16 text-right text-xs text-muted">
                     {formatCount(sendStats?.[climb.id]?.sendCount ?? 0, "ascent")}
                   </span>
                 </div>
