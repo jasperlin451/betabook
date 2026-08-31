@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { AreaSearchForm, ClimbSearchForm, ClimbSearchSortControl } from "@/components/search-form";
 import { AreaSearchResults, ClimbSearchResults } from "@/components/search-results";
 import { NavigationPendingProvider, NavigationPendingRegion } from "@/components/navigation-pending";
+import { HomeSearchEntry } from "@/components/command-palette";
 import { RecentSendsFeed } from "@/components/recent-sends-feed";
 import { AppLink } from "@/components/ui/app-link";
 import { PageWithStats } from "@/components/ui/page-shell";
@@ -51,14 +52,20 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       <div className="flex flex-col gap-8 pt-4">
         <h1 className="sr-only">Betabook</h1>
 
+        {/* Search leads: it is how someone arrives looking for a route, and
+          * the feed below is what they read when they aren't. The header's
+          * icon is enough once you know the site, but it is far too quiet to
+          * be the only search on a landing page — especially on a phone,
+          * where the keyboard shortcut it stands for doesn't exist. */}
+        <section className="mx-auto flex w-full max-w-3xl flex-col gap-2">
+          <HomeSearchEntry />
+          <p className="text-xs text-muted">
+            or <AppLink href="/?mode=area">browse areas</AppLink>
+          </p>
+        </section>
+
         <section className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-          {/* The feed's one visible path to area search — ⌘K covers the rest. */}
-          <div className="flex items-baseline justify-between gap-3">
-            <SectionHeading>Recent sends</SectionHeading>
-            <AppLink href="/?mode=area" className="text-xs text-muted">
-              Browse areas
-            </AppLink>
-          </div>
+          <SectionHeading>Recent sends</SectionHeading>
           <RecentSendsFeed
             initialSends={feed.sends}
             initialHasMore={feed.hasMore}

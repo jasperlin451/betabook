@@ -82,23 +82,32 @@ export function FilterToolbar<T extends DisciplineFilter>({
     <Disclosure>
       {({ isExpanded }) => (
         <>
-          {/* One flat wrapping row, so the filters stay in reading order and
-            * only the sort is pushed to the end. When the column is too
-            * narrow for all of it (the sends page, whose stats sidebar takes
-            * a third of the width), the sort drops to its own line still
-            * right-aligned rather than breaking up the filter group. */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             {search}
 
             <DisciplineChips value={value} onChange={onChange} />
 
-            <Disclosure.Heading className="contents">
-              <Disclosure.Trigger className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                {isExpanded ? "Fewer filters" : "More filters"}
-              </Disclosure.Trigger>
-            </Disclosure.Heading>
+            {/* The disclosure and the sort travel together rather than the
+              * sort being pushed off alone with ms-auto, which strands it
+              * hard right against empty space once the row wraps.
+              *
+              * Paired at the left until lg, spread apart above it: the
+              * filters-left/sort-right convention needs a full line to read
+              * as an arrangement — on a phone's wrapped line it is just a
+              * gap between two controls that belong together.
+              *
+              * grow, not flex-1: flex-1 zeroes the basis, so the group would
+              * always "fit" whatever sliver is left and get crushed instead
+              * of wrapping to its own line. */}
+            <div className="flex min-w-0 grow items-center gap-3 lg:justify-between">
+              <Disclosure.Heading className="contents">
+                <Disclosure.Trigger className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                  {isExpanded ? "Fewer filters" : "More filters"}
+                </Disclosure.Trigger>
+              </Disclosure.Heading>
 
-            {sortControl && <div className="ms-auto">{sortControl}</div>}
+              {sortControl}
+            </div>
           </div>
 
           {/* Disclosure.Body's own p-2 comes from an outer wrapper div this

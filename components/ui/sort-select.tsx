@@ -32,8 +32,11 @@ export function SortSelect<Field extends string, Sort extends string>({
   return (
     <div className="flex items-center gap-2">
       {/* Static label so the control reads as "Sort by: X", not a bare
-        * value dropdown that could pass for a filter. */}
-      <span className="shrink-0 text-sm text-muted" aria-hidden>
+        * value dropdown that could pass for a filter. Dropped on phones,
+        * where the row it sits in has no width to spare and the trigger's
+        * own value plus the direction arrow already read as a sort; the
+        * Select keeps its aria-label, so this is only ever visual. */}
+      <span className="hidden shrink-0 text-sm text-muted sm:inline" aria-hidden>
         Sort by
       </span>
       <Select
