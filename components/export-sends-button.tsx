@@ -4,6 +4,7 @@ import { formatCount } from "@/lib/format";
 import { useState } from "react";
 import { Button } from "@heroui/react";
 import { buildSendsExportCsv } from "@/lib/sends-export";
+import { downloadCsv } from "@/lib/download";
 import {
   DEFAULT_USER_SENDS_FILTER,
   MAX_USER_SENDS_LIMIT,
@@ -45,14 +46,10 @@ export function ExportSendsButton({ userId }: { userId: string }) {
         setExportedRows(rows.length);
       }
 
-      const csvText = buildSendsExportCsv(rows);
-      const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `betabook-sends-${new Date().toISOString().slice(0, 10)}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
+      downloadCsv(
+        buildSendsExportCsv(rows),
+        `betabook-sends-${new Date().toISOString().slice(0, 10)}.csv`,
+      );
     } catch {
       setError("Couldn't export your sends. Try again.");
     } finally {

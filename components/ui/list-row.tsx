@@ -50,11 +50,16 @@ export function ListRow({
       )}
     >
       {leading && <div className="relative z-10 shrink-0">{leading}</div>}
-      {/* Text column + trailing block as a wrapping pair: on narrow screens
-        * the trailing block drops below the text column (still right-aligned
-        * via ml-auto) instead of crushing the title into a sliver. */}
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex min-w-0 grow basis-52 flex-col gap-2">
+      {/* Text column + trailing block stay on one line at every width. These
+        * used to be a wrapping pair, which on a phone dropped the trailing
+        * block onto its own line below the title — the row read as two
+        * stacked half-rows rather than one guidebook table row, and the
+        * centered leading slot floated in the middle of the extra height.
+        * The trailing block is the fixed-width side (it holds short, known
+        * values: a grade, a rating, a date), so the text column is the one
+        * that gives — title and subtitle truncate into whatever is left. */}
+      <div className="flex min-w-0 flex-1 items-center gap-x-4">
+        <div className="flex min-w-0 grow flex-col gap-2">
           <div>
             <div className="flex items-baseline gap-2">
               <span className="min-w-0 flex-1 truncate font-medium text-foreground">
@@ -72,7 +77,14 @@ export function ListRow({
               </span>
               {meta && <span className="shrink-0 text-muted text-sm">{meta}</span>}
             </div>
-            {subtitle && <div className="relative z-10 w-fit text-muted text-sm">{subtitle}</div>}
+            {/* max-w-full pairs with w-fit so the truncate has a ceiling to
+              * clip against: fit-content on its own resolves to the full
+              * (now nowrap) text width and would overflow the column. */}
+            {subtitle && (
+              <div className="relative z-10 w-fit max-w-full truncate text-muted text-sm">
+                {subtitle}
+              </div>
+            )}
             {tags && <div className="relative z-10 mt-1 flex w-fit flex-wrap gap-2">{tags}</div>}
           </div>
           {comment != null && (
@@ -83,7 +95,9 @@ export function ListRow({
             </p>
           )}
         </div>
-        {trailing && <div className="ml-auto shrink-0 text-right tabular-nums">{trailing}</div>}
+        {/* No ml-auto: the text column grows, so this already sits hard
+          * right — and it must never shrink, or the values it holds wrap. */}
+        {trailing && <div className="shrink-0 text-right tabular-nums">{trailing}</div>}
       </div>
       {actions && <div className="relative z-10 shrink-0">{actions}</div>}
     </div>
