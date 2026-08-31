@@ -365,7 +365,9 @@ function PaletteBody({
   let optionIndex = -1;
 
   return (
-    <div className="flex flex-col">
+    /* Modal.Dialog caps itself to the visual viewport and clips overflow.
+     * min-h-0 lets this direct flex child shrink so the list can scroll. */
+    <div className="flex min-h-0 flex-col">
       <div className="flex items-center gap-3 border-b border-separator px-4 py-3">
         <Search className="size-4 shrink-0 text-muted" aria-hidden />
         <input
