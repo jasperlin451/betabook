@@ -1,0 +1,30 @@
+-- Hand-written (see 0010_climb_sort_indexes.sql): drizzle-kit doesn't model
+-- descending index columns, so — like every other sort index in this schema —
+-- this one lives in SQL only, not in drizzle/schema/sends.ts.
+--
+-- getRecentSends (db/queries/sends.ts) backs the home feed, the most-requested
+-- query in the app. It orders sends by `date_sent DESC, id DESC` and takes 16
+-- rows, but until now `sends` had no index on date_sent at all — only the
+-- user/climb ones — so the plan was `SCAN sends` plus `USE TEMP B-TREE FOR
+-- ORDER BY`: reading and sorting EVERY send row in the database to return the
+-- newest 16. That made the home page's cost linear in total sends, on both
+-- axes that matter on D1. Measured against a 2M-send table: 1,365ms and ~2M
+-- rows read (D1 bills per row read, and caps a statement at 30s), against 8ms
+-- and ~64 rows read with this index.
+--
+-- The column order and BOTH directions have to keep matching getRecentSends's
+-- `orderBy(desc(sends.dateSent), desc(sends.id))` verbatim — SQLite only drops
+-- the sort when an index satisfies the ORDER BY exactly, and it fails
+-- silently: reordering or re-directing that clause doesn't error, it just puts
+-- the home page back on a full table scan. Verified with EXPLAIN QUERY PLAN,
+-- which must read `SCAN sends USING INDEX sends_date_desc_idx` with no temp
+-- b-tree.
+--
+-- `id DESC` is in the index rather than left to a residual sort because it
+-- isn't decoration: it's the tie-break that keeps OFFSET pagination from
+-- duplicating or skipping same-date rows across pages (see getRecentSends).
+--
+-- Costs ~22 bytes per send row, and one extra row written per send insert.
+CREATE INDEX sends_date_desc_idx ON sends (date_sent DESC, id DESC);
+--> statement-breakpoint
+ANALYZE sends;

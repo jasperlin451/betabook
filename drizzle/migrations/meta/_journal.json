@@ -127,6 +127,13 @@
       "when": 1788480000000,
       "tag": "0017_area_cycle_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1788566400000,
+      "tag": "0018_sends_date_index",
+      "breakpoints": true
     }
   ]
 }
