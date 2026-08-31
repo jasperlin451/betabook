@@ -26,6 +26,12 @@ async function authBuilder() {
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
+      // Defaults to false, which would make a reset a password change and
+      // nothing more. A reset is what a user does when they think someone
+      // else is in their account, and the sliding session below would keep
+      // that someone signed in for another month. No "sign out everywhere"
+      // control exists in the UI, so this is the only thing that ends them.
+      revokeSessionsOnPasswordReset: true,
       sendResetPassword: ({ user, url }) =>
         sendResetPasswordEmail(user.email, url),
     },

@@ -5,10 +5,11 @@ import {
   getAreaWithSubtreeSize,
   getClimbSendStats,
   getSubtreeClimbs,
+  PAGE_SIZE,
   resolveSubareaScope,
 } from "@/db/queries";
 import { parseAreaClimbsFilter, parseAreaClimbsSort, toSubtreeQueryFilter } from "@/lib/area-climbs-filter";
-import { parseSuggestionLimit, searchParamsToRecord } from "@/lib/search-params";
+import { parsePage, parseSuggestionLimit, searchParamsToRecord } from "@/lib/search-params";
 import { parseId } from "@/lib/parse-id";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -31,7 +32,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const sort = parseAreaClimbsSort(searchParams);
   const filter = parseAreaClimbsFilter(searchParams);
-  const page = Math.max(1, Math.trunc(Number(url.searchParams.get("page"))) || 1);
+  const page = parsePage(url.searchParams, PAGE_SIZE);
   const limit = parseSuggestionLimit(url.searchParams);
 
   const db = await getDb();

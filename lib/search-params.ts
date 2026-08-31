@@ -52,6 +52,28 @@ export function parseSuggestionLimit(searchParams: URLSearchParams): number | nu
   return Math.min(limit, MAX_SUGGESTION_LIMIT);
 }
 
+/** How deep any list endpoint will paginate, in rows skipped. SQLite has no
+ * way to seek to an OFFSET — it walks and discards every skipped row — so an
+ * uncapped `page` makes `?page=1e9` a one-byte request that forces a full
+ * index-order scan. 10,000 is well past what "load more" reaches. */
+export const MAX_PAGINATION_OFFSET = 10_000;
+
+/** Reads a 1-based `page`, clamped to MAX_PAGINATION_OFFSET rows deep for the
+ * caller's `pageSize`. Junk reads as page 1, and past the cap saturates, so a
+ * client that keeps asking just stops getting new rows. */
+export function parsePage(searchParams: URLSearchParams, pageSize: number): number {
+  const page = Math.max(1, Math.trunc(Number(searchParams.get("page"))) || 1);
+  return Math.min(page, Math.floor(MAX_PAGINATION_OFFSET / pageSize) + 1);
+}
+
+/** Row `offset` for the two endpoints that paginate by offset rather than
+ * page number, under the same MAX_PAGINATION_OFFSET budget. Junk reads as 0. */
+export function parseOffset(searchParams: URLSearchParams): number {
+  const offset = Number(searchParams.get("offset") ?? 0);
+  if (!Number.isInteger(offset) || offset < 0) return 0;
+  return Math.min(offset, MAX_PAGINATION_OFFSET);
+}
+
 /** Flattens a URLSearchParams into the SearchParamsRecord shape the parse*
  * helpers above expect — used by the "load more" API routes, which receive
  * a real URLSearchParams rather than Next's already-parsed searchParams. */

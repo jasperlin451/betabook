@@ -168,3 +168,54 @@ describe("export → import round trip", () => {
     expect(withoutSuggestion.gradeFeel).toBe("solid");
   });
 });
+
+// Climb and area names come from the shared catalog, which any signed-in user
+// can rename, so these cells carry text the exporting user never wrote. A
+// leading =, +, -, or @ makes a spreadsheet treat the cell as a formula.
+describe("buildSendsExportCsv formula escaping", () => {
+  const cellsOf = (csvText: string) => csvText.trim().split("\n")[1];
+  // What the payload should look like once escaped: prefixed with an
+  // apostrophe, then quoted as a CSV field (which doubles any quote in it).
+  const neutralized = (payload: string) => `"'${payload.replaceAll('"', '""')}"`;
+
+  it.each([
+    ["=cmd|'/c calc'!A1", "climbName"],
+    ['=HYPERLINK("https://evil.tld","click")', "climbName"],
+    ["+1+1", "areaName"],
+    ["-2+3", "areaName"],
+    ["@SUM(A1:A9)", "climbName"],
+  ])("escapes %s in %s", (payload, field) => {
+    const cells = cellsOf(buildSendsExportCsv([row({ [field]: payload })]));
+    expect(cells).toContain(neutralized(payload));
+    expect(cells).not.toContain(`,${payload}`);
+  });
+
+  it("escapes a payload a user stored in their own comment", () => {
+    const payload = '=WEBSERVICE("https://evil.tld")';
+    expect(cellsOf(buildSendsExportCsv([row({ comment: payload })]))).toContain(
+      neutralized(payload),
+    );
+  });
+
+  // papaparse's own `escapeFormulae: true` pattern ends in `.*$`, and `.`
+  // does not match LF — so one newline in the cell made the whole pattern
+  // miss and shipped the payload unescaped. Climb and area names keep
+  // interior newlines, so this was a live bypass, not a curiosity.
+  it.each([
+    ["=1\n+2", "climbName"],
+    ['=HYPERLINK("https://evil.tld","x")\n', "areaName"],
+    ["=WEBSERVICE(\"https://evil.tld\")\r\n=1+1", "climbName"],
+  ])("escapes %j in %s despite an embedded newline", (payload, field) => {
+    // Not cellsOf: the payload's own newline would split the row.
+    expect(buildSendsExportCsv([row({ [field]: payload })])).toContain(neutralized(payload));
+  });
+
+  it("leaves an ordinary name untouched", () => {
+    expect(cellsOf(buildSendsExportCsv([row({ climbName: "Midnight Lightning" })]))).toContain(
+      "Midnight Lightning",
+    );
+    expect(cellsOf(buildSendsExportCsv([row({ climbName: "Midnight Lightning" })]))).not.toContain(
+      "'Midnight",
+    );
+  });
+});

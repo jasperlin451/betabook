@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { CLIMB_SENDS_PAGE_SIZE, getClimb, getSendsForClimb } from "@/db/queries";
 import { MAX_CLIMB_SENDS_LIMIT } from "@/lib/sends";
+import { parseOffset } from "@/lib/search-params";
 import { parseId } from "@/lib/parse-id";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -17,8 +18,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   const climbId = parseId(id);
   const url = new URL(request.url);
 
-  const offset = Number(url.searchParams.get("offset") ?? 0);
-  const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
+  const safeOffset = parseOffset(url.searchParams);
   const limit = Number(url.searchParams.get("limit"));
   const pageSize =
     Number.isInteger(limit) && limit >= 1

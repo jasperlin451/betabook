@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_PAGINATION_OFFSET,
   MAX_SUGGESTION_LIMIT,
   parseAscentStyles,
+  parseOffset,
+  parsePage,
   parseDisciplines,
   parseSuggestionLimit,
   searchParamsToRecord,
@@ -115,5 +118,50 @@ describe("parseSuggestionLimit", () => {
 
   it("truncates a fractional limit rather than rejecting it", () => {
     expect(limitOf("limit=3.7")).toBe(3);
+  });
+});
+
+describe("parsePage", () => {
+  const pageOf = (query: string, pageSize = 25) =>
+    parsePage(new URLSearchParams(query), pageSize);
+
+  it("reads a 1-based page", () => {
+    expect(pageOf("page=3")).toBe(3);
+  });
+
+  it.each(["", "page=abc", "page=0", "page=-4"])("reads %s as page 1", (query) => {
+    expect(pageOf(query)).toBe(1);
+  });
+
+  it("leaves a page inside the cap alone", () => {
+    expect(pageOf("page=100", 25)).toBe(100);
+  });
+
+  it("clamps to MAX_PAGINATION_OFFSET rows deep for the caller's page size", () => {
+    expect(pageOf("page=999999", 25)).toBe(MAX_PAGINATION_OFFSET / 25 + 1);
+    expect(pageOf("page=999999", 50)).toBe(MAX_PAGINATION_OFFSET / 50 + 1);
+  });
+
+  // Number("1e15") is an integer as far as Number.isInteger is concerned, so
+  // a bare integer check would have let this straight through to the OFFSET.
+  it("clamps exponent notation", () => {
+    expect(pageOf("page=1e15", 25)).toBe(MAX_PAGINATION_OFFSET / 25 + 1);
+  });
+});
+
+describe("parseOffset", () => {
+  const offsetOf = (query: string) => parseOffset(new URLSearchParams(query));
+
+  it("reads a row offset", () => {
+    expect(offsetOf("offset=40")).toBe(40);
+  });
+
+  it.each(["", "offset=abc", "offset=1.5", "offset=-10"])("reads %s as 0", (query) => {
+    expect(offsetOf(query)).toBe(0);
+  });
+
+  it("clamps to MAX_PAGINATION_OFFSET", () => {
+    expect(offsetOf("offset=1e15")).toBe(MAX_PAGINATION_OFFSET);
+    expect(offsetOf(`offset=${MAX_PAGINATION_OFFSET + 1}`)).toBe(MAX_PAGINATION_OFFSET);
   });
 });

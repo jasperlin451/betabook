@@ -15,6 +15,19 @@ const EXPORT_FIELDS = [
   "Comment",
 ];
 
+/** Which cells a spreadsheet would read as a formula, so papaparse prefixes
+ * them with an apostrophe.
+ *
+ * Passed instead of `escapeFormulae: true`, whose built-in pattern is
+ * `/^[=+\-@\t\r].*$/` — and `.` does not match a newline, so a single LF
+ * anywhere in the cell makes the whole pattern fail and the payload ships
+ * unescaped. `=HYPERLINK(...)\n` is enough, and climb and area names keep
+ * interior newlines (requireTrimmed only trims the ends). Anchoring on the
+ * first character alone has no such hole. */
+const CSV_FORMULA_START = /^[=+\-@\t\r\n]/;
+
+export const CSV_UNPARSE_CONFIG = { escapeFormulae: CSV_FORMULA_START } as const;
+
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
@@ -32,5 +45,5 @@ export function buildSendsExportCsv(rows: UserSendRow[]): string {
     row.rating ?? "",
     row.comment ?? "",
   ]);
-  return Papa.unparse({ fields: EXPORT_FIELDS, data });
+  return Papa.unparse({ fields: EXPORT_FIELDS, data }, CSV_UNPARSE_CONFIG);
 }
