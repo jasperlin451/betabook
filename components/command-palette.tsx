@@ -1,6 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import { Kbd, Modal, useOverlayState } from "@heroui/react";
 import { Search } from "lucide-react";
@@ -74,9 +84,23 @@ function areaEntry(area: AreaSuggestion): PaletteEntry {
   };
 }
 
+const OpenSearchContext = createContext<(() => void) | null>(null);
+
+/** Opens the site-wide search palette from anywhere under the provider, so
+ * every search affordance on the page is a way into the same palette rather
+ * than a second search of its own. Null outside the provider. */
+export function useOpenSearch(): (() => void) | null {
+  return useContext(OpenSearchContext);
+}
+
 /** Site-wide search on ⌘K (Ctrl+K off macOS) — a navigator, so every row
  * goes somewhere and the last one always escapes to full search rather than
  * dead-ending on "no results".
+ *
+ * Owns the palette and binds the chord, and hands `open` down so the header
+ * button, the home page's entry, and the shortcut are three doors into one
+ * search rather than three searches. Wraps the app because those doors sit
+ * in different parts of the tree.
  *
  * Context-aware via `useSearchScope`: on an area page the first section is
  * that area's own routes, which is almost always what someone searching from
@@ -87,19 +111,41 @@ function areaEntry(area: AreaSuggestion): PaletteEntry {
  * focus: focus never leaves the input, so arrowing through results and
  * continuing to type are the same mode — which is the whole point of a
  * palette. */
-export function CommandPalette() {
+export function SearchPaletteProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const state = useOverlayState();
   const scope = useSearchScope();
+  const open = state.open;
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      // Command on Apple, Control on Windows/Linux (which have no Command
+      // key at all) — deliberately not "either modifier": Ctrl+K is
+      // kill-line in a macOS text field, and claiming it there would break
+      // editing in every form on the site.
+      const chord = isApplePlatform()
+        ? event.metaKey && !event.ctrlKey
+        : event.ctrlKey && !event.metaKey;
+      if (!chord || event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      open();
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
 
   return (
-    <>
-      <PaletteTrigger onOpen={state.open} />
+    <OpenSearchContext.Provider value={open}>
+      {children}
       <Modal.Root state={state}>
         <Modal.Backdrop>
           {/* Top-anchored: a palette that opens under the pointer reads as a
-            * dropdown from the trigger, not a takeover of the page. */}
-          <Modal.Container placement="top" size="lg" className="pt-[10vh]">
+            * dropdown from the trigger, not a takeover of the page. Nearly
+            * flush to the top on phones — the input takes focus on open, so
+            * the on-screen keyboard claims the bottom half and every 10vh
+            * spent above the field is a result the thumb can't see. */}
+          <Modal.Container placement="top" size="lg" className="pt-4 sm:pt-[10vh]">
             <Modal.Dialog aria-label="Search Betabook">
               {/* No `key` on open state: the modal keeps its children
                 * mounted through the exit animation, so remounting on close
@@ -119,37 +165,28 @@ export function CommandPalette() {
           </Modal.Container>
         </Modal.Backdrop>
       </Modal.Root>
-    </>
+    </OpenSearchContext.Provider>
   );
 }
 
-/** The header affordance, and the global hotkey it advertises. Split out so
- * the listener isn't re-registered as the palette's own query state changes. */
-function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
+/** The header's way into the palette, and where the shortcut is advertised.
+ * Purely an affordance — the chord itself is bound by the provider, so it
+ * works on pages that never render this.
+ *
+ * Stands down on any page carrying its own prominent search entry: two of
+ * these on one screen, both badged with the same shortcut, read as two
+ * searches. The hiding is a CSS `:has()` rule against `data-page-search`
+ * (see globals.css) rather than unmounting, so it holds on the very first
+ * paint instead of flashing a button that hydration then removes. */
+export function SearchTrigger() {
+  const openSearch = useOpenSearch();
   const keys = useModifierLabels();
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      // Command on Apple, Control on Windows/Linux (which have no Command
-      // key at all) — deliberately not "either modifier": Ctrl+K is
-      // kill-line in a macOS text field, and claiming it there would break
-      // editing in every form on the site.
-      const chord = isApplePlatform()
-        ? event.metaKey && !event.ctrlKey
-        : event.ctrlKey && !event.metaKey;
-      if (!chord || event.key.toLowerCase() !== "k") return;
-      event.preventDefault();
-      onOpen();
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onOpen]);
 
   return (
     <button
       type="button"
-      onClick={onOpen}
+      data-header-search
+      onClick={() => openSearch?.()}
       aria-label="Search"
       aria-keyshortcuts={keys?.ariaPalette}
       className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-2 py-1.5 text-muted transition-colors hover:text-foreground"
@@ -157,6 +194,36 @@ function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
       <Search className="size-4" />
       <span className="hidden text-sm sm:inline">Search</span>
       {keys && <Kbd className="hidden sm:inline-flex">{keys.palette}</Kbd>}
+    </button>
+  );
+}
+
+/** The home page's way in: a full-width field-shaped button, sized and
+ * placed like the search box a visitor expects to land on. It opens the same
+ * palette the header and the shortcut do rather than searching on its own,
+ * so there is one search on the site with three doors into it.
+ *
+ * A button, not an input: it would otherwise be a text field that takes a
+ * keystroke and then hands both the keystroke and the focus to a different
+ * text field, which drops characters on slower devices and reads as a jump.
+ */
+export function HomeSearchEntry() {
+  const openSearch = useOpenSearch();
+  const keys = useModifierLabels();
+
+  return (
+    <button
+      type="button"
+      // Marks this page as already carrying a search entry, which stands the
+      // header's compact one down (see SearchTrigger).
+      data-page-search
+      onClick={() => openSearch?.()}
+      aria-keyshortcuts={keys?.ariaPalette}
+      className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3.5 text-left transition-colors hover:border-muted"
+    >
+      <Search className="size-5 shrink-0 text-muted" aria-hidden />
+      <span className="min-w-0 flex-1 truncate text-muted">Search routes and areas</span>
+      {keys && <Kbd className="hidden shrink-0 sm:inline-flex">{keys.palette}</Kbd>}
     </button>
   );
 }

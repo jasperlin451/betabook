@@ -190,6 +190,17 @@
    icon element (or wrapper) corrupts that wiring; a background on the input
    itself can't. Per-theme URIs because a data: SVG can't read CSS vars —
    colors approximate --muted in each theme. */
+/* A page that carries its own prominent search entry stands the header's
+   compact one down: two search affordances on one screen, both badged with
+   the same shortcut, read as two different searches. Expressed here rather
+   than by unmounting the header button, because the page that owns the
+   entry and the header that owns the button sit in different subtrees — and
+   because a CSS rule applies on the first paint, where a hydration-time
+   unmount would flash a button and then take it away. */
+body:has([data-page-search]) [data-header-search] {
+  display: none;
+}
+
 @utility search-combo-input {
   padding-inline-start: --spacing(9);
   background-image: var(--search-icon);
