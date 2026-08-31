@@ -7,7 +7,8 @@ import { getDb } from "@/db/client";
 import { sends } from "@/db/schema";
 import { findClimbsByNameAndArea, getUserSentClimbIds } from "@/db/queries";
 import { parseGrade } from "@/lib/grades";
-import { toActionResult, type ActionResult } from "@/lib/action-result";
+import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
+import { IMPORT_BATCH_SIZE, validateImportSendValues } from "@/lib/sends";
 import type { NormalizedImportRow } from "@/lib/sends-import";
 
 export type ImportRowFailureReason = "climb-not-found" | "climb-ambiguous";
@@ -64,8 +65,17 @@ export async function importSends(
 ): Promise<ActionResult<ImportResult>> {
   return toActionResult(async () => {
     const session = await requireSession();
-    const db = await getDb();
 
+    // `rows` arrives over HTTP, so its type is a claim rather than a
+    // guarantee, and the wizard's batching is the only thing that has kept
+    // this loop short. Checked before the DB: each iteration costs a
+    // subrequest, and the invocation only has ~50.
+    if (!Array.isArray(rows)) throw new ActionError("Invalid import rows");
+    if (rows.length > IMPORT_BATCH_SIZE) {
+      throw new ActionError(`An import batch can carry at most ${IMPORT_BATCH_SIZE} rows`);
+    }
+
+    const db = await getDb();
     const alreadySent = await getUserSentClimbIds(db, session.user.id);
     // Climbs this call has already acted on. Kept separate from alreadySent
     // (which is "already in the DB") so a second CSV row for the same climb
@@ -113,23 +123,22 @@ export async function importSends(
       // Identical for both branches apart from userId/climbId — which is what
       // makes an overwrite a whole-row replacement: the send ends up as
       // exactly what the CSV row normalizes to, cleared fields included.
+      // normalizeRows applied these same rules in the browser;
+      // validateImportSendValues is what makes them true of every caller.
       const values: SendValues = {
-        ascentStyle: row.ascentStyle,
-        dateSent: row.dateSent,
-        comment: row.comment,
-        rating: row.rating,
-        // With grade text, parse it (null if unrecognized). Without it, the
-        // fallback depends on which column the text came from: a mapped
+        ...validateImportSendValues(row),
+        // Server-derived, so it skips that check — parseGrade only ever
+        // returns an index into a fixed table. With no grade text, the
+        // fallback depends on which column it would have come from: a mapped
         // Suggested Grade column with a blank cell means the send genuinely
-        // has no suggestion (betabook exports round-trip losslessly), while
-        // a Grade-column-only mapping keeps the old fallback to the climb's
+        // has no suggestion (betabook exports round-trip losslessly), while a
+        // Grade-column-only mapping keeps the old fallback to the climb's
         // posted grade. See NormalizedImportRow.blankGradeMeans.
         suggestedGrade: row.gradeText
           ? parseGrade(resolved.type, row.gradeText, options.gradeScale)
           : row.blankGradeMeans === "no-suggestion"
             ? null
             : resolved.grade,
-        gradeFeel: row.gradeFeel,
       };
 
       processed.add(resolved.id);

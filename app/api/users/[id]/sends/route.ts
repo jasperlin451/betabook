@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { getAreaBreadcrumbs, getSendsForUserPage, getUser, USER_SENDS_PAGE_SIZE } from "@/db/queries";
 import { MAX_USER_SENDS_LIMIT, parseUserSendsFilter } from "@/lib/user-sends-filter";
-import { searchParamsToRecord } from "@/lib/search-params";
+import { parseOffset, searchParamsToRecord } from "@/lib/search-params";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -18,8 +18,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   const searchParams = searchParamsToRecord(url.searchParams);
 
   const filter = parseUserSendsFilter(searchParams);
-  const offset = Number(url.searchParams.get("offset") ?? 0);
-  const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
+  const safeOffset = parseOffset(url.searchParams);
   const limit = Number(url.searchParams.get("limit"));
   const pageSize =
     Number.isInteger(limit) && limit >= 1

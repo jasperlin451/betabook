@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
-import { getAreaBreadcrumbs, getClimbSendStats, searchClimbs } from "@/db/queries";
+import { SEARCH_PAGE_SIZE, getAreaBreadcrumbs, getClimbSendStats, searchClimbs } from "@/db/queries";
 import {
   parseClimbSearchFilter,
   parseClimbSearchSort,
   toSearchClimbsQueryParams,
 } from "@/lib/climb-search-filter";
-import { parseSuggestionLimit, searchParamsToRecord } from "@/lib/search-params";
+import { parsePage, parseSuggestionLimit, searchParamsToRecord } from "@/lib/search-params";
 
 /** Backs two callers with the same query.
  *
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
   const sort = parseClimbSearchSort(searchParams);
   const filter = parseClimbSearchFilter(searchParams);
-  const page = Math.max(1, Math.trunc(Number(url.searchParams.get("page"))) || 1);
+  const page = parsePage(url.searchParams, SEARCH_PAGE_SIZE);
 
   const db = await getDb();
   const results = await searchClimbs(db, toSearchClimbsQueryParams(filter, sort), page);

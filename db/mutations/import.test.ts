@@ -4,6 +4,7 @@ import { eq, inArray } from "drizzle-orm";
 import { createDb } from "@/db/client";
 import { climbs, sends } from "@/db/schema";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
+import { IMPORT_BATCH_SIZE, MAX_COMMENT_LENGTH } from "@/lib/sends";
 import type { NormalizedImportRow } from "@/lib/sends-import";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyClimbs } from "@/test/fixtures";
 import { importSends } from "@/db/mutations";
@@ -99,7 +100,16 @@ function bulkRows(from: number, to: number): NormalizedImportRow[] {
 beforeAll(async () => {
   await seedFixtureTree(db);
   await seedManyClimbs(db, 5, 40, 100);
-  for (const id of ["import-user", "retry-user", "reval-user", "noop-user"]) {
+  for (const id of [
+    "import-user",
+    "retry-user",
+    "reval-user",
+    "noop-user",
+    "hostile-user",
+    "rating-user",
+    "coerce-user",
+    "reject-user",
+  ]) {
     await seedFixtureUser(db, { id });
   }
   await seedFixtureSend(db, { userId: "noop-user", climbId: 2, dateSent: null });
@@ -206,5 +216,108 @@ describe("importSends revalidation", () => {
     }
     expect(cacheMocks.revalidatePath).not.toHaveBeenCalled();
     expect(cacheMocks.refresh).not.toHaveBeenCalled();
+  });
+});
+
+// importSends is a server action, so `rows` arrives over HTTP with its
+// NormalizedImportRow type gone. Everything the wizard guarantees has to hold
+// for a caller that never ran the wizard.
+describe("importSends against a caller that skipped the wizard", () => {
+  it("rejects a batch over IMPORT_BATCH_SIZE before running a single query", async () => {
+    sessionState.userId = "hostile-user";
+    const result = await importSends(bulkRows(0, IMPORT_BATCH_SIZE), IMPORT_OPTIONS);
+
+    expect(result).toEqual({
+      ok: false,
+      error: `An import batch can carry at most ${IMPORT_BATCH_SIZE} rows`,
+    });
+    expect(batchCalls.count).toBe(0);
+    expect(await db.select().from(sends).where(eq(sends.userId, "hostile-user")).all()).toHaveLength(
+      0,
+    );
+  });
+
+  it("accepts a batch of exactly IMPORT_BATCH_SIZE", async () => {
+    sessionState.userId = "hostile-user";
+    const result = await importSends(bulkRows(0, IMPORT_BATCH_SIZE - 1), IMPORT_OPTIONS);
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects a non-array rows argument", async () => {
+    sessionState.userId = "hostile-user";
+    const result = await importSends(null as unknown as NormalizedImportRow[], IMPORT_OPTIONS);
+    expect(result).toEqual({ ok: false, error: "Invalid import rows" });
+  });
+
+  // climbs.avg_rating is generated from rating_sum, which the sends triggers
+  // maintain, so an unchecked rating here would move a shared climb's public
+  // average and its position in the rating sort for every user.
+  it("stores an out-of-range rating as null, leaving the climb's average alone", async () => {
+    sessionState.userId = "rating-user";
+    const before = await db.select().from(climbs).where(eq(climbs.id, 130)).get();
+
+    const result = await importSends(
+      [importRow("Bulk Climb 30", "Test Slab Area", { rating: 1_000_000_000 })],
+      IMPORT_OPTIONS,
+    );
+
+    expect(result.ok).toBe(true);
+    const send = await db.select().from(sends).where(eq(sends.userId, "rating-user")).get();
+    expect(send?.rating).toBeNull();
+
+    const after = await db.select().from(climbs).where(eq(climbs.id, 130)).get();
+    expect(after?.ratingSum).toBe(before?.ratingSum ?? 0);
+    expect(after?.avgRating).toBe(before?.avgRating ?? null);
+  });
+
+  it("truncates an over-long comment and defaults an unknown grade feel", async () => {
+    sessionState.userId = "coerce-user";
+    const result = await importSends(
+      [
+        importRow("Bulk Climb 31", "Test Slab Area", {
+          comment: "x".repeat(MAX_COMMENT_LENGTH + 5000),
+          gradeFeel: "pwned" as NormalizedImportRow["gradeFeel"],
+        }),
+      ],
+      IMPORT_OPTIONS,
+    );
+
+    expect(result.ok).toBe(true);
+    const send = await db.select().from(sends).where(eq(sends.userId, "coerce-user")).get();
+    expect(send?.comment).toHaveLength(MAX_COMMENT_LENGTH);
+    expect(send?.gradeFeel).toBe("solid");
+  });
+
+  // A row the wizard would have refused to produce fails the whole call
+  // rather than being silently dropped — the commit contract is unchanged.
+  async function expectRejected(
+    overrides: Partial<NormalizedImportRow>,
+    message: string,
+  ): Promise<void> {
+    sessionState.userId = "reject-user";
+    const result = await importSends(
+      [importRow("Bulk Climb 32", "Test Slab Area", overrides)],
+      IMPORT_OPTIONS,
+    );
+
+    expect(result).toEqual({ ok: false, error: message });
+    expect(await db.select().from(sends).where(eq(sends.userId, "reject-user")).all()).toHaveLength(
+      0,
+    );
+  }
+
+  it("rejects a future date", async () => {
+    await expectRejected({ dateSent: "2099-01-01" }, "Send date can't be in the future");
+  });
+
+  it("rejects a malformed date", async () => {
+    await expectRejected({ dateSent: "01/02/2026" }, "Invalid send date");
+  });
+
+  it("rejects an unknown ascent style", async () => {
+    await expectRejected(
+      { ascentStyle: "sandbagged" as NormalizedImportRow["ascentStyle"] },
+      "Invalid ascent style",
+    );
   });
 });

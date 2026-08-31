@@ -32,5 +32,5 @@ export function buildSendsExportCsv(rows: UserSendRow[]): string {
     row.rating ?? "",
     row.comment ?? "",
   ]);
-  return Papa.unparse({ fields: EXPORT_FIELDS, data });
+  return Papa.unparse({ fields: EXPORT_FIELDS, data }, { escapeFormulae: true });
 }

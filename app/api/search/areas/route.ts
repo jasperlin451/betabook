@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
-import { getAreaBreadcrumbs, searchAreas } from "@/db/queries";
-import { parseSuggestionLimit } from "@/lib/search-params";
+import { AREA_SEARCH_PAGE_SIZE, getAreaBreadcrumbs, searchAreas } from "@/db/queries";
+import { parsePage, parseSuggestionLimit } from "@/lib/search-params";
 
 /** Backs two callers with the same query.
  *
@@ -15,7 +15,7 @@ import { parseSuggestionLimit } from "@/lib/search-params";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const name = url.searchParams.get("name") ?? "";
-  const page = Math.max(1, Math.trunc(Number(url.searchParams.get("page"))) || 1);
+  const page = parsePage(url.searchParams, AREA_SEARCH_PAGE_SIZE);
   const limit = parseSuggestionLimit(url.searchParams);
 
   const db = await getDb();

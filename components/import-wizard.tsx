@@ -9,7 +9,13 @@ import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { importSends, type ImportResult } from "@/db/mutations";
 import { downloadCsv } from "@/lib/download";
-import { ASCENT_STYLES, GRADE_FEEL_VALUES, type AscentStyle, type GradeFeel } from "@/lib/sends";
+import {
+  ASCENT_STYLES,
+  GRADE_FEEL_VALUES,
+  IMPORT_BATCH_SIZE,
+  type AscentStyle,
+  type GradeFeel,
+} from "@/lib/sends";
 
 // Same wording as the send form's grade-feel buttons.
 const GRADE_FEEL_LABELS: Record<GradeFeel, string> = {
@@ -32,7 +38,6 @@ import {
   detectDateFormat,
   CLIMB_TYPES,
   DATE_SAMPLE_SIZE,
-  IMPORT_BATCH_SIZE,
   REQUIRED_COLUMN_KEYS,
   type AscentStyleMapping,
   type ClimbTypeMapping,

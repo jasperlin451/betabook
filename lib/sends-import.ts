@@ -34,18 +34,6 @@ export function distinctValues(rows: Record<string, string>[], column: string | 
   return [...seen];
 }
 
-// Cloudflare Workers cap a single invocation at 50 subrequests (Free plan).
-// Per db/mutations/import.ts's importSends: ~2 for the session/auth lookup,
-// 1 for getUserSentClimbIds, up to IMPORT_BATCH_SIZE for climb resolution
-// (one query per row), and 1 for the single atomic insert+overwrite db.batch
-// (one subrequest regardless of how many statements ride in it).
-// 25 rows -> ~29 subrequests, comfortable margin under 50.
-// The import wizard calls
-// importSends once per batch of this size, sequentially, rather than
-// passing the whole CSV in one call. Lives here (not in db/mutations.ts)
-// because a "use server" file can only export async functions.
-export const IMPORT_BATCH_SIZE = 25;
-
 const MAX_PARSE_ERROR_WARNINGS = 5;
 
 /**
@@ -679,5 +667,5 @@ export function buildFailedRowsCsv(
     }
   }
 
-  return Papa.unparse({ fields, data });
+  return Papa.unparse({ fields, data }, { escapeFormulae: true });
 }

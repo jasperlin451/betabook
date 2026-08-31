@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { MAX_COMMENT_LENGTH, validateSendInput, type RawSendInput } from "./sends";
+import {
+  MAX_COMMENT_LENGTH,
+  validateImportSendValues,
+  validateSendInput,
+  type RawSendInput,
+} from "./sends";
 
 const TODAY = "2026-08-19";
 
@@ -171,5 +176,85 @@ describe("validateSendInput", () => {
     expect(validateSendInput("boulder", raw({ gradeFeel: "medium" }), TODAY).gradeFeel).toBe(
       "solid",
     );
+  });
+});
+
+// importSends is a server action, so its `rows` argument reaches the server
+// over HTTP with its NormalizedImportRow type erased. These cover what a
+// caller who skipped the wizard can put in one.
+describe("validateImportSendValues", () => {
+  const importRow = (overrides: Record<string, unknown> = {}) => ({
+    ascentStyle: "redpoint",
+    dateSent: TODAY,
+    comment: null,
+    rating: 4,
+    gradeFeel: "solid",
+    ...overrides,
+  });
+
+  it("passes a wizard-normalized row through unchanged", () => {
+    expect(validateImportSendValues(importRow(), TODAY)).toEqual({
+      ascentStyle: "redpoint",
+      dateSent: TODAY,
+      comment: null,
+      rating: 4,
+      gradeFeel: "solid",
+    });
+  });
+
+  // The aggregate triggers sum rating into climbs.rating_sum and
+  // climbs.avg_rating is generated from it, so an unchecked rating here moves
+  // a shared climb's public average for everyone.
+  it.each([0, 6, 1000000000, 2.5, -3, "4", null, undefined, NaN])(
+    "coerces the out-of-range rating %s to null",
+    (rating) => {
+      expect(validateImportSendValues(importRow({ rating }), TODAY).rating).toBeNull();
+    },
+  );
+
+  it("keeps every in-range rating", () => {
+    for (const rating of [1, 2, 3, 4, 5]) {
+      expect(validateImportSendValues(importRow({ rating }), TODAY).rating).toBe(rating);
+    }
+  });
+
+  it("truncates an over-long comment rather than storing it", () => {
+    const comment = "x".repeat(MAX_COMMENT_LENGTH + 5000);
+    expect(validateImportSendValues(importRow({ comment }), TODAY).comment).toHaveLength(
+      MAX_COMMENT_LENGTH,
+    );
+  });
+
+  it("reads a blank or non-string comment as absent", () => {
+    expect(validateImportSendValues(importRow({ comment: "   " }), TODAY).comment).toBeNull();
+    expect(validateImportSendValues(importRow({ comment: 42 }), TODAY).comment).toBeNull();
+  });
+
+  it("defaults an unrecognized grade feel to solid", () => {
+    expect(validateImportSendValues(importRow({ gradeFeel: "pwned" }), TODAY).gradeFeel).toBe(
+      "solid",
+    );
+  });
+
+  it.each(["sandbagged", "", null, 7])("rejects the ascent style %s", (ascentStyle) => {
+    expect(() => validateImportSendValues(importRow({ ascentStyle }), TODAY)).toThrow(
+      "Invalid ascent style",
+    );
+  });
+
+  it("rejects a malformed date", () => {
+    expect(() => validateImportSendValues(importRow({ dateSent: "08/19/2026" }), TODAY)).toThrow(
+      "Invalid send date",
+    );
+  });
+
+  it("rejects a future date", () => {
+    expect(() => validateImportSendValues(importRow({ dateSent: "2099-01-01" }), TODAY)).toThrow(
+      "Send date can't be in the future",
+    );
+  });
+
+  it("reads a blank date as absent", () => {
+    expect(validateImportSendValues(importRow({ dateSent: null }), TODAY).dateSent).toBeNull();
   });
 });
