@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { buttonVariants } from "@heroui/react";
 import { ChartColumnIncreasing } from "lucide-react";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
+import { LogSendButton } from "@/components/log-send-button";
 import { AppLink } from "@/components/ui/app-link";
 import { UserSendList, UserSendsFilterToolbar } from "@/components/user-send-list";
 import { SectionHeading } from "@/components/ui/typography";
@@ -12,7 +13,13 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { SidebarLayout } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { PageTitle } from "@/components/ui/typography";
-import { getAreaBreadcrumbs, getSendsForUserPage, getUser, getUserSendsSummary } from "@/db/queries";
+import {
+  getAreaBreadcrumbs,
+  getSendsForUserPage,
+  getUser,
+  getUserSentClimbIds,
+  getUserSendsSummary,
+} from "@/db/queries";
 import { getDb } from "@/db/client";
 import { parseUserSendsFilter } from "@/lib/user-sends-filter";
 import { formatCount } from "@/lib/format";
@@ -52,13 +59,19 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   const [db, user, session] = await Promise.all([getDb(), getUserById(id), getSession()]);
   if (!user) notFound();
 
-  const [summary, firstPage] = await Promise.all([
+  const isOwnProfile = session?.user.id === id;
+
+  const [summary, firstPage, sentClimbIds] = await Promise.all([
     // The stats card reflects the user's whole history — computed via small
     // aggregate queries, independent of the list's current filter/page.
     getUserSendsSummary(db, id),
     // A user's send count can run into the thousands, so the list itself is
     // always fetched a page at a time, never in full (see UserSendList).
     getSendsForUserPage(db, id, filter, 0),
+    // The whole set, not just this page's — the picker searches the entire
+    // database, so a climb logged years ago must still come back marked.
+    // Only the owner can log, so only the owner's visit pays for it.
+    isOwnProfile ? getUserSentClimbIds(db, id) : Promise.resolve(undefined),
   ]);
   const memberSinceYear = new Date(user.createdAt).getFullYear();
 
@@ -99,21 +112,30 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
+      {/* Stacked until sm for the same reason as the area header: two
+        * labelled controls can't share a phone's width with the name. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
           <Eyebrow>Climber</Eyebrow>
           <PageTitle>{user.name}</PageTitle>
           <span className="mt-1 text-sm text-muted">
             Active since {memberSinceYear}
           </span>
         </div>
-        <AppLink
-          href={`/users/${id}/analytics`}
-          className={`${buttonVariants()} gap-2`}
-        >
-          <ChartColumnIncreasing className="size-5" />
-          Analytics
-        </AppLink>
+        {/* Owner only: a send is always the signed-in viewer's own, so on
+          * someone else's profile the button would write a row that doesn't
+          * belong to the page it sits on. Analytics steps back to outline
+          * where it isn't the header's only action. */}
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+          {isOwnProfile && <LogSendButton sentClimbIds={sentClimbIds} />}
+          <AppLink
+            href={`/users/${id}/analytics`}
+            className={`${buttonVariants({ variant: isOwnProfile ? "outline" : undefined })} gap-2`}
+          >
+            <ChartColumnIncreasing className="size-5" />
+            Analytics
+          </AppLink>
+        </div>
       </div>
 
       {/* The stats sidebar leads on mobile and sits right of the list on

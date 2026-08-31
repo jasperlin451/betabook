@@ -23,6 +23,7 @@ import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
 import { FilterToolbar } from "@/components/filter-toolbar";
+import { LogSendButton } from "@/components/log-send-button";
 import { RouteSearchField } from "@/components/route-search-field";
 import { AreaSearchField } from "@/components/area-search-field";
 import { LabeledIndexSelect } from "@/components/ui/index-select";
@@ -375,9 +376,12 @@ export function UserSendList({
           message="No sends yet."
           cta={
             currentUserId === userId ? (
-              <AppLink href="/account/import" className="text-sm">
-                Import your sends
-              </AppLink>
+              <div className="flex flex-col items-center gap-3">
+                <LogSendButton />
+                <AppLink href="/account/import" className="text-sm">
+                  Import your sends
+                </AppLink>
+              </div>
             ) : undefined
           }
         />

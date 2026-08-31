@@ -170,7 +170,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
               userSend ? (
                 <EditSendButton climb={climb} send={userSend} />
               ) : (
-                <LogSendButton climb={climb} />
+                <LogSendButton climb={climb} fullWidth />
               )
             ) : (
               // Quiet stand-in for Log Send: signed-out visitors otherwise
@@ -198,7 +198,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                 message="No sends yet — this line is waiting for its first ascent."
                 cta={
                   session ? (
-                    userSend ? undefined : <LogSendButton climb={climb} />
+                    userSend ? undefined : <LogSendButton climb={climb} fullWidth />
                   ) : (
                     <AppLink href={signInUrl(`/climbs/${climb.id}`)} className="text-sm">
                       Sign in to log the first send
