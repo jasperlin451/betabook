@@ -11,8 +11,26 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 
-const [email = "dev@example.com", password = "password", name = "Dev User"] =
+const [rawEmail = "dev@example.com", password = "password", name = "Dev User"] =
   process.argv.slice(2);
+
+// better-auth lowercases the email before looking it up, but `user.email` is
+// unique under SQLite's default (case-sensitive) collation. A row seeded as
+// `Me@Example.com` is therefore unreachable by sign-in under any casing, so
+// normalize here rather than storing what was typed.
+const email = rawEmail.trim().toLowerCase();
+
+// Both are enforced at sign-in, where failing them is an opaque 401 rather
+// than an error pointing back at this script. `dev@localhost` is the easy
+// mistake: better-auth's validator wants a TLD.
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  console.error(`Not a valid email address: ${rawEmail}`);
+  process.exit(1);
+}
+if (password.length < 8) {
+  console.error("Password must be at least 8 characters (better-auth's default minPasswordLength).");
+  process.exit(1);
+}
 
 /** SQLite string literal — doubling `'` is the whole escaping rule. */
 const q = (value: string) => `'${value.replace(/'/g, "''")}'`;

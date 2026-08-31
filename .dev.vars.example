@@ -6,9 +6,9 @@
 
 BETTER_AUTH_URL=http://localhost:3000
 
-# Signs session cookies; any non-empty string. Changing it invalidates
-# existing local sessions.
-BETTER_AUTH_SECRET=dev-only-secret-change-me
+# Signs session cookies. better-auth warns below 32 characters. Changing it
+# invalidates existing local sessions. Never use this value in production.
+BETTER_AUTH_SECRET=local-development-only-secret-not-for-production
 
 # Empty means "no Resend" to lib/email.ts, which then logs verification and
 # reset links to the console. Keep the line: `pnpm cf-typegen` derives

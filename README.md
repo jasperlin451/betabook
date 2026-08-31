@@ -42,7 +42,12 @@ pnpm seed:user me@example.com hunter2 Jasper    # or pick your own
 
 Then sign in at [/sign-in](http://localhost:3000/sign-in). Re-running against
 an existing email resets that user's password and name but keeps their id, and
-so their sends.
+so their sends. Emails are lowercased — better-auth lowercases them on lookup,
+but `user.email` is unique under a case-sensitive collation, so a row stored
+with capitals could never be signed into.
+
+Restart `pnpm dev` after seeding. The dev server holds its D1 handle open and
+won't see rows written by a separate `wrangler` process.
 
 Signing up at [/sign-up](http://localhost:3000/sign-up) works too, but
 `lib/auth.ts` sets `requireEmailVerification: true`, so you then have to open
