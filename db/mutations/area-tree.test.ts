@@ -185,6 +185,34 @@ describe("renaming an area", () => {
   });
 });
 
+/** Root areas exist — the seed data's continents — but nothing creates one:
+ * an area with no parent isn't reachable by walking down from a continent, so
+ * it would only ever surface in search. AreaForm refuses to submit without a
+ * picked parent, and these pin the same rule at the mutation, which as a
+ * server action is a callable endpoint in its own right. */
+describe("a new area always goes under an existing one", () => {
+  it("refuses a parent id that isn't an area", async () => {
+    const created = await createArea(999999, areaForm("Test Orphan Wall"));
+    expect(created).toEqual({ ok: false, error: "Parent area not found" });
+  });
+
+  it("refuses a missing parent rather than creating a root", async () => {
+    const rootsBefore = await countRoots();
+
+    // The signature rules this out for typed callers; the cast is the
+    // untyped request such an endpoint can still be sent.
+    const created = await createArea(null as unknown as number, areaForm("Test Orphan Continent"));
+
+    expect(created).toEqual({ ok: false, error: "Parent area not found" });
+    expect(await countRoots()).toBe(rootsBefore);
+  });
+});
+
+async function countRoots(): Promise<number> {
+  const { results } = await db.run(sql`SELECT COUNT(*) AS n FROM areas WHERE parent_id IS NULL`);
+  return Number((results[0] as { n: number }).n);
+}
+
 // Declared after use for readability above; hoisted function declarations.
 function sqlAllAreas() {
   return sql`SELECT id, parent_id AS parentId, name, description FROM areas ORDER BY id`;
