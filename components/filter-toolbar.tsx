@@ -2,55 +2,9 @@
 
 import type { ReactNode } from "react";
 import { Button, buttonVariants, Disclosure } from "@heroui/react";
-import clsx from "clsx";
 import { DisciplineGradeSliders } from "@/components/send-filter-form";
-import { DISCIPLINE_CHIP_CLASSNAME, DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
-import type { Discipline } from "@/db/queries";
+import { DisciplineChips } from "@/components/discipline-chips";
 import type { DisciplineFilter } from "@/lib/discipline-filter";
-
-const DISCIPLINES: Discipline[] = ["boulder", "sport", "trad"];
-
-/** Discipline toggles as the same palette chips the rows themselves wear —
- * three taps instead of a labelled checkbox group, which is what lets the
- * whole filter fit on one line. */
-function DisciplineChips<T extends DisciplineFilter>({
-  value,
-  onChange,
-}: {
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1.5" role="group" aria-label="Disciplines">
-      {DISCIPLINES.map((discipline) => {
-        const selected = value.disciplines.includes(discipline);
-        return (
-          <button
-            key={discipline}
-            type="button"
-            aria-pressed={selected}
-            onClick={() =>
-              onChange({
-                ...value,
-                disciplines: selected
-                  ? value.disciplines.filter((d) => d !== discipline)
-                  : [...value.disciplines, discipline],
-              })
-            }
-            className={clsx(
-              "cursor-pointer rounded-full border px-3 py-1 text-sm transition-colors",
-              selected
-                ? `border-transparent font-medium ${DISCIPLINE_CHIP_CLASSNAME[discipline]}`
-                : "border-border text-muted hover:text-foreground",
-            )}
-          >
-            {DISCIPLINE_LABELS[discipline]}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 /** One toolbar row above a list — search fields, discipline chips, a "More
  * filters" disclosure for the range filters, and the sort control pushed
@@ -85,7 +39,10 @@ export function FilterToolbar<T extends DisciplineFilter>({
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             {search}
 
-            <DisciplineChips value={value} onChange={onChange} />
+            <DisciplineChips
+              value={value.disciplines}
+              onChange={(disciplines) => onChange({ ...value, disciplines })}
+            />
 
             {/* The disclosure and the sort travel together rather than the
               * sort being pushed off alone with ms-auto, which strands it

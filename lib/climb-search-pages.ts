@@ -1,0 +1,70 @@
+import {
+  climbSearchFilterToSearchParams,
+  type ClimbSearchFilter,
+} from "@/lib/climb-search-filter";
+import type {
+  AreaBreadcrumbs,
+  ClimbSendStats,
+  ClimbWithAreaName,
+  SubtreeClimbsSort,
+} from "@/db/queries";
+
+/** One page of /api/search/climbs in its full (non-suggestion) shape — what
+ * the home search and the climb picker both page through. `count` only comes
+ * back for a request that asked for it. */
+export type ClimbSearchPage = {
+  climbs: ClimbWithAreaName[];
+  hasNextPage: boolean;
+  sendStats: Record<number, ClimbSendStats>;
+  areaBreadcrumbs: AreaBreadcrumbs;
+  count?: number;
+};
+
+/** The accumulated slice of a paged search — what a "load more" list holds. */
+export type ClimbSearchPages = {
+  climbs: ClimbWithAreaName[];
+  sendStats: Record<number, ClimbSendStats>;
+  areaBreadcrumbs: AreaBreadcrumbs;
+  hasNextPage: boolean;
+  /** Pages loaded so far, so the next request knows what to ask for. */
+  loadedPages: number;
+};
+
+export async function fetchClimbSearchPage(
+  sort: SubtreeClimbsSort,
+  filter: ClimbSearchFilter,
+  page: number,
+  { count = false, signal }: { count?: boolean; signal?: AbortSignal } = {},
+): Promise<ClimbSearchPage> {
+  const params = climbSearchFilterToSearchParams(sort, filter);
+  if (page > 1) params.set("page", String(page));
+  // The total is the same for every page of a search, so only the page that
+  // needs it pays for the COUNT (see the route).
+  if (count) params.set("count", "1");
+
+  const res = await fetch(`/api/search/climbs?${params.toString()}`, { signal });
+  if (!res.ok) throw new Error(`Climb search failed: ${res.status}`);
+  return res.json();
+}
+
+export function firstPage(page: ClimbSearchPage): ClimbSearchPages {
+  return {
+    climbs: page.climbs,
+    sendStats: page.sendStats,
+    areaBreadcrumbs: page.areaBreadcrumbs,
+    hasNextPage: page.hasNextPage,
+    loadedPages: 1,
+  };
+}
+
+/** Appends a freshly fetched page. The lookup maps are merged rather than
+ * replaced — they're keyed by climb/area id and only cover their own page. */
+export function appendPage(pages: ClimbSearchPages, next: ClimbSearchPage): ClimbSearchPages {
+  return {
+    climbs: [...pages.climbs, ...next.climbs],
+    sendStats: { ...pages.sendStats, ...next.sendStats },
+    areaBreadcrumbs: { ...pages.areaBreadcrumbs, ...next.areaBreadcrumbs },
+    hasNextPage: next.hasNextPage,
+    loadedPages: pages.loadedPages + 1,
+  };
+}
