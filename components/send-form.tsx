@@ -5,7 +5,16 @@ import { FIELD_CLASS } from "@/components/ui/field";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { AscentStyle as AscentStyleChip } from "@/components/ascent-style";
 import { useState, useTransition, type ReactNode } from "react";
-import { Button, ButtonGroup, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
+import {
+  Button,
+  ButtonGroup,
+  Checkbox,
+  Label,
+  ListBox,
+  Select,
+  TextArea,
+  TextField,
+} from "@heroui/react";
 import clsx from "clsx";
 import { createSend, updateSend } from "@/db/mutations";
 import {
@@ -92,6 +101,13 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
     existingSend?.ascentStyle ?? "redpoint",
   );
   const [dateSent, setDateSent] = useState(existingSend?.dateSent ?? today);
+  // An undated send has always been representable — the column is nullable
+  // and the validator maps blank to null, which is how imports arrive — but
+  // the form had no way to say it: an undated send opened on today's date
+  // and saving stamped it.
+  const [dateUnknown, setDateUnknown] = useState(
+    existingSend != null && existingSend.dateSent == null,
+  );
   const [comment, setComment] = useState(existingSend?.comment ?? "");
   const [rating, setRating] = useState(
     existingSend?.rating != null ? String(existingSend.rating) : "abstain",
@@ -111,7 +127,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
 
     const formData = new FormData();
     formData.set("ascentStyle", ascentStyle);
-    formData.set("dateSent", dateSent);
+    formData.set("dateSent", dateUnknown ? "" : dateSent);
     formData.set("comment", comment);
     formData.set("rating", rating === "abstain" ? "" : rating);
     formData.set("suggestedGrade", suggestedGrade);
@@ -144,9 +160,24 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
             type="date"
             value={dateSent}
             max={today}
+            disabled={dateUnknown}
             onChange={(e) => setDateSent(e.target.value)}
-            className={FIELD_CLASS}
+            className={`${FIELD_CLASS} disabled:opacity-60`}
           />
+          {/* Disabled rather than cleared, so toggling back doesn't cost the
+            * user the date they had already picked. */}
+          <Checkbox
+            className="mt-2"
+            isSelected={dateUnknown}
+            onChange={setDateUnknown}
+          >
+            <Checkbox.Content>
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              I don&apos;t remember
+            </Checkbox.Content>
+          </Checkbox>
         </TextField>
       </FormSection>
 
