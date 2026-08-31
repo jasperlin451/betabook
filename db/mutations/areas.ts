@@ -38,17 +38,23 @@ export async function updateArea(areaId: number, formData: FormData): Promise<Ac
 /** A plain one-row insert: `parentId` is the tree, so the area is fully
  * placed the moment it commits — correct on its own page, in its parent's
  * sub-area list, and in every ancestor's subtree climb listing, with no
- * background repair to wait on and no window where those reads disagree. */
+ * background repair to wait on and no window where those reads disagree.
+ *
+ * Every area created here is placed under an existing one. Root areas exist
+ * — the seed data's continents — but aren't creatable: an area with no
+ * parent is unreachable by walking down from a continent, so it would only
+ * ever be found by search. The type says as much, but this is a server
+ * action and so a callable endpoint, hence the runtime check too. */
 export async function createArea(
-  parentId: number | null,
+  parentId: number,
   formData: FormData,
 ): Promise<ActionResult<number>> {
   return toActionResult(async () => {
     await requireSession();
     const db = await getDb();
 
-    const parent = parentId == null ? undefined : await getArea(db, parentId);
-    if (parentId != null && !parent) throw new ActionError("Parent area not found");
+    const parent = parseId(parentId) === null ? undefined : await getArea(db, parentId);
+    if (!parent) throw new ActionError("Parent area not found");
 
     const input = validateAreaInput(readAreaFormData(formData));
 
@@ -59,7 +65,7 @@ export async function createArea(
       .values({ parentId, ...input })
       .returning({ id: areas.id });
 
-    if (parentId != null) revalidatePath(`/areas/${parentId}`);
+    revalidatePath(`/areas/${parentId}`);
     revalidatePath("/");
     refresh();
     return id;
