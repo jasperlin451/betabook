@@ -38,15 +38,26 @@ type SendValues = Omit<
   "id" | "userId" | "climbId" | "createdAt" | "updatedAt"
 >;
 
-// D1 caps queries at 100 bound parameters. Each inserted sends row binds 8
-// values (userId, climbId, ascentStyle, dateSent, comment, rating,
-// suggestedGrade, gradeFeel — id is auto-increment, createdAt/updatedAt use
-// SQL defaults, so those aren't bound). 10 rows × 8 = 80, safely under 100.
-// The overwrite loop reuses the size for a different reason: an update is
-// one statement per row rather than one per chunk, so this bounds how many
-// statements ride in a single db.batch.
-const CHUNK_SIZE = 10;
+// How many rows each insert statement carries. D1 caps a statement at 100
+// bound parameters, and each inserted sends row binds 8 values (userId,
+// climbId, ascentStyle, dateSent, comment, rating, suggestedGrade, gradeFeel
+// — id is auto-increment, createdAt/updatedAt use SQL defaults, so those
+// aren't bound). 10 rows × 8 = 80, safely under 100. Overwrites need no such
+// chunking: an update is one statement per row either way.
+const INSERT_CHUNK_SIZE = 10;
 
+/** Imports one wizard batch of rows as the signed-in user's sends.
+ *
+ * Commit contract: each call is all-or-nothing. Every insert and overwrite
+ * rides in ONE db.batch, which D1 executes as a single transaction (the
+ * climbs-aggregate triggers fire inside it too) — so `{ ok: true }` means
+ * every counted row committed and `{ ok: false }` means none did.
+ *
+ * The wizard relies on this to report
+ * truthful imported/failed counts and to make retries safe: re-running a
+ * failed batch can't duplicate rows (nothing committed), and re-running a
+ * successful one is caught by the user+climb duplicate check below (with the
+ * sends_user_climb_unique index as the hard backstop). */
 export async function importSends(
   rows: NormalizedImportRow[],
   options: ImportOptions,
@@ -63,6 +74,7 @@ export async function importSends(
     const processed = new Set<number>();
     const toInsert: (typeof sends.$inferInsert)[] = [];
     const toUpdate: Array<{ climbId: number; values: SendValues }> = [];
+    const affectedAreaIds = new Set<number>();
     const notFound: ImportResult["notFound"] = [];
     let alreadyLogged = 0;
 
@@ -121,6 +133,7 @@ export async function importSends(
       };
 
       processed.add(resolved.id);
+      affectedAreaIds.add(resolved.areaId);
 
       if (alreadySent.has(resolved.id)) {
         toUpdate.push({ climbId: resolved.id, values });
@@ -129,29 +142,47 @@ export async function importSends(
       }
     }
 
-    // climbs.sendCount/ratingSum/ratingCount follow both loops below via the
-    // triggers on sends (see drizzle/schema/climbs.ts), so neither carries a
-    // companion aggregate write.
-    for (let i = 0; i < toInsert.length; i += CHUNK_SIZE) {
-      await db.insert(sends).values(toInsert.slice(i, i + CHUNK_SIZE));
-    }
-
-    // (userId, climbId) is uniquely indexed, so each of these targets exactly
-    // one row without needing the existing send's id. sends.updatedAt has
-    // $onUpdate, so drizzle stamps it.
-    for (let i = 0; i < toUpdate.length; i += CHUNK_SIZE) {
-      const statements = toUpdate.slice(i, i + CHUNK_SIZE).map(({ climbId, values }) =>
+    // ONE db.batch for the whole call — a D1 batch runs as a single
+    // transaction (and a single Workers subrequest), so every row here commits
+    // or none do; a mid-batch failure can't leave earlier chunks committed
+    // while the action reports the whole call failed. The inserts are still
+    // split across statements because of the D1 bound-parameter cap (see
+    // INSERT_CHUNK_SIZE); the updates are one statement per row regardless.
+    //
+    // climbs.sendCount/ratingSum/ratingCount follow both via the triggers on
+    // sends (see drizzle/schema/climbs.ts), so neither carries a companion
+    // aggregate write — the triggers fire inside this same transaction.
+    const statements = [
+      ...Array.from({ length: Math.ceil(toInsert.length / INSERT_CHUNK_SIZE) }, (_, i) =>
+        db.insert(sends).values(toInsert.slice(i * INSERT_CHUNK_SIZE, (i + 1) * INSERT_CHUNK_SIZE)),
+      ),
+      // (userId, climbId) is uniquely indexed, so each of these targets exactly
+      // one row without needing the existing send's id. sends.updatedAt has
+      // $onUpdate, so drizzle stamps it.
+      ...toUpdate.map(({ climbId, values }) =>
         db
           .update(sends)
           .set(values)
           .where(and(eq(sends.userId, session.user.id), eq(sends.climbId, climbId))),
-      );
-      // db.batch wants a non-empty tuple; the loop bounds already guarantee it.
+      ),
+    ];
+
+    if (statements.length > 0) {
+      // db.batch wants a non-empty tuple; the guard above already ensures it.
       await db.batch(statements as [(typeof statements)[number], ...typeof statements]);
+
+      // Same revalidation set as createSend (db/mutations/sends.ts): the batch
+      // above moves climbs.sendCount/ratingSum/ratingCount, which the home
+      // page, each climb's page, and each area's climb list all render — not
+      // just the user's profile.
+      revalidatePath("/");
+      revalidatePath(`/users/${session.user.id}`);
+      for (const row of toInsert) revalidatePath(`/climbs/${row.climbId}`);
+      for (const { climbId } of toUpdate) revalidatePath(`/climbs/${climbId}`);
+      for (const areaId of affectedAreaIds) revalidatePath(`/areas/${areaId}`);
+      refresh();
     }
 
-    revalidatePath(`/users/${session.user.id}`);
-    refresh();
     return {
       imported: toInsert.length,
       overwritten: toUpdate.length,
