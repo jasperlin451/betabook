@@ -7,12 +7,12 @@ Install dependencies, set up local secrets, and create the local database:
 ```bash
 pnpm install
 cp .dev.vars.example .dev.vars
-pnpm cf-typegen        # generates worker-configuration.d.ts from wrangler.jsonc + .dev.vars
+pnpm cf-typegen        # optional: audit the full generated Workers type surface
 pnpm db:migrate:local
 ```
 
-Re-run `pnpm cf-typegen` after changing `wrangler.jsonc` or adding a
-`.dev.vars` key — `CloudflareEnv` is derived from both.
+Keep the small, checked-in `cloudflare-env.d.ts` binding contract in sync when
+changing `wrangler.jsonc` or adding an application environment variable.
 
 Then run the development server:
 
@@ -59,10 +59,8 @@ the verification link that `lib/email.ts` logs to the `next dev` console.
 pnpm test
 ```
 
-`@cloudflare/vitest-pool-workers` loads the worker entrypoint named in
-`wrangler.jsonc` (`.open-next/worker.js`), so on a fresh checkout run
-`pnpm exec opennextjs-cloudflare build` once first — otherwise every test file
-fails to import.
+The test pool uses `test/worker.ts`, so tests run on a fresh checkout without
+first generating the production `.open-next` worker bundle.
 
 ## Learn More
 

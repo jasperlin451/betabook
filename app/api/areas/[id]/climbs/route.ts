@@ -5,11 +5,18 @@ import {
   getAreaWithSubtreeSize,
   getClimbSendStats,
   getSubtreeClimbs,
+  getUserSentClimbIds,
   PAGE_SIZE,
   resolveSubareaScope,
 } from "@/db/queries";
+import { getSession } from "@/lib/session";
 import { parseAreaClimbsFilter, parseAreaClimbsSort, toSubtreeQueryFilter } from "@/lib/area-climbs-filter";
-import { parsePage, parseSuggestionLimit, searchParamsToRecord } from "@/lib/search-params";
+import {
+  pageReachesPaginationLimit,
+  parsePage,
+  parseSuggestionLimit,
+  searchParamsToRecord,
+} from "@/lib/search-params";
 import { parseId } from "@/lib/parse-id";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -32,8 +39,9 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const sort = parseAreaClimbsSort(searchParams);
   const filter = parseAreaClimbsFilter(searchParams);
-  const page = parsePage(url.searchParams, PAGE_SIZE);
   const limit = parseSuggestionLimit(url.searchParams);
+  const pageSize = limit ?? PAGE_SIZE;
+  const page = parsePage(url.searchParams, pageSize);
 
   const db = await getDb();
   const area = areaId === null ? undefined : await getAreaWithSubtreeSize(db, areaId);
@@ -43,17 +51,55 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Area not found" }, { status: 404 });
   }
 
-  const listScope = await resolveSubareaScope(db, area, filter.subareaId);
-  const subtreeClimbs = await getSubtreeClimbs(db, listScope, page, sort, toSubtreeQueryFilter(filter));
+  if (page === null) {
+    return NextResponse.json(
+      limit === null
+        ? {
+            climbs: [],
+            hasNextPage: false,
+            sendStats: {},
+            areaBreadcrumbs: {},
+            sentClimbIds: [],
+          }
+        : { climbs: [] },
+    );
+  }
+
+  const [listScope, session] = await Promise.all([
+    resolveSubareaScope(db, area, filter.subareaId),
+    limit === null ? getSession() : Promise.resolve(null),
+  ]);
+  const subtreeClimbs = await getSubtreeClimbs(
+    db,
+    listScope,
+    page,
+    sort,
+    toSubtreeQueryFilter(filter),
+    pageSize,
+  );
 
   if (limit !== null) {
     return NextResponse.json({ climbs: subtreeClimbs.climbs.slice(0, limit) });
   }
 
-  const [sendStats, areaBreadcrumbs] = await Promise.all([
+  const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
     getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),
+    session
+      ? getUserSentClimbIds(
+          db,
+          session.user.id,
+          subtreeClimbs.climbs.map((climb) => climb.id),
+        )
+      : Promise.resolve(undefined),
   ]);
 
-  return NextResponse.json({ ...subtreeClimbs, sendStats, areaBreadcrumbs });
+  return NextResponse.json({
+    ...subtreeClimbs,
+    hasNextPage:
+      subtreeClimbs.hasNextPage && !pageReachesPaginationLimit(page, pageSize),
+    sendStats,
+    areaBreadcrumbs,
+    sentClimbIds: sentClimbIds ? [...sentClimbIds] : undefined,
+  });
 }

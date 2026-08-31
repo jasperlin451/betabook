@@ -35,9 +35,8 @@ type ClimbListProps = {
   >;
   /** Up to two ancestor areas per climb's area, keyed by area id. */
   areaBreadcrumbs?: Record<number, { id: number; name: string }[]>;
-  /** Every climb id the signed-in viewer has ever sent. `undefined` means no
-   * signed-in viewer — the leading sent/log-send indicator is omitted
-   * entirely rather than showing it for a viewer who couldn't act on it. */
+  /** Sent climb ids among the rows loaded into this list. `undefined` means
+   * no signed-in viewer, so the leading action is omitted entirely. */
   sentClimbIds?: Set<number>;
 };
 

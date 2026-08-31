@@ -43,6 +43,7 @@ export function AreaClimbsSection({
   const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
   const [sendStats, setSendStats] = useState(initialSendStats);
   const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
+  const [loadedSentClimbIds, setLoadedSentClimbIds] = useState(sentClimbIds);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   // Climbs are fetched PAGE_SIZE at a time (see db/queries/shared.ts), so the
@@ -63,11 +64,17 @@ export function AreaClimbsSection({
         hasNextPage: boolean;
         sendStats: Record<number, ClimbSendStats>;
         areaBreadcrumbs: AreaBreadcrumbs;
+        sentClimbIds?: number[];
       } = await res.json();
       setClimbs((prev) => [...prev, ...data.climbs]);
       setHasNextPage(data.hasNextPage);
       setSendStats((prev) => ({ ...prev, ...data.sendStats }));
       setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
+      if (data.sentClimbIds) {
+        setLoadedSentClimbIds(
+          (prev) => new Set([...(prev ?? []), ...data.sentClimbIds!]),
+        );
+      }
       setLoadedPages((prev) => prev + 1);
     } catch {
       // Network failure or a non-2xx response — keep what's loaded, surface
@@ -88,7 +95,7 @@ export function AreaClimbsSection({
           emptyMessage={emptyMessage}
           sendStats={sendStats}
           areaBreadcrumbs={areaBreadcrumbs}
-          sentClimbIds={sentClimbIds}
+          sentClimbIds={loadedSentClimbIds}
           pagination={{
             hasNextPage,
             loadingMore,

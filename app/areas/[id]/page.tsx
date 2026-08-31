@@ -86,21 +86,27 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   // header, histogram, and rail always describe the whole area.
   const listScope = await resolveSubareaScope(db, area, filter.subareaId);
 
-  const [ancestors, subareas, subtreeClimbs, hasClimbs, sentClimbIds, histogramRows] =
+  const [ancestors, subareas, subtreeClimbs, hasClimbs, histogramRows] =
     await Promise.all([
       getAncestors(db, area),
       getSubareas(db, area.id),
       getSubtreeClimbs(db, listScope, 1, sort, toSubtreeQueryFilter(filter)),
       hasClimbsInArea(db, area.id),
-      session ? getUserSentClimbIds(db, session.user.id) : undefined,
       histogramEligible ? getSubtreeGradeHistogram(db, area) : [],
     ]);
   const canDeleteArea = subareas.length === 0 && !hasClimbs;
   const histogram = buildGradeHistogram(histogramRows);
 
-  const [sendStats, areaBreadcrumbs] = await Promise.all([
+  const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
     getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),
+    session
+      ? getUserSentClimbIds(
+          db,
+          session.user.id,
+          subtreeClimbs.climbs.map((climb) => climb.id),
+        )
+      : undefined,
   ]);
 
   return (

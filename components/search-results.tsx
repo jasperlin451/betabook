@@ -36,8 +36,7 @@ export function ClimbSearchResults({
   initialHasNextPage: boolean;
   initialSendStats: Record<number, ClimbSendStats>;
   initialAreaBreadcrumbs: AreaBreadcrumbs;
-  /** Every climb id the signed-in viewer has ever sent — covers climbs on
-   * later pages too, so it never needs re-fetching on "load more". */
+  /** Sent ids for the initial page. Later pages carry their own subset. */
   sentClimbIds?: Set<number>;
 }) {
   // Results are fetched SEARCH_PAGE_SIZE at a time (see db/queries/climbs.ts),
@@ -46,6 +45,7 @@ export function ClimbSearchResults({
     climbs: initialClimbs,
     sendStats: initialSendStats,
     areaBreadcrumbs: initialAreaBreadcrumbs,
+    sentClimbIds,
     hasNextPage: initialHasNextPage,
     loadedPages: 1,
   });
@@ -72,7 +72,7 @@ export function ClimbSearchResults({
       climbs={pages.climbs}
       sendStats={pages.sendStats}
       areaBreadcrumbs={pages.areaBreadcrumbs}
-      sentClimbIds={sentClimbIds}
+      sentClimbIds={pages.sentClimbIds}
       emptyMessage="No climbs match your search."
       pagination={{
         hasNextPage: pages.hasNextPage,

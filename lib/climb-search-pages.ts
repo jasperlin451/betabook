@@ -17,6 +17,8 @@ export type ClimbSearchPage = {
   hasNextPage: boolean;
   sendStats: Record<number, ClimbSendStats>;
   areaBreadcrumbs: AreaBreadcrumbs;
+  /** Sent ids for this page only; omitted for signed-out viewers. */
+  sentClimbIds?: number[];
   count?: number;
 };
 
@@ -25,6 +27,7 @@ export type ClimbSearchPages = {
   climbs: ClimbWithAreaName[];
   sendStats: Record<number, ClimbSendStats>;
   areaBreadcrumbs: AreaBreadcrumbs;
+  sentClimbIds?: Set<number>;
   hasNextPage: boolean;
   /** Pages loaded so far, so the next request knows what to ask for. */
   loadedPages: number;
@@ -52,6 +55,7 @@ export function firstPage(page: ClimbSearchPage): ClimbSearchPages {
     climbs: page.climbs,
     sendStats: page.sendStats,
     areaBreadcrumbs: page.areaBreadcrumbs,
+    sentClimbIds: page.sentClimbIds ? new Set(page.sentClimbIds) : undefined,
     hasNextPage: page.hasNextPage,
     loadedPages: 1,
   };
@@ -64,6 +68,10 @@ export function appendPage(pages: ClimbSearchPages, next: ClimbSearchPage): Clim
     climbs: [...pages.climbs, ...next.climbs],
     sendStats: { ...pages.sendStats, ...next.sendStats },
     areaBreadcrumbs: { ...pages.areaBreadcrumbs, ...next.areaBreadcrumbs },
+    sentClimbIds:
+      pages.sentClimbIds || next.sentClimbIds
+        ? new Set([...(pages.sentClimbIds ?? []), ...(next.sentClimbIds ?? [])])
+        : undefined,
     hasNextPage: next.hasNextPage,
     loadedPages: pages.loadedPages + 1,
   };

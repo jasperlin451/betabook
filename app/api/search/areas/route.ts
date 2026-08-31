@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { AREA_SEARCH_PAGE_SIZE, getAreaBreadcrumbs, searchAreas } from "@/db/queries";
-import { parsePage, parseSuggestionLimit } from "@/lib/search-params";
+import {
+  pageReachesPaginationLimit,
+  parsePage,
+  parseSuggestionLimit,
+} from "@/lib/search-params";
 
 /** Backs two callers with the same query.
  *
@@ -15,11 +19,20 @@ import { parsePage, parseSuggestionLimit } from "@/lib/search-params";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const name = url.searchParams.get("name") ?? "";
-  const page = parsePage(url.searchParams, AREA_SEARCH_PAGE_SIZE);
   const limit = parseSuggestionLimit(url.searchParams);
+  const pageSize = limit ?? AREA_SEARCH_PAGE_SIZE;
+  const page = parsePage(url.searchParams, pageSize);
+
+  if (page === null) {
+    return NextResponse.json(
+      limit === null
+        ? { areas: [], hasNextPage: false, areaBreadcrumbs: {} }
+        : { areas: [] },
+    );
+  }
 
   const db = await getDb();
-  const results = await searchAreas(db, name, page);
+  const results = await searchAreas(db, name, page, pageSize);
 
   if (limit !== null) {
     return NextResponse.json({ areas: results.areas.slice(0, limit) });
@@ -30,5 +43,9 @@ export async function GET(request: Request) {
     results.areas.map((a) => a.id),
   );
 
-  return NextResponse.json({ ...results, areaBreadcrumbs });
+  return NextResponse.json({
+    ...results,
+    hasNextPage: results.hasNextPage && !pageReachesPaginationLimit(page, pageSize),
+    areaBreadcrumbs,
+  });
 }

@@ -1,10 +1,10 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq, notExists } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
 import { getDb } from "@/db/client";
-import { climbs } from "@/db/schema";
+import { climbs, sends } from "@/db/schema";
 import { getArea, getClimb } from "@/db/queries";
 import {
   validateClimbInput,
@@ -30,7 +30,25 @@ export async function updateClimb(climbId: number, formData: FormData): Promise<
     if (!existing) throw new ActionError("Climb not found");
 
     const input = validateClimbInput(existing, readClimbFormData(formData));
-    await db.update(climbs).set(input).where(eq(climbs.id, climbId));
+    const condition =
+      input.type === existing.type
+        ? eq(climbs.id, climbId)
+        : and(
+            eq(climbs.id, climbId),
+            notExists(
+              db.select({ id: sends.id }).from(sends).where(eq(sends.climbId, climbs.id)),
+            ),
+          );
+    const updated = await db
+      .update(climbs)
+      .set(input)
+      .where(condition)
+      .returning({ id: climbs.id })
+      .get();
+    if (!updated) {
+      if (!(await getClimb(db, climbId))) throw new ActionError("Climb not found");
+      throw new ActionError("Can't change discipline once a climb has logged sends");
+    }
 
     revalidatePath(`/climbs/${climbId}`);
     revalidatePath(`/areas/${existing.areaId}`);
@@ -44,13 +62,27 @@ export async function deleteClimb(climbId: number): Promise<ActionResult> {
     await requireSession();
     const db = await getDb();
 
-    const existing = parseId(climbId) === null ? undefined : await getClimb(db, climbId);
-    if (!existing) throw new ActionError("Climb not found");
-    if (existing.sendCount > 0) throw new ActionError("Can't delete a climb with logged sends");
+    if (parseId(climbId) === null) throw new ActionError("Climb not found");
+    const deleted = await db
+      .delete(climbs)
+      .where(
+        and(
+          eq(climbs.id, climbId),
+          notExists(
+            db.select({ id: sends.id }).from(sends).where(eq(sends.climbId, climbs.id)),
+          ),
+        ),
+      )
+      .returning({ areaId: climbs.areaId })
+      .get();
 
-    await db.delete(climbs).where(eq(climbs.id, climbId));
+    if (!deleted) {
+      const existing = await getClimb(db, climbId);
+      if (!existing) throw new ActionError("Climb not found");
+      throw new ActionError("Can't delete a climb with logged sends");
+    }
 
-    revalidatePath(`/areas/${existing.areaId}`);
+    revalidatePath(`/areas/${deleted.areaId}`);
     revalidatePath("/");
     refresh();
   });

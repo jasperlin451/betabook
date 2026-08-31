@@ -5,16 +5,11 @@ import { useState } from "react";
 import { Button } from "@heroui/react";
 import { buildSendsExportCsv } from "@/lib/sends-export";
 import { downloadCsv } from "@/lib/download";
-import {
-  DEFAULT_USER_SENDS_FILTER,
-  MAX_USER_SENDS_LIMIT,
-  userSendsFilterToSearchParams,
-} from "@/lib/user-sends-filter";
 import type { UserSendRow } from "@/db/queries";
 
 type UserSendsPageResponse = {
   sends: UserSendRow[];
-  hasMore: boolean;
+  nextCursor: { dateSent: string | null; id: number } | null;
 };
 
 /** Exports the signed-in user's full send history as a CSV — fetched in
@@ -32,19 +27,29 @@ export function ExportSendsButton({ userId }: { userId: string }) {
     setExportedRows(0);
     try {
       const rows: UserSendRow[] = [];
-      let hasMore = true;
-      while (hasMore) {
-        const params = userSendsFilterToSearchParams(DEFAULT_USER_SENDS_FILTER);
-        params.set("offset", String(rows.length));
-        // The biggest page the route will serve per request.
-        params.set("limit", String(MAX_USER_SENDS_LIMIT));
-        const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`);
+      const seenIds = new Set<number>();
+      let cursor: UserSendsPageResponse["nextCursor"] = null;
+      do {
+        const params = new URLSearchParams();
+        if (cursor) {
+          params.set("afterId", String(cursor.id));
+          params.set("afterDate", cursor.dateSent ?? "null");
+        }
+        const query = params.size > 0 ? `?${params.toString()}` : "";
+        const res = await fetch(`/api/users/${userId}/sends/export${query}`);
         if (!res.ok) throw new Error(`Exporting sends failed: ${res.status}`);
         const data: UserSendsPageResponse = await res.json();
+        if (data.sends.some((send) => seenIds.has(send.id))) {
+          throw new Error("Export cursor did not advance");
+        }
+        for (const send of data.sends) seenIds.add(send.id);
         rows.push(...data.sends);
-        hasMore = data.hasMore && data.sends.length > 0;
+        if (data.nextCursor && data.sends.length === 0) {
+          throw new Error("Export cursor did not advance");
+        }
+        cursor = data.nextCursor;
         setExportedRows(rows.length);
-      }
+      } while (cursor);
 
       downloadCsv(
         buildSendsExportCsv(rows),

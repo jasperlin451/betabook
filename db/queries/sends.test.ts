@@ -2,18 +2,25 @@ import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
-import { climbs } from "@/db/schema";
+import { climbs, sends } from "@/db/schema";
 import {
   getClimbSendStats,
   getClimbSendSummary,
   getSendsForClimb,
   getSendsForUserPage,
+  getSendsForUserExportPage,
   getUserSendForClimb,
   getUserSendsSummary,
   getUserSentClimbIds,
+  type UserSendsExportCursor,
   type UserSendsFilter,
 } from "./sends";
-import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
+import {
+  seedFixtureSend,
+  seedFixtureTree,
+  seedFixtureUser,
+  seedManyClimbs,
+} from "@/test/fixtures";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 
 const ALL_SENDS_FILTER: UserSendsFilter = {
@@ -447,6 +454,11 @@ describe("getUserSentClimbIds", () => {
     const ids = await getUserSentClimbIds(db, "test-user-4");
     expect(ids).toEqual(new Set());
   });
+
+  it("can scope the lookup to only the visible climb ids", async () => {
+    expect(await getUserSentClimbIds(db, "test-user-1", [2, 3])).toEqual(new Set([2]));
+    expect(await getUserSentClimbIds(db, "test-user-1", [])).toEqual(new Set());
+  });
 });
 
 describe("getClimbSendStats", () => {
@@ -782,5 +794,37 @@ describe("getClimbSendSummary", () => {
       styleBreakdown: { flash: 0, redpoint: 0, onsight: 0 },
       suggestedGradeCounts: [],
     });
+  });
+});
+
+describe("getSendsForUserExportPage", () => {
+  it("keyset-pages a history larger than one export batch without duplicates", async () => {
+    const userId = "test-user-export";
+    const startId = 600_000;
+    await seedFixtureUser(db, { id: userId, name: "Large Export" });
+    await seedManyClimbs(db, 5, 205, startId);
+
+    const rows = Array.from({ length: 205 }, (_, index) => ({
+      userId,
+      climbId: startId + index,
+      ascentStyle: "redpoint" as const,
+      dateSent: index >= 200 ? null : "2026-04-01",
+      suggestedGrade: 2,
+    }));
+    for (let index = 0; index < rows.length; index += 10) {
+      await db.insert(sends).values(rows.slice(index, index + 10));
+    }
+
+    const exported: Awaited<ReturnType<typeof getSendsForUserExportPage>>["sends"] = [];
+    let cursor: UserSendsExportCursor | null = null;
+    do {
+      const page = await getSendsForUserExportPage(db, userId, cursor);
+      exported.push(...page.sends);
+      cursor = page.nextCursor;
+    } while (cursor);
+
+    expect(exported).toHaveLength(205);
+    expect(new Set(exported.map((send) => send.id)).size).toBe(205);
+    expect(exported.slice(-5).every((send) => send.dateSent === null)).toBe(true);
   });
 });

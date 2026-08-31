@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas, climbs, sends, user } from "@/db/schema";
 import { formatGrade, type ClimbType } from "@/lib/grades";
@@ -112,8 +112,9 @@ export const RECENT_SENDS_PAGE_SIZE = 15;
 export type RecentSendsPage = { sends: RecentSendRow[]; hasMore: boolean };
 
 /** The home feed: the latest sends across every climber and area, newest
- * logged first (created_at, not date_sent — the feed shows activity as it
- * lands, while each row still displays the climb date). Paged the same way
+ * ascent date first. This is a logbook chronology rather than an import
+ * activity stream: importing an older ascent places it at its historical
+ * date instead of presenting it as something sent today. Paged the same way
  * as every other list: server-rendered first page, /api/feed for the rest.
  *
  * The ORDER BY below is load-bearing beyond its ordering: it is matched
@@ -201,12 +202,26 @@ export async function getClimbSendSummary(
   return { ...stats[climbId], styleBreakdown, suggestedGradeCounts };
 }
 
-/** All climb ids the user already has a send for — cheap pre-check for bulk import, avoids one query per row just to detect duplicates. */
-export async function getUserSentClimbIds(db: Database, userId: string): Promise<Set<number>> {
+/** Climb ids the user already has a send for. Pass `climbIds` on list pages
+ * so the query and RSC payload stay proportional to the visible page; omit
+ * it only for workflows that genuinely need the whole set (the profile
+ * picker and import duplicate pre-check). */
+export async function getUserSentClimbIds(
+  db: Database,
+  userId: string,
+  climbIds?: readonly number[],
+): Promise<Set<number>> {
+  const distinctIds = climbIds ? [...new Set(climbIds)] : undefined;
+  if (distinctIds?.length === 0) return new Set();
+
   const rows = await db
     .select({ climbId: sends.climbId })
     .from(sends)
-    .where(eq(sends.userId, userId));
+    .where(
+      distinctIds
+        ? and(eq(sends.userId, userId), inArray(sends.climbId, distinctIds))
+        : eq(sends.userId, userId),
+    );
   return new Set(rows.map((r) => r.climbId));
 }
 
@@ -371,6 +386,65 @@ export async function getSendsForUserPage(
 
   const hasMore = rows.length > pageSize;
   return { sends: hasMore ? rows.slice(0, pageSize) : rows, hasMore };
+}
+
+export const EXPORT_SENDS_PAGE_SIZE = 200;
+export type UserSendsExportCursor = { dateSent: string | null; id: number };
+export type UserSendsExportPage = {
+  sends: UserSendRow[];
+  nextCursor: UserSendsExportCursor | null;
+};
+
+/** Full-history export uses keyset pagination rather than the UI list's
+ * bounded OFFSET. It therefore never replays/clamps at 10k rows and each
+ * request seeks from the previous `(date_sent, id)` key through
+ * sends_user_date_idx. */
+export async function getSendsForUserExportPage(
+  db: Database,
+  userId: string,
+  cursor: UserSendsExportCursor | null,
+): Promise<UserSendsExportPage> {
+  const afterCursor =
+    cursor === null
+      ? sql`1`
+      : cursor.dateSent === null
+        ? sql`sends.date_sent IS NULL AND sends.id > ${cursor.id}`
+        : sql`(
+            sends.date_sent < ${cursor.dateSent}
+            OR sends.date_sent IS NULL
+            OR (sends.date_sent = ${cursor.dateSent} AND sends.id > ${cursor.id})
+          )`;
+
+  const rows = await db.all<UserSendRow>(sql`
+    SELECT
+      sends.id AS id,
+      sends.climb_id AS climbId,
+      climbs.name AS climbName,
+      climbs.type AS climbType,
+      climbs.grade AS climbGrade,
+      climbs.area_id AS areaId,
+      areas.name AS areaName,
+      sends.ascent_style AS ascentStyle,
+      sends.date_sent AS dateSent,
+      sends.rating AS rating,
+      sends.suggested_grade AS suggestedGrade,
+      sends.grade_feel AS gradeFeel,
+      sends.comment AS comment
+    FROM sends INDEXED BY sends_user_date_idx
+    JOIN climbs ON climbs.id = sends.climb_id
+    JOIN areas ON areas.id = climbs.area_id
+    WHERE sends.user_id = ${userId} AND (${afterCursor})
+    ORDER BY sends.date_sent DESC, sends.id ASC
+    LIMIT ${EXPORT_SENDS_PAGE_SIZE + 1}
+  `);
+
+  const hasMore = rows.length > EXPORT_SENDS_PAGE_SIZE;
+  const page = hasMore ? rows.slice(0, EXPORT_SENDS_PAGE_SIZE) : rows;
+  const last = page.at(-1);
+  return {
+    sends: page,
+    nextCursor: hasMore && last ? { dateSent: last.dateSent, id: last.id } : null,
+  };
 }
 
 export type UserStatsSummary = {

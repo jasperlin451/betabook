@@ -144,6 +144,32 @@ describe("getSubtreeClimbs on a large-area-shaped subtree", () => {
     ]);
   });
 
+  it("drives selective name filters from FTS on the large-subtree branch", async () => {
+    const area = await getArea(db, AREA_ID);
+    const result = await getSubtreeClimbs(
+      db,
+      { ...area!, largeSubtree: true },
+      1,
+      "ascents_desc",
+      { disciplines: [], name: "Crusher" },
+    );
+    expect(result.climbs.map((climb) => climb.name)).toEqual(["Crusher Face"]);
+
+    const empty = await getSubtreeClimbs(
+      db,
+      { ...area!, largeSubtree: true },
+      1,
+      "ascents_desc",
+      { disciplines: [], name: "No Such Large Area Climb" },
+    );
+    expect(empty).toEqual({
+      climbs: [],
+      page: 1,
+      pageSize: 50,
+      hasNextPage: false,
+    });
+  });
+
   it("rejects a sort value with no matching index instead of inlining it into SQL", async () => {
     const area = await getArea(db, AREA_ID);
     await expect(

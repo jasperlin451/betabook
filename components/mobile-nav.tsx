@@ -8,6 +8,7 @@ import { AuthNav } from "@/components/auth-nav";
 
 export function MobileNav() {
   const state = useOverlayState();
+  const { close, open } = state;
   const pathname = usePathname();
 
   // Root layout persists across navigations, so the drawer won't close on
@@ -17,8 +18,8 @@ export function MobileNav() {
   // backstop for navigations that don't go through these links (e.g.
   // programmatic ones from nested menus).
   useEffect(() => {
-    state.close();
-  }, [pathname]);
+    close();
+  }, [pathname, close]);
 
   return (
     <>
@@ -28,7 +29,7 @@ export function MobileNav() {
         size="sm"
         className="md:hidden"
         aria-label="Open menu"
-        onPress={state.open}
+        onPress={open}
       >
         <MenuIcon className="size-5" />
       </Button>
@@ -48,7 +49,7 @@ export function MobileNav() {
                   * link for the same reason — a menu row pointing at "/"
                   * just duplicates it one tap deeper. */}
                 <nav aria-label="Primary" className="flex flex-col items-start gap-4 text-sm">
-                  <AuthNav direction="col" onNavigate={state.close} />
+                  <AuthNav direction="col" onNavigate={close} />
                 </nav>
               </Drawer.Body>
             </Drawer.Dialog>

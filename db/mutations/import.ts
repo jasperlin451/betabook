@@ -1,6 +1,6 @@
 "use server";
 
-import { refresh, revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
 import { getDb } from "@/db/client";
@@ -10,6 +10,7 @@ import { parseGrade } from "@/lib/grades";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { IMPORT_BATCH_SIZE, validateImportSendValues } from "@/lib/sends";
 import type { NormalizedImportRow } from "@/lib/sends-import";
+import { revalidateSendSurfaces } from "./revalidation";
 
 export type ImportRowFailureReason = "climb-not-found" | "climb-ambiguous";
 export type ImportResult = {
@@ -184,11 +185,14 @@ export async function importSends(
       // above moves climbs.sendCount/ratingSum/ratingCount, which the home
       // page, each climb's page, and each area's climb list all render — not
       // just the user's profile.
-      revalidatePath("/");
-      revalidatePath(`/users/${session.user.id}`);
-      for (const row of toInsert) revalidatePath(`/climbs/${row.climbId}`);
-      for (const { climbId } of toUpdate) revalidatePath(`/climbs/${climbId}`);
-      for (const areaId of affectedAreaIds) revalidatePath(`/areas/${areaId}`);
+      revalidateSendSurfaces({
+        userIds: [session.user.id],
+        climbIds: [
+          ...toInsert.map((row) => row.climbId),
+          ...toUpdate.map(({ climbId }) => climbId),
+        ],
+        areaIds: affectedAreaIds,
+      });
       refresh();
     }
 

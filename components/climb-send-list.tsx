@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import { formatDate } from "@/lib/format-date";
@@ -12,6 +12,7 @@ import { Grade } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
 import { SendListShell } from "@/components/send-list-shell";
 import { SendActionsMenu } from "@/components/send-actions-menu";
+import { useReconciledPagedList } from "@/hooks/use-reconciled-paged-list";
 
 type ClimbSendListProps = {
   climb: Climb;
@@ -40,123 +41,36 @@ export function ClimbSendList({
   currentUserId,
   emptyState,
 }: ClimbSendListProps) {
-  const [sends, setSends] = useState(initialSends);
-  const [hasMore, setHasMore] = useState(initialHasMore);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
-
-  // Post-mutation reconciliation, same as UserSendList: with only page 1
-  // loaded, adopting the fresh props IS the reconcile; with extra pages
-  // loaded, re-fetch the loaded range so corrected rows swap in without the
-  // list collapsing under the user. `staleTailLength` non-null means a
-  // reconcile fetch is due/in flight.
-  const [prevInitialSends, setPrevInitialSends] = useState(initialSends);
-  const [staleTailLength, setStaleTailLength] = useState<number | null>(null);
-  // A length delta alone can't distinguish "extra pages loaded" from "page 1
-  // itself shrank" (deleting a send from a full single page leaves
-  // sends.length > initialSends.length too) — only an actual load-more sets
-  // this, so the shrink case adopts the fresh page immediately instead of
-  // ghosting the deleted row through a pointless tail re-fetch.
-  const [loadedBeyondFirstPage, setLoadedBeyondFirstPage] = useState(false);
-  if (initialSends !== prevInitialSends) {
-    setPrevInitialSends(initialSends);
-    const tailLength = sends.length - initialSends.length;
-    if (loadedBeyondFirstPage && tailLength > 0 && tailLength <= MAX_CLIMB_SENDS_LIMIT) {
-      setStaleTailLength(tailLength);
-    } else {
-      // Either only page 1 is loaded (adopting the fresh props IS the
-      // reconcile), or the tail exceeds what the route's clamped `limit`
-      // can restore in one request — requesting it anyway would silently
-      // truncate the range, so for that rare case drop back to the fresh
-      // first page instead (same trade-off as UserSendList).
-      setStaleTailLength(null);
-      setLoadedBeyondFirstPage(false);
-      setSends(initialSends);
-      setHasMore(initialHasMore);
-    }
-  }
-
-  useEffect(() => {
-    if (staleTailLength === null) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const params = new URLSearchParams({
-          offset: String(initialSends.length),
-          limit: String(staleTailLength),
-        });
-        const res = await fetch(`/api/climbs/${climb.id}/sends?${params.toString()}`);
-        if (!res.ok) throw new Error(`Reloading sends failed: ${res.status}`);
-        const data: ClimbSendsPage = await res.json();
-        if (cancelled) return;
-        // Atomic swap of the whole loaded range — the stale rows stay
-        // visible until this lands, so the layout never collapses.
-        setSends([...initialSends, ...data.sends]);
-        setHasMore(data.hasMore);
-      } catch {
-        if (cancelled) return;
-        // Correctness over continuity: a deleted send must not keep ghosting
-        // in the stale tail, so fall back to just the fresh first page and
-        // let the inline error explain the shrink — the "load more" button
-        // doubles as the retry.
-        setSends(initialSends);
-        setHasMore(initialHasMore);
-        setLoadedBeyondFirstPage(false);
-        setLoadMoreFailed(true);
-      } finally {
-        if (!cancelled) setStaleTailLength(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [staleTailLength, initialSends, initialHasMore, climb.id]);
-
-  const reconciling = staleTailLength !== null;
-
-  // Post-commit mirror of the latest adopted first page, so an async
-  // load-more completion can tell whether a mutation refresh superseded the
-  // ordering it was fetched against.
-  const latestInitialSends = useRef(initialSends);
-  useEffect(() => {
-    latestInitialSends.current = initialSends;
-  }, [initialSends]);
-
-  async function handleLoadMore() {
-    const baseInitialSends = latestInitialSends.current;
-    setLoadingMore(true);
-    setLoadMoreFailed(false);
-    try {
-      const params = new URLSearchParams({ offset: String(sends.length) });
+  const {
+    items: sends,
+    hasMore,
+    loadingMore,
+    loadMoreFailed,
+    loadMore,
+  } = useReconciledPagedList<ClimbSendRow, null>({
+    initialItems: initialSends,
+    initialHasMore,
+    initialMeta: null,
+    maxReconcileItems: MAX_CLIMB_SENDS_LIMIT,
+    itemKey: (send) => send.id,
+    mergeMeta: () => null,
+    fetchPage: async (offset, limit) => {
+      const params = new URLSearchParams({ offset: String(offset) });
+      if (limit !== undefined) params.set("limit", String(limit));
       const res = await fetch(`/api/climbs/${climb.id}/sends?${params.toString()}`);
-      if (!res.ok) throw new Error(`Loading more sends failed: ${res.status}`);
+      if (!res.ok) throw new Error(`Loading sends failed: ${res.status}`);
       const data: ClimbSendsPage = await res.json();
-      // If a mutation refresh landed while this was in flight, this page was
-      // fetched against a superseded ordering — drop it (the reconcile above
-      // re-fetches the loaded range itself) rather than appending stale rows.
-      if (latestInitialSends.current !== baseInitialSends) return;
-      setSends((prev) => [...prev, ...data.sends]);
-      setLoadedBeyondFirstPage(true);
-      setHasMore(data.hasMore);
-    } catch {
-      // Network failure or a non-2xx response — keep what's loaded, surface
-      // an inline error, and leave the button as the retry affordance.
-      setLoadMoreFailed(true);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+      return { items: data.sends, hasMore: data.hasMore, meta: null };
+    },
+  });
 
   return (
     <SendListShell
       sends={sends}
       emptyState={emptyState}
       hasMore={hasMore}
-      onLoadMore={handleLoadMore}
-      // Also disabled while a post-mutation reconcile is re-fetching the
-      // loaded range — a load-more against the superseded ordering would be
-      // dropped anyway (see handleLoadMore).
-      loadingMore={loadingMore || reconciling}
+      onLoadMore={loadMore}
+      loadingMore={loadingMore}
       loadMoreError={
         loadMoreFailed && (
           <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>

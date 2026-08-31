@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { getAreaBreadcrumbs, getSendsForUserPage, getUser, USER_SENDS_PAGE_SIZE } from "@/db/queries";
 import { MAX_USER_SENDS_LIMIT, parseUserSendsFilter } from "@/lib/user-sends-filter";
-import { parseOffset, searchParamsToRecord } from "@/lib/search-params";
+import {
+  offsetReachesPaginationLimit,
+  parseOffset,
+  searchParamsToRecord,
+} from "@/lib/search-params";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -33,11 +37,19 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  if (safeOffset === null) {
+    return NextResponse.json({ sends: [], hasMore: false, areaBreadcrumbs: {} });
+  }
+
   const page = await getSendsForUserPage(db, userId, filter, safeOffset, pageSize);
   const areaBreadcrumbs = await getAreaBreadcrumbs(
     db,
     page.sends.map((send) => send.areaId),
   );
 
-  return NextResponse.json({ ...page, areaBreadcrumbs });
+  return NextResponse.json({
+    ...page,
+    hasMore: page.hasMore && !offsetReachesPaginationLimit(safeOffset, pageSize),
+    areaBreadcrumbs,
+  });
 }

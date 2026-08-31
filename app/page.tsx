@@ -150,7 +150,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
     getClimbSendStats(db, results.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, results.climbs.map((c) => c.areaId)),
-    session ? getUserSentClimbIds(db, session.user.id) : Promise.resolve(undefined),
+    session
+      ? getUserSentClimbIds(
+          db,
+          session.user.id,
+          results.climbs.map((climb) => climb.id),
+        )
+      : Promise.resolve(undefined),
   ]);
 
   return (

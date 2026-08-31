@@ -21,6 +21,11 @@ export type ParsedCsv = {
 };
 
 export const CLIMB_TYPES = ["boulder", "sport", "trad"] as const;
+/** Browser-side safety bounds: parsing is currently in-memory, so reject an
+ * accidental database dump before `file.text()` duplicates it and before
+ * Papa Parse materializes every cell. */
+export const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
+export const MAX_IMPORT_ROWS = 50_000;
 
 /** Every distinct, trimmed, non-blank value in `column` across `rows` — used
  * to build the value-mapping step's list of ascent-style/climb-type values

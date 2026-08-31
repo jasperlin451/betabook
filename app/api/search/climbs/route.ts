@@ -5,14 +5,21 @@ import {
   countSearchClimbs,
   getAreaBreadcrumbs,
   getClimbSendStats,
+  getUserSentClimbIds,
   searchClimbs,
 } from "@/db/queries";
+import { getSession } from "@/lib/session";
 import {
   parseClimbSearchFilter,
   parseClimbSearchSort,
   toSearchClimbsQueryParams,
 } from "@/lib/climb-search-filter";
-import { parsePage, parseSuggestionLimit, searchParamsToRecord } from "@/lib/search-params";
+import {
+  pageReachesPaginationLimit,
+  parsePage,
+  parseSuggestionLimit,
+  searchParamsToRecord,
+} from "@/lib/search-params";
 
 /** Backs two callers with the same query.
  *
@@ -38,21 +45,53 @@ export async function GET(request: Request) {
 
   const sort = parseClimbSearchSort(searchParams);
   const filter = parseClimbSearchFilter(searchParams);
-  const page = parsePage(url.searchParams, SEARCH_PAGE_SIZE);
+  const pageSize = limit ?? SEARCH_PAGE_SIZE;
+  const page = parsePage(url.searchParams, pageSize);
+
+  if (page === null) {
+    return NextResponse.json(
+      limit === null
+        ? {
+            climbs: [],
+            hasNextPage: false,
+            sendStats: {},
+            areaBreadcrumbs: {},
+            sentClimbIds: [],
+          }
+        : { climbs: [] },
+    );
+  }
 
   const db = await getDb();
   const queryParams = toSearchClimbsQueryParams(filter, sort);
-  const results = await searchClimbs(db, queryParams, page);
+  const [results, session] = await Promise.all([
+    searchClimbs(db, queryParams, page, pageSize),
+    limit === null ? getSession() : Promise.resolve(null),
+  ]);
 
   if (limit !== null) {
     return NextResponse.json({ climbs: results.climbs.slice(0, limit) });
   }
 
-  const [sendStats, areaBreadcrumbs, count] = await Promise.all([
+  const [sendStats, areaBreadcrumbs, count, sentClimbIds] = await Promise.all([
     getClimbSendStats(db, results.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, results.climbs.map((c) => c.areaId)),
     withCount ? countSearchClimbs(db, queryParams) : Promise.resolve(undefined),
+    session
+      ? getUserSentClimbIds(
+          db,
+          session.user.id,
+          results.climbs.map((climb) => climb.id),
+        )
+      : Promise.resolve(undefined),
   ]);
 
-  return NextResponse.json({ ...results, sendStats, areaBreadcrumbs, count });
+  return NextResponse.json({
+    ...results,
+    hasNextPage: results.hasNextPage && !pageReachesPaginationLimit(page, pageSize),
+    sendStats,
+    areaBreadcrumbs,
+    count,
+    sentClimbIds: sentClimbIds ? [...sentClimbIds] : undefined,
+  });
 }

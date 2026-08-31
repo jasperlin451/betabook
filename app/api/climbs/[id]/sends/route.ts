@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { CLIMB_SENDS_PAGE_SIZE, getClimb, getSendsForClimb } from "@/db/queries";
 import { MAX_CLIMB_SENDS_LIMIT } from "@/lib/sends";
-import { parseOffset } from "@/lib/search-params";
+import { offsetReachesPaginationLimit, parseOffset } from "@/lib/search-params";
 import { parseId } from "@/lib/parse-id";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -33,6 +33,13 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Climb not found" }, { status: 404 });
   }
 
+  if (safeOffset === null) {
+    return NextResponse.json({ sends: [], hasMore: false });
+  }
+
   const page = await getSendsForClimb(db, climb.id, safeOffset, pageSize);
-  return NextResponse.json(page);
+  return NextResponse.json({
+    ...page,
+    hasMore: page.hasMore && !offsetReachesPaginationLimit(safeOffset, pageSize),
+  });
 }

@@ -18,7 +18,10 @@ export const sends = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     climbId: integer("climb_id")
       .notNull()
-      .references(() => climbs.id, { onDelete: "cascade" }),
+      // A climb with logged sends is historical data, not an aggregate that
+      // should disappear with its parent. RESTRICT is also the database-level
+      // backstop for deleteClimb's conditional delete under concurrent writes.
+      .references(() => climbs.id, { onDelete: "restrict" }),
     ascentStyle: text("ascent_style", {
       enum: ["redpoint", "flash", "onsight"],
     }).notNull(),
@@ -40,8 +43,9 @@ export const sends = sqliteTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  // sends_date_desc_idx — (date_sent DESC, id DESC), the home feed's sort
-  // order — is declared in drizzle/migrations/0018_sends_date_index.sql
+  // sends_date_desc_idx (the home feed) and sends_user_date_idx (keyset CSV
+  // export) contain descending columns, so they are declared in hand-written
+  // migrations
   // instead of here, because drizzle-kit doesn't model descending index
   // columns (same reason the nine climbs sort indexes from
   // 0010_climb_sort_indexes.sql aren't in drizzle/schema/climbs.ts).

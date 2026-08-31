@@ -19,6 +19,8 @@ const eslintConfig = defineConfig([
     ".wrangler/**",
     // Gitignored raw seed data + one-off import tooling, not tracked app source.
     "climbs_data/**",
+    // Local Claude Code worktrees contain complete repository copies.
+    ".claude/**",
   ]),
 ]);
 
