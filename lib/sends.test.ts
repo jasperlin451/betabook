@@ -257,4 +257,27 @@ describe("validateImportSendValues", () => {
   it("reads a blank date as absent", () => {
     expect(validateImportSendValues(importRow({ dateSent: null }), TODAY).dateSent).toBeNull();
   });
+
+  // The wizard parses dates with date-fns, which rejects a day the month
+  // doesn't have; an ISO-shape check alone would let these through.
+  it.each(["2026-02-30", "2026-13-01", "2026-00-10", "2025-02-29"])(
+    "rejects the impossible date %s",
+    (dateSent) => {
+      expect(() => validateImportSendValues(importRow({ dateSent }), TODAY)).toThrow(
+        "Invalid send date",
+      );
+    },
+  );
+
+  it("accepts a real leap day", () => {
+    expect(validateImportSendValues(importRow({ dateSent: "2024-02-29" }), TODAY).dateSent).toBe(
+      "2024-02-29",
+    );
+  });
+
+  it("rejects a non-string date rather than reading it as absent", () => {
+    expect(() => validateImportSendValues(importRow({ dateSent: 20260101 }), TODAY)).toThrow(
+      "Invalid send date",
+    );
+  });
 });

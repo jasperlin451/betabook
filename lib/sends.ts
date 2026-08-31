@@ -84,10 +84,30 @@ function parseAscentStyle(value: unknown): AscentStyle {
   return value as AscentStyle;
 }
 
+/** ISO shape AND a date that exists. The shape check alone passes 2026-02-30
+ * and 2026-13-01, which the wizard's date-fns parse rejects — round-tripping
+ * through UTC is what catches a day the month doesn't have. */
+function isRealIsoDate(value: string): boolean {
+  if (!ISO_DATE_RE.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
 function parseDateSent(value: unknown, today: string): string | null {
-  const dateSent = typeof value === "string" ? value.trim() : "";
+  if (value === null || value === undefined) return null;
+  // Absent is null or blank. Anything else non-string is a caller sending
+  // something a date field can't hold, which is an error rather than "none".
+  if (typeof value !== "string") {
+    throw new ActionError("Invalid send date");
+  }
+  const dateSent = value.trim();
   if (!dateSent) return null;
-  if (!ISO_DATE_RE.test(dateSent)) {
+  if (!isRealIsoDate(dateSent)) {
     throw new ActionError("Invalid send date");
   }
   if (dateSent > latestAcceptableSendDate(today)) {
