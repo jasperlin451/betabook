@@ -13,9 +13,10 @@ type AreaPickerProps = {
   isInvalid?: boolean;
 };
 
-/** The most recent search to finish, tagged with the query it answered so a
- * finished-but-stale outcome can be told apart from one for the current text. */
-type SearchOutcome = { query: string; ok: boolean };
+/** How the current text's search ended, or `null` while it has no answer yet
+ * — reset the moment the text changes, so it always describes what the input
+ * says now rather than what it said when some earlier search finished. */
+type SearchStatus = "ok" | "failed";
 
 /** A searchable combobox for picking an existing area by name, showing each
  * result's ancestor path to disambiguate same-named areas — the only place
@@ -25,8 +26,11 @@ type SearchOutcome = { query: string; ok: boolean };
 export function AreaPicker({ selected, onSelectedChange, isInvalid }: AreaPickerProps) {
   const [query, setQuery] = useState(selected?.name ?? "");
   const [results, setResults] = useState<AreaWithAncestorPath[]>([]);
-  const [outcome, setOutcome] = useState<SearchOutcome | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [status, setStatus] = useState<SearchStatus | null>(null);
+  // Bumped to re-run the search effect for text that hasn't changed, which is
+  // the only way a failed search gets a second attempt.
+  const [retryToken, setRetryToken] = useState(0);
+  const [, startTransition] = useTransition();
   const inputRef = useRef<HTMLInputElement>(null);
   // Monotonic search generation. Server actions can't be aborted, so stale
   // responses are dropped instead: a response only commits if its generation
@@ -47,41 +51,64 @@ export function AreaPicker({ selected, onSelectedChange, isInvalid }: AreaPicker
           const found = await searchAreasForPicker(query);
           if (seq !== searchSeq.current) return;
           setResults(found);
-          setOutcome({ query, ok: true });
+          setStatus("ok");
         } catch {
           if (seq !== searchSeq.current) return;
           setResults([]);
-          setOutcome({ query, ok: false });
+          setStatus("failed");
         }
       });
     }, 400);
     return () => clearTimeout(timeout);
-  }, [query, selected]);
+  }, [query, selected, retryToken]);
 
   // A pick is only valid while the input still shows the picked area's name:
   // editing the text afterwards means the field no longer says what the form
-  // would submit, so drop the selection (both parent forms already treat "no
-  // selection" as not-yet-valid).
+  // would submit, so drop the selection. Both parent forms refuse to submit
+  // without a selection, so this can only cost a re-pick, never a silent
+  // substitution of some other value for the one that was picked.
   useEffect(() => {
     if (selected && query !== selected.name) onSelectedChange(null);
   }, [query, selected, onSelectedChange]);
 
   const trimmedQuery = query.trim();
-  const visibleResults = trimmedQuery ? results : [];
   // The input showing the picked area's name needs no search (see the effect
   // above), so it doesn't count as unanswered.
   const pickIsCurrent = selected != null && query === selected.name;
-  // "Searching" spans the debounce window plus the in-flight request: any
-  // typed text the latest finished search hasn't answered yet.
-  const searching =
-    Boolean(trimmedQuery) && !pickIsCurrent && (isPending || outcome?.query !== query);
-  const searchFailed = !searching && outcome?.ok === false && outcome.query === query;
+  // `results` answers whatever text was in the field when the search that
+  // filled it was fired, so it's only offerable once this text has an answer
+  // of its own — React Aria does no filtering of its own while `items` is
+  // controlled, so handing it the previous query's areas would leave them
+  // selectable under the "Searching..." row. A current pick is the exception:
+  // its search is skipped, and dropping the selected item out of `items`
+  // leaves React Aria unable to resolve `selectedKey` against the collection,
+  // which makes it clear the selection on blur.
+  const visibleResults = trimmedQuery && (status === "ok" || pickIsCurrent) ? results : [];
+  // "Searching" spans the debounce window plus the in-flight request: typed
+  // text with no answer yet.
+  const searching = Boolean(trimmedQuery) && !pickIsCurrent && status === null;
+  const searchFailed = status === "failed";
+
+  /** Every path that changes the text goes through here, so a search can't
+   * outlive the text it answered: React Aria routes its own edits (typing,
+   * committing a pick) through `onInputChange` while `inputValue` is
+   * controlled, and `clear` is the only other writer. Resetting here rather
+   * than in the search effect matters — an effect runs after paint, which
+   * would leave one frame showing the old answer against the new text. */
+  function retype(next: string) {
+    setQuery(next);
+    setStatus(null);
+  }
 
   function clear() {
-    setQuery("");
-    setResults([]);
+    retype("");
     onSelectedChange(null);
     inputRef.current?.focus();
+  }
+
+  function retry() {
+    setStatus(null);
+    setRetryToken((token) => token + 1);
   }
 
   return (
@@ -91,7 +118,7 @@ export function AreaPicker({ selected, onSelectedChange, isInvalid }: AreaPicker
       isInvalid={isInvalid}
       allowsEmptyCollection
       inputValue={query}
-      onInputChange={setQuery}
+      onInputChange={retype}
       items={visibleResults}
       selectedKey={selected ? String(selected.id) : null}
       onSelectionChange={(key) => {
@@ -99,7 +126,7 @@ export function AreaPicker({ selected, onSelectedChange, isInvalid }: AreaPicker
         onSelectedChange(
           picked ? { id: picked.id, name: picked.name, ancestorPath: picked.ancestorPath } : null,
         );
-        if (picked) setQuery(picked.name);
+        if (picked) retype(picked.name);
       }}
     >
       <ComboBox.InputGroup>
@@ -119,10 +146,29 @@ export function AreaPicker({ selected, onSelectedChange, isInvalid }: AreaPicker
         <ComboBox.Trigger />
       </ComboBox.InputGroup>
       <ComboBox.Popover>
-        {searching && <p className="text-muted px-3 py-2 text-xs">Searching&hellip;</p>}
-        {searchFailed && (
-          <p className="text-danger px-3 py-2 text-sm">Search failed &mdash; try again.</p>
-        )}
+        {/* Always mounted so swapping one message for another is an update to
+            a live region a screen reader is already watching, rather than a
+            region appearing with its text already in it — which is the case
+            readers tend not to announce. */}
+        <div role="status" aria-live="polite">
+          {searching && <p className="text-muted px-3 py-2 text-xs">Searching&hellip;</p>}
+          {searchFailed && (
+            <p className="text-danger px-3 py-2 text-sm">
+              Search failed &mdash;{" "}
+              <button
+                type="button"
+                // Taking focus would blur the input, which closes the popover
+                // — and the retry along with it, before the click lands.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={retry}
+                className="underline"
+              >
+                try again
+              </button>
+              .
+            </p>
+          )}
+        </div>
         <ListBox
           renderEmptyState={() =>
             trimmedQuery && !searching && !searchFailed ? (
