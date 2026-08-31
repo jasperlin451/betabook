@@ -1,20 +1,17 @@
-# Copy to `.dev.vars` (gitignored) for local development.
+# Copy to `.dev.vars` for local development.
 #
-# `next dev` reads bindings and vars through @opennextjs/cloudflare's
-# getPlatformProxy, which layers `.dev.vars` over the `vars` block in
-# wrangler.jsonc. Without this file BETTER_AUTH_URL falls back to the
-# production value there (https://betabook.ca), so every verification and
-# password-reset link generated locally points at the deployed site.
+# @opennextjs/cloudflare layers this file over the `vars` block in
+# wrangler.jsonc. Without it BETTER_AUTH_URL falls back to the production
+# value there, so local verification links point at the deployed site.
 
 BETTER_AUTH_URL=http://localhost:3000
 
-# Any non-empty string. Signs session cookies, so changing it invalidates
-# existing local sessions — that's fine, just sign in again.
+# Signs session cookies; any non-empty string. Changing it invalidates
+# existing local sessions.
 BETTER_AUTH_SECRET=dev-only-secret-change-me
 
-# Leave this empty locally. lib/email.ts treats an empty key as "no Resend"
-# and logs verification and reset links to the `next dev` console instead of
-# sending real mail. Keep the line itself: `pnpm cf-typegen` derives
-# CloudflareEnv partly from this file, and dropping it makes lib/email.ts's
-# `env.RESEND_API_KEY` fail to typecheck.
+# Empty means "no Resend" to lib/email.ts, which then logs verification and
+# reset links to the console. Keep the line: `pnpm cf-typegen` derives
+# CloudflareEnv from this file, and dropping it breaks lib/email.ts's
+# `env.RESEND_API_KEY` typecheck.
 RESEND_API_KEY=

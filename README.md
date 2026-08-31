@@ -11,9 +11,8 @@ pnpm cf-typegen        # generates worker-configuration.d.ts from wrangler.jsonc
 pnpm db:migrate:local
 ```
 
-Run `pnpm cf-typegen` again whenever you change `wrangler.jsonc` or add a key
-to `.dev.vars` — `CloudflareEnv` is derived from both, so a missing key shows
-up as a type error on `env.SOMETHING`.
+Re-run `pnpm cf-typegen` after changing `wrangler.jsonc` or adding a
+`.dev.vars` key — `CloudflareEnv` is derived from both.
 
 Then run the development server:
 
@@ -25,15 +24,11 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ### Local environment variables
 
-`next dev` gets its bindings and vars through `@opennextjs/cloudflare`, which
-layers `.dev.vars` (gitignored) over the `vars` block in `wrangler.jsonc`.
-`.dev.vars` is not optional for auth work: without it `BETTER_AUTH_URL` falls
-back to the production `https://betabook.ca`, so verification and
-password-reset links generated locally point at the deployed site.
-
-`RESEND_API_KEY` should stay unset locally — `lib/email.ts` then logs
-verification and reset links to the `next dev` console instead of sending real
-mail.
+`@opennextjs/cloudflare` layers `.dev.vars` (gitignored) over the `vars` block
+in `wrangler.jsonc`. `.dev.vars` is not optional for auth work: without it
+`BETTER_AUTH_URL` falls back to the production `https://betabook.ca`, so
+verification and password-reset links generated locally point at the deployed
+site. See `.dev.vars.example` for the keys.
 
 ### Signing in locally
 
@@ -45,19 +40,13 @@ pnpm seed:user                                  # dev@example.com / password
 pnpm seed:user me@example.com hunter2 Jasper    # or pick your own
 ```
 
-Then sign in at [/sign-in](http://localhost:3000/sign-in). Re-running the
-command against an existing email resets that user's password and name while
-keeping their id — and therefore their sends — so it doubles as a local
-password reset.
+Then sign in at [/sign-in](http://localhost:3000/sign-in). Re-running against
+an existing email resets that user's password and name but keeps their id, and
+so their sends.
 
-The script writes to the local D1 database only (`wrangler d1 execute --local`)
-and hashes the password with Better Auth's own `hashPassword`, so the stored
-credential is byte-for-byte what a real sign-up would have produced.
-
-Signing up through the UI at [/sign-up](http://localhost:3000/sign-up) also
-works. Because `lib/auth.ts` sets `requireEmailVerification: true`, you then
-have to copy the verification link out of the `next dev` console and open it
-before the account can sign in — the seed script exists to skip that step.
+Signing up at [/sign-up](http://localhost:3000/sign-up) works too, but
+`lib/auth.ts` sets `requireEmailVerification: true`, so you then have to open
+the verification link that `lib/email.ts` logs to the `next dev` console.
 
 ## Tests
 
@@ -65,10 +54,10 @@ before the account can sign in — the seed script exists to skip that step.
 pnpm test
 ```
 
-The suite runs under `@cloudflare/vitest-pool-workers`, which loads the worker
-entrypoint named in `wrangler.jsonc` (`.open-next/worker.js`). On a fresh
-checkout that file doesn't exist yet and every test file fails to import — run
-`pnpm exec opennextjs-cloudflare build` once first.
+`@cloudflare/vitest-pool-workers` loads the worker entrypoint named in
+`wrangler.jsonc` (`.open-next/worker.js`), so on a fresh checkout run
+`pnpm exec opennextjs-cloudflare build` once first — otherwise every test file
+fails to import.
 
 ## Learn More
 

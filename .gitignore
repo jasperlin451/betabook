@@ -32,9 +32,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
-# Glob rather than the bare `.dev.vars`: wrangler's `--env` flag selects
-# `.dev.vars.<environment>` too, and those hold real secrets. This pair is
-# what wrangler writes into a .gitignore itself.
+# Glob, not bare `.dev.vars`: wrangler's `--env` also reads .dev.vars.<env>
 .dev.vars*
 !.dev.vars.example
 

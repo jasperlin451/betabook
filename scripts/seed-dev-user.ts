@@ -1,20 +1,11 @@
 /**
- * Seeds a verified email/password user straight into the *local* D1 database,
- * so local development isn't limited to anonymous browsing.
+ * Seeds a pre-verified email/password user into the local D1 database.
  *
- * Signing up through the UI works too, but costs an extra round trip: with
- * `requireEmailVerification: true` in lib/auth.ts you have to fish the
- * verification link out of the `next dev` logs (lib/email.ts console.logs it
- * whenever RESEND_API_KEY is unset) and click it. This script skips that by
- * writing `email_verified = 1` directly.
- *
- * Usage:
- *   pnpm seed:user                          # dev@example.com / password / "Dev User"
+ *   pnpm seed:user                                  # dev@example.com / password
  *   pnpm seed:user me@example.com hunter2 Jasper
  *
- * Re-running with the same email resets that user's name and password rather
- * than erroring, so it doubles as a "reset my local password" escape hatch.
- * The user's id is preserved, so any sends they've logged survive a re-run.
+ * Idempotent on email: a re-run rotates the password and name but keeps the
+ * user id, and so their sends.
  */
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -27,14 +18,10 @@ const [email = "dev@example.com", password = "password", name = "Dev User"] =
 const q = (value: string) => `'${value.replace(/'/g, "''")}'`;
 
 async function main() {
-  // Hash with better-auth's own helper rather than reimplementing scrypt, so
-  // the stored format tracks whatever the installed better-auth version
-  // expects `verifyPassword` to read back.
+  // better-auth's own helper, so the stored format stays whatever the
+  // installed version's `verifyPassword` reads back.
   const hash = await hashPassword(password);
 
-  // The account rows are matched on (user_id, provider_id) rather than a
-  // stable id, so a fresh uuid is only used when no credential account
-  // exists yet — see the guarded INSERT below.
   const sql = `
 INSERT INTO user (id, name, email, email_verified)
 VALUES (${q(randomUUID())}, ${q(name)}, ${q(email)}, 1)
@@ -60,8 +47,7 @@ WHERE provider_id = 'credential'
   AND user_id = (SELECT id FROM user WHERE email = ${q(email)});
 `;
 
-  // --local is not optional here: this writes a known-weak password, and must
-  // never be pointed at the deployed database.
+  // --local is load-bearing: this writes a known-weak password.
   execFileSync("wrangler", ["d1", "execute", "DB", "--local", "--command", sql], {
     stdio: ["ignore", "ignore", "inherit"],
   });
