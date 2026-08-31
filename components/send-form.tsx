@@ -101,10 +101,8 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
     existingSend?.ascentStyle ?? "redpoint",
   );
   const [dateSent, setDateSent] = useState(existingSend?.dateSent ?? today);
-  // An undated send has always been representable — the column is nullable
-  // and the validator maps blank to null, which is how imports arrive — but
-  // the form had no way to say it: an undated send opened on today's date
-  // and saving stamped it.
+  // An existing undated send has to open checked, or saving stamps it with
+  // today's date.
   const [dateUnknown, setDateUnknown] = useState(
     existingSend != null && existingSend.dateSent == null,
   );
@@ -164,8 +162,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
             onChange={(e) => setDateSent(e.target.value)}
             className={`${FIELD_CLASS} disabled:opacity-60`}
           />
-          {/* Disabled rather than cleared, so toggling back doesn't cost the
-            * user the date they had already picked. */}
+          {/* Disabled rather than cleared so toggling back keeps the date. */}
           <Checkbox
             className="mt-2"
             isSelected={dateUnknown}

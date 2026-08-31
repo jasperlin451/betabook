@@ -113,8 +113,8 @@ describe("createSend action boundary", () => {
 });
 
 describe("updateSend action boundary", () => {
-  // Climb 4 (Test Crack) is this describe's alone, re-seeded per test, so
-  // each date transition starts from a state it set itself.
+  // Climb 4 is this describe's alone — re-seeded per test, per the
+  // one-test-one-row convention above.
   async function seedSend(dateSent: string | null): Promise<number> {
     await db.delete(sends).where(eq(sends.climbId, 4));
     await seedFixtureSend(db, { userId: "test-user", climbId: 4, dateSent });
@@ -122,10 +122,8 @@ describe("updateSend action boundary", () => {
     return row!.id;
   }
 
-  // Both directions, because the write is a partial update: drizzle's .set()
-  // drops `undefined` keys, so a dateSent that ever went missing from
-  // validateSendInput's result would leave the old date in place and this
-  // clear would silently no-op.
+  // drizzle's .set() drops `undefined` keys, so a dateSent gone missing from
+  // validateSendInput's result would make this clear a silent no-op.
   it("clears the date on a dated send when the form submits a blank date", async () => {
     const sendId = await seedSend("2026-01-15");
 
