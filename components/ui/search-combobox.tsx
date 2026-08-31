@@ -9,6 +9,9 @@ export type SearchComboboxProps<T extends object> = {
   onChange: (value: string) => void;
   /** Resolves suggestions for the typed text (see `useTypeahead`). */
   fetcher: TypeaheadFetcher<T>;
+  /** What the fetcher is parameterized by, if anything — results settled
+   * under one scope are dropped when it changes (see `useTypeahead`). */
+  scope?: string;
   /** Stable per-item id — also what `onSelect` is resolved against. */
   itemKey: (item: T) => string;
   /** The item's plain-text identity, for typeahead matching and a11y. */
@@ -54,6 +57,7 @@ export function SearchCombobox<T extends object>({
   value,
   onChange,
   fetcher,
+  scope,
   itemKey,
   itemText,
   renderItem,
@@ -69,7 +73,7 @@ export function SearchCombobox<T extends object>({
   className,
   inputClassName,
 }: SearchComboboxProps<T>) {
-  const { items, isPending } = useTypeahead(value, fetcher);
+  const { items, isPending } = useTypeahead(value, fetcher, { scope });
 
   return (
     <ComboBox<T>

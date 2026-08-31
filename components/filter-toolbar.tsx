@@ -107,9 +107,8 @@ export function FilterToolbar<T extends DisciplineFilter>({
            * below owns its own spacing. */}
           <Disclosure.Content className="min-w-0">
             <Disclosure.Body style={{ padding: 0 }}>
-              {/* A surface, not loose fields on the page background: the
-                * expanded filters are one panel hanging off the bar, and
-                * without a ground they read as stray page content. */}
+              {/* Its own surface, so the expanded filters read as one panel
+                * belonging to the bar rather than loose page content. */}
               <div className="mt-3 flex flex-col gap-4 rounded-xl bg-surface-secondary p-4">
                 {extraFilters}
                 <DisciplineGradeSliders value={value} onChange={onChange} />

@@ -162,10 +162,9 @@ export function UserSendsFilterToolbar({
       onChange={setDisciplineFilter}
       onReset={reset}
       search={
-        // One field on the bar, same as the area page: with the stats
-        // sidebar taking its column, a second field can't share this row at
-        // any realistic width. Area scope moves into "More filters" below,
-        // where the rest of the secondary filters already live.
+        // One field on the bar: the stats sidebar takes a third of the
+        // width, leaving no room for a second. Area scope lives in "More
+        // filters" with the rest of the secondary filters.
         <RouteSearchField
           value={name}
           onChange={setName}
@@ -190,9 +189,7 @@ export function UserSendsFilterToolbar({
       }
       extraFilters={
         <>
-          {/* Inline label, matching Ascent Style and Min Rating below —
-            * a stacked label here was the one field in the panel with a
-            * different rhythm. */}
+          {/* Inline label, matching Ascent Style and Min Rating below. */}
           <div className="flex flex-wrap items-center gap-3">
             <span className="shrink-0 text-sm font-medium text-foreground">In area</span>
             <AreaSearchField
@@ -374,7 +371,6 @@ export function UserSendList({
   if (!hasAnySends) {
     return (
       <div className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold">Sends</h2>
         <EmptyState
           message="No sends yet."
           cta={
@@ -391,7 +387,6 @@ export function UserSendList({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Heading and sort both live above this now, in the page's toolbar. */}
       {/* Dimmed while the toolbar's debounced navigation is re-fetching
        * these results (see NavigationPendingProvider in the page). */}
       <NavigationPendingRegion>

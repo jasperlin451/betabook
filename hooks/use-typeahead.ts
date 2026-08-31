@@ -45,18 +45,31 @@ export type TypeaheadState<T> = {
 export function useTypeahead<T>(
   query: string,
   fetcher: TypeaheadFetcher<T>,
-  { debounceMs = TYPEAHEAD_DEBOUNCE_MS, enabled = true }: { debounceMs?: number; enabled?: boolean } = {},
+  {
+    debounceMs = TYPEAHEAD_DEBOUNCE_MS,
+    enabled = true,
+    scope = "",
+  }: { debounceMs?: number; enabled?: boolean; scope?: string } = {},
 ): TypeaheadState<T> {
-  // The query these items answer, stored alongside them rather than as a
-  // separate `isPending` flag: "still loading" is exactly "the settled query
-  // isn't the one being typed", so deriving it can't drift out of sync with
-  // the items the way two independent pieces of state would.
-  const [settled, setSettled] = useState<{ query: string; items: T[] }>({ query: "", items: [] });
+  // The query AND scope these items answer, stored alongside them rather than
+  // as a separate `isPending` flag: "still loading" is exactly "what settled
+  // isn't what's being asked for", so deriving it can't drift out of sync
+  // with the items the way independent pieces of state would.
+  //
+  // `scope` is what the fetcher is parameterized by (an area id, say). The
+  // fetcher itself can't be the trigger — call sites build it inline, so its
+  // identity changes every render — but results fetched under one scope must
+  // not survive into another, which the query alone can't express.
+  const [settled, setSettled] = useState<{ query: string; scope: string; items: T[] }>({
+    query: "",
+    scope: "",
+    items: [],
+  });
 
   // Call sites pass an inline arrow (it closes over an areaId, a limit, …),
   // so a new identity arrives every render. Depending on it directly would
   // restart the debounce on every render and never settle; the ref keeps the
-  // latest one reachable while `query` stays the only trigger.
+  // latest one reachable while `query` and `scope` stay the triggers.
   const fetcherRef = useRef(fetcher);
   useEffect(() => {
     fetcherRef.current = fetcher;
@@ -74,12 +87,12 @@ export function useTypeahead<T>(
       void (async () => {
         try {
           const items = await fetcherRef.current(trimmed, controller.signal);
-          if (!superseded) setSettled({ query: trimmed, items });
+          if (!superseded) setSettled({ query: trimmed, scope, items });
         } catch {
           // Settling empty, not leaving it pending: a failed lookup is a
           // finished one, and the popover should say "nothing" rather than
           // spin forever.
-          if (!superseded) setSettled({ query: trimmed, items: [] });
+          if (!superseded) setSettled({ query: trimmed, scope, items: [] });
         }
       })();
     }, debounceMs);
@@ -89,14 +102,22 @@ export function useTypeahead<T>(
       controller.abort();
       clearTimeout(timeout);
     };
-  }, [trimmed, debounceMs, enabled]);
+  }, [trimmed, scope, debounceMs, enabled]);
+
+  // Results from a different scope are not "the previous matches", they're
+  // answers to a different question — so unlike a query change, a scope
+  // change drops them rather than showing them while the new ones load.
+  const scopeMatches = settled.scope === scope;
 
   return {
     // Clearing the field empties the popover immediately rather than leaving
     // the last query's matches sitting under an empty input. A *changed*
     // query keeps the previous matches on screen until the new ones land,
     // which reads as a list refining rather than blinking out per keystroke.
-    items: trimmed ? settled.items : [],
-    isPending: enabled && trimmed !== "" && settled.query !== trimmed,
+    //
+    // A disabled lookup reports nothing: its fetch is stopped, so whatever it
+    // settled on last is a leftover its caller must not treat as current.
+    items: enabled && trimmed && scopeMatches ? settled.items : [],
+    isPending: enabled && trimmed !== "" && (settled.query !== trimmed || !scopeMatches),
   };
 }

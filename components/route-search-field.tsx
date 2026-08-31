@@ -63,6 +63,9 @@ export function RouteSearchField({
       value={value}
       onChange={onChange}
       fetcher={fetcher}
+      // Suggestions fetched for one area must not linger when the field is
+      // re-pointed at another.
+      scope={String(areaId ?? "")}
       itemKey={(route) => String(route.id)}
       itemText={(route) => route.name}
       renderItem={(route) => <RouteSuggestionRow route={route} />}

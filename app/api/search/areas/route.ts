@@ -11,8 +11,7 @@ import { parseSuggestionLimit } from "@/lib/search-params";
  *
  * With `limit`: suggestion mode for the area typeaheads. `searchAreas`
  * already returns each row's `ancestorPath`, which is the only context a
- * popover row shows, so the breadcrumb pass is skipped — it was always
- * re-deriving what the search had in hand. */
+ * popover row shows, so the breadcrumb pass is skipped. */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const name = url.searchParams.get("name") ?? "";

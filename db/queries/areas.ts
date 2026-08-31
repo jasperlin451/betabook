@@ -194,11 +194,10 @@ export async function searchAreas(
       WHERE areas.parent_id IS NOT NULL
     )
     SELECT areas.*, (
-      -- The ORDER BY has to sit on a subquery whose rows GROUP_CONCAT then
-      -- consumes, not beside the aggregate itself: an ORDER BY applied to an
-      -- aggregate query orders its single output row, leaving the
-      -- concatenation to follow whatever order the scan happened to produce.
-      -- Ordering the input rows is what actually fixes the sequence.
+      -- GROUP_CONCAT joins rows in the order it receives them, so the
+      -- ORDER BY belongs on a subquery it consumes. Placed beside the
+      -- aggregate it would order that query's single output row instead,
+      -- leaving the concatenation to follow incidental scan order.
       SELECT GROUP_CONCAT(name, ' > ') FROM (
         SELECT ancestor.name AS name
         FROM ancestor_chain

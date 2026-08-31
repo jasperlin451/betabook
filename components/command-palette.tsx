@@ -101,8 +101,13 @@ export function CommandPalette() {
             * dropdown from the trigger, not a takeover of the page. */}
           <Modal.Container placement="top" size="lg" className="pt-[10vh]">
             <Modal.Dialog aria-label="Search Betabook">
+              {/* No `key` on open state: the modal keeps its children
+                * mounted through the exit animation, so remounting on close
+                * would blank the query and results mid-fade and re-fire
+                * autoFocus inside the closing dialog. The overlay already
+                * unmounts this subtree between opens, which is what gives
+                * each session its fresh empty state. */}
               <PaletteBody
-                key={state.isOpen ? "open" : "closed"}
                 scopeAreaId={scope?.areaId}
                 scopeAreaName={scope?.areaName}
                 onNavigate={(href) => {
@@ -156,7 +161,7 @@ function PaletteTrigger({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-/** Remounted per open (see the `key` above) so each session starts empty
+/** Mounted fresh by the overlay on each open, so a session starts empty
  * rather than showing the last search's results before the first keystroke. */
 function PaletteBody({
   scopeAreaId,
@@ -168,7 +173,7 @@ function PaletteBody({
   onNavigate: (href: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const keys = useModifierLabels();
   const listId = useId();
   const optionIdPrefix = useId();
@@ -184,7 +189,10 @@ function PaletteBody({
   );
   const areaFetcher = useCallback((q: string, signal: AbortSignal) => fetchAreaSuggestions(q, signal), []);
 
-  const scoped = useTypeahead(query, scopedFetcher, { enabled: scopeAreaId != null });
+  const scoped = useTypeahead(query, scopedFetcher, {
+    enabled: scopeAreaId != null,
+    scope: String(scopeAreaId ?? ""),
+  });
   const routes = useTypeahead(query, routeFetcher);
   const areas = useTypeahead(query, areaFetcher);
 
@@ -195,10 +203,15 @@ function PaletteBody({
   const sections = useMemo((): PaletteSection[] => {
     if (!trimmed) return [];
 
-    const scopedIds = new Set(scoped.items.map((route) => route.id));
     const result: PaletteSection[] = [];
 
-    if (scopeAreaName && scoped.items.length > 0) {
+    // Derived from the scoped rows only when they are actually rendered. A
+    // set built from rows nobody can see would still subtract those routes
+    // from "Routes", leaving them reachable from neither section.
+    const showScoped = Boolean(scopeAreaName) && scoped.items.length > 0;
+    const scopedIds = new Set(showScoped ? scoped.items.map((route) => route.id) : []);
+
+    if (showScoped) {
       result.push({ heading: `In ${scopeAreaName}`, entries: scoped.items.map(routeEntry) });
     }
     // Scoped matches already appeared above; repeating them under "Routes"
@@ -237,17 +250,26 @@ function PaletteBody({
 
   const entries = useMemo(() => sections.flatMap((section) => section.entries), [sections]);
 
-  // Results arriving under a stale highlight would leave the selection on
-  // whatever row happens to land at that index — reset to the top instead.
-  // Render-time "adjust state when inputs change" (per the React docs, and
-  // the same shape use-filter-form-navigation uses): an effect would let one
-  // frame paint with the highlight on the wrong row first.
-  const resetKey = `${trimmed} ${entries.length}`;
-  const [prevResetKey, setPrevResetKey] = useState(resetKey);
-  if (prevResetKey !== resetKey) {
-    setPrevResetKey(resetKey);
-    setActiveIndex(0);
+  // The highlight is held as the row's own key, not its position. Three
+  // independent lookups settle at different times, so rows appear, reorder
+  // and shift underneath a highlight that has not moved — an index would
+  // then name a different route than the one the user arrowed onto, and
+  // Enter would open the wrong thing.
+  //
+  // Only a new query clears it. Render-time "adjust state when inputs
+  // change" (per the React docs, and the shape use-filter-form-navigation
+  // already uses): an effect would let one frame paint the stale highlight.
+  const [prevTrimmed, setPrevTrimmed] = useState(trimmed);
+  if (prevTrimmed !== trimmed) {
+    setPrevTrimmed(trimmed);
+    setActiveKey(null);
   }
+
+  // Falls back to the first row when the highlighted one is gone — nothing
+  // is selected before the first arrow press either, and the top row is what
+  // Enter should take in both cases.
+  const foundIndex = activeKey == null ? -1 : entries.findIndex((e) => e.key === activeKey);
+  const activeIndex = foundIndex === -1 ? 0 : foundIndex;
 
   useEffect(() => {
     activeRef.current?.scrollIntoView({ block: "nearest" });
@@ -263,7 +285,7 @@ function PaletteBody({
       event.preventDefault();
       if (entries.length === 0) return;
       const step = event.key === "ArrowDown" ? 1 : -1;
-      setActiveIndex((prev) => (prev + step + entries.length) % entries.length);
+      setActiveKey(entries[(activeIndex + step + entries.length) % entries.length].key);
       return;
     }
     if (event.key === "Enter") {
@@ -286,7 +308,7 @@ function PaletteBody({
           aria-expanded={entries.length > 0}
           aria-controls={listId}
           aria-activedescendant={
-            entries[activeIndex] ? `${optionIdPrefix}-${activeIndex}` : undefined
+            entries[activeIndex] ? `${optionIdPrefix}-${entries[activeIndex].key}` : undefined
           }
           aria-label="Search routes and areas"
           autoComplete="off"
@@ -319,11 +341,14 @@ function PaletteBody({
                 return (
                   <li
                     key={entry.key}
-                    id={`${optionIdPrefix}-${index}`}
+                    // Keyed by row, not position, so aria-activedescendant
+                    // always resolves to the row that is actually
+                    // highlighted even as late results reorder the list.
+                    id={`${optionIdPrefix}-${entry.key}`}
                     role="option"
                     aria-selected={isActive}
                     ref={isActive ? activeRef : undefined}
-                    onMouseMove={() => setActiveIndex(index)}
+                    onMouseMove={() => setActiveKey(entry.key)}
                     onClick={() => onNavigate(entry.href)}
                     className={clsx(
                       "cursor-pointer rounded-lg px-2 py-2 text-sm",

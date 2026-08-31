@@ -52,9 +52,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <h1 className="sr-only">Betabook</h1>
 
         <section className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-          {/* "or browse areas" dangled off the search bar that used to sit
-            * above; standing alone it becomes the heading's own affordance —
-            * still the one visible path to area search from the feed. */}
+          {/* The feed's one visible path to area search — ⌘K covers the rest. */}
           <div className="flex items-baseline justify-between gap-3">
             <SectionHeading>Recent sends</SectionHeading>
             <AppLink href="/?mode=area" className="text-xs text-muted">

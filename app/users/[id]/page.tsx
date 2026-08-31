@@ -116,12 +116,12 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
         </AppLink>
       </div>
 
-      {/* The sidebar (filters + stats) leads on mobile and sits right of the
-       * list on desktop — a single render of the stats card, so the headline
-       * stats aren't buried below the infinite send list on mobile and don't
-       * appear twice in the accessibility tree. The filters used to share
-       * that column; they now sit in a toolbar directly above the rows they
-       * narrow, the same shape the area page uses over its climb table.
+      {/* The stats sidebar leads on mobile and sits right of the list on
+       * desktop — a single render of the stats card, so the headline stats
+       * aren't buried below the infinite send list on mobile and don't appear
+       * twice in the accessibility tree. Filters sit in a toolbar directly
+       * above the rows they narrow, the same shape the area page uses over
+       * its climb table.
        *
        * The provider links the toolbar's in-flight navigation to the send
        * list it re-fetches, which dims while pending. */}
