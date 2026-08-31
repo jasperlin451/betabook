@@ -365,8 +365,13 @@ function PaletteBody({
   let optionIndex = -1;
 
   return (
-    <div className="flex flex-col">
-      <div className="flex items-center gap-3 border-b border-separator px-4 py-3">
+    /* min-h-0 here and on the list below: Modal.Dialog caps itself to the
+     * visual viewport and clips the overflow rather than scrolling it, and a
+     * flex item's default `min-height: auto` won't shrink below its content.
+     * Without both, a long result list is clipped with no scrollbar, taking
+     * the trailing "search all" rows with it. */
+    <div className="flex min-h-0 flex-col">
+      <div className="flex shrink-0 items-center gap-3 border-b border-separator px-4 py-3">
         <Search className="size-4 shrink-0 text-muted" aria-hidden />
         <input
           autoFocus
@@ -388,7 +393,14 @@ function PaletteBody({
         <Kbd className="hidden shrink-0 sm:inline-flex">esc</Kbd>
       </div>
 
-      <ul id={listId} role="listbox" aria-label="Search results" className="max-h-[50vh] overflow-y-auto p-2">
+      <ul
+        id={listId}
+        role="listbox"
+        aria-label="Search results"
+        /* 50vh is the design cap, the dialog's viewport cap is the physical
+         * one; min-h-0 lets whichever is tighter win. */
+        className="max-h-[50vh] min-h-0 overflow-y-auto overscroll-contain p-2"
+      >
         {sections.map((section) => (
           <li
             key={section.heading || "actions"}
@@ -441,7 +453,7 @@ function PaletteBody({
         )}
       </ul>
 
-      <div className="hidden items-center gap-4 border-t border-separator px-4 py-2 text-xs text-muted sm:flex">
+      <div className="hidden shrink-0 items-center gap-4 border-t border-separator px-4 py-2 text-xs text-muted sm:flex">
         <span className="flex items-center gap-1.5">
           <Kbd>↵</Kbd> open
         </span>

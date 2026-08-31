@@ -39,6 +39,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  interactiveWidget: "resizes-content",
   // Matches --background per theme (globals.css: paper in light, ink in
   // dark), so the browser chrome follows the app instead of staying light
   // on the dark theme.
