@@ -4,6 +4,7 @@ import type { AreaClimbsFilter } from "@/lib/area-climbs-filter";
 import type { GradeHistogram } from "@/lib/grade-histogram";
 import { formatCount } from "@/lib/format";
 import { GradeHistogramChart } from "@/components/grade-histogram";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageTitle } from "@/components/ui/typography";
@@ -65,18 +66,28 @@ export function AreaCragHeader({
         </div>
       )}
 
-      {/* Desktop only. Below md the discipline charts stack, and three of
-        * them push the climb list — the reason to open an area — off the
-        * first screen. The summary row above still carries the count, grade
-        * spans and disciplines, and the toolbar's grade filters reach the
-        * same rows a bar would, so nothing is only available here.
+      {/* Below md the discipline charts stack, and three of them push the
+        * climb list — the reason to open an area — off the first screen.
+        * Collapsed behind a trigger row costs the same one line as dropping
+        * the charts outright did, but keeps them on a phone: the bars are a
+        * filter, not just a picture, and that was the part a plain hide took
+        * away. Same treatment as the sub-area rail (see the page's
+        * CollapsibleSection), one breakpoint down — the rail tracks `lg`
+        * because that's where it becomes a side column, while this is only
+        * ever asking whether there's width for the charts.
+        *
+        * From md up the section is permanently expanded, so desktop is
+        * unchanged — hence the sr-only desktop heading rather than a visible
+        * one; the header has never titled the chart there.
         *
         * Guarded rather than always wrapped: the chart renders nothing when
-        * there are no groups, and a bare wrapper would still claim a gap. */}
+        * there are no groups (a largeSubtree area is handed none), and a
+        * bare wrapper would still claim a gap in this stack — now with a
+        * trigger row opening onto nothing. */}
       {histogram.groups.length > 0 && (
-        <div className="hidden md:block">
+        <CollapsibleSection title="Grade spread" breakpoint="md" showTitleOnDesktop={false}>
           <GradeHistogramChart histogram={histogram} areaId={area.id} filter={filter} />
-        </div>
+        </CollapsibleSection>
       )}
     </div>
   );
