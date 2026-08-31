@@ -73,3 +73,21 @@ AFTER UPDATE OF parent_id ON areas WHEN new.parent_id IS NOT NULL BEGIN
     SELECT 1 FROM ancestors WHERE id = new.id
   );
 END;
+--> statement-breakpoint
+-- The triggers only bind writes from here on, so prove the invariant actually
+-- holds right now rather than asserting it. The reasoning above says a cycle
+-- can't already exist — but that reasoning is precisely what this migration
+-- exists to stop depending on, and the failure it would leave behind is the
+-- worst kind to debug: reads that hang until D1's 30s limit instead of
+-- erroring. Better to fail the deploy.
+--
+-- A no-op self-assignment, which suffices because `UPDATE OF parent_id` fires
+-- on the SET clause naming the column, not on the value changing — so every
+-- existing edge runs through the guard just installed above, and the check
+-- can't drift from what it's checking. Nothing else fires: the FTS triggers
+-- (0015) are `UPDATE OF name`, and climbs.avg_rating's generated expression
+-- doesn't read areas.
+--
+-- Costs one depth-bounded ancestor walk per non-root area, once, at migration
+-- time.
+UPDATE areas SET parent_id = parent_id WHERE parent_id IS NOT NULL;
