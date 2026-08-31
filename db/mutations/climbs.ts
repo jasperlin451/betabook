@@ -3,10 +3,9 @@
 import { refresh, revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { requireSession } from "@/lib/session";
-import { getDb, getDbAndContext } from "@/db/client";
+import { getDb } from "@/db/client";
 import { climbs } from "@/db/schema";
 import { getArea, getClimb } from "@/db/queries";
-import { recomputeAreaTree } from "@/db/reindex-areas";
 import {
   validateClimbInput,
   validateNewClimbInput,
@@ -63,31 +62,21 @@ export async function createClimb(
 ): Promise<ActionResult<number>> {
   return toActionResult(async () => {
     await requireSession();
-    const { db, ctx } = await getDbAndContext();
+    const db = await getDb();
 
     const area = parseId(areaId) === null ? undefined : await getArea(db, areaId);
     if (!area) throw new ActionError("Area not found");
 
     // climbs_fts stays in sync via triggers (drizzle/migrations/
     // 0015_fts_sync_triggers.sql), atomically within this same statement.
+    // areaId alone locates the climb in the tree — subtree queries resolve
+    // ancestry through areas.parentId at read time, so there's no denormalized
+    // position to copy here and none to repair afterwards.
     const input = validateNewClimbInput(readClimbFormData(formData));
     const [{ id }] = await db
       .insert(climbs)
-      .values({ areaId, lft: area.lft, rght: area.rght, ...input })
+      .values({ areaId, ...input })
       .returning({ id: climbs.id });
-
-    // The area's own createArea call already triggers a recompute, but if this
-    // climb landed in the gap before that job committed (or after it already
-    // exhausted its retries), it would otherwise be stuck at lft=0/rght=0
-    // forever unless some unrelated area happens to be created later — so
-    // give it another chance here rather than relying on that.
-    if (area.lft === 0 && area.rght === 0) {
-      ctx.waitUntil(
-        recomputeAreaTree(db).catch((err) =>
-          console.error(`recomputeAreaTree failed after createClimb(${id}) into stale area ${areaId}`, err),
-        ),
-      );
-    }
 
     revalidatePath(`/areas/${areaId}`);
     revalidatePath("/");

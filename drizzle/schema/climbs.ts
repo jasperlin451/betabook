@@ -13,14 +13,6 @@ export const climbs = sqliteTable(
     type: text("type", { enum: ["boulder", "sport", "trad"] }).notNull(),
     grade: integer("grade"),
     description: text("description"),
-    // Denormalized copy of the owning area's areas.lft/rght, kept in sync
-    // only by the offline reindex step (see scripts/reindex-areas.ts) since
-    // areas.lft/rght themselves are never written by app code — lets
-    // getSubtreeClimbs filter by subtree range directly on climbs, with no
-    // join to areas, so the range predicate and a sort-column index can
-    // cooperate in a single-table query plan.
-    lft: integer("lft").notNull().default(0),
-    rght: integer("rght").notNull().default(0),
     // Denormalized aggregates over `sends`, incrementally maintained by
     // AFTER INSERT/UPDATE/DELETE triggers on sends (see
     // drizzle/migrations/0014_sends_aggregate_triggers.sql) — lets

@@ -7,8 +7,8 @@ import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { getDb } from "@/db/client";
 import {
   getAncestors,
-  getArea,
   getAreaBreadcrumbs,
+  getAreaWithSubtreeSize,
   getClimbSendStats,
   getSubareas,
   getSubtreeClimbs,
@@ -37,7 +37,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   if (!Number.isInteger(areaId)) notFound();
 
   const db = await getDb();
-  const area = await getArea(db, areaId);
+  const area = await getAreaWithSubtreeSize(db, areaId);
   if (!area) notFound();
 
   const sort = parseAreaClimbsSort(search);

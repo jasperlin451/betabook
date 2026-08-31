@@ -2,14 +2,23 @@ import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
-import { climbs } from "@/db/schema";
+import { areas, climbs } from "@/db/schema";
 import { getArea } from "./areas";
-import { findClimbsByNameAndArea, getClimb, getSubtreeClimbs, hasClimbsInArea, searchClimbs } from "./climbs";
+import {
+  findClimbsByNameAndArea,
+  getAreaWithSubtreeSize,
+  getClimb,
+  getSubtreeClimbs,
+  hasClimbsInArea,
+  searchClimbs,
+  LARGE_AREA_SUBTREE_AREAS,
+} from "./climbs";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyAreas } from "@/test/fixtures";
 
-// getSubtreeClimbs forces climbs_lft_rght_idx below LARGE_AREA_SUBTREE_SPAN
-// (see climbs.ts) — this fixture tree's spans are tiny, so it always takes
-// that path; climbs.large-area.test.ts covers the other (sort-index) path.
+// getSubtreeClimbs forces climbs_area_idx below LARGE_AREA_SUBTREE_AREAS
+// (see climbs.ts) — this fixture tree has a handful of areas, so it always
+// takes that path; climbs.large-area.test.ts covers the other (sort-index)
+// path.
 
 let db: Database;
 
@@ -201,16 +210,25 @@ describe("getSubtreeClimbs", () => {
       expect(usingDefault.climbs.map((c) => c.name)).toEqual(expected);
     });
 
-    it("uses the lft/rght range index, not the sort-column index, for a small area", async () => {
-      const root = await getArea(db, 1);
+    it("gathers by area_id, not the sort-column index, for a small area", async () => {
       const plan = await db.all<{ detail: string }>(sql`
         EXPLAIN QUERY PLAN
-        SELECT climbs.id FROM climbs INDEXED BY climbs_lft_rght_idx
-        WHERE climbs.lft >= ${root!.lft} AND climbs.lft <= ${root!.rght} AND climbs.rght <= ${root!.rght}
+        WITH RECURSIVE subtree(id) AS (
+          SELECT 1
+          UNION ALL
+          SELECT a.id FROM areas a JOIN subtree s ON a.parent_id = s.id
+        )
+        SELECT climbs.id FROM climbs INDEXED BY climbs_area_idx
+        JOIN areas ON areas.id = climbs.area_id
+        WHERE climbs.area_id IN (SELECT id FROM subtree)
         ORDER BY climbs.send_count DESC, climbs.id
         LIMIT 51 OFFSET 0
       `);
-      expect(plan.some((row) => row.detail.includes("climbs_lft_rght_idx"))).toBe(true);
+      const details = plan.map((row) => row.detail);
+      // Small subtree: gather the candidates and sort them, rather than
+      // scanning a global sort index hunting for the few that match.
+      expect(details.some((d) => d.includes("climbs_area_idx"))).toBe(true);
+      expect(details.some((d) => d.includes("climbs_send_count_desc_idx"))).toBe(false);
     });
   });
 
@@ -331,7 +349,8 @@ describe("searchClimbs", () => {
 
   it("matches by area name against the climb's own area or any ancestor", async () => {
     // "Test Boulders" is an ancestor of the climbs' actual areas (the alcove/slab
-    // sub-areas), not their direct area — this is the nested-set ancestor match.
+    // sub-areas), not their direct area — this exercises the descendant walk
+    // over parent_id, not just the exact-area match.
     const results = await searchClimbs(db, { areaName: "Boulders", disciplines: [] });
     expect(results.map((c) => c.name).sort()).toEqual(["Test Highball", "Test Slab"]);
   });
@@ -422,11 +441,12 @@ describe("searchClimbs", () => {
   });
 
   it("doesn't choke when an area name matches far more areas than one statement's bound-parameter limit allows", async () => {
-    // Regression test: area-name matching used to build one
-    // `(lft >= ? AND rght <= ?)` OR-clause per matched area, so a name
-    // matching many areas blew past D1's per-statement bound-parameter
-    // limit ("Failed query" at runtime). It's now a single correlated
-    // EXISTS subquery, so this must succeed regardless of match count.
+    // Regression test: area-name matching used to bind two parameters per
+    // matched area, so a name matching many areas blew past D1's
+    // per-statement bound-parameter limit ("Failed query" at runtime). The
+    // matched areas and their descendants are now resolved by a recursive
+    // walk over parent_id that binds only the name, so this must succeed
+    // regardless of match count.
     const AREA_COUNT = 60;
     const startId = 90_000;
     await seedManyAreas(db, AREA_COUNT, startId);
@@ -438,8 +458,9 @@ describe("searchClimbs", () => {
       type: "boulder" as const,
       grade: i % 19,
     }));
-    // 10 bound columns per row now (drizzle binds every defaulted column
-    // explicitly), so a smaller chunk stays under D1's bound-parameter limit.
+    // 8 bound columns per row (drizzle binds every defaulted column
+    // explicitly — same count as seedManyClimbs), so chunk the insert to stay
+    // under D1's bound-parameter limit.
     const CHUNK_SIZE = 10;
     for (let i = 0; i < climbRows.length; i += CHUNK_SIZE) {
       await db.insert(climbs).values(climbRows.slice(i, i + CHUNK_SIZE));
@@ -480,6 +501,34 @@ describe("findClimbsByNameAndArea", () => {
     expect(results).toEqual([]);
   });
 
+  // The lookup walks parent_id upward from the climb's own area (see
+  // findClimbsByNameAndArea), so depth is the dimension its cost scales with
+  // — and the shared fixture tree is only two levels deep. This chain is its
+  // own root so it can't perturb the fixture tree's subtree assertions.
+  it("matches a climb four levels below the named area", async () => {
+    await db.insert(areas).values([
+      { id: 8000, parentId: null, name: "Test Deep Range" },
+      { id: 8001, parentId: 8000, name: "Test Deep Massif" },
+      { id: 8002, parentId: 8001, name: "Test Deep Valley" },
+      { id: 8003, parentId: 8002, name: "Test Deep Buttress" },
+    ]);
+    await db.insert(climbs).values({
+      id: 8100,
+      areaId: 8003,
+      name: "Test Deep Route",
+      type: "trad",
+      grade: 7,
+    });
+
+    const results = await findClimbsByNameAndArea(db, "Test Deep Route", "Test Deep Range");
+    expect(results.map((c) => c.id)).toEqual([8100]);
+
+    // A sibling branch of the same chain must not match — the walk goes up
+    // one parent chain, not across the tree.
+    const unrelated = await findClimbsByNameAndArea(db, "Test Deep Route", "Test Crag");
+    expect(unrelated).toEqual([]);
+  });
+
   it("returns every match when the (name, area) pair is ambiguous", async () => {
     // A second "Test Highball" under a different area, both under Test Crag.
     await db.insert(climbs).values({
@@ -492,5 +541,52 @@ describe("findClimbsByNameAndArea", () => {
 
     const results = await findClimbsByNameAndArea(db, "Test Highball", "Test Crag");
     expect(results.map((c) => c.id).sort()).toEqual([1, 999]);
+  });
+});
+
+describe("getAreaWithSubtreeSize", () => {
+  it("returns the same area fields as getArea", async () => {
+    const plain = await getArea(db, 2); // Test Boulders
+    const withSize = await getAreaWithSubtreeSize(db, 2);
+    expect(withSize).toEqual({ ...plain!, largeSubtree: false });
+    // parentId specifically: this selects through drizzle's column spread, and
+    // a regression to a raw `areas.*` would hand back `parent_id` instead,
+    // leaving this undefined while every other assertion still passed.
+    expect(withSize?.parentId).toBe(1);
+  });
+
+  it("returns undefined for an unknown id", async () => {
+    expect(await getAreaWithSubtreeSize(db, 999999)).toBeUndefined();
+  });
+
+  // The carried signal and the standalone probe are two independent
+  // implementations of the same predicate, so they can disagree; passing the
+  // richer row must not change what comes back.
+  it("gives getSubtreeClimbs the same answer as its own probe", async () => {
+    const carried = await getAreaWithSubtreeSize(db, 1);
+    const plain = await getArea(db, 1);
+    expect(await getSubtreeClimbs(db, carried!, 1, "name_asc")).toEqual(
+      await getSubtreeClimbs(db, plain!, 1, "name_asc"),
+    );
+  });
+
+  // Pinned from both sides rather than only observing `false` on the small
+  // fixture tree: the threshold's failure mode is silent. An off-by-one
+  // between the probe's LIMIT and its comparison doesn't throw — it just
+  // reports every area as small and quietly hands back the slow query plan
+  // for the areas that most need the fast one. Seeded under its own root so
+  // it can't perturb the fixture tree's subtree assertions.
+  it("flips to largeSubtree exactly at LARGE_AREA_SUBTREE_AREAS", async () => {
+    const ROOT_ID = 200_000;
+    await db.insert(areas).values({ id: ROOT_ID, parentId: null, name: "Wide Root" });
+    // The root counts toward its own subtree, so this leaves it one short.
+    await seedManyAreas(db, LARGE_AREA_SUBTREE_AREAS - 2, ROOT_ID + 1, {
+      parentId: ROOT_ID,
+      namePrefix: "Wide Area",
+    });
+    expect((await getAreaWithSubtreeSize(db, ROOT_ID))?.largeSubtree).toBe(false);
+
+    await db.insert(areas).values({ id: ROOT_ID - 1, parentId: ROOT_ID, name: "Wide Area last" });
+    expect((await getAreaWithSubtreeSize(db, ROOT_ID))?.largeSubtree).toBe(true);
   });
 });
