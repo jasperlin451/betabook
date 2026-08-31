@@ -57,11 +57,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           * icon is enough once you know the site, but it is far too quiet to
           * be the only search on a landing page — especially on a phone,
           * where the keyboard shortcut it stands for doesn't exist. */}
-        <section className="mx-auto flex w-full max-w-3xl flex-col gap-2">
+        <section className="mx-auto w-full max-w-3xl">
           <HomeSearchEntry />
-          <p className="text-xs text-muted">
-            or <AppLink href="/?mode=area">browse areas</AppLink>
-          </p>
         </section>
 
         <section className="mx-auto flex w-full max-w-3xl flex-col gap-3">
