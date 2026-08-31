@@ -5,7 +5,6 @@ import { useEffect } from "react";
 import { Button, Drawer, useOverlayState } from "@heroui/react";
 import { Menu as MenuIcon } from "lucide-react";
 import { AuthNav } from "@/components/auth-nav";
-import { NavLink } from "@/components/nav-link";
 
 export function MobileNav() {
   const state = useOverlayState();
@@ -42,10 +41,11 @@ export function MobileNav() {
                 <Drawer.CloseTrigger />
               </Drawer.Header>
               <Drawer.Body>
+                {/* No Search entry: the header's magnifier opens the command
+                  * palette at every width, and the desktop nav dropped its
+                  * own Search link for the same reason — a menu row pointing
+                  * at "/" just duplicates it one tap deeper. */}
                 <nav aria-label="Primary" className="flex flex-col items-start gap-4 text-sm">
-                  <NavLink href="/" onClick={state.close}>
-                    Search
-                  </NavLink>
                   <AuthNav direction="col" onNavigate={state.close} />
                 </nav>
               </Drawer.Body>
