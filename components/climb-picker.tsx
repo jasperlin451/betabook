@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import clsx from "clsx";
 import { AppLink } from "@/components/ui/app-link";
 import { AreaSearchField } from "@/components/area-search-field";
 import { DisciplineChips } from "@/components/discipline-chips";
@@ -27,12 +28,15 @@ function ClimbRow({
   path,
   sendCount,
   sent,
+  pickable,
   onPick,
 }: {
   climb: ClimbWithAreaName;
   path: string;
   sendCount: number;
   sent: boolean;
+  /** False while these rows answer a superseded query — see ClimbPicker. */
+  pickable: boolean;
   onPick: () => void;
 }) {
   const detail = (
@@ -62,6 +66,16 @@ function ClimbRow({
       >
         {detail}
         <span className="shrink-0 text-xs font-medium text-success-soft-foreground">Logged</span>
+      </div>
+    );
+  }
+
+  // Not a button at all while stale: nothing to click beats a click that
+  // binds the wrong climb.
+  if (!pickable) {
+    return (
+      <div aria-disabled className="flex w-full items-center justify-between gap-3 px-3 py-2.5">
+        {detail}
       </div>
     );
   }
@@ -124,6 +138,9 @@ export function ClimbPicker({
     areaName,
     disciplines,
   });
+
+  // Whether the rows on screen answer the query on screen.
+  const current = status === "answered";
 
   const message = {
     idle: "Pick a discipline, or search by route or area name.",
@@ -200,7 +217,10 @@ export function ClimbPicker({
       )}
 
       {pages != null && pages.climbs.length > 0 && (
-        <div className="flex flex-col gap-3">
+        // Until the new query is answered these rows describe the old one, so
+        // they go dim and inert: picking one would write a send against a
+        // climb the search no longer shows.
+        <div className={clsx("flex flex-col gap-3", !current && "opacity-50")}>
           <div className="flex flex-col divide-y divide-separator">
             {pages.climbs.map((climb) => (
               <ClimbRow
@@ -209,11 +229,12 @@ export function ClimbPicker({
                 path={areaPath(climb, pages.areaBreadcrumbs)}
                 sendCount={pages.sendStats[climb.id]?.sendCount ?? 0}
                 sent={sentClimbIds?.has(climb.id) ?? false}
+                pickable={current}
                 onPick={() => onPick(climb)}
               />
             ))}
           </div>
-          {pages.hasNextPage && (
+          {current && pages.hasNextPage && (
             <div className="flex flex-col items-center gap-2">
               {loadMoreFailed && (
                 <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
