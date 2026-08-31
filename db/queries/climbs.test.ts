@@ -7,9 +7,10 @@ import { getArea } from "./areas";
 import { findClimbsByNameAndArea, getClimb, getSubtreeClimbs, hasClimbsInArea, searchClimbs } from "./climbs";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyAreas } from "@/test/fixtures";
 
-// getSubtreeClimbs forces climbs_lft_rght_idx below LARGE_AREA_SUBTREE_SPAN
-// (see climbs.ts) — this fixture tree's spans are tiny, so it always takes
-// that path; climbs.large-area.test.ts covers the other (sort-index) path.
+// getSubtreeClimbs forces climbs_area_idx below LARGE_AREA_SUBTREE_AREAS
+// (see climbs.ts) — this fixture tree has a handful of areas, so it always
+// takes that path; climbs.large-area.test.ts covers the other (sort-index)
+// path.
 
 let db: Database;
 
@@ -340,7 +341,8 @@ describe("searchClimbs", () => {
 
   it("matches by area name against the climb's own area or any ancestor", async () => {
     // "Test Boulders" is an ancestor of the climbs' actual areas (the alcove/slab
-    // sub-areas), not their direct area — this is the nested-set ancestor match.
+    // sub-areas), not their direct area — this exercises the descendant walk
+    // over parent_id, not just the exact-area match.
     const results = await searchClimbs(db, { areaName: "Boulders", disciplines: [] });
     expect(results.map((c) => c.name).sort()).toEqual(["Test Highball", "Test Slab"]);
   });
@@ -431,11 +433,12 @@ describe("searchClimbs", () => {
   });
 
   it("doesn't choke when an area name matches far more areas than one statement's bound-parameter limit allows", async () => {
-    // Regression test: area-name matching used to build one
-    // `(lft >= ? AND rght <= ?)` OR-clause per matched area, so a name
-    // matching many areas blew past D1's per-statement bound-parameter
-    // limit ("Failed query" at runtime). It's now a single correlated
-    // EXISTS subquery, so this must succeed regardless of match count.
+    // Regression test: area-name matching used to bind two parameters per
+    // matched area, so a name matching many areas blew past D1's
+    // per-statement bound-parameter limit ("Failed query" at runtime). The
+    // matched areas and their descendants are now resolved by a recursive
+    // walk over parent_id that binds only the name, so this must succeed
+    // regardless of match count.
     const AREA_COUNT = 60;
     const startId = 90_000;
     await seedManyAreas(db, AREA_COUNT, startId);
@@ -447,8 +450,9 @@ describe("searchClimbs", () => {
       type: "boulder" as const,
       grade: i % 19,
     }));
-    // 10 bound columns per row now (drizzle binds every defaulted column
-    // explicitly), so a smaller chunk stays under D1's bound-parameter limit.
+    // 8 bound columns per row (drizzle binds every defaulted column
+    // explicitly — same count as seedManyClimbs), so chunk the insert to stay
+    // under D1's bound-parameter limit.
     const CHUNK_SIZE = 10;
     for (let i = 0; i < climbRows.length; i += CHUNK_SIZE) {
       await db.insert(climbs).values(climbRows.slice(i, i + CHUNK_SIZE));

@@ -34,15 +34,11 @@ export async function getSubareas(db: Database, areaId: number): Promise<Area[]>
 
 /** Root-first, immediate-parent-last. Does not include `area` itself.
  *
- * Walks `parentId` via a recursive CTE rather than the lft/rght nested-set
- * range — unlike subtree/descendant enumeration (getSubtreeClimbs,
- * areaNameCondition), which is what lft/rght actually exists to make cheap
- * for a potentially huge subtree, an ancestor chain is bounded by tree depth
- * (a handful of levels) regardless of subtree size, so there's no
- * performance reason to depend on it here. The upside: this is correct
- * immediately for a freshly created area, with zero dependency on the async
- * lft/rght recompute (see db/reindex-areas.ts) — parentId is written
- * synchronously at insert time and never needs fixing up. */
+ * Walks `parentId` upward via a recursive CTE. Unlike subtree/descendant
+ * enumeration (getSubtreeClimbs, areaNameCondition), which can fan out over
+ * tens of thousands of areas, an ancestor chain is bounded by tree depth (a
+ * handful of levels) regardless of subtree size, so the walk stays cheap
+ * without any index beyond the areas primary key. */
 export async function getAncestors(db: Database, area: Area): Promise<Area[]> {
   if (area.parentId == null) return [];
 
@@ -87,8 +83,7 @@ export async function getNearestAncestors(
  * can match hundreds (a common word, a broad region), and one clause per
  * match would blow past SQLite's bound-parameter limit.
  *
- * Walks `parent_id` rather than a nested-set range so a freshly created area
- * is matchable immediately (see getAncestors's doc comment). Callers must
+ * Callers must
  * have their row's own area joined in as `areas` — the same alias
  * `searchClimbs`/`getSendsForUserPage` already use. Returns `null` when
  * there's no name to filter by (filter inactive); `sql\`0\`` when the name
@@ -124,10 +119,9 @@ type BreadcrumbRow = {
 /** Up to `depth` ancestors for each of `areaIds`, keyed by area id — one
  * query for the whole batch, not one round trip per distinct area.
  *
- * Walks `parentId` (see getAncestors's doc comment for why — ancestor
- * chains don't need the nested-set range the way subtree queries do) via a
- * recursive CTE, capped at `depth` levels per target, batched across every
- * requested id in one query. A LEFT JOIN back to the target-id list keeps
+ * Walks `parentId` via a recursive CTE (see getAncestors's doc comment),
+ * capped at `depth` levels per target, batched across every requested id in
+ * one query. A LEFT JOIN back to the target-id list keeps
  * one row per target even when it has zero (nearby) ancestors, which is
  * what lets an existing root-level area come back as `[]` rather than
  * being silently omitted like a nonexistent id is. */
@@ -170,9 +164,7 @@ export type AreaWithAncestorPath = Area & { ancestorPath: string | null };
 
 /** `ancestorPath` reads immediate-parent-first, e.g. "Squamish > British Columbia > Canada".
  *
- * Walks `parentId` (see getAncestors's doc comment) rather than lft/rght, so
- * a freshly created area's ancestor path is correct immediately, with no
- * dependency on the async lft/rght recompute. */
+ * Walks `parentId` via a recursive CTE (see getAncestors's doc comment). */
 export async function searchAreas(
   db: Database,
   name: string,
