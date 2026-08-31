@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Button, ButtonGroup, Label, TextField } from "@heroui/react";
 import { importSends, type ImportResult } from "@/db/mutations";
+import { downloadCsv } from "@/lib/download";
 import { ASCENT_STYLES, GRADE_FEEL_VALUES, type AscentStyle, type GradeFeel } from "@/lib/sends";
 import {
   buildFailedRowsCsv,
@@ -63,11 +64,29 @@ type ImportProgress = {
   overwritten: number;
   alreadyLogged: number;
   notFound: number;
-  failed: number; // rows from a batch that errored out entirely
+  failed: number; // rows from failed batches (importSends commits atomically, so a failed batch wrote nothing)
+  lastError: string | null; // most recent batch error, surfaced while the import is still running
 };
 
 type BatchError = { rows: NormalizedImportRow[]; message: string };
-type WizardResult = ImportResult & { batchErrors: BatchError[] };
+type WizardResult = ImportResult & {
+  batchErrors: BatchError[];
+  /** Rows never sent to the server because the import stopped early. */
+  notAttempted: NormalizedImportRow[];
+  stopped: { kind: "cancelled" | "aborted"; message: string } | null;
+};
+
+/** Stop the import once this many batches in a row fail outright — after
+ * three, the cause is almost certainly systemic (expired session, network
+ * down), and marching through the rest of a large CSV would just fail 80
+ * more times. */
+const MAX_CONSECUTIVE_FAILED_BATCHES = 3;
+
+/** The result screen lists at most this many per-row failures inline; the
+ * downloadable CSV is always the full record. */
+const MAX_LISTED_FAILURES = 50;
+
+const NOT_ATTEMPTED_MESSAGE = "the import stopped before reaching this row";
 
 export function ImportWizard() {
   const [step, setStep] = useState<Step>("upload");
@@ -93,6 +112,24 @@ export function ImportWizard() {
   } | null>(null);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [importResult, setImportResult] = useState<WizardResult | null>(null);
+
+  // Cancellation is a ref + state pair: the ref is what the finalize loop
+  // polls between batches (state updates wouldn't be visible inside the
+  // running async closure), the state is what the UI renders.
+  const cancelRequestedRef = useRef(false);
+  const [cancelRequested, setCancelRequested] = useState(false);
+
+  // While batches are in flight, closing or reloading the tab wouldn't roll
+  // anything back — committed batches are kept — but it would silently lose
+  // the progress and the final report, so ask the browser to confirm.
+  useEffect(() => {
+    if (!pending) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [pending]);
 
   const ascentStyleValues = useMemo(
     () => (parsedCsv && columnMapping ? distinctValues(parsedCsv.rows, columnMapping.ascentStyle) : []),
@@ -125,6 +162,30 @@ export function ImportWizard() {
     [dateValues, dateFormat],
   );
   const dateSamplePreview = dateSample ? parseDateWithFormat(dateSample, dateFormat) : null;
+
+  // Every not-imported row as one display line, in the same order the
+  // downloadable failed-rows CSV lists them. Rendered capped at
+  // MAX_LISTED_FAILURES; the CSV is always the full record.
+  const failureItems = useMemo(() => {
+    if (!importResult || !normalized) return [];
+    return [
+      ...normalized.invalid.map((row) => `Row ${row.rowIndex + 1}: ${row.reason}`),
+      ...importResult.notFound.map(
+        (row) =>
+          `${row.climbName} (${row.areaName}): ${
+            row.reason === "climb-not-found"
+              ? "no climb with this name in this area"
+              : "more than one climb matches this name and area"
+          }`,
+      ),
+      ...importResult.batchErrors.flatMap((batch) =>
+        batch.rows.map((row) => `${row.climbName} (${row.areaName}): failed — ${batch.message}`),
+      ),
+      ...importResult.notAttempted.map(
+        (row) => `${row.climbName} (${row.areaName}): ${NOT_ATTEMPTED_MESSAGE}`,
+      ),
+    ];
+  }, [importResult, normalized]);
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
@@ -207,6 +268,8 @@ export function ImportWizard() {
   function handleFinalize() {
     if (!normalized) return;
     setError(null);
+    cancelRequestedRef.current = false;
+    setCancelRequested(false);
     const total = normalized.valid.length;
     setProgress({
       completed: 0,
@@ -216,49 +279,86 @@ export function ImportWizard() {
       alreadyLogged: 0,
       notFound: 0,
       failed: 0,
+      lastError: null,
     });
 
     startTransition(async () => {
       let imported = 0;
       let overwritten = 0;
       let alreadyLogged = 0;
+      let failedRows = 0;
+      let lastError: string | null = null;
+      let consecutiveFailures = 0;
+      let stopped: WizardResult["stopped"] = null;
+      let nextIndex = 0;
       const notFound: ImportResult["notFound"] = [];
       const batchErrors: BatchError[] = [];
 
-      for (let i = 0; i < total; i += IMPORT_BATCH_SIZE) {
-        const batch = normalized.valid.slice(i, i + IMPORT_BATCH_SIZE);
-        try {
-          const result = await importSends(batch, { gradeScale, onConflict });
-          if (result.ok) {
-            imported += result.value.imported;
-            overwritten += result.value.overwritten;
-            alreadyLogged += result.value.alreadyLogged;
-            notFound.push(...result.value.notFound);
-          } else {
-            batchErrors.push({ rows: batch, message: result.error });
-          }
-        } catch {
-          // The action boundary turns anything thrown server-side into
-          // { ok: false }, so a rejection here is the round-trip itself
-          // failing — offline, or the worker erroring outside the action.
-          // Still per-batch: the remaining batches run and the result step
-          // renders with a failed-rows CSV to retry from.
-          batchErrors.push({ rows: batch, message: "Import failed" });
+      while (nextIndex < total) {
+        const batch = normalized.valid.slice(nextIndex, nextIndex + IMPORT_BATCH_SIZE);
+        // The action boundary turns anything thrown server-side into
+        // { ok: false }, so a rejection here is the round-trip itself failing
+        // — offline, or the worker erroring outside the action. Either way
+        // it's the same story for this batch: nothing committed.
+        const result = await importSends(batch, { gradeScale, onConflict }).catch(
+          () => ({ ok: false, error: "Import failed" }) as const,
+        );
+        if (result.ok) {
+          imported += result.value.imported;
+          overwritten += result.value.overwritten;
+          alreadyLogged += result.value.alreadyLogged;
+          notFound.push(...result.value.notFound);
+          consecutiveFailures = 0;
+        } else {
+          // importSends commits each call atomically, so a failed call
+          // means none of this batch's rows were written.
+          batchErrors.push({ rows: batch, message: result.error });
+          failedRows += batch.length;
+          lastError = result.error;
+          consecutiveFailures++;
         }
+        nextIndex += batch.length;
         setProgress({
-          completed: Math.min(i + IMPORT_BATCH_SIZE, total),
+          completed: nextIndex,
           total,
           imported,
           overwritten,
           alreadyLogged,
           notFound: notFound.length,
-          failed: batchErrors.reduce((n, b) => n + b.rows.length, 0),
+          failed: failedRows,
+          lastError,
         });
+
+        if (nextIndex >= total) break;
+        if (cancelRequestedRef.current) {
+          stopped = { kind: "cancelled", message: "You cancelled the import." };
+          break;
+        }
+        if (!result.ok && consecutiveFailures >= MAX_CONSECUTIVE_FAILED_BATCHES) {
+          stopped = {
+            kind: "aborted",
+            message: `The import stopped after ${MAX_CONSECUTIVE_FAILED_BATCHES} failed batches in a row. Last error: ${result.error}`,
+          };
+          break;
+        }
       }
 
-      setImportResult({ imported, overwritten, alreadyLogged, notFound, batchErrors });
+      setImportResult({
+        imported,
+        overwritten,
+        alreadyLogged,
+        notFound,
+        batchErrors,
+        notAttempted: normalized.valid.slice(nextIndex),
+        stopped,
+      });
       setStep("result");
     });
+  }
+
+  function handleCancel() {
+    cancelRequestedRef.current = true;
+    setCancelRequested(true);
   }
 
   function handleDownloadFailedRows() {
@@ -267,15 +367,14 @@ export function ImportWizard() {
       parsedCsv.headers,
       normalized.invalid,
       importResult.notFound,
-      importResult.batchErrors,
+      [
+        ...importResult.batchErrors,
+        ...(importResult.notAttempted.length > 0
+          ? [{ rows: importResult.notAttempted, message: NOT_ATTEMPTED_MESSAGE }]
+          : []),
+      ],
     );
-    const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "failed-sends-import.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadCsv(csvText, "failed-sends-import.csv");
   }
 
   function reset() {
@@ -292,6 +391,8 @@ export function ImportWizard() {
     setProgress(null);
     setImportResult(null);
     setError(null);
+    cancelRequestedRef.current = false;
+    setCancelRequested(false);
   }
 
   return (
@@ -579,6 +680,17 @@ export function ImportWizard() {
                 {progress.alreadyLogged} already logged &middot; {progress.notFound} not found
                 &middot; {progress.failed} failed
               </p>
+              {progress.lastError && (
+                <p className="text-xs text-danger">
+                  {progress.failed} {progress.failed === 1 ? "row has" : "rows have"} failed so
+                  far. Latest error: {progress.lastError}
+                </p>
+              )}
+              <div>
+                <Button variant="ghost" onPress={handleCancel} isDisabled={cancelRequested}>
+                  {cancelRequested ? "Stopping after the current batch…" : "Cancel Import"}
+                </Button>
+              </div>
             </div>
           ) : (
             <>
@@ -625,61 +737,59 @@ export function ImportWizard() {
 
       {step === "result" && importResult && normalized && (
         <div className="flex flex-col gap-4">
+          {importResult.stopped && (
+            <p className="text-sm text-danger">
+              {importResult.stopped.message} Rows imported before it stopped were kept.
+            </p>
+          )}
+
           <p className="text-sm">
-            Imported <strong>{importResult.imported}</strong>,{" "}
+            Imported <strong>{importResult.imported}</strong> new{" "}
+            {importResult.imported === 1 ? "send" : "sends"}.
             {importResult.overwritten > 0 && (
               <>
-                overwrote <strong>{importResult.overwritten}</strong>,{" "}
+                {" "}
+                Replaced <strong>{importResult.overwritten}</strong> existing{" "}
+                {importResult.overwritten === 1 ? "send" : "sends"}.
               </>
             )}
-            already logged <strong>{importResult.alreadyLogged}</strong>, couldn&apos;t import{" "}
-            <strong>{importResult.notFound.length + normalized.invalid.length}</strong>
-            {importResult.batchErrors.length > 0 && (
+            {importResult.alreadyLogged > 0 && (
               <>
-                , and{" "}
-                <strong>
-                  {importResult.batchErrors.reduce((n, b) => n + b.rows.length, 0)}
-                </strong>{" "}
-                couldn&apos;t be attempted due to an error
+                {" "}
+                Skipped <strong>{importResult.alreadyLogged}</strong>{" "}
+                {importResult.alreadyLogged === 1 ? "row" : "rows"} already in your logbook.
               </>
             )}
-            .
+            {failureItems.length > 0 && (
+              <>
+                {" "}
+                <strong>{failureItems.length}</strong>{" "}
+                {failureItems.length === 1 ? "row was" : "rows were"} not imported.
+              </>
+            )}
           </p>
 
-          {(importResult.notFound.length > 0 ||
-            normalized.invalid.length > 0 ||
-            importResult.batchErrors.length > 0) && (
+          {failureItems.length > 0 && (
             <details>
               <summary className="cursor-pointer text-sm text-muted">
-                View rows that couldn&apos;t be imported
+                View rows that weren&apos;t imported
               </summary>
               <ul className="mt-2 flex flex-col gap-1 text-xs text-muted">
-                {importResult.notFound.map((row, i) => (
-                  <li key={`nf-${i}`}>
-                    {row.climbName} ({row.areaName}):{" "}
-                    {row.reason === "climb-not-found" ? "climb not found" : "ambiguous match"}
-                  </li>
+                {failureItems.slice(0, MAX_LISTED_FAILURES).map((item, i) => (
+                  <li key={i}>{item}</li>
                 ))}
-                {normalized.invalid.map((row, i) => (
-                  <li key={`inv-${i}`}>
-                    Row {row.rowIndex + 1}: {row.reason}
+                {failureItems.length > MAX_LISTED_FAILURES && (
+                  <li>
+                    …and {failureItems.length - MAX_LISTED_FAILURES} more — download the CSV
+                    below for the full list.
                   </li>
-                ))}
-                {importResult.batchErrors.map((batch, i) =>
-                  batch.rows.map((row, j) => (
-                    <li key={`err-${i}-${j}`}>
-                      {row.climbName} ({row.areaName}): not attempted — {batch.message}
-                    </li>
-                  )),
                 )}
               </ul>
             </details>
           )}
 
           <div className="flex gap-4">
-            {(importResult.notFound.length > 0 ||
-              normalized.invalid.length > 0 ||
-              importResult.batchErrors.length > 0) && (
+            {failureItems.length > 0 && (
               <Button variant="ghost" onPress={handleDownloadFailedRows}>
                 Download Failed Rows (CSV)
               </Button>

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@heroui/react";
 import { exportSendsCsv } from "@/db/actions";
+import { downloadCsv } from "@/lib/download";
 
 export function ExportSendsButton() {
   const [isPending, startTransition] = useTransition();
@@ -13,13 +14,7 @@ export function ExportSendsButton() {
     startTransition(async () => {
       try {
         const csvText = await exportSendsCsv();
-        const blob = new Blob([csvText], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `betabook-sends-${new Date().toISOString().slice(0, 10)}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
+        downloadCsv(csvText, `betabook-sends-${new Date().toISOString().slice(0, 10)}.csv`);
       } catch {
         setError("Couldn't export your sends. Try again.");
       }
