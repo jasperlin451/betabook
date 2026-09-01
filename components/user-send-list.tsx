@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
@@ -10,7 +9,6 @@ import { formatDate } from "@/lib/format-date";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
 import {
   DEFAULT_USER_SENDS_FILTER,
-  MAX_USER_SENDS_LIMIT,
   userSendsFilterToSearchParams,
 } from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
@@ -31,6 +29,7 @@ import { SendActionsMenu } from "@/components/send-actions-menu";
 import { SendListShell } from "@/components/send-list-shell";
 import { SortSelect } from "@/components/ui/sort-select";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
+import { usePagedList } from "@/hooks/use-paged-list";
 
 /** Ascent-style checkboxes for the user sends filter — same structure as
  * DisciplinesFields in send-filter-form.tsx, but not shared there since it's
@@ -233,8 +232,8 @@ type UserSendsPageResponse = {
  * component syncing local state to changed props via an effect. A server
  * re-render under the SAME key (a send was deleted/edited via a row's
  * actions menu — the server action refresh()es the route) instead arrives
- * as a new `initialSends` prop identity, which is reconciled into the
- * accumulated pages below. */
+ * as a new `initialSends` prop identity, which resets the accumulated list
+ * to the server's fresh first page. */
 export function UserSendList({
   userId,
   filter,
@@ -244,130 +243,32 @@ export function UserSendList({
   hasAnySends,
   currentUserId,
 }: UserSendListProps) {
-  const [sends, setSends] = useState(initialSends);
-  const [hasMore, setHasMore] = useState(initialHasMore);
-  const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
-
-  // --- Post-mutation reconciliation of accumulated pages -------------------
-  //
-  // Same adoption idea as useFilterFormNavigation's URL handling: track the
-  // last-adopted prop identity, and when the incoming first page changes
-  // while the key (sort/filter) didn't, the server data changed underneath
-  // the accumulated rows. With only page 1 loaded, adopting the fresh props
-  // IS the reconcile. With extra pages loaded, re-fetch the loaded range
-  // rather than dropping back to page 1: dropping would collapse the list
-  // right as the user acts on a row further down (scroll jump, lost place),
-  // while re-fetching swaps corrected rows in without moving the layout.
-  // `staleTailLength` holds how many beyond-page-1 rows need re-fetching;
-  // non-null means a reconcile fetch is due/in flight.
-  const [prevInitialSends, setPrevInitialSends] = useState(initialSends);
-  const [staleTailLength, setStaleTailLength] = useState<number | null>(null);
-  // A length delta alone can't distinguish "extra pages loaded" from "page 1
-  // itself shrank" (deleting a send from a full single page leaves
-  // sends.length > initialSends.length too) — only an actual load-more sets
-  // this, so the shrink case adopts the fresh page immediately instead of
-  // ghosting the deleted row through a pointless tail re-fetch.
-  const [loadedBeyondFirstPage, setLoadedBeyondFirstPage] = useState(false);
-  if (initialSends !== prevInitialSends) {
-    setPrevInitialSends(initialSends);
-    const tailLength = sends.length - initialSends.length;
-    if (loadedBeyondFirstPage && tailLength > 0 && tailLength <= MAX_USER_SENDS_LIMIT) {
-      setStaleTailLength(tailLength);
-    } else {
-      // Either only page 1 is loaded (adopting the fresh props IS the
-      // reconcile), or the tail exceeds what the route's clamped `limit`
-      // can restore in one request (200+ rows = 20+ load-more clicks) —
-      // requesting it anyway would silently truncate the range, so for that
-      // rare case drop back to the fresh first page instead. Correctness
-      // (a deleted send must never keep ghosting) beats keeping the scroll
-      // position there.
-      setStaleTailLength(null);
-      setLoadedBeyondFirstPage(false);
-      setSends(initialSends);
-      setHasMore(initialHasMore);
-      setAreaBreadcrumbs((prev) => ({ ...prev, ...initialAreaBreadcrumbs }));
-    }
-  }
-
-  useEffect(() => {
-    if (staleTailLength === null) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const params = userSendsFilterToSearchParams(filter);
-        params.set("offset", String(initialSends.length));
-        params.set("limit", String(staleTailLength));
-        const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`);
-        if (!res.ok) throw new Error(`Reloading sends failed: ${res.status}`);
-        const data: UserSendsPageResponse = await res.json();
-        if (cancelled) return;
-        // Atomic swap of the whole loaded range — the stale rows stay
-        // visible until this lands, so the layout never collapses.
-        setSends([...initialSends, ...data.sends]);
-        setHasMore(data.hasMore);
-        setAreaBreadcrumbs((prev) => ({
-          ...prev,
-          ...initialAreaBreadcrumbs,
-          ...data.areaBreadcrumbs,
-        }));
-      } catch {
-        if (cancelled) return;
-        // Correctness over continuity: the stale tail must not outlive the
-        // reconcile (a deleted send would keep ghosting), so fall back to
-        // just the fresh first page and let the inline error explain the
-        // shrink — the "load more" button doubles as the retry.
-        setSends(initialSends);
-        setHasMore(initialHasMore);
-        setLoadedBeyondFirstPage(false);
-        setAreaBreadcrumbs((prev) => ({ ...prev, ...initialAreaBreadcrumbs }));
-        setLoadMoreFailed(true);
-      } finally {
-        if (!cancelled) setStaleTailLength(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [staleTailLength, initialSends, initialHasMore, initialAreaBreadcrumbs, filter, userId]);
-
-  const reconciling = staleTailLength !== null;
-
-  // Post-commit mirror of the latest adopted first page, so an async
-  // load-more completion can tell whether a mutation refresh superseded the
-  // ordering it was fetched against.
-  const latestInitialSends = useRef(initialSends);
-  useEffect(() => {
-    latestInitialSends.current = initialSends;
-  }, [initialSends]);
-
-  async function handleLoadMore() {
-    const baseInitialSends = latestInitialSends.current;
-    setLoadingMore(true);
-    setLoadMoreFailed(false);
-    try {
+  const {
+    items: sends,
+    hasMore,
+    meta: areaBreadcrumbs,
+    loadingMore,
+    loadMoreFailed,
+    loadMore,
+  } = usePagedList({
+    initialItems: initialSends,
+    initialHasMore,
+    initialMeta: initialAreaBreadcrumbs,
+    itemKey: (send) => send.id,
+    mergeMeta: (current, incoming) => ({ ...current, ...incoming }),
+    fetchPage: async (offset) => {
       const params = userSendsFilterToSearchParams(filter);
-      params.set("offset", String(sends.length));
+      params.set("offset", String(offset));
       const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`);
-      if (!res.ok) throw new Error(`Loading more sends failed: ${res.status}`);
+      if (!res.ok) throw new Error(`Loading sends failed: ${res.status}`);
       const data: UserSendsPageResponse = await res.json();
-      // If a mutation refresh landed while this was in flight, this page was
-      // fetched against a superseded ordering — drop it (the reconcile above
-      // re-fetches the loaded range itself) rather than appending stale rows.
-      if (latestInitialSends.current !== baseInitialSends) return;
-      setSends((prev) => [...prev, ...data.sends]);
-      setLoadedBeyondFirstPage(true);
-      setHasMore(data.hasMore);
-      setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
-    } catch {
-      // Network failure or a non-2xx response — keep what's loaded, surface
-      // an inline error, and leave the button as the retry affordance.
-      setLoadMoreFailed(true);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+      return {
+        items: data.sends,
+        hasMore: data.hasMore,
+        meta: data.areaBreadcrumbs,
+      };
+    },
+  });
 
   if (!hasAnySends) {
     return (
@@ -398,11 +299,8 @@ export function UserSendList({
           sends={sends}
           emptyState={<EmptyState message="No sends match these filters." />}
           hasMore={hasMore}
-          onLoadMore={handleLoadMore}
-          // Also disabled while a post-mutation reconcile is re-fetching the
-          // loaded range — a load-more against the superseded ordering would
-          // be dropped anyway (see handleLoadMore).
-          loadingMore={loadingMore || reconciling}
+          onLoadMore={loadMore}
+          loadingMore={loadingMore}
           loadMoreError={
             loadMoreFailed && (
               <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>

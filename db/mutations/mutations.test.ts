@@ -5,7 +5,13 @@ import { createDb } from "@/db/client";
 import { climbs, sends } from "@/db/schema";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
-import { createClimb, createSend, deleteClimb, updateSend } from "@/db/mutations";
+import {
+  createClimb,
+  createSend,
+  deleteClimb,
+  updateClimb,
+  updateSend,
+} from "@/db/mutations";
 
 /** The action boundary must never throw — Next.js redacts uncaught
  * server-action errors in production, so these tests pin the structured
@@ -185,6 +191,36 @@ describe("deleteClimb action boundary", () => {
   it("returns ok:true and deletes on success", async () => {
     expect(await deleteClimb(2)).toEqual({ ok: true, value: undefined });
     expect(await db.select().from(climbs).where(eq(climbs.id, 2)).get()).toBeUndefined();
+  });
+
+  it("keeps sends safe even when a raw delete bypasses the action", async () => {
+    await expect(db.delete(climbs).where(eq(climbs.id, 1))).rejects.toThrow();
+    expect(await db.select().from(climbs).where(eq(climbs.id, 1)).get()).toBeDefined();
+    expect(await db.select().from(sends).where(eq(sends.climbId, 1)).get()).toBeDefined();
+  });
+});
+
+describe("updateClimb discipline invariant", () => {
+  it("rejects changing the discipline after a send exists", async () => {
+    const formData = new FormData();
+    formData.set("name", "Test Highball");
+    formData.set("type", "sport");
+    formData.set("grade", "5");
+    formData.set("description", "");
+
+    expect(await updateClimb(1, formData)).toEqual({
+      ok: false,
+      error: "Can't change discipline once a climb has logged sends",
+    });
+  });
+
+  it("enforces the same rule for writes that bypass the action", async () => {
+    await expect(
+      db.update(climbs).set({ type: "sport" }).where(eq(climbs.id, 1)),
+    ).rejects.toThrow();
+    expect((await db.select().from(climbs).where(eq(climbs.id, 1)).get())?.type).toBe(
+      "boulder",
+    );
   });
 });
 

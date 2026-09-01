@@ -5,21 +5,27 @@ import {
   getAreaWithSubtreeSize,
   getClimbSendStats,
   getSubtreeClimbs,
+  getUserSentClimbIds,
   PAGE_SIZE,
   resolveSubareaScope,
 } from "@/db/queries";
+import { getSession } from "@/lib/session";
 import { parseAreaClimbsFilter, parseAreaClimbsSort, toSubtreeQueryFilter } from "@/lib/area-climbs-filter";
-import { parsePage, parseSuggestionLimit, searchParamsToRecord } from "@/lib/search-params";
+import {
+  offsetReachesPaginationLimit,
+  pageReachesPaginationLimit,
+  parseOffset,
+  parsePage,
+  parseSuggestionLimit,
+  searchParamsToRecord,
+} from "@/lib/search-params";
 import { parseId } from "@/lib/parse-id";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 /** Backs two callers with the same query.
  *
- * Without `limit`: incremental "load more" for an area's climb list — the
- * initial page is server-rendered (app/areas/[id]/page.tsx); this backs
- * subsequent pages so the client never has to hold more than what's actually
- * been scrolled to.
+ * With `offset`: incremental loading for an area's climb list.
  *
  * With `limit`: suggestion mode for the area page's route typeahead, which
  * searches names within this area's subtree. Same skip-the-join-passes
@@ -32,8 +38,11 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const sort = parseAreaClimbsSort(searchParams);
   const filter = parseAreaClimbsFilter(searchParams);
-  const page = parsePage(url.searchParams, PAGE_SIZE);
-  const limit = parseSuggestionLimit(url.searchParams);
+  const offsetMode = url.searchParams.has("offset");
+  const suggestionLimit = offsetMode ? null : parseSuggestionLimit(url.searchParams);
+  const pageSize = suggestionLimit ?? PAGE_SIZE;
+  const page = offsetMode ? 1 : parsePage(url.searchParams, pageSize);
+  const offset = offsetMode ? parseOffset(url.searchParams) : undefined;
 
   const db = await getDb();
   const area = areaId === null ? undefined : await getAreaWithSubtreeSize(db, areaId);
@@ -43,17 +52,59 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Area not found" }, { status: 404 });
   }
 
-  const listScope = await resolveSubareaScope(db, area, filter.subareaId);
-  const subtreeClimbs = await getSubtreeClimbs(db, listScope, page, sort, toSubtreeQueryFilter(filter));
-
-  if (limit !== null) {
-    return NextResponse.json({ climbs: subtreeClimbs.climbs.slice(0, limit) });
+  if (page === null || offset === null) {
+    return NextResponse.json(
+      suggestionLimit === null
+        ? {
+            climbs: [],
+            hasNextPage: false,
+            sendStats: {},
+            areaBreadcrumbs: {},
+            sentClimbIds: [],
+          }
+        : { climbs: [] },
+    );
   }
 
-  const [sendStats, areaBreadcrumbs] = await Promise.all([
+  const [listScope, session] = await Promise.all([
+    resolveSubareaScope(db, area, filter.subareaId),
+    suggestionLimit === null ? getSession() : Promise.resolve(null),
+  ]);
+  const subtreeClimbs = await getSubtreeClimbs(
+    db,
+    listScope,
+    page,
+    sort,
+    toSubtreeQueryFilter(filter),
+    pageSize,
+    offset,
+  );
+
+  if (suggestionLimit !== null) {
+    return NextResponse.json({ climbs: subtreeClimbs.climbs.slice(0, suggestionLimit) });
+  }
+
+  const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
     getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
     getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),
+    session
+      ? getUserSentClimbIds(
+          db,
+          session.user.id,
+          subtreeClimbs.climbs.map((climb) => climb.id),
+        )
+      : Promise.resolve(undefined),
   ]);
 
-  return NextResponse.json({ ...subtreeClimbs, sendStats, areaBreadcrumbs });
+  return NextResponse.json({
+    ...subtreeClimbs,
+    hasNextPage:
+      subtreeClimbs.hasNextPage &&
+      !(offsetMode
+        ? offsetReachesPaginationLimit(offset ?? 0, pageSize)
+        : pageReachesPaginationLimit(page, pageSize)),
+    sendStats,
+    areaBreadcrumbs,
+    sentClimbIds: sentClimbIds ? [...sentClimbIds] : undefined,
+  });
 }

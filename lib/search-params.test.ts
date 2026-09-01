@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_SUGGESTION_LIMIT,
   MAX_PAGINATION_OFFSET,
   MAX_SUGGESTION_LIMIT,
+  offsetReachesPaginationLimit,
+  pageReachesPaginationLimit,
   parseAscentStyles,
   parseOffset,
   parsePage,
@@ -109,11 +112,8 @@ describe("parseSuggestionLimit", () => {
     expect(limitOf(`limit=${MAX_SUGGESTION_LIMIT + 500}`)).toBe(MAX_SUGGESTION_LIMIT);
   });
 
-  // Degrading to the unlimited path beats returning an empty page: a
-  // malformed suggestion request should behave like a plain search, not like
-  // a search that matched nothing.
-  it.each(["limit=0", "limit=-5", "limit=abc", "limit="])("reads %s as no limit", (query) => {
-    expect(limitOf(query)).toBeNull();
+  it.each(["limit=0", "limit=-5", "limit=abc", "limit="])("keeps %s bounded", (query) => {
+    expect(limitOf(query)).toBe(DEFAULT_SUGGESTION_LIMIT);
   });
 
   it("truncates a fractional limit rather than rejecting it", () => {
@@ -137,15 +137,21 @@ describe("parsePage", () => {
     expect(pageOf("page=100", 25)).toBe(100);
   });
 
-  it("clamps to MAX_PAGINATION_OFFSET rows deep for the caller's page size", () => {
-    expect(pageOf("page=999999", 25)).toBe(MAX_PAGINATION_OFFSET / 25 + 1);
-    expect(pageOf("page=999999", 50)).toBe(MAX_PAGINATION_OFFSET / 50 + 1);
+  it("returns terminal past MAX_PAGINATION_OFFSET", () => {
+    expect(pageOf("page=999999", 25)).toBeNull();
+    expect(pageOf("page=999999", 50)).toBeNull();
+  });
+
+  it("keeps the final page inside the budget and marks it terminal", () => {
+    const lastPage = MAX_PAGINATION_OFFSET / 25 + 1;
+    expect(pageOf(`page=${lastPage}`, 25)).toBe(lastPage);
+    expect(pageReachesPaginationLimit(lastPage, 25)).toBe(true);
   });
 
   // Number("1e15") is an integer as far as Number.isInteger is concerned, so
   // a bare integer check would have let this straight through to the OFFSET.
-  it("clamps exponent notation", () => {
-    expect(pageOf("page=1e15", 25)).toBe(MAX_PAGINATION_OFFSET / 25 + 1);
+  it("makes exponent notation terminal", () => {
+    expect(pageOf("page=1e15", 25)).toBeNull();
   });
 });
 
@@ -160,8 +166,13 @@ describe("parseOffset", () => {
     expect(offsetOf(query)).toBe(0);
   });
 
-  it("clamps to MAX_PAGINATION_OFFSET", () => {
-    expect(offsetOf("offset=1e15")).toBe(MAX_PAGINATION_OFFSET);
-    expect(offsetOf(`offset=${MAX_PAGINATION_OFFSET + 1}`)).toBe(MAX_PAGINATION_OFFSET);
+  it("returns terminal past MAX_PAGINATION_OFFSET", () => {
+    expect(offsetOf("offset=1e15")).toBeNull();
+    expect(offsetOf(`offset=${MAX_PAGINATION_OFFSET + 1}`)).toBeNull();
+  });
+
+  it("keeps offset 10,000 and marks its response terminal", () => {
+    expect(offsetOf(`offset=${MAX_PAGINATION_OFFSET}`)).toBe(MAX_PAGINATION_OFFSET);
+    expect(offsetReachesPaginationLimit(MAX_PAGINATION_OFFSET, 200)).toBe(true);
   });
 });

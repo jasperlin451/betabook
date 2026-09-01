@@ -81,7 +81,9 @@ export async function getAncestors(db: Database, area: Area): Promise<Area[]> {
       JOIN areas ON areas.id = ancestors.id
       WHERE areas.parent_id IS NOT NULL
     )
-    SELECT areas.* FROM areas
+    SELECT areas.id AS id, areas.parent_id AS parentId, areas.name AS name,
+           areas.description AS description
+    FROM areas
     JOIN ancestors ON areas.id = ancestors.id
     ORDER BY ancestors.depth DESC
   `);
@@ -163,10 +165,17 @@ export async function getAreaBreadcrumbs(
   const ids = [...new Set(areaIds)];
   if (ids.length === 0) return {};
 
+  // D1 permits at most 100 bound parameters per statement. Passing the ids
+  // as one JSON value keeps this query at two bindings (ids + depth), even
+  // for the 200-row send-export batches that consume it. Binding each id in
+  // both the seed and target lists used to fail at only 50 distinct areas.
   const rows = await db.all<BreadcrumbRow>(sql`
-    WITH RECURSIVE chain(target_id, ancestor_id, dist) AS (
-      SELECT id, parent_id, 1 FROM areas
-      WHERE id IN (${sql.join(ids, sql`, `)}) AND parent_id IS NOT NULL
+    WITH RECURSIVE requested(id) AS (
+      SELECT CAST(value AS INTEGER) FROM json_each(${JSON.stringify(ids)})
+    ), chain(target_id, ancestor_id, dist) AS (
+      SELECT areas.id, areas.parent_id, 1 FROM requested
+      JOIN areas ON areas.id = requested.id
+      WHERE areas.parent_id IS NOT NULL
       UNION ALL
       SELECT chain.target_id, areas.parent_id, chain.dist + 1
       FROM chain
@@ -174,7 +183,8 @@ export async function getAreaBreadcrumbs(
       WHERE areas.parent_id IS NOT NULL AND chain.dist < ${depth}
     )
     SELECT target.id AS targetId, ancestor.id AS ancestorId, ancestor.name AS ancestorName
-    FROM (SELECT id FROM areas WHERE id IN (${sql.join(ids, sql`, `)})) target
+    FROM requested
+    JOIN areas target ON target.id = requested.id
     LEFT JOIN chain ON chain.target_id = target.id
     LEFT JOIN areas ancestor ON ancestor.id = chain.ancestor_id
     ORDER BY target.id ASC, chain.dist DESC
@@ -215,21 +225,34 @@ export async function searchAreas(
   db: Database,
   name: string,
   page = 1,
+  pageSize = AREA_SEARCH_PAGE_SIZE,
 ): Promise<SearchAreasPage> {
   const query = toFtsPrefixQuery(name);
   if (!query) return { areas: [], hasNextPage: false };
 
   // Fetch one extra row to detect a next page without a separate COUNT query.
   const rows = await db.all<AreaWithAncestorPath>(sql`
-    WITH RECURSIVE ancestor_chain(area_id, ancestor_id, dist) AS (
-      SELECT id, parent_id, 1 FROM areas WHERE parent_id IS NOT NULL
+    WITH RECURSIVE matched(area_id, score) AS (
+      SELECT areas.id, bm25(areas_fts)
+      FROM areas
+      JOIN areas_fts ON areas_fts.rowid = areas.id
+      WHERE areas_fts MATCH ${query}
+      ORDER BY bm25(areas_fts), areas.id
+      LIMIT ${pageSize + 1}
+      OFFSET ${(page - 1) * pageSize}
+    ), ancestor_chain(area_id, ancestor_id, dist) AS (
+      SELECT matched.area_id, areas.parent_id, 1
+      FROM matched
+      JOIN areas ON areas.id = matched.area_id
+      WHERE areas.parent_id IS NOT NULL
       UNION ALL
       SELECT ancestor_chain.area_id, areas.parent_id, ancestor_chain.dist + 1
       FROM ancestor_chain
       JOIN areas ON areas.id = ancestor_chain.ancestor_id
       WHERE areas.parent_id IS NOT NULL
     )
-    SELECT areas.*, (
+    SELECT areas.id AS id, areas.parent_id AS parentId, areas.name AS name,
+           areas.description AS description, (
       -- GROUP_CONCAT joins rows in the order it receives them, so the
       -- ORDER BY belongs on a subquery it consumes. Placed beside the
       -- aggregate it would order that query's single output row instead,
@@ -242,17 +265,14 @@ export async function searchAreas(
         ORDER BY ancestor_chain.dist DESC
       )
     ) AS ancestorPath
-    FROM areas
-    JOIN areas_fts ON areas_fts.rowid = areas.id
-    WHERE areas_fts MATCH ${query}
-    ORDER BY rank, areas.id
-    LIMIT ${AREA_SEARCH_PAGE_SIZE + 1}
-    OFFSET ${(page - 1) * AREA_SEARCH_PAGE_SIZE}
+    FROM matched
+    JOIN areas ON areas.id = matched.area_id
+    ORDER BY matched.score, areas.id
   `);
 
   return {
-    areas: rows.slice(0, AREA_SEARCH_PAGE_SIZE),
-    hasNextPage: rows.length > AREA_SEARCH_PAGE_SIZE,
+    areas: rows.slice(0, pageSize),
+    hasNextPage: rows.length > pageSize,
   };
 }
 

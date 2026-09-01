@@ -2,18 +2,25 @@ import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
-import { climbs } from "@/db/schema";
+import { climbs, sends } from "@/db/schema";
 import {
   getClimbSendStats,
   getClimbSendSummary,
   getSendsForClimb,
   getSendsForUserPage,
+  getSendsForUserExportPage,
   getUserSendForClimb,
   getUserSendsSummary,
   getUserSentClimbIds,
+  type UserSendsExportCursor,
   type UserSendsFilter,
 } from "./sends";
-import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
+import {
+  seedFixtureSend,
+  seedFixtureTree,
+  seedFixtureUser,
+  seedManyClimbs,
+} from "@/test/fixtures";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 
 const ALL_SENDS_FILTER: UserSendsFilter = {
@@ -447,6 +454,18 @@ describe("getUserSentClimbIds", () => {
     const ids = await getUserSentClimbIds(db, "test-user-4");
     expect(ids).toEqual(new Set());
   });
+
+  it("scopes to more ids than D1 allows bound parameters", async () => {
+    // Keep the scoped helper safe for batches beyond D1's 100-parameter
+    // statement cap by sending the ids as one JSON binding.
+    const manyIds = Array.from({ length: 400 }, (_, index) => index + 1);
+    expect(await getUserSentClimbIds(db, "test-user-1", manyIds)).toEqual(new Set([1, 2]));
+  });
+
+  it("can scope the lookup to only the visible climb ids", async () => {
+    expect(await getUserSentClimbIds(db, "test-user-1", [2, 3])).toEqual(new Set([2]));
+    expect(await getUserSentClimbIds(db, "test-user-1", [])).toEqual(new Set());
+  });
 });
 
 describe("getClimbSendStats", () => {
@@ -471,6 +490,18 @@ describe("getClimbSendStats", () => {
 
   it("returns an empty map for an empty id list, without querying", async () => {
     expect(await getClimbSendStats(db, [])).toEqual({});
+  });
+
+  it("handles an id batch larger than D1's bound-parameter cap", async () => {
+    const ids = Array.from({ length: 200 }, (_, index) => index + 1);
+    const stats = await getClimbSendStats(db, ids);
+    expect(Object.keys(stats)).toHaveLength(200);
+    expect(stats[1]?.sendCount).toBeGreaterThan(0);
+    expect(stats[200]).toEqual({
+      avgRating: null,
+      sendCount: 0,
+      avgSuggestedGrade: null,
+    });
   });
 
   it("averages non-null suggested grades independently of rating", async () => {
@@ -782,5 +813,96 @@ describe("getClimbSendSummary", () => {
       styleBreakdown: { flash: 0, redpoint: 0, onsight: 0 },
       suggestedGradeCounts: [],
     });
+  });
+});
+
+describe("getSendsForUserExportPage", () => {
+  const userId = "test-user-export";
+
+  // Both tests below need this history: the paging one to cross the batch
+  // boundary, the query-plan one so the planner is choosing against a real,
+  // ANALYZEd table rather than an empty one. Seeded here rather than by the
+  // first `it` so neither test depends on the other having run.
+  beforeAll(async () => {
+    const startId = 600_000;
+    await seedFixtureUser(db, { id: userId, name: "Large Export" });
+    await seedManyClimbs(db, 5, 205, startId);
+
+    const rows = Array.from({ length: 205 }, (_, index) => ({
+      userId,
+      climbId: startId + index,
+      ascentStyle: "redpoint" as const,
+      dateSent: index >= 200 ? null : "2026-04-01",
+      suggestedGrade: 2,
+    }));
+    for (let index = 0; index < rows.length; index += 10) {
+      await db.insert(sends).values(rows.slice(index, index + 10));
+    }
+    await db.run(sql`ANALYZE sends`);
+  });
+
+  it("keyset-pages a history larger than one export batch without duplicates", async () => {
+    const firstPage = await getSendsForUserExportPage(db, userId, null);
+    expect(firstPage.sends).toHaveLength(200);
+    expect(firstPage.sends.every((send) => send.dateSent !== null)).toBe(true);
+    expect(firstPage.sends.map((send) => send.id)).toEqual(
+      firstPage.sends.map((send) => send.id).sort((a, b) => b - a),
+    );
+
+    const exported: Awaited<ReturnType<typeof getSendsForUserExportPage>>["sends"] = [];
+    let cursor: UserSendsExportCursor | null = null;
+    do {
+      const page = await getSendsForUserExportPage(db, userId, cursor);
+      exported.push(...page.sends);
+      cursor = page.nextCursor;
+    } while (cursor);
+
+    expect(exported).toHaveLength(205);
+    expect(new Set(exported.map((send) => send.id)).size).toBe(205);
+    expect(exported.slice(-5).every((send) => send.dateSent === null)).toBe(true);
+  });
+
+  it("constrains both export cursor phases beyond user_id in the composite index", async () => {
+    const datedPlan = await db.all<{ detail: string }>(sql`
+      EXPLAIN QUERY PLAN
+      SELECT sends.id
+      FROM sends INDEXED BY sends_user_date_idx
+      WHERE sends.user_id = ${userId}
+        AND sends.date_sent IS NOT NULL
+        AND (sends.date_sent, sends.id) < (${"2026-04-01"}, ${999999})
+      ORDER BY sends.date_sent DESC, sends.id DESC
+      LIMIT 201
+    `);
+    const undatedPlan = await db.all<{ detail: string }>(sql`
+      EXPLAIN QUERY PLAN
+      SELECT sends.id
+      FROM sends INDEXED BY sends_user_date_idx
+      WHERE sends.user_id = ${userId}
+        AND sends.date_sent IS NULL
+        AND sends.id < ${999999}
+      ORDER BY sends.date_sent DESC, sends.id DESC
+      LIMIT 201
+    `);
+
+    const datedDetail = datedPlan.map((row) => row.detail).join("\n");
+    const undatedDetail = undatedPlan.map((row) => row.detail).join("\n");
+
+    // `INDEXED BY` already forces this index or raises, so asserting the index
+    // NAME proves nothing. What has to hold is the shape of the access: a
+    // SEARCH (a seek to the cursor) rather than a SCAN, constrained past
+    // user_id by date_sent. Under 0019's original `id ASC` index the row-value
+    // range could not be used and this collapsed to `(user_id=?)` — every page
+    // re-reading every earlier one, which is the regression 0020 exists to
+    // prevent.
+    expect(datedDetail).toContain("SEARCH");
+    expect(datedDetail).toContain("date_sent<?");
+    expect(undatedDetail).toContain("SEARCH");
+    expect(undatedDetail).toContain("date_sent=? AND id<?");
+
+    // The index has to satisfy the ORDER BY outright. A temp b-tree here means
+    // it sorted the whole matched range per page — silent, and exactly the
+    // failure 0018's comment warns descending indexes fail with.
+    expect(datedDetail).not.toContain("TEMP B-TREE");
+    expect(undatedDetail).not.toContain("TEMP B-TREE");
   });
 });

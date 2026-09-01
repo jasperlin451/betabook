@@ -84,6 +84,7 @@ describe("getAncestors", () => {
     const alcove = await getArea(db, 4);
     const ancestors = await getAncestors(db, alcove!);
     expect(ancestors.map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
+    expect(ancestors.map((a) => a.parentId)).toEqual([null, 1]);
   });
 
   it("returns exactly one ancestor for a one-level-deep area", async () => {
@@ -147,6 +148,21 @@ describe("getAreaBreadcrumbs", () => {
     const breadcrumbs = await getAreaBreadcrumbs(db, []);
     expect(breadcrumbs).toEqual({});
   });
+
+  it("handles a 200-area API/export batch without exceeding D1's bind limit", async () => {
+    const startId = 410_000;
+    await seedManyAreas(db, 200, startId, {
+      parentId: 1,
+      namePrefix: "Breadcrumb Batch Area",
+    });
+    const ids = Array.from({ length: 200 }, (_, index) => startId + index);
+
+    const breadcrumbs = await getAreaBreadcrumbs(db, ids);
+
+    expect(Object.keys(breadcrumbs)).toHaveLength(200);
+    expect(breadcrumbs[startId]).toEqual([{ id: 1, name: "Test Crag" }]);
+    expect(breadcrumbs[startId + 199]).toEqual([{ id: 1, name: "Test Crag" }]);
+  });
 });
 
 describe("searchAreas", () => {
@@ -173,6 +189,7 @@ describe("searchAreas", () => {
   it("builds ancestorPath root-first", async () => {
     const { areas } = await searchAreas(db, "Highball Alcove");
     expect(areas[0]?.ancestorPath).toBe("Test Crag > Test Boulders");
+    expect(areas[0]?.parentId).toBe(2);
   });
 
   it("leaves ancestorPath null for a root area", async () => {

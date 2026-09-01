@@ -112,8 +112,9 @@ export const RECENT_SENDS_PAGE_SIZE = 15;
 export type RecentSendsPage = { sends: RecentSendRow[]; hasMore: boolean };
 
 /** The home feed: the latest sends across every climber and area, newest
- * logged first (created_at, not date_sent — the feed shows activity as it
- * lands, while each row still displays the climb date). Paged the same way
+ * ascent date first. This is a logbook chronology rather than an import
+ * activity stream: importing an older ascent places it at its historical
+ * date instead of presenting it as something sent today. Paged the same way
  * as every other list: server-rendered first page, /api/feed for the rest.
  *
  * The ORDER BY below is load-bearing beyond its ordering: it is matched
@@ -201,12 +202,33 @@ export async function getClimbSendSummary(
   return { ...stats[climbId], styleBreakdown, suggestedGradeCounts };
 }
 
-/** All climb ids the user already has a send for — cheap pre-check for bulk import, avoids one query per row just to detect duplicates. */
-export async function getUserSentClimbIds(db: Database, userId: string): Promise<Set<number>> {
-  const rows = await db
-    .select({ climbId: sends.climbId })
-    .from(sends)
-    .where(eq(sends.userId, userId));
+/** Climb ids the user already has a send for. Pass `climbIds` on list pages
+ * so the query and RSC payload stay proportional to the visible page; omit
+ * it only for workflows that genuinely need the whole set (the profile
+ * picker and import duplicate pre-check). */
+export async function getUserSentClimbIds(
+  db: Database,
+  userId: string,
+  climbIds?: readonly number[],
+): Promise<Set<number>> {
+  const distinctIds = climbIds ? [...new Set(climbIds)] : undefined;
+  if (distinctIds?.length === 0) return new Set();
+
+  // The ids go over as one JSON binding rather than one parameter each, so a
+  // future caller cannot accidentally exceed D1's 100-parameter ceiling.
+  // Same reasoning as getAreaBreadcrumbs.
+  const rows = await db.all<{ climbId: number }>(sql`
+    SELECT sends.climb_id AS climbId
+    FROM sends
+    WHERE sends.user_id = ${userId}
+    ${
+      distinctIds
+        ? sql`AND sends.climb_id IN (
+            SELECT CAST(value AS INTEGER) FROM json_each(${JSON.stringify(distinctIds)})
+          )`
+        : sql``
+    }
+  `);
   return new Set(rows.map((r) => r.climbId));
 }
 
@@ -373,6 +395,101 @@ export async function getSendsForUserPage(
   return { sends: hasMore ? rows.slice(0, pageSize) : rows, hasMore };
 }
 
+export const EXPORT_SENDS_PAGE_SIZE = 200;
+export type UserSendsExportCursor = { dateSent: string | null; id: number };
+export type UserSendsExportPage = {
+  sends: UserSendRow[];
+  nextCursor: UserSendsExportCursor | null;
+};
+
+/** Full-history export uses keyset pagination rather than the UI list's
+ * bounded OFFSET. It therefore never replays/clamps at 10k rows and each
+ * request seeks from the previous `(date_sent, id)` key through
+ * sends_user_date_idx. Dated and undated sends are fetched as separate index
+ * ranges: combining them with OR prevents SQLite from seeking past user_id
+ * and turns page N into a rescan of pages 1…N-1. */
+export async function getSendsForUserExportPage(
+  db: Database,
+  userId: string,
+  cursor: UserSendsExportCursor | null,
+): Promise<UserSendsExportPage> {
+  const rows: UserSendRow[] = [];
+
+  // Phase 1: dated rows. Matching DESC directions let the row-value range
+  // map directly to the (user_id, date_sent DESC, id DESC) index.
+  if (cursor === null || cursor.dateSent !== null) {
+    const datedRange =
+      cursor === null
+        ? sql`sends.date_sent IS NOT NULL`
+        : sql`sends.date_sent IS NOT NULL
+              AND (sends.date_sent, sends.id) < (${cursor.dateSent}, ${cursor.id})`;
+    rows.push(
+      ...(await getUserExportRows(
+        db,
+        userId,
+        datedRange,
+        EXPORT_SENDS_PAGE_SIZE + 1,
+      )),
+    );
+  }
+
+  // Phase 2: NULL dates sort after every dated row. Only enter this range
+  // once the dated range no longer fills the page; when a page straddles the
+  // boundary, fetch just enough NULL rows to fill it plus the has-more row.
+  if (rows.length <= EXPORT_SENDS_PAGE_SIZE) {
+    const undatedRange =
+      cursor?.dateSent === null
+        ? sql`sends.date_sent IS NULL AND sends.id < ${cursor.id}`
+        : sql`sends.date_sent IS NULL`;
+    rows.push(
+      ...(await getUserExportRows(
+        db,
+        userId,
+        undatedRange,
+        EXPORT_SENDS_PAGE_SIZE + 1 - rows.length,
+      )),
+    );
+  }
+
+  const hasMore = rows.length > EXPORT_SENDS_PAGE_SIZE;
+  const page = hasMore ? rows.slice(0, EXPORT_SENDS_PAGE_SIZE) : rows;
+  const last = page.at(-1);
+  return {
+    sends: page,
+    nextCursor: hasMore && last ? { dateSent: last.dateSent, id: last.id } : null,
+  };
+}
+
+function getUserExportRows(
+  db: Database,
+  userId: string,
+  range: SQL,
+  limit: number,
+): Promise<UserSendRow[]> {
+  return db.all<UserSendRow>(sql`
+    SELECT
+      sends.id AS id,
+      sends.climb_id AS climbId,
+      climbs.name AS climbName,
+      climbs.type AS climbType,
+      climbs.grade AS climbGrade,
+      climbs.area_id AS areaId,
+      areas.name AS areaName,
+      sends.ascent_style AS ascentStyle,
+      sends.date_sent AS dateSent,
+      sends.rating AS rating,
+      sends.suggested_grade AS suggestedGrade,
+      sends.grade_feel AS gradeFeel,
+      sends.comment AS comment
+    FROM sends INDEXED BY sends_user_date_idx
+    JOIN climbs ON climbs.id = sends.climb_id
+    JOIN areas ON areas.id = climbs.area_id
+    WHERE sends.user_id = ${userId} AND (${range})
+    ORDER BY sends.date_sent DESC, sends.id DESC
+    LIMIT ${limit}
+  `);
+}
+
 export type UserStatsSummary = {
   sendCount: number;
   areaCount: number;
@@ -436,9 +553,12 @@ export async function getClimbSendStats(
   db: Database,
   climbIds: number[],
 ): Promise<Record<number, ClimbSendStats>> {
+  const distinctIds = [...new Set(climbIds)];
   const stats: Record<number, ClimbSendStats> = {};
-  for (const id of climbIds) stats[id] = { avgRating: null, sendCount: 0, avgSuggestedGrade: null };
-  if (climbIds.length === 0) return stats;
+  for (const id of distinctIds) {
+    stats[id] = { avgRating: null, sendCount: 0, avgSuggestedGrade: null };
+  }
+  if (distinctIds.length === 0) return stats;
 
   const rows = await db.all<{
     climbId: number;
@@ -452,7 +572,9 @@ export async function getClimbSendStats(
                  WHEN 'high' THEN ${GRADE_FEEL_OFFSET.high}
                  ELSE 0 END) AS avgSuggestedGrade
     FROM sends
-    WHERE climb_id IN (${sql.join(climbIds.map((id) => sql`${id}`), sql`, `)})
+    WHERE climb_id IN (
+      SELECT CAST(value AS INTEGER) FROM json_each(${JSON.stringify(distinctIds)})
+    )
     GROUP BY climb_id
   `);
   for (const row of rows) {

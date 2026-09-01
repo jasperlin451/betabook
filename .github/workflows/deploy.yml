@@ -46,6 +46,11 @@ jobs:
 
       - run: pnpm lint
 
+      # The Vitest worker applies every D1 migration to a fresh database, so
+      # this catches migration and query regressions before production changes.
+      - name: Test
+        run: pnpm test
+
       # Split from the deploy step below: `next build` typechecks, so a broken
       # compile stops here instead of shipping.
       - name: Build

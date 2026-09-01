@@ -620,6 +620,12 @@ describe("searchClimbs pagination", () => {
     expect(page3.hasNextPage).toBe(false);
   });
 
+  it("supports offset pagination independently of page numbers", async () => {
+    const page2 = await searchClimbs(db, SCOPE, 2, 10);
+    const slice = await searchClimbs(db, SCOPE, 1, 10, 10);
+    expect(slice).toEqual(page2);
+  });
+
   // Every seeded climb has send_count 0 (default-sort tie) and grades of
   // `i % 19` (~3 climbs per grade) — exactly the tie-heavy shapes where a
   // missing unique tie-breaker (`climbs.id`) makes OFFSET pagination

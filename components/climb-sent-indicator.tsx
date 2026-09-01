@@ -2,7 +2,7 @@
 
 import { Button, useOverlayState } from "@heroui/react";
 import { CirclePlus } from "lucide-react";
-import type { Climb } from "@/db/queries";
+import type { SendableClimb } from "@/db/queries";
 import { SendFormDrawer } from "@/components/send-form-drawer";
 
 /** Leading-slot indicator: a static check if the viewer has already sent
@@ -21,7 +21,7 @@ import { SendFormDrawer } from "@/components/send-form-drawer";
  * matching it at one and drifting at the other. */
 const INDICATOR_BOX_CLASS = "flex size-9 shrink-0 items-center justify-center md:size-8";
 
-export function ClimbSentIndicator({ climb, sent }: { climb: Climb; sent: boolean }) {
+export function ClimbSentIndicator({ climb, sent }: { climb: SendableClimb; sent: boolean }) {
   const state = useOverlayState();
 
   if (sent) {

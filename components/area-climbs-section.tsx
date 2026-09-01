@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
 import { ClimbList } from "@/components/climb-list";
 import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { areaClimbsFilterToSearchParams, type AreaClimbsFilter } from "@/lib/area-climbs-filter";
 import type { AreaBreadcrumbs, ClimbSendStats, ClimbWithAreaName, SubtreeClimbsSort } from "@/db/queries";
+import {
+  createClimbListMeta,
+  mergeClimbListMeta,
+} from "@/lib/climb-search-pages";
+import { usePagedList } from "@/hooks/use-paged-list";
 
 type AreaClimbsSectionProps = {
   areaId: number;
@@ -39,23 +44,32 @@ export function AreaClimbsSection({
   sentClimbIds,
   emptyMessage,
 }: AreaClimbsSectionProps) {
-  const [climbs, setClimbs] = useState(initialClimbs);
-  const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
-  const [sendStats, setSendStats] = useState(initialSendStats);
-  const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
-  // Climbs are fetched PAGE_SIZE at a time (see db/queries/shared.ts), so the
-  // next page to request is however many full pages are already loaded —
-  // not climbs.length, which would be wrong after any dedup/filter change.
-  const [loadedPages, setLoadedPages] = useState(1);
+  const initialMeta = useMemo(
+    () =>
+      createClimbListMeta({
+        sendStats: initialSendStats,
+        areaBreadcrumbs: initialAreaBreadcrumbs,
+        sentClimbIds,
+      }),
+    [initialSendStats, initialAreaBreadcrumbs, sentClimbIds],
+  );
 
-  async function handleLoadMore() {
-    setLoadingMore(true);
-    setLoadMoreFailed(false);
-    try {
+  const {
+    items: climbs,
+    hasMore: hasNextPage,
+    meta: { sendStats, areaBreadcrumbs, sentClimbIds: visibleSentClimbIds },
+    loadingMore,
+    loadMoreFailed,
+    loadMore,
+  } = usePagedList({
+    initialItems: initialClimbs,
+    initialHasMore: initialHasNextPage,
+    initialMeta,
+    itemKey: (climb) => climb.id,
+    mergeMeta: mergeClimbListMeta,
+    fetchPage: async (offset) => {
       const params = areaClimbsFilterToSearchParams(sort, filter);
-      params.set("page", String(loadedPages + 1));
+      params.set("offset", String(offset));
       const res = await fetch(`/api/areas/${areaId}/climbs?${params.toString()}`);
       if (!res.ok) throw new Error(`Loading more climbs failed: ${res.status}`);
       const data: {
@@ -63,20 +77,15 @@ export function AreaClimbsSection({
         hasNextPage: boolean;
         sendStats: Record<number, ClimbSendStats>;
         areaBreadcrumbs: AreaBreadcrumbs;
+        sentClimbIds?: number[];
       } = await res.json();
-      setClimbs((prev) => [...prev, ...data.climbs]);
-      setHasNextPage(data.hasNextPage);
-      setSendStats((prev) => ({ ...prev, ...data.sendStats }));
-      setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
-      setLoadedPages((prev) => prev + 1);
-    } catch {
-      // Network failure or a non-2xx response — keep what's loaded, surface
-      // an inline error, and leave the button as the retry affordance.
-      setLoadMoreFailed(true);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+      return {
+        items: data.climbs,
+        hasMore: data.hasNextPage,
+        meta: createClimbListMeta(data),
+      };
+    },
+  });
 
   return (
     <section className="flex flex-col gap-2">
@@ -88,11 +97,11 @@ export function AreaClimbsSection({
           emptyMessage={emptyMessage}
           sendStats={sendStats}
           areaBreadcrumbs={areaBreadcrumbs}
-          sentClimbIds={sentClimbIds}
+          sentClimbIds={visibleSentClimbIds}
           pagination={{
             hasNextPage,
             loadingMore,
-            onLoadMore: handleLoadMore,
+            onLoadMore: loadMore,
             error: loadMoreFailed && (
               <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
             ),

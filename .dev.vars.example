@@ -11,7 +11,5 @@ BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_SECRET=local-development-only-secret-not-for-production
 
 # Empty means "no Resend" to lib/email.ts, which then logs verification and
-# reset links to the console. Keep the line: `pnpm cf-typegen` derives
-# CloudflareEnv from this file, and dropping it breaks lib/email.ts's
-# `env.RESEND_API_KEY` typecheck.
+# reset links to the console. Keep this key aligned with cloudflare-env.d.ts.
 RESEND_API_KEY=

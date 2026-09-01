@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
 import { type ClimbSearchFilter } from "@/lib/climb-search-filter";
-import { appendPage, fetchClimbSearchPage } from "@/lib/climb-search-pages";
-import type { ClimbSearchPages } from "@/lib/climb-search-pages";
+import {
+  createClimbListMeta,
+  fetchClimbSearchPage,
+  mergeClimbListMeta,
+} from "@/lib/climb-search-pages";
+import { usePagedList } from "@/hooks/use-paged-list";
 import type {
   AreaBreadcrumbs,
   AreaWithAncestorPath,
@@ -36,48 +40,52 @@ export function ClimbSearchResults({
   initialHasNextPage: boolean;
   initialSendStats: Record<number, ClimbSendStats>;
   initialAreaBreadcrumbs: AreaBreadcrumbs;
-  /** Every climb id the signed-in viewer has ever sent — covers climbs on
-   * later pages too, so it never needs re-fetching on "load more". */
+  /** Sent ids for the initial page. Later pages carry their own subset. */
   sentClimbIds?: Set<number>;
 }) {
-  // Results are fetched SEARCH_PAGE_SIZE at a time (see db/queries/climbs.ts),
-  // so the next page to request is however many full pages are already loaded.
-  const [pages, setPages] = useState<ClimbSearchPages>({
-    climbs: initialClimbs,
-    sendStats: initialSendStats,
-    areaBreadcrumbs: initialAreaBreadcrumbs,
-    hasNextPage: initialHasNextPage,
-    loadedPages: 1,
+  const initialMeta = useMemo(
+    () =>
+      createClimbListMeta({
+        sendStats: initialSendStats,
+        areaBreadcrumbs: initialAreaBreadcrumbs,
+        sentClimbIds,
+      }),
+    [initialSendStats, initialAreaBreadcrumbs, sentClimbIds],
+  );
+  const {
+    items: climbs,
+    hasMore: hasNextPage,
+    meta: { sendStats, areaBreadcrumbs, sentClimbIds: visibleSentClimbIds },
+    loadingMore,
+    loadMoreFailed,
+    loadMore,
+  } = usePagedList({
+    initialItems: initialClimbs,
+    initialHasMore: initialHasNextPage,
+    initialMeta,
+    itemKey: (climb) => climb.id,
+    mergeMeta: mergeClimbListMeta,
+    fetchPage: async (offset) => {
+      const next = await fetchClimbSearchPage(sort, filter, 1, { offset });
+      return {
+        items: next.climbs,
+        hasMore: next.hasNextPage,
+        meta: createClimbListMeta(next),
+      };
+    },
   });
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
-
-  async function handleLoadMore() {
-    setLoadingMore(true);
-    setLoadMoreFailed(false);
-    try {
-      const next = await fetchClimbSearchPage(sort, filter, pages.loadedPages + 1);
-      setPages((prev) => appendPage(prev, next));
-    } catch {
-      // Network failure or a non-2xx response — keep what's loaded, surface
-      // an inline error, and leave the button as the retry affordance.
-      setLoadMoreFailed(true);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
 
   return (
     <ClimbList
-      climbs={pages.climbs}
-      sendStats={pages.sendStats}
-      areaBreadcrumbs={pages.areaBreadcrumbs}
-      sentClimbIds={sentClimbIds}
+      climbs={climbs}
+      sendStats={sendStats}
+      areaBreadcrumbs={areaBreadcrumbs}
+      sentClimbIds={visibleSentClimbIds}
       emptyMessage="No climbs match your search."
       pagination={{
-        hasNextPage: pages.hasNextPage,
+        hasNextPage,
         loadingMore,
-        onLoadMore: handleLoadMore,
+        onLoadMore: loadMore,
         error: loadMoreFailed && (
           <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
         ),

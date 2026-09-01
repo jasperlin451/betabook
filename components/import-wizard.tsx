@@ -38,6 +38,8 @@ import {
   detectDateFormat,
   CLIMB_TYPES,
   DATE_SAMPLE_SIZE,
+  MAX_IMPORT_FILE_BYTES,
+  MAX_IMPORT_ROWS,
   REQUIRED_COLUMN_KEYS,
   type AscentStyleMapping,
   type ClimbTypeMapping,
@@ -249,6 +251,12 @@ export function ImportWizard() {
     const file = input.files?.[0];
     if (!file) return;
 
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setError("That CSV is larger than 10 MB. Split it into smaller files and try again.");
+      input.value = "";
+      return;
+    }
+
     setReading(true);
     try {
       const text = await file.text();
@@ -258,6 +266,12 @@ export function ImportWizard() {
       input.value = "";
 
       const parsed = parseCsvText(text);
+      if (parsed.rows.length > MAX_IMPORT_ROWS) {
+        setError(
+          `That CSV has more than ${MAX_IMPORT_ROWS.toLocaleString("en-US")} rows. Split it into smaller files and try again.`,
+        );
+        return;
+      }
       if (parsed.headers.length === 0 || parsed.rows.length === 0) {
         setError("Couldn't find any data rows in that file.");
         return;

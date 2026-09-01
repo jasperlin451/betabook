@@ -170,6 +170,12 @@ function subtreeAreaIds(areaId: number): SQL {
 // recompute — this is a live count.
 export const LARGE_AREA_SUBTREE_AREAS = 1000;
 
+/** Short prefix terms tend to match a large share of the global FTS table.
+ * Driving from FTS in that case materializes and sorts the whole match set;
+ * the large-area sort index is the bounded path because it can stop at LIMIT.
+ * A longer term is selective enough to justify FTS-first for rare matches. */
+const MIN_LARGE_AREA_FTS_DRIVER_TERM_LENGTH = 3;
+
 /** Whether `areaId`'s subtree reaches LARGE_AREA_SUBTREE_AREAS — the signal
  * getSubtreeClimbs forces its index from — as a SQL expression yielding 0/1,
  * so a caller already issuing a statement about this area can carry it along
@@ -308,14 +314,13 @@ export async function getSubtreeClimbs(
   page = 1,
   sort: SubtreeClimbsSort = "ascents_desc",
   filter?: DisciplineGradeFilter & { name?: string } & ClimbStatsFilter,
+  pageSize = PAGE_SIZE,
+  offset = (page - 1) * pageSize,
 ): Promise<{ climbs: ClimbWithAreaName[]; page: number; pageSize: number; hasNextPage: boolean }> {
   const conditions: SQL[] = [sql`climbs.area_id IN (SELECT id FROM subtree)`];
 
-  if (filter?.name) {
-    const nameQuery = toFtsPrefixQuery(filter.name);
-    if (!nameQuery) return { climbs: [], page, pageSize: PAGE_SIZE, hasNextPage: false };
-    conditions.push(sql`climbs.id IN (SELECT rowid FROM climbs_fts WHERE climbs_fts MATCH ${nameQuery})`);
-  }
+  const nameQuery = filter?.name ? toFtsPrefixQuery(filter.name) : null;
+  if (filter?.name && !nameQuery) return { climbs: [], page, pageSize, hasNextPage: false };
 
   if (filter) {
     const disciplineClauses = disciplineGradeConditions(filter);
@@ -336,6 +341,35 @@ export async function getSubtreeClimbs(
   }
 
   const isLarge = "largeSubtree" in area ? area.largeSubtree : await isLargeSubtree(db, area.id);
+  // A global sort index is ideal for broad continent-sized lists because it
+  // can stop as soon as LIMIT is filled. It is the wrong driver for a rare
+  // name, though: it may scan that global index to exhaustion to find zero
+  // matches. In that shape, drive from the selective FTS table and accept a
+  // tiny result sort instead. One- and two-character terms stay on the sort
+  // index and use a correlated rowid-constrained FTS probe, avoiding both the
+  // global FTS result sort and an eagerly materialized IN-list.
+  const longestNameTerm = Math.max(
+    0,
+    ...(filter?.name?.trim().split(/\s+/).map((term) => term.length) ?? []),
+  );
+  const useNameIndex =
+    isLarge &&
+    nameQuery !== null &&
+    longestNameTerm >= MIN_LARGE_AREA_FTS_DRIVER_TERM_LENGTH;
+  if (nameQuery) {
+    conditions.push(
+      useNameIndex
+        ? sql`climbs_fts MATCH ${nameQuery}`
+        : isLarge
+          ? sql`EXISTS (
+              SELECT 1 FROM climbs_fts
+              WHERE climbs_fts.rowid = climbs.id AND climbs_fts MATCH ${nameQuery}
+            )`
+          : sql`climbs.id IN (
+              SELECT rowid FROM climbs_fts WHERE climbs_fts MATCH ${nameQuery}
+            )`,
+    );
+  }
   const indexName = isLarge ? SUBTREE_CLIMBS_SORT_INDEX[sort] : "climbs_area_idx";
 
   // Fetch one extra row to detect a next page without a separate COUNT query.
@@ -345,27 +379,30 @@ export async function getSubtreeClimbs(
   // Keyed on the size decision itself, not on the index name it produces:
   // naming the index here is what silently dropped the chain when the small
   // -area index was renamed.
-  const orderBy = isLarge
+  const orderBy = isLarge && !useNameIndex
     ? sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, climbs.id`
     : sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, ${sortTieBreak(sort)}, climbs.id`;
+  const climbSource = useNameIndex
+    ? sql`climbs_fts JOIN climbs ON climbs.id = climbs_fts.rowid`
+    : sql`climbs INDEXED BY ${sql.raw(indexName)}`;
 
   const rows = await db.all<ClimbWithAreaName>(sql`
     ${subtreeAreaIds(area.id)}
     SELECT climbs.id AS id, climbs.area_id AS areaId, climbs.name AS name,
            climbs.type AS type, climbs.grade AS grade, areas.name AS areaName
-    FROM climbs INDEXED BY ${sql.raw(indexName)}
+    FROM ${climbSource}
     JOIN areas ON areas.id = climbs.area_id
     WHERE ${sql.join(conditions, sql` AND `)}
     ORDER BY ${orderBy}
-    LIMIT ${PAGE_SIZE + 1}
-    OFFSET ${(page - 1) * PAGE_SIZE}
+    LIMIT ${pageSize + 1}
+    OFFSET ${offset}
   `);
 
-  const hasNextPage = rows.length > PAGE_SIZE;
+  const hasNextPage = rows.length > pageSize;
   return {
-    climbs: rows.slice(0, PAGE_SIZE),
+    climbs: rows.slice(0, pageSize),
     page,
-    pageSize: PAGE_SIZE,
+    pageSize,
     hasNextPage,
   };
 }
@@ -462,7 +499,9 @@ export type SearchClimbsParams = DisciplineGradeFilter &
     sort?: SubtreeClimbsSort;
   };
 
-export type ClimbWithAreaName = Climb & { areaName: string };
+export type ClimbWithAreaName = Pick<Climb, "id" | "areaId" | "name" | "type" | "grade"> & {
+  areaName: string;
+};
 
 /** Search pages are smaller than the area page's PAGE_SIZE — the search
  * surface renders richer per-row context (breadcrumbs, send stats) for
@@ -507,6 +546,8 @@ export async function searchClimbs(
   db: Database,
   params: SearchClimbsParams,
   page = 1,
+  pageSize = SEARCH_PAGE_SIZE,
+  offset = (page - 1) * pageSize,
 ): Promise<SearchClimbsPage> {
   const conditions = searchClimbsConditions(params);
   if (conditions === null) return { climbs: [], hasNextPage: false };
@@ -530,13 +571,13 @@ export async function searchClimbs(
     JOIN areas ON areas.id = climbs.area_id
     ${searchClimbsWhereClause(conditions)}
     ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[params.sort ?? "ascents_desc"]}, ${sortTieBreak(params.sort ?? "ascents_desc")}, climbs.id
-    LIMIT ${SEARCH_PAGE_SIZE + 1}
-    OFFSET ${(page - 1) * SEARCH_PAGE_SIZE}
+    LIMIT ${pageSize + 1}
+    OFFSET ${offset}
   `);
 
   return {
-    climbs: rows.slice(0, SEARCH_PAGE_SIZE),
-    hasNextPage: rows.length > SEARCH_PAGE_SIZE,
+    climbs: rows.slice(0, pageSize),
+    hasNextPage: rows.length > pageSize,
   };
 }
 
