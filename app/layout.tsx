@@ -125,8 +125,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <div className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>{children}</div>
           </main>
           <footer className="border-t border-separator px-4 py-4 text-sm text-muted">
-            <div className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
+            {/* Same flex row as the header's inner div, so the two rails
+              * agree. The About link lives here and only here: the header nav
+              * and the mobile drawer are for the things you came to do
+              * (search, log a send, your account), and a colophon standing
+              * among them earns a tap it hasn't paid for. Plain AppLink, not
+              * NavLink — NavLink exists to set aria-current="page", and
+              * there's no current-state treatment for a lone footer link, so
+              * it would announce a state the design doesn't express (and put a
+              * usePathname() subscription in the root layout for one link). */}
+            <div
+              className={`mx-auto flex w-full ${PAGE_MAX_WIDTH_CLASS} flex-wrap items-center justify-between gap-2`}
+            >
               <span>&copy; {process.env.NEXT_PUBLIC_BUILD_YEAR} Betabook</span>
+              <AppLink href="/about">About</AppLink>
             </div>
           </footer>
           </SearchPaletteProvider>
