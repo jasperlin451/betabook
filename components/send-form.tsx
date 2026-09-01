@@ -16,6 +16,7 @@ import {
   TextField,
 } from "@heroui/react";
 import clsx from "clsx";
+import { Star } from "lucide-react";
 import { createSend, updateSend } from "@/db/mutations";
 import {
   ASCENT_STYLES,
@@ -91,6 +92,59 @@ function AscentStylePicker({
   );
 }
 
+const RATING_VALUES = [1, 2, 3, 4, 5];
+
+/** The rating people already picture: five stars, click the one you mean and
+ * everything up to it fills. A dropdown of "★★★" strings made you open a menu
+ * to say something a row of stars says at a glance — and it read nothing like
+ * the RatingStars the send wears afterwards.
+ *
+ * Radio semantics, same as AscentStylePicker: one value out of five. Hovering
+ * previews the fill so the click is never a guess. */
+function RatingPicker({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (value: number) => void;
+}) {
+  const [hovered, setHovered] = useState<number | null>(null);
+  const shown = hovered ?? value ?? 0;
+
+  // -ml-1 pulls the first star's hit-area padding back to the column edge, so
+  // the row of stars lines up with the fields around it.
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Rating"
+      className="-ml-1 flex items-center"
+      onMouseLeave={() => setHovered(null)}
+    >
+      {RATING_VALUES.map((n) => (
+        <button
+          key={n}
+          type="button"
+          role="radio"
+          aria-checked={value === n}
+          aria-label={`${n} ${n === 1 ? "star" : "stars"}`}
+          onClick={() => onChange(n)}
+          onMouseEnter={() => setHovered(n)}
+          onFocus={() => setHovered(n)}
+          onBlur={() => setHovered(null)}
+          className="cursor-pointer rounded p-1 transition-colors"
+        >
+          <Star
+            className={clsx(
+              "size-7 transition-colors",
+              n <= shown ? "fill-current text-warning" : "text-muted",
+            )}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   // The user's local calendar date ("en-CA" formats as YYYY-MM-DD) — a UTC
   // date (toISOString) can be a day off from the user's local today.
@@ -107,9 +161,11 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
     existingSend != null && existingSend.dateSent == null,
   );
   const [comment, setComment] = useState(existingSend?.comment ?? "");
-  const [rating, setRating] = useState(
-    existingSend?.rating != null ? String(existingSend.rating) : "abstain",
-  );
+  const [rating, setRating] = useState<number | null>(existingSend?.rating ?? null);
+  // Opens checked for anything without a rating — a new send, or an existing
+  // one saved unrated. Unchecking it only clears the intent to skip; the stars
+  // stay empty until you pick one, and an unrated send still saves as null.
+  const [skipRating, setSkipRating] = useState(existingSend?.rating == null);
   const [suggestedGrade, setSuggestedGrade] = useState(
     String(existingSend?.suggestedGrade ?? climb.grade ?? 0),
   );
@@ -127,7 +183,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
     formData.set("ascentStyle", ascentStyle);
     formData.set("dateSent", dateUnknown ? "" : dateSent);
     formData.set("comment", comment);
-    formData.set("rating", rating === "abstain" ? "" : rating);
+    formData.set("rating", rating == null ? "" : String(rating));
     formData.set("suggestedGrade", suggestedGrade);
     formData.set("gradeFeel", gradeFeel);
 
@@ -182,27 +238,28 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField>
             <Label>Rating</Label>
-            <Select
-              aria-label="Rating"
-              fullWidth
-              selectedKey={rating}
-              onSelectionChange={(key) => setRating(String(key))}
+            <RatingPicker
+              value={rating}
+              onChange={(value) => {
+                setRating(value);
+                setSkipRating(false);
+              }}
+            />
+            <Checkbox
+              className="mt-2"
+              isSelected={skipRating}
+              onChange={(selected) => {
+                setSkipRating(selected);
+                if (selected) setRating(null);
+              }}
             >
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  <ListBox.Item id="abstain">No rating</ListBox.Item>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <ListBox.Item key={n} id={String(n)}>
-                      {"★".repeat(n)}
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
+              <Checkbox.Content>
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                Skip rating
+              </Checkbox.Content>
+            </Checkbox>
           </TextField>
 
           <TextField>
