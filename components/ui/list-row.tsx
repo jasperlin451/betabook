@@ -22,6 +22,11 @@ type ListRowProps = {
    * own vertical stack. */
   actions?: ReactNode;
   comment?: string | null;
+  /** Who the comment belongs to — rendered on its own line directly above
+   * it, outside the clamp so it never spends one of the comment's three
+   * lines. Only lists that mix authors need it (the home feed); a list
+   * that's already scoped to one climber leaves it off. */
+  commentAuthor?: ReactNode;
   className?: string;
 };
 
@@ -35,6 +40,7 @@ export function ListRow({
   trailing,
   actions,
   comment,
+  commentAuthor,
   className,
 }: ListRowProps) {
   return (
@@ -87,12 +93,14 @@ export function ListRow({
             )}
             {tags && <div className="relative z-10 mt-1 flex w-fit flex-wrap gap-2">{tags}</div>}
           </div>
-          {comment != null && (
+          {(commentAuthor != null || comment != null) && (
             // Lifted above the row-link overlay like the other slots so the
-            // comment text stays selectable instead of click-navigating.
-            <p className="relative z-10 line-clamp-3 text-sm leading-relaxed text-foreground">
-              {comment}
-            </p>
+            // comment text stays selectable (and the author's link stays
+            // clickable) instead of click-navigating with the row.
+            <div className="relative z-10 text-sm leading-relaxed text-foreground">
+              {commentAuthor != null && <div className="font-medium">{commentAuthor}</div>}
+              {comment != null && <p className="line-clamp-3">{comment}</p>}
+            </div>
           )}
         </div>
         {/* No ml-auto: the text column grows, so this already sits hard

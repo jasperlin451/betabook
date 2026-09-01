@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/format-date";
 import type { AreaBreadcrumbs, RecentSendRow } from "@/db/queries";
 import { AppLink } from "@/components/ui/app-link";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
+import { AscentStyle } from "@/components/ascent-style";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Grade } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
@@ -19,19 +20,12 @@ type FeedPageResponse = {
   areaBreadcrumbs: AreaBreadcrumbs;
 };
 
-// The event verb, in logbook voice — specific enough that the trailing
-// column doesn't need to repeat the style as a chip.
-const ASCENT_VERBS = {
-  onsight: "onsighted",
-  flash: "flashed",
-  redpoint: "sent",
-} as const;
-
 /** The home feed: latest sends across the whole book, one logbook entry
- * per row, read as a sentence — "climber onsighted/flashed/sent route" —
- * with the area as quiet context beneath and grade/stars/date in the
- * trailing data column. Server-rendered first page, /api/feed behind
- * "load more". */
+ * per row, shaped exactly like a row of UserSendList — the route names the
+ * row, the area sits as quiet context beneath, and grade/stars/style/date
+ * stack in the trailing data column. What the profile list doesn't need and
+ * this one does is the "who", which lines up above the comment.
+ * Server-rendered first page, /api/feed behind "load more". */
 export function RecentSendsFeed({
   initialSends,
   initialHasMore,
@@ -76,16 +70,8 @@ export function RecentSendsFeed({
         {sends.map((send) => (
           <ListRow
             key={send.id}
-            // The event reads as a sentence — climber and route are the two
-            // strong words, the verb stays quiet between them. No row-level
-            // href: the sentence carries its own two links.
-            title={
-              <>
-                <AppLink href={`/users/${send.userId}`}>{send.userName}</AppLink>
-                <span className="font-normal text-muted"> {ASCENT_VERBS[send.ascentStyle]} </span>
-                <AppLink href={`/climbs/${send.climbId}`}>{send.climbName}</AppLink>
-              </>
-            }
+            title={send.climbName}
+            href={`/climbs/${send.climbId}`}
             subtitle={
               <AreaBreadcrumb
                 areaId={send.areaId}
@@ -113,8 +99,16 @@ export function RecentSendsFeed({
                   </Grade>
                   <RatingStars rating={send.rating} />
                 </div>
+                <AscentStyle type={send.ascentStyle} />
                 <div className="text-xs text-muted">{formatDate(send.dateSent)}</div>
               </div>
+            }
+            // The climber attributes the note rather than titling the row:
+            // the route is what the row is about, but a feed still has to say
+            // whose send this is — so the name sits on its own line above the
+            // comment, and shows even on a send with no comment at all.
+            commentAuthor={
+              <AppLink href={`/users/${send.userId}`}>{send.userName}</AppLink>
             }
             comment={send.comment}
           />
