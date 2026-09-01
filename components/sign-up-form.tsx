@@ -86,18 +86,18 @@ export function SignUpForm({ next }: { next?: string }) {
       onSubmit={handleSubmit}
       className={FORM_CARD_CLASS}
     >
-      <PageTitle className="text-2xl">Sign Up</PageTitle>
+      <PageTitle className="text-2xl">Sign up</PageTitle>
       <TextField value={name} onChange={setName} isRequired>
         <Label>Name</Label>
-        <Input placeholder="Your name" className="bg-surface" />
+        <Input placeholder="Your name" />
       </TextField>
       <TextField value={email} onChange={setEmail} type="email" isRequired>
         <Label>Email</Label>
-        <Input placeholder="you@example.com" className="bg-surface" />
+        <Input placeholder="you@example.com" />
       </TextField>
       <TextField value={password} onChange={setPassword} type="password" isRequired>
         <Label>Password</Label>
-        <Input className="bg-surface" />
+        <Input />
       </TextField>
       <TextField
         value={confirmPassword}
@@ -105,15 +105,15 @@ export function SignUpForm({ next }: { next?: string }) {
         type="password"
         isRequired
       >
-        <Label>Confirm Password</Label>
-        <Input className="bg-surface" />
+        <Label>Confirm password</Label>
+        <Input />
       </TextField>
       {passwordMismatch && (
         <p className="text-sm text-danger">Passwords do not match.</p>
       )}
       {error && <p className="text-sm text-danger">{error}</p>}
       <Button type="submit" fullWidth isDisabled={pending}>
-        Sign Up
+        Sign up
       </Button>
       <p className="text-sm text-muted">
         Already have an account? <AppLink href={signInUrl(nextPath)}>Sign in</AppLink>

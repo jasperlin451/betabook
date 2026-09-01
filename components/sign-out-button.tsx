@@ -28,7 +28,7 @@ export function SignOutButton() {
   return (
     <div className="flex flex-col gap-2">
       <Button onPress={handleSignOut} isDisabled={pending}>
-        Sign Out
+        Sign out
       </Button>
       {error && <p className="text-sm text-danger">{error}</p>}
     </div>

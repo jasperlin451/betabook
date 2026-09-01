@@ -44,18 +44,18 @@ export function ForgotPasswordForm() {
       onSubmit={handleSubmit}
       className={FORM_CARD_CLASS}
     >
-      <PageTitle className="text-2xl">Forgot Password</PageTitle>
+      <PageTitle className="text-2xl">Forgot password</PageTitle>
       <p className="text-sm text-muted">
         Enter your email and we&apos;ll send you a link to reset your
         password.
       </p>
       <TextField value={email} onChange={setEmail} type="email" isRequired>
         <Label>Email</Label>
-        <Input placeholder="you@example.com" className="bg-surface" />
+        <Input placeholder="you@example.com" />
       </TextField>
       {error && <p className="text-sm text-danger">{error}</p>}
       <Button type="submit" fullWidth isDisabled={pending}>
-        Send Reset Link
+        Send reset link
       </Button>
       <p className="text-sm text-muted">
         Remembered your password? <AppLink href="/sign-in">Sign in</AppLink>

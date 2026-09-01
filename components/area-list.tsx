@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { buttonVariants, Button } from "@heroui/react";
 import type { Area } from "@/db/queries";
 import { AppLink } from "@/components/ui/app-link";
@@ -31,9 +31,9 @@ type AreaListProps = {
     hasNextPage: boolean;
     loadingMore: boolean;
     onLoadMore: () => void;
-    /** Inline error shown above the button when a page fetch failed — the
-     * button itself stays as the retry affordance. */
-    error?: ReactNode;
+    /** The last page fetch failed — LoadMoreButton says so and stays as the
+     * retry affordance. */
+    failed?: boolean;
   };
 };
 
@@ -53,10 +53,11 @@ export function AreaList({
 
   if (variant === "search") {
     const loadMoreBlock = pagination?.hasNextPage && (
-      <div className="flex flex-col items-center gap-2">
-        {pagination.error}
-        <LoadMoreButton onPress={pagination.onLoadMore} loading={pagination.loadingMore} />
-      </div>
+      <LoadMoreButton
+        onPress={pagination.onLoadMore}
+        loading={pagination.loadingMore}
+        failed={pagination.failed}
+      />
     );
 
     return (

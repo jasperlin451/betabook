@@ -5,7 +5,7 @@ import { signInUrl } from "@/lib/sign-in-redirect";
 import { ImportWizard } from "@/components/import-wizard";
 
 export const metadata: Metadata = {
-  title: "Import Sends",
+  title: "Import sends",
 };
 
 export default async function ImportPage() {

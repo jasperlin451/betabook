@@ -19,7 +19,9 @@ export function AreaBreadcrumb({
   areaName?: string;
   ancestors: { id: number; name: string }[];
 }) {
-  const linkClassName = "text-xs! font-normal! text-muted!";
+  // Plain utilities: they sit in a later cascade layer than HeroUI's `.link`
+  // component class, so no `!important` is needed to quiet the link.
+  const linkClassName = "text-xs font-normal text-muted";
   const segments =
     areaId != null && areaName != null ? [...ancestors, { id: areaId, name: areaName }] : ancestors;
   const leading = segments.slice(0, -1);

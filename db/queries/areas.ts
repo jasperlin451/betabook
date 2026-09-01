@@ -2,6 +2,7 @@ import { eq, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas } from "@/db/schema";
 import { toFtsPrefixQuery } from "./shared";
+import { AREA_SEARCH_PAGE_SIZE } from "@/lib/page-sizes";
 
 export type Area = typeof areas.$inferSelect;
 
@@ -205,7 +206,7 @@ export type AreaWithAncestorPath = Area & { ancestorPath: string | null };
 /** Same page size as climb search (see SEARCH_PAGE_SIZE in climbs.ts) — kept
  * as its own constant here to avoid a circular import between the two query
  * modules. */
-export const AREA_SEARCH_PAGE_SIZE = 25;
+export { AREA_SEARCH_PAGE_SIZE };
 
 export type SearchAreasPage = { areas: AreaWithAncestorPath[]; hasNextPage: boolean };
 

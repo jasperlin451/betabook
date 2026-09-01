@@ -5,7 +5,7 @@ import { ResetPasswordForm } from "@/components/reset-password-form";
 import { AppLink } from "@/components/ui/app-link";
 
 export const metadata: Metadata = {
-  title: "Reset Password",
+  title: "Reset password",
 };
 
 export default async function ResetPasswordPage({

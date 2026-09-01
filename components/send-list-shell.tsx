@@ -13,9 +13,9 @@ type SendListShellProps<T extends { id: number }> = {
   hasMore: boolean;
   onLoadMore: () => void;
   loadingMore?: boolean;
-  /** Inline error shown above the "load more" button when a page fetch
-   * failed — the button itself stays as the retry affordance. */
-  loadMoreError?: ReactNode;
+  /** The last page fetch failed — LoadMoreButton says so and stays as the
+   * retry affordance. */
+  loadMoreFailed?: boolean;
 };
 
 /** Shared empty-state + "load more" + row-list structure for a list of
@@ -30,7 +30,7 @@ export function SendListShell<T extends { id: number }>({
   hasMore,
   onLoadMore,
   loadingMore = false,
-  loadMoreError,
+  loadMoreFailed = false,
 }: SendListShellProps<T>) {
   if (sends.length === 0) {
     return emptyState;
@@ -44,10 +44,7 @@ export function SendListShell<T extends { id: number }>({
         ))}
       </div>
       {hasMore && (
-        <div className="flex flex-col items-center gap-2">
-          {loadMoreError}
-          <LoadMoreButton onPress={onLoadMore} loading={loadingMore} />
-        </div>
+        <LoadMoreButton onPress={onLoadMore} loading={loadingMore} failed={loadMoreFailed} />
       )}
     </div>
   );

@@ -9,7 +9,7 @@ export default function AreaNotFound() {
   return (
     <NotFoundMessage
       heading="Area not found"
-      message="We couldn't find an area with that id."
+      message="We couldn't find that area. It may have been removed, or the link may be wrong."
     />
   );
 }

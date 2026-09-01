@@ -1,7 +1,7 @@
 import { Skeleton, SkeletonListRows } from "@/components/ui/skeleton";
 
 /** Mirrors the area page's crag header (breadcrumbs, eyebrow, display
- * title, description, mono info strip, then the grade histogram — collapsed
+ * title, description, info strip, then the grade histogram — collapsed
  * to a trigger row below md, charts above it), the sub-area block, then the
  * climb table beside the lg:w-80 filter sidebar. */
 export default function Loading() {
@@ -16,7 +16,7 @@ export default function Loading() {
         <div className="mt-2 flex flex-wrap items-center gap-4">
           <Skeleton className="h-4 w-20" />
           <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-5 w-16" rounded="rounded-full" />
         </div>
         {/* The histogram is a collapsed accordion below md and the charts
           * themselves from md up (see AreaCragHeader), so the skeleton
@@ -32,9 +32,9 @@ export default function Loading() {
       <div className="flex flex-col gap-2">
         <Skeleton className="h-6 w-28" />
         <div className="flex flex-wrap gap-2">
-          <Skeleton className="h-8 w-24 rounded-lg" />
-          <Skeleton className="h-8 w-32 rounded-lg" />
-          <Skeleton className="h-8 w-20 rounded-lg" />
+          <Skeleton className="h-8 w-24" rounded="rounded-lg" />
+          <Skeleton className="h-8 w-32" rounded="rounded-lg" />
+          <Skeleton className="h-8 w-20" rounded="rounded-lg" />
         </div>
       </div>
 
@@ -43,7 +43,7 @@ export default function Loading() {
           <SkeletonListRows rows={8} />
         </div>
         <div className="order-1 lg:order-2 lg:w-80 lg:shrink-0">
-          <Skeleton className="h-8 w-full rounded-xl lg:h-96" />
+          <Skeleton className="h-8 w-full lg:h-96" rounded="rounded-xl" />
         </div>
       </div>
     </div>

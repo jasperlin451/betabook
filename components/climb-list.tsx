@@ -1,13 +1,12 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { describeGradeTrend } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
 import { formatCount } from "@/lib/format";
 import type { ClimbWithAreaName } from "@/db/queries";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Grade } from "@/components/ui/grade";
+import { Grade, GradeArrow } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
@@ -23,9 +22,9 @@ type ClimbListProps = {
     hasNextPage: boolean;
     loadingMore: boolean;
     onLoadMore: () => void;
-    /** Inline error shown above the button when a page fetch failed — the
-     * button itself stays as the retry affordance. */
-    error?: ReactNode;
+    /** The last page fetch failed — LoadMoreButton says so and stays as the
+     * retry affordance. */
+    failed?: boolean;
   };
   /** Average rating, logged-ascent count, and average suggested grade per
    * climb, keyed by climb id. */
@@ -53,10 +52,11 @@ export function ClimbList({
   }
 
   const loadMoreBlock = pagination?.hasNextPage && (
-    <div className="flex flex-col items-center gap-2">
-      {pagination.error}
-      <LoadMoreButton onPress={pagination.onLoadMore} loading={pagination.loadingMore} />
-    </div>
+    <LoadMoreButton
+      onPress={pagination.onLoadMore}
+      loading={pagination.loadingMore}
+      failed={pagination.failed}
+    />
   );
 
   return (
@@ -120,23 +120,29 @@ export function GradeWithTrend({
   avgSuggestedGrade: number | null;
 }) {
   const { postedLabel, suggestedLabel, arrow } = describeGradeTrend(type, grade, avgSuggestedGrade);
-  const arrowSymbol = arrow === "up" ? "↑" : arrow === "down" ? "↓" : null;
+  // Same arrow as a send row's feel: up is "the community grades it harder
+  // than posted", down "softer" — one sign wherever a grade is compared.
+  const arrowIcon =
+    arrow === "up" ? (
+      <GradeArrow direction="up" label="Community grades it harder" />
+    ) : arrow === "down" ? (
+      <GradeArrow direction="down" label="Community grades it softer" />
+    ) : null;
 
   if (suggestedLabel == null) {
-    return arrowSymbol == null ? (
-      <>{postedLabel}</>
-    ) : (
+    return (
       <>
-        {postedLabel} {arrowSymbol}
+        {postedLabel}
+        {arrowIcon}
       </>
     );
   }
 
   return (
     <>
-      {postedLabel} ({suggestedLabel}
-      {arrowSymbol}
-      )
+      {postedLabel}
+      <span className="font-normal text-muted"> ({suggestedLabel})</span>
+      {arrowIcon}
     </>
   );
 }

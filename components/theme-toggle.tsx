@@ -1,7 +1,8 @@
 "use client";
 
-import { Button, ListBox, Select, Skeleton, useTheme } from "@heroui/react";
+import { Button, ListBox, Select, useTheme } from "@heroui/react";
 import { Monitor, Moon, Sun } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useMounted } from "@/hooks/use-mounted";
 import { syncThemeColorMeta } from "@/lib/theme-color";
 
@@ -23,7 +24,7 @@ export function ThemeSwitch() {
 
   if (!mounted) {
     // Same footprint as the icon button below so the header doesn't shift.
-    return <Skeleton animationType="pulse" className="size-9 rounded-lg" aria-hidden />;
+    return <Skeleton rounded="rounded-lg" className="size-9" />;
   }
 
   const current: ThemeName = THEME_CYCLE.includes(theme as ThemeName)
@@ -63,7 +64,7 @@ export function ThemeToggle() {
   if (!mounted) {
     // Same footprint as the trigger below (w-28, min-h-9, rounded-field) so
     // the account card's geometry doesn't shift when the select mounts.
-    return <Skeleton animationType="pulse" className="h-9 w-28 rounded-field" aria-hidden />;
+    return <Skeleton rounded="rounded-field" className="h-9 w-28" />;
   }
 
   return (

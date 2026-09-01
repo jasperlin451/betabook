@@ -50,7 +50,7 @@ export default async function AccountPage() {
       </AccountSection>
 
       <AccountSection title="Send data">
-        <AppLink href="/account/import">Import Sends</AppLink>
+        <AppLink href="/account/import">Import sends</AppLink>
         <ExportSendsButton userId={session.user.id} />
       </AccountSection>
 

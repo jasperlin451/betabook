@@ -37,7 +37,7 @@ export function SendFormDrawer({
         <Drawer.Content>
           <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
             <Drawer.Header>
-              <Drawer.Heading>{existingSend ? "Edit Send" : "Log a Send"}</Drawer.Heading>
+              <Drawer.Heading>{existingSend ? "Edit send" : "Log send"}</Drawer.Heading>
               <Drawer.CloseTrigger />
             </Drawer.Header>
             <Drawer.Body>

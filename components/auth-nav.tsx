@@ -1,9 +1,9 @@
 "use client";
 
 import { clsx } from "clsx";
-import { Skeleton } from "@heroui/react";
 import { authClient } from "@/lib/auth-client";
 import { NavLink } from "@/components/nav-link";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useMounted } from "@/hooks/use-mounted";
 
 type AuthNavProps = {
@@ -15,7 +15,7 @@ type AuthNavProps = {
 };
 
 /** One pill per signed-in link, each sized to roughly the label it stands in
- * for ("Create Climb", "Create Area", "My sends", "Account"). The signed-in
+ * for ("Add climb", "Add area", "My sends", "Account"). The signed-in
  * set is the widest (and, for a logbook, the most common) state, so holding
  * its geometry keeps the header from reflowing when the session resolves. */
 const PLACEHOLDER_WIDTHS = ["w-21", "w-20", "w-16", "w-14"] as const;
@@ -43,11 +43,7 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
         {PLACEHOLDER_WIDTHS.map((width) => (
           // my-0.5 + h-4 adds up to the 20px line box of a text-sm link, so
           // each pill occupies exactly one link's height in both directions.
-          <Skeleton
-            key={width}
-            animationType="pulse"
-            className={clsx("my-0.5 h-4 rounded-full", width)}
-          />
+          <Skeleton key={width} rounded="rounded-full" className={clsx("my-0.5 h-4", width)} />
         ))}
       </div>
     );
@@ -57,10 +53,10 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
     return (
       <span className={signedInGroupClass}>
         <NavLink href="/climbs/new" onClick={onNavigate}>
-          Create Climb
+          Add climb
         </NavLink>
         <NavLink href="/areas/new" onClick={onNavigate}>
-          Create Area
+          Add area
         </NavLink>
         <NavLink href={`/users/${session.user.id}`} onClick={onNavigate}>
           My sends
@@ -75,10 +71,10 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
   return (
     <span className={clsx("flex gap-4", direction === "col" ? "flex-col items-start" : "items-center")}>
       <NavLink href="/sign-in" onClick={onNavigate}>
-        Log In
+        Sign in
       </NavLink>
       <NavLink href="/sign-up" onClick={onNavigate}>
-        Sign Up
+        Sign up
       </NavLink>
     </span>
   );

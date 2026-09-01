@@ -12,6 +12,7 @@ import {
   DEFAULT_TRAD_RANGE,
   type DisciplineFilter,
 } from "@/lib/discipline-filter";
+import { RECENT_SENDS_PAGE_SIZE } from "@/lib/page-sizes";
 
 export type Send = typeof sends.$inferSelect;
 
@@ -107,7 +108,7 @@ export type RecentSendRow = {
   comment: string | null;
 };
 
-export const RECENT_SENDS_PAGE_SIZE = 15;
+export { RECENT_SENDS_PAGE_SIZE };
 
 export type RecentSendsPage = { sends: RecentSendRow[]; hasMore: boolean };
 

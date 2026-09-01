@@ -9,8 +9,8 @@ export default function Loading() {
       <Skeleton tone="raised" className="h-4 w-48" />
       <Skeleton tone="raised" className="h-4 w-32" />
       <Skeleton tone="raised" className="h-4 w-28" />
-      <Skeleton tone="raised" className="h-9 w-full rounded-lg" />
-      <Skeleton tone="raised" className="h-9 w-full rounded-lg" />
+      <Skeleton tone="raised" className="h-9 w-full" rounded="rounded-lg" />
+      <Skeleton tone="raised" className="h-9 w-full" rounded="rounded-lg" />
     </div>
   );
 }

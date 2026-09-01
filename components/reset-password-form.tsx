@@ -54,15 +54,15 @@ export function ResetPasswordForm({ token }: { token: string }) {
       onSubmit={handleSubmit}
       className={FORM_CARD_CLASS}
     >
-      <PageTitle className="text-2xl">Reset Password</PageTitle>
+      <PageTitle className="text-2xl">Reset password</PageTitle>
       <TextField
         value={newPassword}
         onChange={setNewPassword}
         type="password"
         isRequired
       >
-        <Label>New Password</Label>
-        <Input className="bg-surface" />
+        <Label>New password</Label>
+        <Input />
       </TextField>
       <TextField
         value={confirmPassword}
@@ -70,15 +70,15 @@ export function ResetPasswordForm({ token }: { token: string }) {
         type="password"
         isRequired
       >
-        <Label>Confirm New Password</Label>
-        <Input className="bg-surface" />
+        <Label>Confirm new password</Label>
+        <Input />
       </TextField>
       {passwordMismatch && (
         <p className="text-sm text-danger">Passwords do not match.</p>
       )}
       {error && <p className="text-sm text-danger">{error}</p>}
       <Button type="submit" fullWidth isDisabled={pending}>
-        Reset Password
+        Reset password
       </Button>
     </form>
   );

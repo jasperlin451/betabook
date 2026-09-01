@@ -1,11 +1,10 @@
 import clsx from "clsx";
-import { AreaSearchForm, ClimbSearchForm, ClimbSearchSortControl } from "@/components/search-form";
+import { AreaSearchToolbar, ClimbSearchToolbar } from "@/components/search-form";
 import { AreaSearchResults, ClimbSearchResults } from "@/components/search-results";
 import { NavigationPendingProvider, NavigationPendingRegion } from "@/components/navigation-pending";
 import { HomeSearchEntry } from "@/components/command-palette";
 import { RecentSendsFeed } from "@/components/recent-sends-feed";
 import { AppLink } from "@/components/ui/app-link";
-import { PageWithStats } from "@/components/ui/page-shell";
 import { SectionHeading } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
 import {
@@ -94,31 +93,23 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             * h1 exists for the document outline/assistive tech, not the eye. */}
           <h1 className="sr-only">Search areas</h1>
           <ModeSwitch mode={mode} name={name} currentSearch={currentSearch.toString()} />
-          <PageWithStats
-            statsPosition="before"
-            stats={
-              <div className="lg:w-96 lg:shrink-0">
-                <AreaSearchForm defaultName={name} />
-              </div>
-            }
-          >
-            <section className="flex flex-col gap-2">
-              <h2 className="text-lg font-semibold">
-                Results
-                {name && <ResultCount count={totalCount} />}
-              </h2>
-              <NavigationPendingRegion>
-                <AreaSearchResults
-                  key={name}
-                  name={name}
-                  initialAreas={results.areas}
-                  initialHasNextPage={results.hasNextPage}
-                  initialAreaBreadcrumbs={areaBreadcrumbs}
-                  emptyMessage={name ? `No areas matching "${name}".` : "Search for an area by name."}
-                />
-              </NavigationPendingRegion>
-            </section>
-          </PageWithStats>
+          <section className="flex flex-col gap-3">
+            <SectionHeading>
+              Results
+              {name && <ResultCount count={totalCount} />}
+            </SectionHeading>
+            <AreaSearchToolbar defaultName={name} />
+            <NavigationPendingRegion>
+              <AreaSearchResults
+                key={name}
+                name={name}
+                initialAreas={results.areas}
+                initialHasNextPage={results.hasNextPage}
+                initialAreaBreadcrumbs={areaBreadcrumbs}
+                emptyMessage={name ? `No areas matching "${name}".` : "Search for an area by name."}
+              />
+            </NavigationPendingRegion>
+          </section>
         </div>
       </NavigationPendingProvider>
     );
@@ -170,36 +161,25 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           name={filter.name}
           currentSearch={climbSearchFilterToSearchParams(sort, filter).toString()}
         />
-        <PageWithStats
-          statsPosition="before"
-          stats={
-            <div className="lg:w-96 lg:shrink-0">
-              <ClimbSearchForm defaultFilter={filter} sort={sort} />
-            </div>
-          }
-        >
-          <section className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">
-                Results
-                {totalCount != null && <ResultCount count={totalCount} />}
-              </h2>
-              <ClimbSearchSortControl sort={sort} filter={filter} />
-            </div>
-            <NavigationPendingRegion>
-              <ClimbSearchResults
-                key={climbSearchFilterToSearchParams(sort, filter).toString()}
-                sort={sort}
-                filter={filter}
-                initialClimbs={results.climbs}
-                initialHasNextPage={results.hasNextPage}
-                initialSendStats={sendStats}
-                initialAreaBreadcrumbs={areaBreadcrumbs}
-                sentClimbIds={sentClimbIds}
-              />
-            </NavigationPendingRegion>
-          </section>
-        </PageWithStats>
+        <section className="flex flex-col gap-3">
+          <SectionHeading>
+            Results
+            {totalCount != null && <ResultCount count={totalCount} />}
+          </SectionHeading>
+          <ClimbSearchToolbar filter={filter} sort={sort} />
+          <NavigationPendingRegion>
+            <ClimbSearchResults
+              key={climbSearchFilterToSearchParams(sort, filter).toString()}
+              sort={sort}
+              filter={filter}
+              initialClimbs={results.climbs}
+              initialHasNextPage={results.hasNextPage}
+              initialSendStats={sendStats}
+              initialAreaBreadcrumbs={areaBreadcrumbs}
+              sentClimbIds={sentClimbIds}
+            />
+          </NavigationPendingRegion>
+        </section>
       </div>
     </NavigationPendingProvider>
   );

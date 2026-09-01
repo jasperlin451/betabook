@@ -89,14 +89,14 @@ export function SignInForm({ next }: { next?: string }) {
       onSubmit={handleSubmit}
       className={FORM_CARD_CLASS}
     >
-      <PageTitle className="text-2xl">Sign In</PageTitle>
+      <PageTitle className="text-2xl">Sign in</PageTitle>
       <TextField value={email} onChange={handleEmailChange} type="email" isRequired>
         <Label>Email</Label>
-        <Input placeholder="you@example.com" className="bg-surface" />
+        <Input placeholder="you@example.com" />
       </TextField>
       <TextField value={password} onChange={setPassword} type="password" isRequired>
         <Label>Password</Label>
-        <Input className="bg-surface" />
+        <Input />
       </TextField>
       <AppLink href="/forgot-password" className="text-sm text-muted">
         Forgot password?
@@ -116,7 +116,7 @@ export function SignInForm({ next }: { next?: string }) {
         </div>
       )}
       <Button type="submit" fullWidth isDisabled={pending}>
-        Sign In
+        Sign in
       </Button>
       <p className="text-sm text-muted">
         Don&apos;t have an account? <AppLink href={signUpUrl(nextPath)}>Sign up</AppLink>

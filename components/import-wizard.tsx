@@ -3,9 +3,12 @@
 import { PageTitle } from "@/components/ui/typography";
 import { FIELD_CLASS } from "@/components/ui/field";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { Button, ButtonGroup, Label, TextField } from "@heroui/react";
+import { Button, Label, TextField } from "@heroui/react";
+import { cardClass } from "@/components/ui/card";
+import { SegmentedButtons } from "@/components/ui/segmented-buttons";
 import { formatCount } from "@/lib/format";
 import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import { GRADE_FEEL_LABELS } from "@/components/send-form";
 import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { importSends, type ImportResult } from "@/db/mutations";
 import { downloadCsv } from "@/lib/download";
@@ -17,12 +20,6 @@ import {
   type GradeFeel,
 } from "@/lib/sends";
 
-// Same wording as the send form's grade-feel buttons.
-const GRADE_FEEL_LABELS: Record<GradeFeel, string> = {
-  low: "Low end",
-  solid: "Solid",
-  high: "High end",
-};
 import {
   buildFailedRowsCsv,
   distinctValues,
@@ -68,7 +65,7 @@ function WizardSteps({ step }: { step: Step }) {
     step === "result" ? WIZARD_STATIONS.length : WIZARD_STATIONS.findIndex((s) => s.key === step);
 
   return (
-    <ol className="flex flex-wrap items-center gap-2 font-mono text-xs tabular-nums">
+    <ol className="flex flex-wrap items-center gap-2 text-xs tabular-nums">
       {WIZARD_STATIONS.map((station, i) => {
         const state = i < activeIndex ? "done" : i === activeIndex ? "active" : "todo";
         return (
@@ -94,14 +91,14 @@ function WizardSteps({ step }: { step: Step }) {
 }
 
 const COLUMN_FIELDS: { key: keyof ColumnMapping; label: string }[] = [
-  { key: "date", label: "Date Sent" },
-  { key: "ascentStyle", label: "Ascent Style" },
-  { key: "climbName", label: "Climb Name" },
-  { key: "areaName", label: "Area Name" },
-  { key: "climbType", label: "Climb Type (tiebreaker only)" },
+  { key: "date", label: "Date sent" },
+  { key: "ascentStyle", label: "Ascent style" },
+  { key: "climbName", label: "Climb name" },
+  { key: "areaName", label: "Area name" },
+  { key: "climbType", label: "Climb type (tiebreaker only)" },
   { key: "grade", label: "Grade" },
-  { key: "suggestedGrade", label: "Suggested Grade" },
-  { key: "gradeFeel", label: "Grade Feel" },
+  { key: "suggestedGrade", label: "Suggested grade" },
+  { key: "gradeFeel", label: "Grade feel" },
   { key: "rating", label: "Rating" },
   { key: "comment", label: "Comment" },
 ];
@@ -466,8 +463,8 @@ export function ImportWizard() {
   }
 
   return (
-    <div className="flex flex-col gap-6 rounded-xl bg-surface-secondary p-6">
-      <PageTitle className="text-2xl">Import Sends from CSV</PageTitle>
+    <div className={`flex flex-col gap-6 ${cardClass("md")}`}>
+      <PageTitle className="text-2xl">Import sends from CSV</PageTitle>
 
       <WizardSteps step={step} />
 
@@ -495,7 +492,7 @@ export function ImportWizard() {
             onPress={() => fileInputRef.current?.click()}
             className="w-full lg:w-auto lg:self-start"
           >
-            Choose CSV File
+            Choose CSV file
           </Button>
           {reading && <p className="text-sm text-muted">Reading file…</p>}
         </div>
@@ -526,7 +523,7 @@ export function ImportWizard() {
                 }
                 className={FIELD_CLASS}
               >
-                <option value="">— None —</option>
+                <option value="">None</option>
                 {parsedCsv.headers.map((header) => (
                   <option key={header} value={header}>
                     {header}
@@ -535,7 +532,7 @@ export function ImportWizard() {
               </select>
             </TextField>
           ))}
-          <Button onPress={handleColumnsNext}>Next: Value Mapping</Button>
+          <Button onPress={handleColumnsNext}>Next: value mapping</Button>
         </div>
       )}
 
@@ -543,7 +540,7 @@ export function ImportWizard() {
         <div className="flex flex-col gap-6">
           {ascentStyleValues.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium">Ascent Style Values</p>
+              <p className="text-sm font-medium">Ascent style values</p>
               {ascentStyleValues.map((value) => (
                 <div key={value} className="flex items-center gap-4">
                   <span className="w-40 shrink-0 truncate text-sm">{value}</span>
@@ -572,7 +569,7 @@ export function ImportWizard() {
           {climbTypeValues.length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">
-                Climb Type Values (used only to break ties for ambiguous matches)
+                Climb type values (used only to break ties for ambiguous matches)
               </p>
               {climbTypeValues.map((value) => (
                 <div key={value} className="flex items-center gap-4">
@@ -601,7 +598,7 @@ export function ImportWizard() {
 
           {gradeFeelValues.length > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium">Grade Feel Values</p>
+              <p className="text-sm font-medium">Grade feel values</p>
               {gradeFeelValues.map((value) => (
                 <div key={value} className="flex items-center gap-4">
                   <span className="w-40 shrink-0 truncate text-sm">{value}</span>
@@ -636,7 +633,7 @@ export function ImportWizard() {
               {needsDateFormat ? (
                 <>
                   <TextField>
-                    <Label>Date Format</Label>
+                    <Label>Date format</Label>
                     <select
                       value={dateFormat}
                       onChange={(e) => setDateFormat(e.target.value as DateFormat)}
@@ -672,7 +669,7 @@ export function ImportWizard() {
 
           {(columnMapping?.grade || columnMapping?.suggestedGrade) && (
             <TextField>
-              <Label>Grade Notation</Label>
+              <Label>Grade notation</Label>
               <select
                 value={gradeScale}
                 onChange={(e) => setGradeScale(e.target.value as "native" | "converted")}
@@ -688,7 +685,7 @@ export function ImportWizard() {
             <Button variant="ghost" onPress={() => goBack("columns")}>
               Back
             </Button>
-            <Button onPress={handleValuesNext}>Next: Review</Button>
+            <Button onPress={handleValuesNext}>Next: review</Button>
           </div>
         </div>
       )}
@@ -763,7 +760,7 @@ export function ImportWizard() {
               )}
               <div>
                 <Button variant="ghost" onPress={handleCancel} isDisabled={cancelRequested}>
-                  {cancelRequested ? "Stopping after the current batch…" : "Cancel Import"}
+                  {cancelRequested ? "Stopping after the current batch…" : "Cancel import"}
                 </Button>
               </div>
             </div>
@@ -771,19 +768,12 @@ export function ImportWizard() {
             <>
               <TextField>
                 <Label>Already-logged climbs</Label>
-                <ButtonGroup className="w-full lg:w-auto lg:self-start">
-                  {CONFLICT_MODES.map(({ value, label }) => (
-                    <Button
-                      key={value}
-                      type="button"
-                      variant={onConflict === value ? undefined : "outline"}
-                      onPress={() => setOnConflict(value)}
-                      className="flex-1 lg:flex-none"
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </ButtonGroup>
+                <SegmentedButtons
+                  value={onConflict}
+                  onChange={setOnConflict}
+                  options={CONFLICT_MODES}
+                  className="lg:w-auto lg:self-start"
+                />
               </TextField>
               {onConflict === "overwrite" ? (
                 <p className="text-sm text-danger">
@@ -802,7 +792,7 @@ export function ImportWizard() {
                   Back
                 </Button>
                 <Button onPress={handleFinalize} isDisabled={normalized.valid.length === 0}>
-                  Finalize Import
+                  Finalize import
                 </Button>
               </div>
             </>
@@ -866,10 +856,10 @@ export function ImportWizard() {
           <div className="flex gap-4">
             {failureItems.length > 0 && (
               <Button variant="ghost" onPress={handleDownloadFailedRows}>
-                Download Failed Rows (CSV)
+                Download failed rows (CSV)
               </Button>
             )}
-            <Button onPress={reset}>Import Another File</Button>
+            <Button onPress={reset}>Import another file</Button>
           </div>
         </div>
       )}

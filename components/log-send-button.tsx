@@ -28,7 +28,7 @@ export function LogSendButton({ climb, sentClimbIds, fullWidth }: LogSendButtonP
         {/* Same icon the climb lists use for their per-row log trigger (see
           * ClimbSentIndicator). */}
         <CirclePlus className="size-5" />
-        Log Send
+        Log send
       </Button>
       <SendFormDrawer climb={climb} sentClimbIds={sentClimbIds} state={state} />
     </>

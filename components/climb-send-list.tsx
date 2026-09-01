@@ -1,13 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
-import { formatGrade } from "@/lib/grades";
 import { formatDate } from "@/lib/format-date";
 import type { Climb, ClimbSendRow, ClimbSendsPage } from "@/db/queries";
 import { AscentStyle } from "@/components/ascent-style";
-import { RatingStars } from "@/components/ui/rating-stars";
-import { Grade } from "@/components/ui/grade";
+import { SendGradeCell } from "@/components/send-grade-cell";
 import { ListRow } from "@/components/ui/list-row";
 import { SendListShell } from "@/components/send-list-shell";
 import { SendActionsMenu } from "@/components/send-actions-menu";
@@ -66,11 +63,7 @@ export function ClimbSendList({
       hasMore={hasMore}
       onLoadMore={loadMore}
       loadingMore={loadingMore}
-      loadMoreError={
-        loadMoreFailed && (
-          <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
-        )
-      }
+      loadMoreFailed={loadMoreFailed}
       renderRow={(send) => (
         <ListRow
           title={send.userName}
@@ -78,18 +71,14 @@ export function ClimbSendList({
           subtitle={formatDate(send.dateSent)}
           trailing={
             <div className="flex flex-col items-end gap-1 text-sm">
-              <div className="flex items-center gap-1.5">
-                <Grade>
-                  {formatGrade(climb.type, send.suggestedGrade)}
-                  {send.gradeFeel === "high" && (
-                    <ArrowUp className="size-3.5 text-muted" aria-label="High end of the grade" />
-                  )}
-                  {send.gradeFeel === "low" && (
-                    <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
-                  )}
-                </Grade>
-                <RatingStars rating={send.rating} />
-              </div>
+              {/* The climber's own grade leads: the page's header already
+                * carries the posted one. */}
+              <SendGradeCell
+                type={climb.type}
+                grade={send.suggestedGrade}
+                gradeFeel={send.gradeFeel}
+                rating={send.rating}
+              />
               <AscentStyle type={send.ascentStyle} />
             </div>
           }

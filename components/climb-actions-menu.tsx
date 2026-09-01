@@ -4,8 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, Tooltip, useOverlayState } from "@heroui/react";
 import { ClimbFormDrawer } from "@/components/climb-form-drawer";
-import { DeleteClimbDrawer } from "@/components/delete-climb-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { deleteClimb } from "@/db/mutations";
 import type { Climb } from "@/db/queries";
 
@@ -14,8 +14,8 @@ type ClimbActionsMenuProps = {
 };
 
 /** The "..." actions menu shown next to a climb's title for signed-in
- * viewers — Edit opens the climb edit drawer, Delete opens a confirmation
- * drawer before removing the climb (disabled with a tooltip if it has any
+ * viewers — Edit opens the climb edit drawer, Delete asks for confirmation
+ * before removing the climb (disabled with a tooltip if it has any
  * logged sends). */
 export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
   const router = useRouter();
@@ -70,7 +70,8 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
         </Menu.Item>
       </ActionsMenu>
       <ClimbFormDrawer areaId={climb.areaId} climb={climb} state={editState} />
-      <DeleteClimbDrawer
+      <ConfirmDeleteDialog
+        noun="climb"
         state={deleteState}
         onConfirm={handleDelete}
         isPending={pending}

@@ -52,7 +52,7 @@ export function ListRow({
         // breathing while py-3 tightens the table.
         "relative flex items-center gap-4 px-4 py-3",
         href != null &&
-          "transition-colors hover:bg-surface-secondary/50 focus-within:bg-surface-secondary/50",
+          "transition-colors hover:bg-surface-secondary/60 focus-within:bg-surface-secondary/60",
         className,
       )}
     >

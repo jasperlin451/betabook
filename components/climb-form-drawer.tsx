@@ -29,7 +29,7 @@ export function ClimbFormDrawer({ areaId, climb, state }: ClimbFormDrawerProps) 
         <Drawer.Content>
           <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
             <Drawer.Header>
-              <Drawer.Heading>{climb ? "Edit Climb" : "Add Climb"}</Drawer.Heading>
+              <Drawer.Heading>{climb ? "Edit climb" : "Add climb"}</Drawer.Heading>
               <Drawer.CloseTrigger />
             </Drawer.Header>
             <Drawer.Body>

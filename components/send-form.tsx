@@ -3,18 +3,11 @@
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { FIELD_CLASS } from "@/components/ui/field";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { AscentStyle as AscentStyleChip } from "@/components/ascent-style";
+import { ASCENT_STYLE_CHIP_CLASSNAME, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import { choicePillClass } from "@/components/ui/choice-pill";
+import { SegmentedButtons } from "@/components/ui/segmented-buttons";
 import { useState, useTransition, type ReactNode } from "react";
-import {
-  Button,
-  ButtonGroup,
-  Checkbox,
-  Label,
-  ListBox,
-  Select,
-  TextArea,
-  TextField,
-} from "@heroui/react";
+import { Button, Checkbox, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
 import clsx from "clsx";
 import { Star } from "lucide-react";
 import { createSend, updateSend } from "@/db/mutations";
@@ -34,11 +27,17 @@ type SendFormProps = {
   onDone?: () => void;
 };
 
-const GRADE_FEEL_LABELS: Record<GradeFeel, string> = {
+/** Shared with the import wizard's grade-feel value mapping. */
+export const GRADE_FEEL_LABELS: Record<GradeFeel, string> = {
   low: "Low end",
   solid: "Solid",
   high: "High end",
 };
+
+const GRADE_FEEL_OPTIONS = GRADE_FEEL_VALUES.map((value) => ({
+  value,
+  label: GRADE_FEEL_LABELS[value],
+}));
 
 /** The form's three parts, named the way the climb page names its own
  * regions (see Eyebrow): what happened, what you thought of it, anything
@@ -53,14 +52,13 @@ function FormSection({ label, children }: { label: string; children: ReactNode }
   );
 }
 
-/** Ascent style as the chips the logged send will actually wear, rather
- * than a dropdown of the same three words. Three options is few enough to
- * show at once, and the chip is how this value reads in every feed row and
- * climb page after — so the control shows the row it is about to write.
+/** Ascent style as the same pills the filter toolbars use, with the chosen
+ * one wearing the chip color the logged send will carry in every feed row
+ * after — so the control shows the tag it is about to write. Three options
+ * is few enough to show at once.
  *
- * Radio semantics rather than the toggle chips the filters use: those pick a
- * set, this picks exactly one. The chip supplies its own color, so selection
- * is carried by the frame around it and never by tint alone. */
+ * Radio semantics rather than the multi-select of the filters: those pick a
+ * set, this picks exactly one. */
 function AscentStylePicker({
   value,
   onChange,
@@ -69,7 +67,7 @@ function AscentStylePicker({
   onChange: (value: AscentStyle) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label="Ascent Style" className="grid grid-cols-3 gap-2">
+    <div role="radiogroup" aria-label="Ascent style" className="flex flex-wrap gap-1.5">
       {ASCENT_STYLES.map((style) => {
         const selected = value === style;
         return (
@@ -79,12 +77,9 @@ function AscentStylePicker({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(style)}
-            className={clsx(
-              "flex cursor-pointer items-center justify-center rounded-lg border px-2 py-2.5 transition-colors",
-              selected ? "border-accent bg-surface" : "border-border hover:border-muted",
-            )}
+            className={choicePillClass(selected, ASCENT_STYLE_CHIP_CLASSNAME[style])}
           >
-            <AscentStyleChip type={style} />
+            {ASCENT_STYLE_LABELS[style]}
           </button>
         );
       })}
@@ -131,7 +126,7 @@ function RatingPicker({
           onMouseEnter={() => setHovered(n)}
           onFocus={() => setHovered(n)}
           onBlur={() => setHovered(null)}
-          className="cursor-pointer rounded p-1 transition-colors"
+          className="cursor-pointer rounded-md p-1 transition-colors focus-visible:status-focused"
         >
           <Star
             className={clsx(
@@ -207,7 +202,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} />
 
         <TextField>
-          <Label>Date Sent</Label>
+          <Label>Date sent</Label>
           {/* Native, deliberately: the platform's own date picker beats
             * anything hand-built here, especially on a phone. */}
           <input
@@ -216,7 +211,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
             max={today}
             disabled={dateUnknown}
             onChange={(e) => setDateSent(e.target.value)}
-            className={`${FIELD_CLASS} disabled:opacity-60`}
+            className={FIELD_CLASS}
           />
           {/* Disabled rather than cleared so toggling back keeps the date. */}
           <Checkbox
@@ -263,9 +258,9 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
           </TextField>
 
           <TextField>
-            <Label>Suggested Grade</Label>
+            <Label>Suggested grade</Label>
             <Select
-              aria-label="Suggested Grade"
+              aria-label="Suggested grade"
               fullWidth
               selectedKey={suggestedGrade}
               onSelectionChange={(key) => setSuggestedGrade(String(key))}
@@ -288,38 +283,27 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         </div>
 
         <TextField>
-          <Label>Grade Feel</Label>
-          <ButtonGroup className="w-full">
-            {GRADE_FEEL_VALUES.map((value) => (
-              <Button
-                key={value}
-                type="button"
-                variant={gradeFeel === value ? undefined : "outline"}
-                onPress={() => setGradeFeel(value)}
-                className="flex-1"
-              >
-                {GRADE_FEEL_LABELS[value]}
-              </Button>
-            ))}
-          </ButtonGroup>
+          <Label>Grade feel</Label>
+          <SegmentedButtons value={gradeFeel} onChange={setGradeFeel} options={GRADE_FEEL_OPTIONS} />
         </TextField>
       </FormSection>
 
       <FormSection label="Notes">
         <TextField value={comment} onChange={setComment}>
-          <Label>Comment ({MAX_COMMENT_LENGTH - comment.length} characters left)</Label>
-          <TextArea
-            maxLength={MAX_COMMENT_LENGTH}
-            placeholder="How'd it go?"
-            className="bg-surface"
-          />
+          <Label>Comment</Label>
+          <TextArea maxLength={MAX_COMMENT_LENGTH} placeholder="How'd it go?" />
+          {/* The count is a helper line, not part of the label: a label
+            * names the field, and nothing quietly does two jobs. */}
+          <p className="mt-1 text-xs text-muted">
+            {MAX_COMMENT_LENGTH - comment.length} characters left
+          </p>
         </TextField>
       </FormSection>
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
       <Button type="submit" isDisabled={pending} fullWidth>
-        {existingSend ? "Save Changes" : "Log Send"}
+        {existingSend ? "Save changes" : "Log send"}
       </Button>
     </form>
   );

@@ -21,8 +21,8 @@ export function RatingRangeSelect({
       label="Rating"
       minOptions={RATING_OPTIONS}
       maxOptions={RATING_OPTIONS}
-      minLabel="Min Rating"
-      maxLabel="Max Rating"
+      minLabel="Min rating"
+      maxLabel="Max rating"
       range={range}
       onChange={onChange}
       anyIndex={0}
@@ -45,12 +45,12 @@ export function MinAscentsField({
     // label-beside-controls rhythm — a count field has no business
     // spanning the whole filter panel.
     <div className="flex flex-wrap items-center gap-3">
-      <span className="text-sm font-medium text-foreground">Min Ascents</span>
+      <span className="text-sm font-medium text-foreground">Min ascents</span>
       <NumberField
         value={value}
         onChange={onChange}
         minValue={0}
-        aria-label="Min Ascents"
+        aria-label="Min ascents"
         className="w-32"
       >
         <NumberField.Group>
