@@ -81,6 +81,20 @@
     --ascent-flash-bg: color-mix(in oklab, var(--palette-support) 22%, var(--white));
     --ascent-flash-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-ink));
 
+    /* Redpoint ascent chip: the neutral baseline, so it stays gray rather
+       than taking a palette hue. The fill is what HeroUI's soft `default`
+       chip already rendered; the dark theme overrides it (see below)
+       because the derived value collides with the surfaces there.
+
+       The text does NOT keep HeroUI's --default-foreground, which is flat
+       ink — near-17:1 on the pale fill, heavier than any other chip's label
+       and heavier than the baseline reading deserves. Softened toward paper
+       to land ~8:1, the same weight the flash chip's label carries on its
+       own fill, so the two read as one set. Still clears AA on the darkest
+       surface the chip lands on (7.6:1). */
+    --ascent-redpoint-bg: var(--default-soft);
+    --ascent-redpoint-fg: color-mix(in oklab, var(--palette-ink) 62%, var(--palette-paper));
+
     /* Magnifier for combobox inputs (see search-combo-input) — data URIs
        can't reference CSS vars, so each theme pins its own muted stroke. */
     --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235f6c63' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
@@ -142,6 +156,17 @@
 
     --ascent-flash-bg: color-mix(in oklab, var(--palette-support) 25%, transparent);
     --ascent-flash-fg: color-mix(in oklab, var(--palette-support) 60%, var(--palette-paper));
+
+    /* Redpoint has no hue to lean on, so in dark it can only separate from
+       its backdrop by lightness — and HeroUI's soft `default` (--default at
+       50% alpha, i.e. paper ~20-24% over surfaces that are themselves paper
+       16-24%) leaves none: on a tertiary surface the chip disappears. Opaque
+       rather than translucent so the step above the surface is the same
+       wherever the chip lands. 34% is calibrated against the flash chip it
+       sits beside in the picker — both clear ~1.36:1 on the lightest surface
+       they land on, so neutral reads as present without outshouting a hue. */
+    --ascent-redpoint-bg: color-mix(in oklab, var(--palette-paper) 34%, var(--palette-ink));
+    --ascent-redpoint-fg: var(--default-foreground);
 
     --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3b0a7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
   }
