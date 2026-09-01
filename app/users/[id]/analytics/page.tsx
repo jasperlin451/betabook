@@ -325,7 +325,8 @@ function AnalyticsHeader({ id, name }: { id: string; name: string }) {
       <Eyebrow icon={ChartColumnIncreasing}>Analytics</Eyebrow>
       <PageTitle>{name}</PageTitle>
       <p className="mt-1 text-sm text-muted">
-        Progression, pyramid, and season rhythm from every logged send.{" "}
+        Progression, pyramid, and season rhythm from every logged send, at the grades they
+        logged.{" "}
         <AppLink href={`/users/${id}`}>Back to profile</AppLink>
       </p>
     </div>

@@ -13,7 +13,7 @@ function send(over: Partial<AnalyticsSendRow>): AnalyticsSendRow {
     climbId: nextClimbId++,
     climbName: "Some Climb",
     climbType: "boulder",
-    climbGrade: 3,
+    suggestedGrade: 3,
     areaId: 1,
     areaName: "Forestland",
     ascentStyle: "redpoint",
@@ -40,14 +40,14 @@ describe("formatDaySpan", () => {
 });
 
 describe("buildPyramid", () => {
-  it("builds from any slice, ignoring other disciplines and bad grades", () => {
+  it("builds from any slice, ignoring other disciplines and ungraded sends", () => {
     const rows = buildPyramid(
       [
-        send({ climbGrade: 3 }),
-        send({ climbGrade: 3 }),
-        send({ climbGrade: 4 }),
-        send({ climbType: "sport", climbGrade: 10 }),
-        send({ climbGrade: null }),
+        send({ suggestedGrade: 3 }),
+        send({ suggestedGrade: 3 }),
+        send({ suggestedGrade: 4 }),
+        send({ climbType: "sport", suggestedGrade: 10 }),
+        send({ suggestedGrade: null }),
       ],
       "boulder",
     );
@@ -76,7 +76,7 @@ describe("buildUserAnalytics", () => {
     const a = buildUserAnalytics(
       [
         send({ climbType: "boulder", dateSent: "2024-01-01" }),
-        send({ climbType: "sport", climbGrade: 10, dateSent: "2024-02-01" }),
+        send({ climbType: "sport", suggestedGrade: 10, dateSent: "2024-02-01" }),
       ],
       "sport",
     );
@@ -88,8 +88,8 @@ describe("buildUserAnalytics", () => {
   it("keeps per-discipline groupings under the all scope", () => {
     const a = buildUserAnalytics(
       [
-        send({ climbType: "sport", climbGrade: 10, dateSent: "2024-01-05" }),
-        send({ climbType: "boulder", climbGrade: 4, dateSent: "2024-01-06" }),
+        send({ climbType: "sport", suggestedGrade: 10, dateSent: "2024-01-05" }),
+        send({ climbType: "boulder", suggestedGrade: 4, dateSent: "2024-01-06" }),
       ],
       "all",
     );
@@ -104,9 +104,9 @@ describe("buildUserAnalytics", () => {
   it("tracks personal best as a running max over month-hardest points", () => {
     const a = buildUserAnalytics(
       [
-        send({ climbGrade: 3, dateSent: "2024-01-04" }),
-        send({ climbGrade: 5, dateSent: "2024-01-20" }),
-        send({ climbGrade: 4, dateSent: "2024-03-02" }),
+        send({ suggestedGrade: 3, dateSent: "2024-01-04" }),
+        send({ suggestedGrade: 5, dateSent: "2024-01-20" }),
+        send({ suggestedGrade: 4, dateSent: "2024-03-02" }),
       ],
       "boulder",
     );
@@ -124,9 +124,9 @@ describe("buildUserAnalytics", () => {
   it("builds the pyramid hardest-first with zero fills", () => {
     const a = buildUserAnalytics(
       [
-        send({ climbGrade: 2, dateSent: null }),
-        send({ climbGrade: 2 }),
-        send({ climbGrade: 4 }),
+        send({ suggestedGrade: 2, dateSent: null }),
+        send({ suggestedGrade: 2 }),
+        send({ suggestedGrade: 4 }),
       ],
       "boulder",
     );
@@ -146,9 +146,9 @@ describe("buildUserAnalytics", () => {
   it("records breakthroughs with the wait since the previous ceiling-raise", () => {
     const a = buildUserAnalytics(
       [
-        send({ climbGrade: 3, climbName: "First", dateSent: "2024-01-01" }),
-        send({ climbGrade: 3, climbName: "Repeat", dateSent: "2024-02-01" }),
-        send({ climbGrade: 6, climbName: "Jump", dateSent: "2024-03-01" }),
+        send({ suggestedGrade: 3, climbName: "First", dateSent: "2024-01-01" }),
+        send({ suggestedGrade: 3, climbName: "Repeat", dateSent: "2024-02-01" }),
+        send({ suggestedGrade: 6, climbName: "Jump", dateSent: "2024-03-01" }),
       ],
       "boulder",
     );
@@ -156,6 +156,38 @@ describe("buildUserAnalytics", () => {
       ["Jump", "V5", 60],
       ["First", "V2", null],
     ]);
+  });
+
+  it("lists two ceilings raised on the same day hardest first", () => {
+    const a = buildUserAnalytics(
+      [
+        send({ suggestedGrade: 3, climbName: "Base", dateSent: "2024-01-01" }),
+        // Logged in the harder-first order the chain must not inherit.
+        send({ suggestedGrade: 6, climbName: "Second", dateSent: "2024-03-01" }),
+        send({ suggestedGrade: 5, climbName: "First", dateSent: "2024-03-01" }),
+      ],
+      "boulder",
+    );
+    expect(a.breakthroughs.map((b) => [b.climbName, b.label, b.waitDays])).toEqual([
+      ["Second", "V5", 0],
+      ["First", "V4", 60],
+      ["Base", "V2", null],
+    ]);
+  });
+
+  it("keeps a send the climber never graded out of every grade chart", () => {
+    const a = buildUserAnalytics(
+      [
+        send({ suggestedGrade: 7, climbName: "Graded", dateSent: "2024-01-01" }),
+        send({ suggestedGrade: null, climbName: "Ungraded", dateSent: "2024-02-01" }),
+      ],
+      "boulder",
+    );
+    expect(a.sendCount).toBe(2);
+    expect(a.hardest[0].label).toBe("V6");
+    expect(a.pyramid[0].rows).toEqual([{ grade: 7, label: "V6", count: 1 }]);
+    expect(a.progression[0].points).toEqual([{ month: "2024-01", hardest: 7, best: 7 }]);
+    expect(a.breakthroughs.map((b) => [b.climbName, b.label])).toEqual([["Graded", "V6"]]);
   });
 
   it("computes streaks, layoffs, and calendar aggregates from dated days", () => {
@@ -197,7 +229,7 @@ describe("buildUserAnalytics", () => {
       [
         send({ areaId: 1, areaName: "Forestland" }),
         send({ areaId: 1, areaName: "Forestland" }),
-        send({ areaId: 2, areaName: "Grand Wall", ascentStyle: "flash", climbGrade: 5 }),
+        send({ areaId: 2, areaName: "Grand Wall", ascentStyle: "flash", suggestedGrade: 5 }),
       ],
       "boulder",
     );
