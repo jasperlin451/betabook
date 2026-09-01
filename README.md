@@ -49,6 +49,20 @@ with capitals could never be signed into.
 Restart `pnpm dev` after seeding. The dev server holds its D1 handle open and
 won't see rows written by a separate `wrangler` process.
 
+### Seeding areas and climbs
+
+A fresh local database has no areas, so there is nothing to browse and nothing
+to log a send against. Seed a small tree of real areas and climbs:
+
+```bash
+pnpm seed:areas
+```
+
+It covers three regions nested up to three deep, all three climb types across a
+spread of grades, and one ungraded project. Idempotent on (parent, name) for
+areas and (area, name) for climbs: a re-run inserts nothing and keeps every id,
+so sends logged against a seeded climb survive it.
+
 Signing up at [/sign-up](http://localhost:3000/sign-up) works too, but
 `lib/auth.ts` sets `requireEmailVerification: true`, so you then have to open
 the verification link that `lib/email.ts` logs to the `next dev` console.

@@ -14,7 +14,8 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "test": "vitest run",
-    "seed:user": "tsx scripts/seed-dev-user.ts"
+    "seed:user": "tsx scripts/seed-dev-user.ts",
+    "seed:areas": "tsx scripts/seed-dev-areas.ts"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "^1.6.30",
