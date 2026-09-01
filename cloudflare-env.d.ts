@@ -3,6 +3,7 @@
  * depend on a gitignored, machine-local generated file. */
 interface CloudflareEnv {
   DB: D1Database;
+  CONTACT_RATE_LIMITER: RateLimit;
   BETTER_AUTH_URL: string;
   BETTER_AUTH_SECRET: string;
   RESEND_API_KEY: string;
@@ -11,6 +12,7 @@ interface CloudflareEnv {
 declare namespace Cloudflare {
   interface Env {
     DB: CloudflareEnv["DB"];
+    CONTACT_RATE_LIMITER: CloudflareEnv["CONTACT_RATE_LIMITER"];
     BETTER_AUTH_URL: CloudflareEnv["BETTER_AUTH_URL"];
     BETTER_AUTH_SECRET: CloudflareEnv["BETTER_AUTH_SECRET"];
     RESEND_API_KEY: CloudflareEnv["RESEND_API_KEY"];

@@ -25,6 +25,25 @@
       "migrations_dir": "drizzle/migrations",
     },
   ],
+  // Throttles the public /contact form, the one write path in the app that
+  // doesn't require a session. Counters live at Cloudflare's edge — no table,
+  // no cleanup. Two limits of this binding, both accepted deliberately:
+  //   - `period` is a hard enum of 10 or 60 seconds, so "N per hour" can't be
+  //     expressed here. If 3/min ever proves too generous, the answer is a
+  //     dashboard WAF rate limiting rule (1h/24h windows, no code), not a
+  //     counter table.
+  //   - Limits are per Cloudflare location, so a distributed sender gets
+  //     3/min per colo. This exists to cap one bored person; the honeypot in
+  //     lib/contact.ts covers the ordinary bot traffic.
+  // `namespace_id` is any positive integer unique within the account and
+  // needs no provisioning — a deploy creates it.
+  "ratelimits": [
+    {
+      "name": "CONTACT_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 3, "period": 60 },
+    },
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,
