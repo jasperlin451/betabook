@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
 import { type ClimbSearchFilter } from "@/lib/climb-search-filter";
 import {
-  appendPage,
+  createClimbListMeta,
   fetchClimbSearchPage,
-  mergeRefreshedSentClimbIds,
+  MAX_CLIMB_RECONCILE_ITEMS,
+  mergeClimbListMeta,
 } from "@/lib/climb-search-pages";
-import type { ClimbSearchPages } from "@/lib/climb-search-pages";
-import { useSentClimbIdsRefresh } from "@/hooks/use-sent-climb-ids-refresh";
+import { useReconciledPagedList } from "@/hooks/use-reconciled-paged-list";
 import type {
   AreaBreadcrumbs,
   AreaWithAncestorPath,
@@ -44,59 +44,51 @@ export function ClimbSearchResults({
   /** Sent ids for the initial page. Later pages carry their own subset. */
   sentClimbIds?: Set<number>;
 }) {
-  // Results are fetched SEARCH_PAGE_SIZE at a time (see db/queries/climbs.ts),
-  // so the next page to request is however many full pages are already loaded.
-  const [pages, setPages] = useState<ClimbSearchPages>({
-    climbs: initialClimbs,
-    sendStats: initialSendStats,
-    areaBreadcrumbs: initialAreaBreadcrumbs,
-    sentClimbIds,
-    hasNextPage: initialHasNextPage,
-    loadedPages: 1,
-  });
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
-  const visibleSentClimbIds = mergeRefreshedSentClimbIds(
-    sentClimbIds,
-    pages.sentClimbIds,
-    initialClimbs.map((climb) => climb.id),
+  const initialMeta = useMemo(
+    () =>
+      createClimbListMeta({
+        climbs: initialClimbs,
+        sendStats: initialSendStats,
+        areaBreadcrumbs: initialAreaBreadcrumbs,
+        sentClimbIds,
+      }),
+    [initialClimbs, initialSendStats, initialAreaBreadcrumbs, sentClimbIds],
   );
-  // The refreshed prop only covers the first page, so rows paged in below it
-  // need their sent state re-asked for after a send.
-  useSentClimbIdsRefresh({
-    signedIn: sentClimbIds !== undefined,
-    firstPageClimbs: initialClimbs,
-    loadedClimbs: pages.climbs,
-    onRevalidated: (tailSentClimbIds) =>
-      setPages((prev) => ({ ...prev, sentClimbIds: tailSentClimbIds })),
+  const {
+    items: climbs,
+    hasMore: hasNextPage,
+    meta: { sendStats, areaBreadcrumbs, sentClimbIds: visibleSentClimbIds },
+    loadingMore,
+    loadMoreFailed,
+    loadMore,
+  } = useReconciledPagedList({
+    initialItems: initialClimbs,
+    initialHasMore: initialHasNextPage,
+    initialMeta,
+    maxReconcileItems: MAX_CLIMB_RECONCILE_ITEMS,
+    itemKey: (climb) => climb.id,
+    mergeMeta: mergeClimbListMeta,
+    fetchPage: async (offset, limit) => {
+      const next = await fetchClimbSearchPage(sort, filter, 1, { offset, limit });
+      return {
+        items: next.climbs,
+        hasMore: next.hasNextPage,
+        meta: createClimbListMeta(next),
+      };
+    },
   });
-
-  async function handleLoadMore() {
-    setLoadingMore(true);
-    setLoadMoreFailed(false);
-    try {
-      const next = await fetchClimbSearchPage(sort, filter, pages.loadedPages + 1);
-      setPages((prev) => appendPage(prev, next));
-    } catch {
-      // Network failure or a non-2xx response — keep what's loaded, surface
-      // an inline error, and leave the button as the retry affordance.
-      setLoadMoreFailed(true);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
 
   return (
     <ClimbList
-      climbs={pages.climbs}
-      sendStats={pages.sendStats}
-      areaBreadcrumbs={pages.areaBreadcrumbs}
+      climbs={climbs}
+      sendStats={sendStats}
+      areaBreadcrumbs={areaBreadcrumbs}
       sentClimbIds={visibleSentClimbIds}
       emptyMessage="No climbs match your search."
       pagination={{
-        hasNextPage: pages.hasNextPage,
+        hasNextPage,
         loadingMore,
-        onLoadMore: handleLoadMore,
+        onLoadMore: loadMore,
         error: loadMoreFailed && (
           <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
         ),

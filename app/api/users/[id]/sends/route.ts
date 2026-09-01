@@ -4,6 +4,7 @@ import { getAreaBreadcrumbs, getSendsForUserPage, getUser, USER_SENDS_PAGE_SIZE 
 import { MAX_USER_SENDS_LIMIT, parseUserSendsFilter } from "@/lib/user-sends-filter";
 import {
   offsetReachesPaginationLimit,
+  parseBoundedLimit,
   parseOffset,
   searchParamsToRecord,
 } from "@/lib/search-params";
@@ -23,11 +24,11 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const filter = parseUserSendsFilter(searchParams);
   const safeOffset = parseOffset(url.searchParams);
-  const limit = Number(url.searchParams.get("limit"));
-  const pageSize =
-    Number.isInteger(limit) && limit >= 1
-      ? Math.min(limit, MAX_USER_SENDS_LIMIT)
-      : USER_SENDS_PAGE_SIZE;
+  const pageSize = parseBoundedLimit(
+    url.searchParams,
+    USER_SENDS_PAGE_SIZE,
+    MAX_USER_SENDS_LIMIT,
+  );
 
   const db = await getDb();
   // A real 404 rather than a normal-looking empty page for any id — the

@@ -37,6 +37,14 @@ describe("getSubtreeClimbs pagination", () => {
     expect(page2.hasNextPage).toBe(false);
   });
 
+  it("supports a bounded offset slice for post-refresh reconciliation", async () => {
+    const area = await getArea(db, 1);
+    const page2 = await getSubtreeClimbs(db, area!, 2, "ascents_desc", undefined, 10);
+    const slice = await getSubtreeClimbs(db, area!, 1, "ascents_desc", undefined, 10, 10);
+    expect(slice.climbs).toEqual(page2.climbs);
+    expect(slice.hasNextPage).toBe(page2.hasNextPage);
+  });
+
   // The seeded grades are `i % 19`, so every grade is shared by ~3 climbs —
   // exactly the tie-heavy shape where a missing unique tie-breaker
   // (`climbs.id`, appended to every SUBTREE_CLIMBS_ORDER_BY variant) makes

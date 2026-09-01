@@ -170,6 +170,41 @@ describe("getSubtreeClimbs on a large-area-shaped subtree", () => {
     });
   });
 
+  it("keeps broad short prefixes on the limit-bounded sort-index path", async () => {
+    const area = await getArea(db, AREA_ID);
+    const result = await getSubtreeClimbs(
+      db,
+      { ...area!, largeSubtree: true },
+      1,
+      "name_asc",
+      { disciplines: [], name: "A" },
+    );
+    expect(result.climbs.map((climb) => climb.name)).toEqual(["Aardvark Wall"]);
+
+    const plan = await db.all<{ detail: string }>(sql`
+      EXPLAIN QUERY PLAN
+      WITH RECURSIVE subtree(id) AS (
+        SELECT ${AREA_ID}
+        UNION ALL
+        SELECT areas.id FROM areas JOIN subtree ON areas.parent_id = subtree.id
+      )
+      SELECT climbs.id
+      FROM climbs INDEXED BY climbs_name_asc_idx
+      JOIN areas ON areas.id = climbs.area_id
+      WHERE climbs.area_id IN (SELECT id FROM subtree)
+        AND EXISTS (
+          SELECT 1 FROM climbs_fts
+          WHERE climbs_fts.rowid = climbs.id
+            AND climbs_fts MATCH ${'"A"*'}
+        )
+      ORDER BY climbs.name ASC, climbs.id
+      LIMIT 51
+    `);
+    const details = plan.map((row) => row.detail).join("\n");
+    expect(details).toContain("climbs_name_asc_idx");
+    expect(details).not.toContain("TEMP B-TREE");
+  });
+
   it("rejects a sort value with no matching index instead of inlining it into SQL", async () => {
     const area = await getArea(db, AREA_ID);
     await expect(

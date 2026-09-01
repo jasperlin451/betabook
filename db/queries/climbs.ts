@@ -170,6 +170,12 @@ function subtreeAreaIds(areaId: number): SQL {
 // recompute — this is a live count.
 export const LARGE_AREA_SUBTREE_AREAS = 1000;
 
+/** Short prefix terms tend to match a large share of the global FTS table.
+ * Driving from FTS in that case materializes and sorts the whole match set;
+ * the large-area sort index is the bounded path because it can stop at LIMIT.
+ * A longer term is selective enough to justify FTS-first for rare matches. */
+const MIN_LARGE_AREA_FTS_DRIVER_TERM_LENGTH = 3;
+
 /** Whether `areaId`'s subtree reaches LARGE_AREA_SUBTREE_AREAS — the signal
  * getSubtreeClimbs forces its index from — as a SQL expression yielding 0/1,
  * so a caller already issuing a statement about this area can carry it along
@@ -309,6 +315,7 @@ export async function getSubtreeClimbs(
   sort: SubtreeClimbsSort = "ascents_desc",
   filter?: DisciplineGradeFilter & { name?: string } & ClimbStatsFilter,
   pageSize = PAGE_SIZE,
+  offset = (page - 1) * pageSize,
 ): Promise<{ climbs: ClimbWithAreaName[]; page: number; pageSize: number; hasNextPage: boolean }> {
   const conditions: SQL[] = [sql`climbs.area_id IN (SELECT id FROM subtree)`];
 
@@ -338,23 +345,29 @@ export async function getSubtreeClimbs(
   // can stop as soon as LIMIT is filled. It is the wrong driver for a rare
   // name, though: it may scan that global index to exhaustion to find zero
   // matches. In that shape, drive from the selective FTS table and accept a
-  // tiny result sort instead.
-  //
-  // Note this trades on the name being SELECTIVE, which the condition below
-  // does not actually test — it fires for any name on a large subtree. The
-  // FTS match is global rather than subtree-scoped and the ORDER BY is on
-  // `climbs` columns, so a one- or two-letter prefix here materializes every
-  // matching climb in the database and sorts it in a temp b-tree, with no
-  // way to stop at LIMIT. That is the same unbounded cost the sort indexes
-  // exist to avoid, moved to the other side. Gate on selectivity (a minimum
-  // query length, or an FTS count probe) before trusting this on a corpus
-  // where a short prefix matches a large fraction of rows.
-  const useNameIndex = isLarge && nameQuery !== null;
+  // tiny result sort instead. One- and two-character terms stay on the sort
+  // index and use a correlated rowid-constrained FTS probe, avoiding both the
+  // global FTS result sort and an eagerly materialized IN-list.
+  const longestNameTerm = Math.max(
+    0,
+    ...(filter?.name?.trim().split(/\s+/).map((term) => term.length) ?? []),
+  );
+  const useNameIndex =
+    isLarge &&
+    nameQuery !== null &&
+    longestNameTerm >= MIN_LARGE_AREA_FTS_DRIVER_TERM_LENGTH;
   if (nameQuery) {
     conditions.push(
       useNameIndex
         ? sql`climbs_fts MATCH ${nameQuery}`
-        : sql`climbs.id IN (SELECT rowid FROM climbs_fts WHERE climbs_fts MATCH ${nameQuery})`,
+        : isLarge
+          ? sql`EXISTS (
+              SELECT 1 FROM climbs_fts
+              WHERE climbs_fts.rowid = climbs.id AND climbs_fts MATCH ${nameQuery}
+            )`
+          : sql`climbs.id IN (
+              SELECT rowid FROM climbs_fts WHERE climbs_fts MATCH ${nameQuery}
+            )`,
     );
   }
   const indexName = isLarge ? SUBTREE_CLIMBS_SORT_INDEX[sort] : "climbs_area_idx";
@@ -382,7 +395,7 @@ export async function getSubtreeClimbs(
     WHERE ${sql.join(conditions, sql` AND `)}
     ORDER BY ${orderBy}
     LIMIT ${pageSize + 1}
-    OFFSET ${(page - 1) * pageSize}
+    OFFSET ${offset}
   `);
 
   const hasNextPage = rows.length > pageSize;
@@ -534,6 +547,7 @@ export async function searchClimbs(
   params: SearchClimbsParams,
   page = 1,
   pageSize = SEARCH_PAGE_SIZE,
+  offset = (page - 1) * pageSize,
 ): Promise<SearchClimbsPage> {
   const conditions = searchClimbsConditions(params);
   if (conditions === null) return { climbs: [], hasNextPage: false };
@@ -558,7 +572,7 @@ export async function searchClimbs(
     ${searchClimbsWhereClause(conditions)}
     ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[params.sort ?? "ascents_desc"]}, ${sortTieBreak(params.sort ?? "ascents_desc")}, climbs.id
     LIMIT ${pageSize + 1}
-    OFFSET ${(page - 1) * pageSize}
+    OFFSET ${offset}
   `);
 
   return {

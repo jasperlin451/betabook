@@ -12,21 +12,24 @@ import {
 import { getSession } from "@/lib/session";
 import { parseAreaClimbsFilter, parseAreaClimbsSort, toSubtreeQueryFilter } from "@/lib/area-climbs-filter";
 import {
+  offsetReachesPaginationLimit,
   pageReachesPaginationLimit,
+  parseBoundedLimit,
+  parseOffset,
   parsePage,
   parseSuggestionLimit,
   searchParamsToRecord,
 } from "@/lib/search-params";
 import { parseId } from "@/lib/parse-id";
+import { MAX_CLIMB_RECONCILE_ITEMS } from "@/lib/climb-search-pages";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 /** Backs two callers with the same query.
  *
- * Without `limit`: incremental "load more" for an area's climb list — the
- * initial page is server-rendered (app/areas/[id]/page.tsx); this backs
- * subsequent pages so the client never has to hold more than what's actually
- * been scrolled to.
+ * With `offset`: incremental loading and bounded post-mutation reconciliation
+ * for an area's climb list. A bounded `limit` can accompany it; without an
+ * offset, `limit` retains its suggestion-mode meaning below.
  *
  * With `limit`: suggestion mode for the area page's route typeahead, which
  * searches names within this area's subtree. Same skip-the-join-passes
@@ -39,9 +42,13 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const sort = parseAreaClimbsSort(searchParams);
   const filter = parseAreaClimbsFilter(searchParams);
-  const limit = parseSuggestionLimit(url.searchParams);
-  const pageSize = limit ?? PAGE_SIZE;
-  const page = parsePage(url.searchParams, pageSize);
+  const offsetMode = url.searchParams.has("offset");
+  const suggestionLimit = offsetMode ? null : parseSuggestionLimit(url.searchParams);
+  const pageSize = offsetMode
+    ? parseBoundedLimit(url.searchParams, PAGE_SIZE, MAX_CLIMB_RECONCILE_ITEMS)
+    : (suggestionLimit ?? PAGE_SIZE);
+  const page = offsetMode ? 1 : parsePage(url.searchParams, pageSize);
+  const offset = offsetMode ? parseOffset(url.searchParams) : undefined;
 
   const db = await getDb();
   const area = areaId === null ? undefined : await getAreaWithSubtreeSize(db, areaId);
@@ -51,9 +58,9 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Area not found" }, { status: 404 });
   }
 
-  if (page === null) {
+  if (page === null || offset === null) {
     return NextResponse.json(
-      limit === null
+      suggestionLimit === null
         ? {
             climbs: [],
             hasNextPage: false,
@@ -67,7 +74,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const [listScope, session] = await Promise.all([
     resolveSubareaScope(db, area, filter.subareaId),
-    limit === null ? getSession() : Promise.resolve(null),
+    suggestionLimit === null ? getSession() : Promise.resolve(null),
   ]);
   const subtreeClimbs = await getSubtreeClimbs(
     db,
@@ -76,10 +83,11 @@ export async function GET(request: Request, { params }: RouteParams) {
     sort,
     toSubtreeQueryFilter(filter),
     pageSize,
+    offset,
   );
 
-  if (limit !== null) {
-    return NextResponse.json({ climbs: subtreeClimbs.climbs.slice(0, limit) });
+  if (suggestionLimit !== null) {
+    return NextResponse.json({ climbs: subtreeClimbs.climbs.slice(0, suggestionLimit) });
   }
 
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
@@ -97,7 +105,10 @@ export async function GET(request: Request, { params }: RouteParams) {
   return NextResponse.json({
     ...subtreeClimbs,
     hasNextPage:
-      subtreeClimbs.hasNextPage && !pageReachesPaginationLimit(page, pageSize),
+      subtreeClimbs.hasNextPage &&
+      !(offsetMode
+        ? offsetReachesPaginationLimit(offset ?? 0, pageSize)
+        : pageReachesPaginationLimit(page, pageSize)),
     sendStats,
     areaBreadcrumbs,
     sentClimbIds: sentClimbIds ? [...sentClimbIds] : undefined,

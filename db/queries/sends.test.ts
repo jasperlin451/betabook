@@ -456,10 +456,8 @@ describe("getUserSentClimbIds", () => {
   });
 
   it("scopes to more ids than D1 allows bound parameters", async () => {
-    // /api/sent-climbs asks about every climb a client has paged in, which
-    // runs well past D1's 100-parameter statement cap — the ids go over as
-    // one JSON binding for exactly this reason. Binding them individually
-    // fails here, not in a unit test, so this is the guard.
+    // Bounded reconciliation requests can still exceed D1's 100-parameter
+    // statement cap, so the ids go over as one JSON binding.
     const manyIds = Array.from({ length: 400 }, (_, index) => index + 1);
     expect(await getUserSentClimbIds(db, "test-user-1", manyIds)).toEqual(new Set([1, 2]));
   });
@@ -492,6 +490,18 @@ describe("getClimbSendStats", () => {
 
   it("returns an empty map for an empty id list, without querying", async () => {
     expect(await getClimbSendStats(db, [])).toEqual({});
+  });
+
+  it("handles a reconciliation batch larger than D1's bound-parameter cap", async () => {
+    const ids = Array.from({ length: 200 }, (_, index) => index + 1);
+    const stats = await getClimbSendStats(db, ids);
+    expect(Object.keys(stats)).toHaveLength(200);
+    expect(stats[1]?.sendCount).toBeGreaterThan(0);
+    expect(stats[200]).toEqual({
+      avgRating: null,
+      sendCount: 0,
+      avgSuggestedGrade: null,
+    });
   });
 
   it("averages non-null suggested grades independently of rating", async () => {

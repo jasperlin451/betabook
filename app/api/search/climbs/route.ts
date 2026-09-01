@@ -15,19 +15,21 @@ import {
   toSearchClimbsQueryParams,
 } from "@/lib/climb-search-filter";
 import {
+  offsetReachesPaginationLimit,
   pageReachesPaginationLimit,
+  parseBoundedLimit,
+  parseOffset,
   parsePage,
   parseSuggestionLimit,
   searchParamsToRecord,
 } from "@/lib/search-params";
+import { MAX_CLIMB_RECONCILE_ITEMS } from "@/lib/climb-search-pages";
 
 /** Backs two callers with the same query.
  *
- * Without `limit`: incremental "load more" for home-page climb search — the
- * initial page is server-rendered (app/page.tsx); this backs subsequent
- * pages so result #26 is reachable without shipping unbounded results in the
- * first paint. Takes the same query params as the page itself (see
- * climbSearchFilterToSearchParams) plus `page`.
+ * With `offset`: incremental loading and bounded post-mutation reconciliation
+ * for home-page climb search. A bounded `limit` can accompany it; without an
+ * offset, `limit` retains its suggestion-mode meaning below.
  *
  * With `limit`: suggestion mode for the route typeaheads. A popover row
  * shows a name, an area, and a grade — all of which `searchClimbs` already
@@ -40,17 +42,21 @@ import {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const searchParams = searchParamsToRecord(url.searchParams);
-  const limit = parseSuggestionLimit(url.searchParams);
+  const offsetMode = url.searchParams.has("offset");
+  const suggestionLimit = offsetMode ? null : parseSuggestionLimit(url.searchParams);
   const withCount = url.searchParams.get("count") === "1";
 
   const sort = parseClimbSearchSort(searchParams);
   const filter = parseClimbSearchFilter(searchParams);
-  const pageSize = limit ?? SEARCH_PAGE_SIZE;
-  const page = parsePage(url.searchParams, pageSize);
+  const pageSize = offsetMode
+    ? parseBoundedLimit(url.searchParams, SEARCH_PAGE_SIZE, MAX_CLIMB_RECONCILE_ITEMS)
+    : (suggestionLimit ?? SEARCH_PAGE_SIZE);
+  const page = offsetMode ? 1 : parsePage(url.searchParams, pageSize);
+  const offset = offsetMode ? parseOffset(url.searchParams) : undefined;
 
-  if (page === null) {
+  if (page === null || offset === null) {
     return NextResponse.json(
-      limit === null
+      suggestionLimit === null
         ? {
             climbs: [],
             hasNextPage: false,
@@ -65,12 +71,12 @@ export async function GET(request: Request) {
   const db = await getDb();
   const queryParams = toSearchClimbsQueryParams(filter, sort);
   const [results, session] = await Promise.all([
-    searchClimbs(db, queryParams, page, pageSize),
-    limit === null ? getSession() : Promise.resolve(null),
+    searchClimbs(db, queryParams, page, pageSize, offset),
+    suggestionLimit === null ? getSession() : Promise.resolve(null),
   ]);
 
-  if (limit !== null) {
-    return NextResponse.json({ climbs: results.climbs.slice(0, limit) });
+  if (suggestionLimit !== null) {
+    return NextResponse.json({ climbs: results.climbs.slice(0, suggestionLimit) });
   }
 
   const [sendStats, areaBreadcrumbs, count, sentClimbIds] = await Promise.all([
@@ -88,7 +94,11 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     ...results,
-    hasNextPage: results.hasNextPage && !pageReachesPaginationLimit(page, pageSize),
+    hasNextPage:
+      results.hasNextPage &&
+      !(offsetMode
+        ? offsetReachesPaginationLimit(offset ?? 0, pageSize)
+        : pageReachesPaginationLimit(page, pageSize)),
     sendStats,
     areaBreadcrumbs,
     count,

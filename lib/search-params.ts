@@ -52,6 +52,21 @@ export function parseSuggestionLimit(searchParams: URLSearchParams): number | nu
   return Math.min(limit, MAX_SUGGESTION_LIMIT);
 }
 
+/** Reads a caller-controlled batch size without allowing an unbounded query.
+ * Invalid values use the normal page size; valid integers are capped at the
+ * endpoint-specific maximum. */
+export function parseBoundedLimit(
+  searchParams: URLSearchParams,
+  defaultLimit: number,
+  maxLimit: number,
+  key = "limit",
+): number {
+  const limit = Number(searchParams.get(key));
+  return Number.isInteger(limit) && limit >= 1
+    ? Math.min(limit, maxLimit)
+    : defaultLimit;
+}
+
 /** How deep any list endpoint will paginate, in rows skipped. SQLite has no
  * way to seek to an OFFSET — it walks and discards every skipped row — so an
  * uncapped `page` makes `?page=1e9` a one-byte request that forces a full

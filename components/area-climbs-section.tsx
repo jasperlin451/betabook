@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
 import { ClimbList } from "@/components/climb-list";
 import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { areaClimbsFilterToSearchParams, type AreaClimbsFilter } from "@/lib/area-climbs-filter";
 import type { AreaBreadcrumbs, ClimbSendStats, ClimbWithAreaName, SubtreeClimbsSort } from "@/db/queries";
-import { mergeRefreshedSentClimbIds } from "@/lib/climb-search-pages";
-import { useSentClimbIdsRefresh } from "@/hooks/use-sent-climb-ids-refresh";
+import {
+  createClimbListMeta,
+  MAX_CLIMB_RECONCILE_ITEMS,
+  mergeClimbListMeta,
+} from "@/lib/climb-search-pages";
+import { useReconciledPagedList } from "@/hooks/use-reconciled-paged-list";
 
 type AreaClimbsSectionProps = {
   areaId: number;
@@ -41,37 +45,35 @@ export function AreaClimbsSection({
   sentClimbIds,
   emptyMessage,
 }: AreaClimbsSectionProps) {
-  const [climbs, setClimbs] = useState(initialClimbs);
-  const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
-  const [sendStats, setSendStats] = useState(initialSendStats);
-  const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
-  const [loadedSentClimbIds, setLoadedSentClimbIds] = useState(sentClimbIds);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
-  // Climbs are fetched PAGE_SIZE at a time (see db/queries/shared.ts), so the
-  // next page to request is however many full pages are already loaded —
-  // not climbs.length, which would be wrong after any dedup/filter change.
-  const [loadedPages, setLoadedPages] = useState(1);
-  const visibleSentClimbIds = mergeRefreshedSentClimbIds(
-    sentClimbIds,
-    loadedSentClimbIds,
-    initialClimbs.map((climb) => climb.id),
+  const initialMeta = useMemo(
+    () =>
+      createClimbListMeta({
+        climbs: initialClimbs,
+        sendStats: initialSendStats,
+        areaBreadcrumbs: initialAreaBreadcrumbs,
+        sentClimbIds,
+      }),
+    [initialClimbs, initialSendStats, initialAreaBreadcrumbs, sentClimbIds],
   );
-  // The refreshed prop only covers the first page, so rows paged in below it
-  // need their sent state re-asked for after a send.
-  useSentClimbIdsRefresh({
-    signedIn: sentClimbIds !== undefined,
-    firstPageClimbs: initialClimbs,
-    loadedClimbs: climbs,
-    onRevalidated: setLoadedSentClimbIds,
-  });
 
-  async function handleLoadMore() {
-    setLoadingMore(true);
-    setLoadMoreFailed(false);
-    try {
+  const {
+    items: climbs,
+    hasMore: hasNextPage,
+    meta: { sendStats, areaBreadcrumbs, sentClimbIds: visibleSentClimbIds },
+    loadingMore,
+    loadMoreFailed,
+    loadMore,
+  } = useReconciledPagedList({
+    initialItems: initialClimbs,
+    initialHasMore: initialHasNextPage,
+    initialMeta,
+    maxReconcileItems: MAX_CLIMB_RECONCILE_ITEMS,
+    itemKey: (climb) => climb.id,
+    mergeMeta: mergeClimbListMeta,
+    fetchPage: async (offset, limit) => {
       const params = areaClimbsFilterToSearchParams(sort, filter);
-      params.set("page", String(loadedPages + 1));
+      params.set("offset", String(offset));
+      if (limit !== undefined) params.set("limit", String(limit));
       const res = await fetch(`/api/areas/${areaId}/climbs?${params.toString()}`);
       if (!res.ok) throw new Error(`Loading more climbs failed: ${res.status}`);
       const data: {
@@ -81,24 +83,13 @@ export function AreaClimbsSection({
         areaBreadcrumbs: AreaBreadcrumbs;
         sentClimbIds?: number[];
       } = await res.json();
-      setClimbs((prev) => [...prev, ...data.climbs]);
-      setHasNextPage(data.hasNextPage);
-      setSendStats((prev) => ({ ...prev, ...data.sendStats }));
-      setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
-      if (data.sentClimbIds) {
-        setLoadedSentClimbIds(
-          (prev) => new Set([...(prev ?? []), ...data.sentClimbIds!]),
-        );
-      }
-      setLoadedPages((prev) => prev + 1);
-    } catch {
-      // Network failure or a non-2xx response — keep what's loaded, surface
-      // an inline error, and leave the button as the retry affordance.
-      setLoadMoreFailed(true);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+      return {
+        items: data.climbs,
+        hasMore: data.hasNextPage,
+        meta: createClimbListMeta(data),
+      };
+    },
+  });
 
   return (
     <section className="flex flex-col gap-2">
@@ -114,7 +105,7 @@ export function AreaClimbsSection({
           pagination={{
             hasNextPage,
             loadingMore,
-            onLoadMore: handleLoadMore,
+            onLoadMore: loadMore,
             error: loadMoreFailed && (
               <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
             ),

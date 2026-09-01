@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { mergeRefreshedSentClimbIds } from "./climb-search-pages";
+import {
+  createClimbListMeta,
+  mergeClimbListMeta,
+  mergeRefreshedSentClimbIds,
+} from "./climb-search-pages";
 
 describe("mergeRefreshedSentClimbIds", () => {
   it("adopts sends returned by a server refresh without losing later pages", () => {
@@ -23,5 +27,36 @@ describe("mergeRefreshedSentClimbIds", () => {
     // about it either way — the accumulated answer is the only one there is.
     const merged = mergeRefreshedSentClimbIds(new Set(), new Set([30]), [1, 2, 3]);
     expect(merged).toEqual(new Set([30]));
+  });
+});
+
+describe("mergeClimbListMeta", () => {
+  it("makes incoming page answers authoritative without dropping other pages", () => {
+    const current = createClimbListMeta({
+      climbs: [{ id: 1 }, { id: 2 }, { id: 30 }],
+      sendStats: {
+        1: { avgRating: null, sendCount: 1, avgSuggestedGrade: null },
+        30: { avgRating: null, sendCount: 1, avgSuggestedGrade: null },
+      },
+      areaBreadcrumbs: { 1: [{ id: 10, name: "Old" }] },
+      sentClimbIds: [1, 2, 30],
+    });
+    const refreshedFirstPage = createClimbListMeta({
+      climbs: [{ id: 1 }, { id: 2 }],
+      sendStats: {
+        1: { avgRating: 5, sendCount: 2, avgSuggestedGrade: null },
+      },
+      areaBreadcrumbs: { 1: [{ id: 11, name: "New" }] },
+      sentClimbIds: [1],
+    });
+
+    const merged = mergeClimbListMeta(current, refreshedFirstPage);
+    expect(merged.sentClimbIds).toEqual(new Set([1, 30]));
+    expect(merged.sendStats[1]).toEqual({
+      avgRating: 5,
+      sendCount: 2,
+      avgSuggestedGrade: null,
+    });
+    expect(merged.areaBreadcrumbs[1]).toEqual([{ id: 11, name: "New" }]);
   });
 });

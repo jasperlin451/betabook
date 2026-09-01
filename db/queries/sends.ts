@@ -215,9 +215,8 @@ export async function getUserSentClimbIds(
   if (distinctIds?.length === 0) return new Set();
 
   // The ids go over as one JSON binding rather than one parameter each: D1
-  // caps a statement at 100 bound parameters, and this is called with every
-  // climb a client currently has loaded, not just one page of them. Same
-  // reasoning (and same fix) as getAreaBreadcrumbs.
+  // caps a statement at 100 bound parameters, while bounded reconciliation
+  // batches may contain more rows. Same reasoning as getAreaBreadcrumbs.
   const rows = await db.all<{ climbId: number }>(sql`
     SELECT sends.climb_id AS climbId
     FROM sends
@@ -554,9 +553,12 @@ export async function getClimbSendStats(
   db: Database,
   climbIds: number[],
 ): Promise<Record<number, ClimbSendStats>> {
+  const distinctIds = [...new Set(climbIds)];
   const stats: Record<number, ClimbSendStats> = {};
-  for (const id of climbIds) stats[id] = { avgRating: null, sendCount: 0, avgSuggestedGrade: null };
-  if (climbIds.length === 0) return stats;
+  for (const id of distinctIds) {
+    stats[id] = { avgRating: null, sendCount: 0, avgSuggestedGrade: null };
+  }
+  if (distinctIds.length === 0) return stats;
 
   const rows = await db.all<{
     climbId: number;
@@ -570,7 +572,9 @@ export async function getClimbSendStats(
                  WHEN 'high' THEN ${GRADE_FEEL_OFFSET.high}
                  ELSE 0 END) AS avgSuggestedGrade
     FROM sends
-    WHERE climb_id IN (${sql.join(climbIds.map((id) => sql`${id}`), sql`, `)})
+    WHERE climb_id IN (
+      SELECT CAST(value AS INTEGER) FROM json_each(${JSON.stringify(distinctIds)})
+    )
     GROUP BY climb_id
   `);
   for (const row of rows) {
