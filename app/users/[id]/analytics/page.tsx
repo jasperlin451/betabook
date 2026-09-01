@@ -1,7 +1,6 @@
 import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import clsx from "clsx";
 import { ChartColumnIncreasing } from "lucide-react";
 import { AnalyticsGradePyramid } from "@/components/analytics-grade-pyramid";
 import { AnalyticsYearSelect } from "@/components/analytics-year-select";
@@ -10,6 +9,8 @@ import { BreakthroughList } from "@/components/breakthrough-list";
 import { ClimbingCalendar } from "@/components/climbing-calendar";
 import { ProgressionChart } from "@/components/progression-chart";
 import { AppLink } from "@/components/ui/app-link";
+import { cardClass } from "@/components/ui/card";
+import { choicePillClass } from "@/components/ui/choice-pill";
 import {
   DISCIPLINE_CHIP_CLASSNAME,
   DISCIPLINE_HUE,
@@ -53,8 +54,6 @@ export async function generateMetadata({ params }: UserAnalyticsPageProps): Prom
 function analyticsHref(userId: string, scope: ClimbType): string {
   return `/users/${userId}/analytics?discipline=${scope}`;
 }
-
-const CARD_CLASS = "rounded-xl bg-surface-secondary p-4 sm:p-6";
 
 export default async function UserAnalyticsPage({ params, searchParams }: UserAnalyticsPageProps) {
   const [{ id }, search] = await Promise.all([params, searchParams]);
@@ -204,12 +203,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
                 key={type}
                 href={analyticsHref(id, type)}
                 aria-current={selected ? "true" : undefined}
-                className={clsx(
-                  "rounded-full border px-3 py-1 text-sm no-underline transition-colors",
-                  selected
-                    ? `border-transparent font-medium ${DISCIPLINE_CHIP_CLASSNAME[type]}`
-                    : "border-border text-muted hover:text-foreground",
-                )}
+                className={choicePillClass(selected, DISCIPLINE_CHIP_CLASSNAME[type])}
               >
                 {DISCIPLINE_LABELS[type]}
               </AppLink>
@@ -229,7 +223,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         )}
       </div>
 
-      <section className={CARD_CLASS}>
+      <section className={cardClass("fluid")}>
         <div className="mb-4 flex flex-col gap-1">
           <Eyebrow>Progression</Eyebrow>
           <p className="text-xs text-muted">
@@ -246,7 +240,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-        <section className={CARD_CLASS}>
+        <section className={cardClass("fluid")}>
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
               <Eyebrow>Grade pyramid</Eyebrow>
@@ -273,7 +267,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
           )}
         </section>
 
-        <section className={CARD_CLASS}>
+        <section className={cardClass("fluid")}>
           <div className="mb-4 flex flex-col gap-1">
             <Eyebrow>Breakthroughs</Eyebrow>
             <p className="text-xs text-muted">
@@ -290,7 +284,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         </section>
       </div>
 
-      <section className={CARD_CLASS}>
+      <section className={cardClass("fluid")}>
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
             <Eyebrow>Climbing calendar</Eyebrow>

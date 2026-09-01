@@ -29,7 +29,7 @@ export function AreaFormDrawer({ parentId, area, state }: AreaFormDrawerProps) {
         <Drawer.Content>
           <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
             <Drawer.Header>
-              <Drawer.Heading>{area ? "Edit Area" : "Add Area"}</Drawer.Heading>
+              <Drawer.Heading>{area ? "Edit area" : "Add area"}</Drawer.Heading>
               <Drawer.CloseTrigger />
             </Drawer.Header>
             <Drawer.Body>

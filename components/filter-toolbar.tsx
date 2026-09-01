@@ -2,19 +2,22 @@
 
 import type { ReactNode } from "react";
 import { Button, buttonVariants, Disclosure } from "@heroui/react";
-import { DisciplineGradeSliders } from "@/components/send-filter-form";
+import { cardClass } from "@/components/ui/card";
+import { DisciplineGradeSliders } from "@/components/discipline-grade-sliders";
 import { DisciplineChips } from "@/components/discipline-chips";
 import type { DisciplineFilter } from "@/lib/discipline-filter";
 
 /** One toolbar row above a list — search fields, discipline chips, a "More
  * filters" disclosure for the range filters, and the sort control pushed
  * right — instead of a sidebar card spending a whole column on the same
- * fields. Shared by the area page's climb table and a user's send history so
- * filtering feels like one control wherever a list is narrowed.
+ * fields. Shared by climb search, the area page's climb table, and a user's
+ * send history so filtering feels like one control wherever a list is
+ * narrowed.
  *
- * `search` is a slot rather than a prop set because the two differ: the area
- * page scopes route suggestions to its own subtree and has no area field
- * (you're already in one), while sends search both route and area names. */
+ * `search` is a slot rather than a prop set because the surfaces differ: the
+ * area page scopes route suggestions to its own subtree and has no area
+ * field (you're already in one), while search and sends also scope by area
+ * from inside "More filters". */
 export function FilterToolbar<T extends DisciplineFilter>({
   value,
   onChange,
@@ -75,7 +78,7 @@ export function FilterToolbar<T extends DisciplineFilter>({
             <Disclosure.Body style={{ padding: 0 }}>
               {/* Its own surface, so the expanded filters read as one panel
                 * belonging to the bar rather than loose page content. */}
-              <div className="mt-3 flex flex-col gap-4 rounded-xl bg-surface-secondary p-4">
+              <div className={`mt-3 flex flex-col gap-4 ${cardClass("sm")}`}>
                 {extraFilters}
                 <DisciplineGradeSliders value={value} onChange={onChange} />
                 {/* Separated footer so Reset reads as an action on the panel

@@ -6,8 +6,8 @@ import { Button, Menu, Tooltip, useOverlayState } from "@heroui/react";
 import { CirclePlus, FolderPlus } from "lucide-react";
 import { AreaFormDrawer } from "@/components/area-form-drawer";
 import { ClimbFormDrawer } from "@/components/climb-form-drawer";
-import { DeleteAreaDrawer } from "@/components/delete-area-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
+import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import { deleteArea } from "@/db/mutations";
 import type { Area } from "@/db/queries";
 
@@ -55,11 +55,11 @@ export function AreaHeaderActions({ area, canDelete }: AreaHeaderActionsProps) {
       <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
         <Button size="sm" onPress={addClimbState.open} className="gap-1.5">
           <CirclePlus className="size-4" />
-          Add Climb
+          Add climb
         </Button>
         <Button size="sm" variant="outline" onPress={addSubareaState.open} className="gap-1.5">
           <FolderPlus className="size-4" />
-          Add Subarea
+          Add sub-area
         </Button>
         <ActionsMenu
           ariaLabel="Area actions"
@@ -88,7 +88,8 @@ export function AreaHeaderActions({ area, canDelete }: AreaHeaderActionsProps) {
       </div>
       <ClimbFormDrawer areaId={area.id} state={addClimbState} />
       <AreaFormDrawer parentId={area.id} state={addSubareaState} />
-      <DeleteAreaDrawer
+      <ConfirmDeleteDialog
+        noun="area"
         state={deleteState}
         onConfirm={handleDelete}
         isPending={pending}

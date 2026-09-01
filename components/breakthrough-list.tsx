@@ -16,7 +16,7 @@ export function BreakthroughList({
   if (breakthroughs.length === 0) return null;
 
   return (
-    <ul className="flex flex-col divide-y divide-border">
+    <ul className="flex flex-col divide-y divide-separator">
       {breakthroughs.map((breakthrough) => (
         <li
           key={`${breakthrough.type}-${breakthrough.grade}`}

@@ -1,11 +1,11 @@
 "use client";
 
-import { AreaSearchField } from "@/components/area-search-field";
-import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
+import { AreaSearchField } from "@/components/area-search-field";
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
-import { DisciplineFilterForm } from "@/components/send-filter-form";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
+import { FilterToolbar } from "@/components/filter-toolbar";
+import { RouteSearchField } from "@/components/route-search-field";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import {
   climbSearchFilterToSearchParams,
@@ -15,12 +15,11 @@ import {
 } from "@/lib/climb-search-filter";
 import type { SubtreeClimbsSort } from "@/db/queries";
 
-export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
-  // Auto-search: debounce each edit into a single navigation, same as the
-  // climb search form. The filter here is just the name field, but the
-  // shared hook also contributes what every search form needs: fire only
-  // when the built URL differs from the current one (mount and no-op edits
-  // leave the URL alone), re-seed on back/forward, report pending state.
+/** Area search's one control: the name field, in the toolbar position the
+ * climb toolbar occupies so switching modes keeps the page's shape. Auto-
+ * searches: each edit debounces into a single navigation, firing only when
+ * the built URL differs from the current one. */
+export function AreaSearchToolbar({ defaultName = "" }: { defaultName?: string }) {
   const { name, setName } = useFilterFormNavigation({
     initialFilter: null,
     initialName: defaultName,
@@ -33,91 +32,90 @@ export function AreaSearchForm({ defaultName = "" }: { defaultName?: string }) {
   });
 
   return (
-    <div className={SURFACE_CARD_CLASS}>
-      {/* A filter, not a navigator: the results list beside this is what
-        * takes you to an area, so picking a suggestion just completes the
-        * name — which is how you tell two same-named crags apart before
-        * committing to one. */}
-      <AreaSearchField
-        value={name}
-        onChange={setName}
-        onSelect={(area) => setName(area.name)}
-        label="Area Name"
-        fullWidth
-      />
-      <p className="text-xs text-muted">Results update as you type.</p>
-    </div>
-  );
-}
-
-type ClimbSearchFormProps = {
-  defaultFilter?: ClimbSearchFilter;
-  sort?: SubtreeClimbsSort;
-};
-
-export function ClimbSearchForm({
-  defaultFilter = DEFAULT_CLIMB_SEARCH_FILTER,
-  sort = DEFAULT_CLIMB_SEARCH_SORT,
-}: ClimbSearchFormProps) {
-  // Auto-search: debounce every field change into a single navigation
-  // instead of requiring an explicit submit — fired only when the built URL
-  // actually differs from the current one, so neither mount nor an edit
-  // back to the URL's own values rewrites the URL. Sort is preserved as-is
-  // — it's owned by ClimbSearchSortControl, not this form — except on
-  // Reset Filters, which restores the default sort too.
-  const { name, setName, areaName, setAreaName, filter, setFilter, reset } =
-    useFilterFormNavigation({
-      initialFilter: defaultFilter,
-      initialName: defaultFilter.name ?? "",
-      initialAreaName: defaultFilter.areaName ?? "",
-      defaultFilter: DEFAULT_CLIMB_SEARCH_FILTER,
-      sort,
-      defaultSort: DEFAULT_CLIMB_SEARCH_SORT,
-      buildHref: (filter, name, areaName, effectiveSort = sort) =>
-        `/?${climbSearchFilterToSearchParams(effectiveSort, { ...filter, name, areaName }).toString()}`,
-    });
-
-  return (
-    <DisciplineFilterForm
-      value={filter}
-      onChange={setFilter}
-      onReset={reset}
-      name={name}
-      onNameChange={setName}
-      areaName={areaName}
-      onAreaNameChange={setAreaName}
-      extraOptions={
-        <ClimbStatsFields
-          ratingRange={filter.ratingRange}
-          onRatingRangeChange={(ratingRange) => setFilter({ ...filter, ratingRange })}
-          minAscents={filter.minAscents}
-          onMinAscentsChange={(minAscents) => setFilter({ ...filter, minAscents })}
-        />
-      }
+    // A filter, not a navigator: the results list below is what takes you
+    // to an area, so picking a suggestion just completes the name — which is
+    // how you tell two same-named crags apart before committing to one.
+    <AreaSearchField
+      value={name}
+      onChange={setName}
+      onSelect={(area) => setName(area.name)}
+      ariaLabel="Search area name"
+      className="w-full sm:w-96"
     />
   );
 }
 
-/** The "Results" heading's sort control for climb search — same
- * <ClimbListSortControl> as the area page, navigating to `/?...` instead of
- * `/areas/[id]?...`. Preserves the active filter (see `filter` param) so a
- * sort change doesn't silently drop it. */
-export function ClimbSearchSortControl({
-  sort,
-  filter,
+function buildSearchHref(sort: SubtreeClimbsSort, filter: ClimbSearchFilter): string {
+  return `/?${climbSearchFilterToSearchParams(sort, filter).toString()}`;
+}
+
+/** Climb search's filters, in the same one-row toolbar the area page and a
+ * climber's send history use — route search on the bar, area scope with the
+ * secondary filters behind "More filters", sort pushed right — so narrowing
+ * a list is one control wherever a list is narrowed. Auto-searches like the
+ * area toolbar; sort is preserved across filter edits except on reset. */
+export function ClimbSearchToolbar({
+  filter = DEFAULT_CLIMB_SEARCH_FILTER,
+  sort = DEFAULT_CLIMB_SEARCH_SORT,
 }: {
-  sort: SubtreeClimbsSort;
-  filter: ClimbSearchFilter;
+  filter?: ClimbSearchFilter;
+  sort?: SubtreeClimbsSort;
 }) {
   const router = useRouter();
+  const { name, setName, areaName, setAreaName, filter: value, setFilter: setValue, reset } =
+    useFilterFormNavigation({
+      initialFilter: filter,
+      initialName: filter.name ?? "",
+      initialAreaName: filter.areaName ?? "",
+      defaultFilter: DEFAULT_CLIMB_SEARCH_FILTER,
+      sort,
+      defaultSort: DEFAULT_CLIMB_SEARCH_SORT,
+      buildHref: (value, name, areaName, effectiveSort = sort) =>
+        buildSearchHref(effectiveSort, { ...value, name, areaName }),
+    });
 
   return (
-    <ClimbListSortControl
-      sort={sort}
-      onNavigate={(nextSort) =>
-        router.replace(`/?${climbSearchFilterToSearchParams(nextSort, filter).toString()}`, {
-          scroll: false,
-        })
+    <FilterToolbar
+      value={value}
+      onChange={setValue}
+      onReset={reset}
+      search={
+        <RouteSearchField
+          value={name}
+          onChange={setName}
+          onSelect={(route) => setName(route.name)}
+          ariaLabel="Search route name"
+          className="w-full sm:w-64"
+        />
+      }
+      sortControl={
+        <ClimbListSortControl
+          sort={sort}
+          onNavigate={(nextSort) =>
+            router.replace(buildSearchHref(nextSort, filter), { scroll: false })
+          }
+        />
+      }
+      extraFilters={
+        <>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="shrink-0 text-sm font-medium text-foreground">In area</span>
+            <AreaSearchField
+              value={areaName}
+              onChange={setAreaName}
+              onSelect={(area) => setAreaName(area.name)}
+              ariaLabel="Filter by area"
+              placeholder="Anywhere"
+              className="w-full sm:w-64"
+            />
+          </div>
+          <ClimbStatsFields
+            ratingRange={value.ratingRange}
+            onRatingRangeChange={(ratingRange) => setValue({ ...value, ratingRange })}
+            minAscents={value.minAscents}
+            onMinAscentsChange={(minAscents) => setValue({ ...value, minAscents })}
+          />
+        </>
       }
     />
   );

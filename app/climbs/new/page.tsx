@@ -8,7 +8,7 @@ import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
-  title: "New Climb",
+  title: "Add climb",
 };
 
 type NewClimbPageProps = {
@@ -42,7 +42,7 @@ export default async function NewClimbPage({ searchParams }: NewClimbPageProps) 
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle>New Climb</PageTitle>
+      <PageTitle>Add climb</PageTitle>
       <NewClimbForm initial={initial} />
     </div>
   );

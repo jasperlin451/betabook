@@ -3,7 +3,7 @@ import { SignUpForm } from "@/components/sign-up-form";
 import { safeNextPath } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
-  title: "Sign Up",
+  title: "Sign up",
 };
 
 export default async function SignUpPage({

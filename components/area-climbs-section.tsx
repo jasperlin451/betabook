@@ -102,9 +102,7 @@ export function AreaClimbsSection({
             hasNextPage,
             loadingMore,
             onLoadMore: loadMore,
-            error: loadMoreFailed && (
-              <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
-            ),
+            failed: loadMoreFailed,
           }}
         />
       </NavigationPendingRegion>

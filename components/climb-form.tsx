@@ -106,8 +106,11 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
+          // data-invalid is what HeroUI's field styles key their invalid
+          // ring off, so the raw input flags the same way its Inputs do.
           aria-invalid={nameInvalid}
-          className={`${FIELD_CLASS} aria-invalid:border-danger`}
+          data-invalid={nameInvalid || undefined}
+          className={FIELD_CLASS}
         />
         {nameInvalid && <p className="text-sm text-danger">Name is required.</p>}
       </TextField>
@@ -118,7 +121,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
           value={type}
           disabled={disciplineLocked}
           onChange={(e) => handleTypeChange(e.target.value as ClimbType)}
-          className={`${FIELD_CLASS} disabled:opacity-60`}
+          className={FIELD_CLASS}
         >
           {Object.entries(CLIMB_TYPE_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
@@ -159,13 +162,13 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
 
       <TextField value={description} onChange={setDescription}>
         <Label>Description</Label>
-        <TextArea placeholder="Describe the climb..." className="bg-surface" />
+        <TextArea placeholder="Describe the climb…" />
       </TextField>
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
       <Button type="submit" isDisabled={pending} fullWidth>
-        {climb ? "Save Changes" : "Add Climb"}
+        {climb ? "Save changes" : "Add climb"}
       </Button>
     </form>
   );

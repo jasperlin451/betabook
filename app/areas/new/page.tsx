@@ -6,7 +6,7 @@ import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
-  title: "New Area",
+  title: "Add area",
 };
 
 export default async function NewAreaPage() {
@@ -15,7 +15,7 @@ export default async function NewAreaPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle>New Area</PageTitle>
+      <PageTitle>Add area</PageTitle>
       <NewAreaForm />
     </div>
   );

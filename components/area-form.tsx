@@ -99,13 +99,13 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
 
       <TextField value={description} onChange={setDescription}>
         <Label>Description</Label>
-        <TextArea placeholder="Describe the area..." className="bg-surface" />
+        <TextArea placeholder="Describe the area…" />
       </TextField>
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
       <Button type="submit" isDisabled={pending || !trimmedName} fullWidth>
-        {area ? "Save Changes" : "Add Area"}
+        {area ? "Save changes" : "Add area"}
       </Button>
     </form>
   );

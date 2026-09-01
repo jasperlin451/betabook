@@ -67,7 +67,7 @@
        disciplines that need to read as distinct from each other and from
        gray — so each discipline gets its own themed bg/fg pair from the
        palette (trad = green, sport = support blue, boulder = rose),
-       consumed by STYLE_CHIP_CLASSNAME in components/climb-list.tsx. */
+       consumed by DISCIPLINE_CHIP_CLASSNAME in components/ui/discipline-chip.tsx. */
     --discipline-trad-bg: color-mix(in oklab, var(--palette-primary) 22%, var(--white));
     --discipline-trad-fg: color-mix(in oklab, var(--palette-primary) 60%, var(--palette-ink));
     --discipline-sport-bg: color-mix(in oklab, var(--palette-support) 22%, var(--white));
@@ -174,10 +174,10 @@
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
   /* The guidebook display voice — Barlow Condensed (loaded in
      app/layout.tsx), reserved for the wordmark, page titles, and entity
-     names. Everything else, grades included, stays on Geist Sans. */
+     names. Everything else, grades included, stays on Geist Sans — there
+     is no third face. */
   --font-display: var(--font-barlow-condensed);
 
   /* Raw palette as utilities (bg-palette-primary, text-palette-support, …)

@@ -13,7 +13,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Grade } from "@/components/ui/grade";
 import { PageTitle, SectionHeading } from "@/components/ui/typography";
-import { PageWithStats } from "@/components/ui/page-shell";
+import { SidebarLayout } from "@/components/ui/page-shell";
+import { cardClass } from "@/components/ui/card";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { RatingStars } from "@/components/ui/rating-stars";
 import {
@@ -114,10 +115,11 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
         {session && <ClimbActionsMenu climb={climb} />}
       </div>
 
-      <PageWithStats
-        statsPosition="before"
-        stats={
-          <div className="flex flex-col gap-4 lg:w-80 lg:shrink-0">
+      <SidebarLayout
+        side="left"
+        sidebarWidthClass="lg:w-80"
+        sidebar={
+          <>
             <StatStrip
               cards={[
                 {
@@ -159,7 +161,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
               ]}
             />
             {loggedGradeRows.length > 0 && (
-              <div className="rounded-xl bg-surface-secondary p-4">
+              <div className={cardClass("sm")}>
                 <div className="mb-3">
                   <Eyebrow>Logged grades</Eyebrow>
                 </div>
@@ -183,10 +185,10 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                 Sign in to log this climb
               </AppLink>
             )}
-          </div>
+          </>
         }
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <SectionHeading>Sends</SectionHeading>
           <ClimbSendList
             climb={climb}
@@ -209,7 +211,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
             }
           />
         </div>
-      </PageWithStats>
+      </SidebarLayout>
     </div>
   );
 }

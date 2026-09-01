@@ -182,10 +182,8 @@ export function ClimbPicker({
             onChange={(e) => setName(e.target.value)}
             placeholder="Route name…"
             // search-combo-input for the magnifier, so this reads as the same
-            // kind of control as the area combobox beside it. ps-9 restates
-            // what that utility sets, since FIELD_CLASS's px-3 would other-
-            // wise win on utility order and leave the icon over the text.
-            className={`${FIELD_CLASS} search-combo-input w-full ps-9`}
+            // kind of control as the area combobox beside it.
+            className={`${FIELD_CLASS} search-combo-input w-full`}
           />
           <AreaSearchField
             value={areaName}
@@ -235,12 +233,7 @@ export function ClimbPicker({
             ))}
           </div>
           {current && pages.hasNextPage && (
-            <div className="flex flex-col items-center gap-2">
-              {loadMoreFailed && (
-                <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
-              )}
-              <LoadMoreButton onPress={loadMore} loading={loadingMore} />
-            </div>
+            <LoadMoreButton onPress={loadMore} loading={loadingMore} failed={loadMoreFailed} />
           )}
         </div>
       )}

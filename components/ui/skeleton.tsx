@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { cardClass } from "@/components/ui/card";
 
 const TONE_CLASSNAME = {
   /** Sits directly on the page background. */
@@ -11,14 +12,20 @@ const TONE_CLASSNAME = {
 type SkeletonProps = {
   className?: string;
   tone?: keyof typeof TONE_CLASSNAME;
+  /** Corner radius utility. A prop rather than part of `className` because
+   * Tailwind emits `rounded-md` after `rounded-full`/`rounded-lg`, so a
+   * radius passed alongside a default one silently lost. */
+  rounded?: string;
 };
 
-/** Base pulsing placeholder block — size it via className (h-*, w-*). */
-export function Skeleton({ className, tone = "base" }: SkeletonProps) {
+/** Base pulsing placeholder block — size it via className (h-*, w-*). The
+ * app's only skeleton; the header controls use it too, so every loading
+ * surface pulses the same way. */
+export function Skeleton({ className, tone = "base", rounded = "rounded-md" }: SkeletonProps) {
   return (
     <div
       aria-hidden="true"
-      className={clsx("animate-pulse rounded-md", TONE_CLASSNAME[tone], className)}
+      className={clsx("animate-pulse", rounded, TONE_CLASSNAME[tone], className)}
     />
   );
 }
@@ -38,11 +45,11 @@ export function SkeletonListRows({ rows = 6 }: { rows?: number }) {
   );
 }
 
-/** Placeholder for a StatStrip card — the same bg-surface-secondary rounded-xl
- * panel with label/value line pairs inside. */
+/** Placeholder for a StatStrip card — the same card surface with
+ * label/value line pairs inside. */
 export function SkeletonStatCard({ stats = 3 }: { stats?: number }) {
   return (
-    <div className="rounded-xl bg-surface-secondary p-4">
+    <div className={cardClass("sm")}>
       <div className="flex flex-col gap-3">
         {Array.from({ length: stats }, (_, i) => (
           <div key={i} className="flex items-center justify-between gap-2">

@@ -16,6 +16,7 @@ import { Kbd, Modal, useOverlayState } from "@heroui/react";
 import { Search } from "lucide-react";
 import clsx from "clsx";
 import { AreaSuggestionRow } from "@/components/area-search-field";
+import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
 import { RouteSuggestionRow } from "@/components/route-search-field";
 import { useSearchScope } from "@/components/search-scope";
 import { isApplePlatform, useModifierLabels } from "@/hooks/use-platform";
@@ -189,7 +190,7 @@ export function SearchTrigger() {
       onClick={() => openSearch?.()}
       aria-label="Search"
       aria-keyshortcuts={keys?.ariaPalette}
-      className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-2 py-1.5 text-muted transition-colors hover:text-foreground"
+      className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-2 py-1.5 text-muted transition-colors hover:text-foreground focus-visible:status-focused"
     >
       <Search className="size-4" />
       <span className="hidden text-sm sm:inline">Search</span>
@@ -219,7 +220,7 @@ export function HomeSearchEntry() {
       data-page-search
       onClick={() => openSearch?.()}
       aria-keyshortcuts={keys?.ariaPalette}
-      className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3.5 text-left transition-colors hover:border-muted"
+      className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3.5 text-left transition-colors hover:border-muted focus-visible:status-focused"
     >
       <Search className="size-5 shrink-0 text-muted" aria-hidden />
       <span className="min-w-0 flex-1 truncate text-muted">Search routes and areas</span>
@@ -387,7 +388,7 @@ function PaletteBody({
           onKeyDown={onKeyDown}
           className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted"
         />
-        <Kbd className="hidden shrink-0 sm:inline-flex">esc</Kbd>
+        <Kbd className="hidden shrink-0 sm:inline-flex">Esc</Kbd>
       </div>
 
       <ul id={listId} role="listbox" aria-label="Search results" className="max-h-[50vh] overflow-y-auto p-2">
@@ -398,7 +399,7 @@ function PaletteBody({
             className={clsx(section.divider && "mt-2 border-t border-separator pt-2")}
           >
             {section.heading && (
-              <p className="px-2 pt-3 pb-1 text-xs font-medium tracking-wide text-muted uppercase">
+              <p className={clsx("px-2 pt-3 pb-1", EYEBROW_CLASS)}>
                 {section.heading}
               </p>
             )}

@@ -1,18 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
-import { formatGrade } from "@/lib/grades";
 import { formatDate } from "@/lib/format-date";
 import type { AreaBreadcrumbs, RecentSendRow } from "@/db/queries";
 import { AppLink } from "@/components/ui/app-link";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { AscentStyle } from "@/components/ascent-style";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Grade } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
-import { RatingStars } from "@/components/ui/rating-stars";
+import { SendGradeCell } from "@/components/send-grade-cell";
+import { usePagedList } from "@/hooks/use-paged-list";
 
 type FeedPageResponse = {
   sends: RecentSendRow[];
@@ -25,7 +22,8 @@ type FeedPageResponse = {
  * row, the area sits as quiet context beneath, and grade/stars/style/date
  * stack in the trailing data column. What the profile list doesn't need and
  * this one does is the "who", which lines up above the comment.
- * Server-rendered first page, /api/feed behind "load more". */
+ * Server-rendered first page, /api/feed behind
+ * "load more" via the same `usePagedList` state every other list uses. */
 export function RecentSendsFeed({
   initialSends,
   initialHasMore,
@@ -35,30 +33,26 @@ export function RecentSendsFeed({
   initialHasMore: boolean;
   initialAreaBreadcrumbs: AreaBreadcrumbs;
 }) {
-  const [sends, setSends] = useState(initialSends);
-  const [hasMore, setHasMore] = useState(initialHasMore);
-  const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
-  const [loadedPages, setLoadedPages] = useState(1);
-
-  async function handleLoadMore() {
-    setLoadingMore(true);
-    setLoadMoreFailed(false);
-    try {
-      const res = await fetch(`/api/feed?page=${loadedPages + 1}`);
+  const {
+    items: sends,
+    hasMore,
+    meta: areaBreadcrumbs,
+    loadingMore,
+    loadMoreFailed,
+    loadMore,
+  } = usePagedList({
+    initialItems: initialSends,
+    initialHasMore,
+    initialMeta: initialAreaBreadcrumbs,
+    itemKey: (send) => send.id,
+    mergeMeta: (current, incoming) => ({ ...current, ...incoming }),
+    fetchPage: async (_offset, page) => {
+      const res = await fetch(`/api/feed?page=${page}`);
       if (!res.ok) throw new Error(`Loading more sends failed: ${res.status}`);
       const data: FeedPageResponse = await res.json();
-      setSends((prev) => [...prev, ...data.sends]);
-      setHasMore(data.hasMore);
-      setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
-      setLoadedPages((prev) => prev + 1);
-    } catch {
-      setLoadMoreFailed(true);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+      return { items: data.sends, hasMore: data.hasMore, meta: data.areaBreadcrumbs };
+    },
+  });
 
   if (sends.length === 0) {
     return <EmptyState message="No sends logged yet — the book is waiting for its first entry." />;
@@ -81,24 +75,13 @@ export function RecentSendsFeed({
             }
             trailing={
               <div className="flex flex-col items-end gap-1 text-sm">
-                <div className="flex items-center gap-1.5">
-                  <Grade>
-                    {formatGrade(send.climbType, send.climbGrade)}
-                    {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
-                      <span className="font-normal text-muted">
-                        {" "}
-                        ({formatGrade(send.climbType, send.suggestedGrade)})
-                      </span>
-                    )}
-                    {send.gradeFeel === "high" && (
-                      <ArrowUp className="size-3.5 text-muted" aria-label="High end of the grade" />
-                    )}
-                    {send.gradeFeel === "low" && (
-                      <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
-                    )}
-                  </Grade>
-                  <RatingStars rating={send.rating} />
-                </div>
+                <SendGradeCell
+                  type={send.climbType}
+                  grade={send.climbGrade}
+                  suggestedGrade={send.suggestedGrade}
+                  gradeFeel={send.gradeFeel}
+                  rating={send.rating}
+                />
                 <AscentStyle type={send.ascentStyle} />
                 <div className="text-xs text-muted">{formatDate(send.dateSent)}</div>
               </div>
@@ -114,14 +97,7 @@ export function RecentSendsFeed({
           />
         ))}
       </div>
-      {hasMore && (
-        <div className="flex flex-col items-center gap-2">
-          {loadMoreFailed && (
-            <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
-          )}
-          <LoadMoreButton onPress={handleLoadMore} loading={loadingMore} />
-        </div>
-      )}
+      {hasMore && <LoadMoreButton onPress={loadMore} loading={loadingMore} failed={loadMoreFailed} />}
     </div>
   );
 }

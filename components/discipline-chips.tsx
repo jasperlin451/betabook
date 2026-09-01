@@ -1,6 +1,6 @@
 "use client";
 
-import clsx from "clsx";
+import { choicePillClass } from "@/components/ui/choice-pill";
 import { DISCIPLINE_CHIP_CLASSNAME, DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import type { Discipline } from "@/db/queries";
 
@@ -34,12 +34,7 @@ export function DisciplineChips({
                 selected ? value.filter((d) => d !== discipline) : [...value, discipline],
               )
             }
-            className={clsx(
-              "cursor-pointer rounded-full border px-3 py-1 text-sm transition-colors",
-              selected
-                ? `border-transparent font-medium ${DISCIPLINE_CHIP_CLASSNAME[discipline]}`
-                : "border-border text-muted hover:text-foreground",
-            )}
+            className={choicePillClass(selected, DISCIPLINE_CHIP_CLASSNAME[discipline])}
           >
             {DISCIPLINE_LABELS[discipline]}
           </button>

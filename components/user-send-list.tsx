@@ -2,9 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Checkbox } from "@heroui/react";
-import { ArrowDown, ArrowUp } from "lucide-react";
 import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
-import { formatGrade } from "@/lib/grades";
 import { formatDate } from "@/lib/format-date";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
 import {
@@ -14,11 +12,9 @@ import {
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { AppLink } from "@/components/ui/app-link";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Grade } from "@/components/ui/grade";
 import { AscentStyle, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { NavigationPendingRegion } from "@/components/navigation-pending";
-import { RatingStars } from "@/components/ui/rating-stars";
 import { ListRow } from "@/components/ui/list-row";
 import { FilterToolbar } from "@/components/filter-toolbar";
 import { LogSendButton } from "@/components/log-send-button";
@@ -26,6 +22,7 @@ import { RouteSearchField } from "@/components/route-search-field";
 import { AreaSearchField } from "@/components/area-search-field";
 import { LabeledIndexSelect } from "@/components/ui/index-select";
 import { SendActionsMenu } from "@/components/send-actions-menu";
+import { SendGradeCell } from "@/components/send-grade-cell";
 import { SendListShell } from "@/components/send-list-shell";
 import { SortSelect } from "@/components/ui/sort-select";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
@@ -43,7 +40,7 @@ function AscentStyleFields({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-start gap-3">
-      <span className="text-sm font-medium text-foreground">Ascent Style</span>
+      <span className="text-sm font-medium text-foreground">Ascent style</span>
       <div className="flex flex-wrap items-center justify-start gap-4">
         {ASCENT_STYLES.map((style) => (
           <Checkbox
@@ -68,7 +65,7 @@ function AscentStyleFields({
 
 function MinRatingSelect({ value, onChange }: { value: number; onChange: (value: number) => void }) {
   return (
-    <LabeledIndexSelect label="Min Rating" options={RATING_OPTIONS} index={value} onChange={onChange} />
+    <LabeledIndexSelect label="Min rating" options={RATING_OPTIONS} index={value} onChange={onChange} />
   );
 }
 
@@ -301,11 +298,7 @@ export function UserSendList({
           hasMore={hasMore}
           onLoadMore={loadMore}
           loadingMore={loadingMore}
-          loadMoreError={
-            loadMoreFailed && (
-              <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
-            )
-          }
+          loadMoreFailed={loadMoreFailed}
           renderRow={(send) => (
             <ListRow
               title={send.climbName}
@@ -319,24 +312,13 @@ export function UserSendList({
               }
               trailing={
                 <div className="flex flex-col items-end gap-1 text-sm">
-                  <div className="flex items-center gap-1.5">
-                    <Grade>
-                      {formatGrade(send.climbType, send.climbGrade)}
-                      {send.suggestedGrade != null && send.suggestedGrade !== send.climbGrade && (
-                        <span className="font-normal text-muted">
-                          {" "}
-                          ({formatGrade(send.climbType, send.suggestedGrade)})
-                        </span>
-                      )}
-                      {send.gradeFeel === "high" && (
-                        <ArrowUp className="size-3.5 text-muted" aria-label="High end of the grade" />
-                      )}
-                      {send.gradeFeel === "low" && (
-                        <ArrowDown className="size-3.5 text-muted" aria-label="Low end of the grade" />
-                      )}
-                    </Grade>
-                    <RatingStars rating={send.rating} />
-                  </div>
+                  <SendGradeCell
+                    type={send.climbType}
+                    grade={send.climbGrade}
+                    suggestedGrade={send.suggestedGrade}
+                    gradeFeel={send.gradeFeel}
+                    rating={send.rating}
+                  />
                   <AscentStyle type={send.ascentStyle} />
                   <div className="text-xs text-muted">{formatDate(send.dateSent)}</div>
                 </div>

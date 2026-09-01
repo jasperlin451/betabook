@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import clsx from "clsx";
+import { cardClass } from "@/components/ui/card";
+import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
 
 type Stat = { label: string; value: ReactNode };
 type StatCard = { key: string; heading?: ReactNode; stats: Stat[] };
@@ -20,13 +22,13 @@ export function StatStrip({ cards, className }: StatStripProps) {
       {cards.map((card) => (
         <div
           key={card.key}
-          className="min-w-56 flex-1 rounded-xl bg-surface-secondary p-4 lg:min-w-0"
+          className={clsx("min-w-56 flex-1 lg:min-w-0", cardClass("sm"))}
         >
           {card.heading && <div className="mb-3">{card.heading}</div>}
           <div className="flex flex-col gap-2">
             {card.stats.map((stat) => (
               <div key={stat.label} className="flex items-center justify-between gap-2">
-                <span className="text-xs tracking-wide text-muted uppercase">{stat.label}</span>
+                <span className={EYEBROW_CLASS}>{stat.label}</span>
                 <span className="font-semibold text-foreground tabular-nums">{stat.value}</span>
               </div>
             ))}

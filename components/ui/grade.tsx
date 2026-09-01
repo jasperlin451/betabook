@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import clsx from "clsx";
+import { ArrowDown, ArrowUp } from "lucide-react";
 
 type GradeProps = {
   children: ReactNode;
@@ -22,4 +23,13 @@ export function Grade({ children, size = "sm", className }: GradeProps) {
       {children}
     </span>
   );
+}
+
+/** The one arrow beside a grade, whatever is being compared to the posted
+ * grade: up always means "harder than posted", down "softer". The community
+ * trend (climb rows) and a single climber's feel (send rows) both use it,
+ * so the reader learns one sign instead of two glyph families. */
+export function GradeArrow({ direction, label }: { direction: "up" | "down"; label: string }) {
+  const Icon = direction === "up" ? ArrowUp : ArrowDown;
+  return <Icon className="size-3.5 text-muted" aria-label={label} />;
 }

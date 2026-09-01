@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
 import { type ClimbSearchFilter } from "@/lib/climb-search-filter";
@@ -86,16 +86,15 @@ export function ClimbSearchResults({
         hasNextPage,
         loadingMore,
         onLoadMore: loadMore,
-        error: loadMoreFailed && (
-          <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
-        ),
+        failed: loadMoreFailed,
       }}
     />
   );
 }
 
 /** The area-mode counterpart of ClimbSearchResults, backed by
- * /api/search/areas. Keyed on `name` by the caller for the same
+ * /api/search/areas — the same `usePagedList` state, with the breadcrumb
+ * map as its per-page meta. Keyed on `name` by the caller for the same
  * remount-on-change reasoning. */
 export function AreaSearchResults({
   name,
@@ -110,18 +109,21 @@ export function AreaSearchResults({
   initialAreaBreadcrumbs: AreaBreadcrumbs;
   emptyMessage: string;
 }) {
-  const [areas, setAreas] = useState(initialAreas);
-  const [hasNextPage, setHasNextPage] = useState(initialHasNextPage);
-  const [areaBreadcrumbs, setAreaBreadcrumbs] = useState(initialAreaBreadcrumbs);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
-  const [loadedPages, setLoadedPages] = useState(1);
-
-  async function handleLoadMore() {
-    setLoadingMore(true);
-    setLoadMoreFailed(false);
-    try {
-      const params = new URLSearchParams({ name, page: String(loadedPages + 1) });
+  const {
+    items: areas,
+    hasMore: hasNextPage,
+    meta: areaBreadcrumbs,
+    loadingMore,
+    loadMoreFailed,
+    loadMore,
+  } = usePagedList({
+    initialItems: initialAreas,
+    initialHasMore: initialHasNextPage,
+    initialMeta: initialAreaBreadcrumbs,
+    itemKey: (area) => area.id,
+    mergeMeta: (current, incoming) => ({ ...current, ...incoming }),
+    fetchPage: async (_offset, page) => {
+      const params = new URLSearchParams({ name, page: String(page) });
       const res = await fetch(`/api/search/areas?${params.toString()}`);
       if (!res.ok) throw new Error(`Loading more results failed: ${res.status}`);
       const data: {
@@ -129,16 +131,9 @@ export function AreaSearchResults({
         hasNextPage: boolean;
         areaBreadcrumbs: AreaBreadcrumbs;
       } = await res.json();
-      setAreas((prev) => [...prev, ...data.areas]);
-      setHasNextPage(data.hasNextPage);
-      setAreaBreadcrumbs((prev) => ({ ...prev, ...data.areaBreadcrumbs }));
-      setLoadedPages((prev) => prev + 1);
-    } catch {
-      setLoadMoreFailed(true);
-    } finally {
-      setLoadingMore(false);
-    }
-  }
+      return { items: data.areas, hasMore: data.hasNextPage, meta: data.areaBreadcrumbs };
+    },
+  });
 
   return (
     <AreaList
@@ -149,10 +144,8 @@ export function AreaSearchResults({
       pagination={{
         hasNextPage,
         loadingMore,
-        onLoadMore: handleLoadMore,
-        error: loadMoreFailed && (
-          <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>
-        ),
+        onLoadMore: loadMore,
+        failed: loadMoreFailed,
       }}
     />
   );

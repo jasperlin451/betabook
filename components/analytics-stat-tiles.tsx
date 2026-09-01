@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import clsx from "clsx";
+import { cardClass } from "@/components/ui/card";
+import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
 
 export type StatTile = {
   label: string;
@@ -16,10 +18,8 @@ export function StatTiles({ tiles, className }: { tiles: StatTile[]; className?:
   return (
     <div className={clsx("grid gap-3", className)}>
       {tiles.map((tile) => (
-        <div key={tile.label} className="flex flex-col gap-1 rounded-xl bg-surface-secondary p-4">
-          <span className="text-xs font-medium tracking-widest text-muted uppercase">
-            {tile.label}
-          </span>
+        <div key={tile.label} className={clsx("flex flex-col gap-1", cardClass("sm"))}>
+          <span className={EYEBROW_CLASS}>{tile.label}</span>
           <span className="font-display text-2xl font-semibold text-foreground tabular-nums">
             {tile.value}
           </span>

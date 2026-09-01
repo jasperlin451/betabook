@@ -19,7 +19,7 @@ export function EditSendButton({ climb, send }: EditSendButtonProps) {
   return (
     <>
       <Button fullWidth variant="ghost" onPress={state.open}>
-        Edit your send
+        Edit send
       </Button>
       <SendFormDrawer climb={climb} existingSend={send} state={state} />
     </>
