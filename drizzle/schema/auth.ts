@@ -8,6 +8,12 @@ export const user = sqliteTable("user", {
   emailVerified: integer("email_verified", { mode: "boolean" })
     .default(false)
     .notNull(),
+  // Null means "never welcomed", and that is not derivable from
+  // emailVerified: better-auth routes a *changed* address through the same
+  // afterEmailVerification hook as a first verification, so an established
+  // user would get a second "Welcome to Betabook" without this. Claimed by a
+  // conditional UPDATE in lib/welcome-email.ts, which is the whole guard.
+  welcomeEmailSentAt: integer("welcome_email_sent_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),

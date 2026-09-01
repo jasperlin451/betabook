@@ -12,6 +12,30 @@ async function getResend() {
   return env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 }
 
+/** The site's own origin, for links in emails that aren't auth links.
+ *
+ * better-auth builds its verification/reset URLs from this same value, so
+ * there's no second thing to configure — and a preview deployment's emails
+ * point at the preview rather than at production. */
+async function getBaseUrl() {
+  const { env } = await getCloudflareContext({ async: true });
+  return env.BETTER_AUTH_URL.replace(/\/$/, "");
+}
+
+/** The only user-controlled string this file puts in an HTML body.
+ *
+ * The two auth helpers below interpolate a better-auth-generated URL and
+ * nothing else, and sendContactEmail sidesteps the problem entirely by using
+ * `text`. A display name can't do either: it's whatever the user typed at
+ * sign-up, and it belongs in a greeting. */
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function sendVerificationEmail(to: string, url: string) {
   const resend = await getResend();
   if (!resend) {
@@ -38,6 +62,49 @@ export async function sendResetPasswordEmail(to: string, url: string) {
     subject: "Reset your Betabook password",
     html: `<p>Click the link below to reset your password:</p><p><a href="${url}">${url}</a></p>`,
   });
+}
+
+/** Sent once, when an account's email verification lands.
+ *
+ * Verification is the moment the account becomes usable — every signed-in
+ * surface is behind `requireEmailVerification` — and better-auth drops the
+ * user back on /sign-in with no orientation. This is that orientation.
+ *
+ * Like sendContactEmail and unlike the two helpers above, this surfaces a
+ * Resend failure rather than swallowing it: there is no "resend welcome"
+ * button anywhere, so the caller is the only thing that can notice. See
+ * lib/welcome-email.ts for what it does with that.
+ */
+export async function sendWelcomeEmail(to: string, name: string) {
+  const resend = await getResend();
+  const base = await getBaseUrl();
+
+  const html = [
+    `<p>Hi ${escapeHtml(name)},</p>`,
+    `<p>Your email is verified — welcome to Betabook, a climbing logbook and crag database for keeping the routes you've climbed and the places you climbed them.</p>`,
+    `<p>Somewhere to start:</p>`,
+    `<ul>`,
+    `<li><a href="${base}/account/import">Import your logbook</a> — already tracking sends somewhere else? Export a CSV and bring the whole history across.</li>`,
+    // No /areas or /climbs index exists to link to — browsing starts from the
+    // search on the home page — so this is the one link that covers both.
+    `<li><a href="${base}">Log your first send</a> — search for a climb and record the ascent.</li>`,
+    `</ul>`,
+    `<p>Betabook is free, ad-free, and open source. Questions or corrections: <a href="${base}/contact">get in touch</a>.</p>`,
+  ].join("");
+
+  if (!resend) {
+    console.log(`[dev] welcome email for ${to}:\n${html}`);
+    return;
+  }
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: "Welcome to Betabook",
+    html,
+  });
+
+  if (error) throw new Error(`Resend rejected the welcome email: ${error.message}`);
 }
 
 /** A message from the public /contact form.

@@ -3,6 +3,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getDb } from "@/db/client";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@/lib/email";
+import { sendWelcomeEmailOnce } from "@/lib/welcome-email";
 import * as schema from "@/db/schema";
 
 async function authBuilder() {
@@ -38,6 +39,21 @@ async function authBuilder() {
     emailVerification: {
       sendVerificationEmail: ({ user, url }) =>
         sendVerificationEmail(user.email, url),
+      // Better Auth returns early from /verify-email for an already-verified
+      // user, so a re-clicked link never reaches here — this fires on the
+      // false -> true transition and on a later change-email verification.
+      // sendWelcomeEmailOnce is what tells those two apart.
+      afterEmailVerification: async (verified) => {
+        try {
+          await sendWelcomeEmailOnce(db, verified);
+        } catch (err) {
+          // This hook is awaited inside GET /api/auth/verify-email, after the
+          // emailVerified write has already committed. Throwing would turn a
+          // verification that succeeded into a 500 the user reads as failure.
+          // wrangler.jsonc has observability on, so console.error is the log.
+          console.error("welcome email failed", err);
+        }
+      },
     },
     session: {
       // A month-long sliding window: every time the session is used and

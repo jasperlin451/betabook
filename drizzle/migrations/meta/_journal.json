@@ -148,6 +148,13 @@
       "when": 1788739200000,
       "tag": "0020_export_keyset_index",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1788825600000,
+      "tag": "0021_add_welcome_email_sent_at",
+      "breakpoints": true
     }
   ]
 }
