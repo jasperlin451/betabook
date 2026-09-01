@@ -93,13 +93,9 @@ function AscentStylePicker({
   );
 }
 
-/** Rating as the row of stars the send is read back as (RatingStars), set by
- * pressing one instead of picked out of a dropdown listing "★★★".
- *
- * Radio semantics like AscentStylePicker, plus a Clear: unlike an ascent
- * style, no rating is the default and has to stay reachable. Pressing a star
- * only ever sets it — pressing the current one to clear would turn a
- * confirming second tap into a silent wipe. */
+/** No rating is the default and has to stay reachable, hence the Clear.
+ * Pressing a star only ever sets it: clearing by pressing the current one
+ * turns a confirming second tap into a silent wipe. */
 function RatingPicker({
   value,
   onChange,
@@ -107,8 +103,6 @@ function RatingPicker({
   value: number | null;
   onChange: (value: number | null) => void;
 }) {
-  // Fill follows the pointer (and focus) so the row previews a rating before
-  // the press commits it.
   const [preview, setPreview] = useState<number | null>(null);
   const filledThrough = preview ?? value ?? 0;
 

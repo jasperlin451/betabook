@@ -27,8 +27,8 @@ export const MAX_CLIMB_SENDS_LIMIT = 200;
 // functions.
 export const IMPORT_BATCH_SIZE = 25;
 
-/** The rating scale, in order — the stars RatingPicker draws and the range
- * isRating enforces, so the form can't offer a value the server rejects. */
+/** Shared by RatingPicker and isRating, so the form can't offer a value the
+ * server rejects. */
 export const RATING_VALUES = [1, 2, 3, 4, 5] as const;
 
 export const GRADE_FEEL_VALUES = ["low", "solid", "high"] as const;
