@@ -469,9 +469,8 @@ export type AnalyticsSendRow = {
   climbId: number;
   climbName: string;
   climbType: ClimbType;
-  /** The climber's own grade for this send — the only grade the analytics
-   * page reads. climbs.grade is deliberately absent: a page that mixed the
-   * two would let one chart's ceiling contradict another's. */
+  /** The climber's own grade. climbs.grade is deliberately absent: analytics
+   * reads one grade source so no chart's ceiling contradicts another's. */
   suggestedGrade: number | null;
   areaId: number;
   areaName: string;

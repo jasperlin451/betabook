@@ -127,16 +127,10 @@ export function formatDaySpan(days: number): string {
   return `${(days / 365.25).toFixed(1)} yr`;
 }
 
-/** Sends of one discipline carrying a grade the climber recorded themselves,
- * on that discipline's scale. Every grade-axis chart on the analytics page
- * comes through here, so all of them are denominated in the same currency:
- * mix the climber's grade into one chart and the book grade into another and
- * a pyramid comes out inverted, or a breakthrough claims a ceiling the
- * progression line never draws. A send the climber never graded sits out,
- * the way an undated one sits out of the time-based charts.
- *
- * Generic so a caller that already narrowed `dateSent` keeps that narrowing.
- */
+/** Sends of one discipline graded on its scale, each carrying its grade. The
+ * one grade source behind every chart here: mixing climbs.grade into any of
+ * them inverts a pyramid or strands a breakthrough above the progression
+ * line. Generic so a caller's `dateSent` narrowing survives. */
 function gradedSends<T extends AnalyticsSendRow>(
   sends: T[],
   type: ClimbType,
@@ -299,9 +293,8 @@ export function buildUserAnalytics(
   const breakthroughs: Breakthrough[] = [];
   for (const type of disciplines) {
     const scale = nativeGradeArray(type);
-    // Oldest first, and easiest first inside a day: a day's sends carry no
-    // order of their own, so walking them up the scale makes every ceiling
-    // they crossed a breakthrough rather than letting insert order decide.
+    // Easiest first inside a day: same-day sends carry no order of their own,
+    // so insert order would otherwise pick which ceilings count.
     const graded = gradedSends(dated, type).sort((a, b) =>
       a.dateSent < b.dateSent ? -1 : a.dateSent > b.dateSent ? 1 : a.grade - b.grade,
     );
@@ -340,8 +333,8 @@ export function buildUserAnalytics(
       previousDate = s.dateSent;
     }
   }
-  // Newest first, hardest first within a day — two ceilings raised on one day
-  // would otherwise print easiest on top, reading as a step backwards.
+  // Hardest first inside a day, or two ceilings raised on one day print
+  // easiest on top and read as a step backwards.
   breakthroughs.sort((a, b) =>
     a.dateSent < b.dateSent ? 1 : a.dateSent > b.dateSent ? -1 : b.grade - a.grade,
   );
