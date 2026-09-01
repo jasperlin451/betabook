@@ -4,6 +4,7 @@ import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { FIELD_CLASS } from "@/components/ui/field";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { AscentStyle as AscentStyleChip } from "@/components/ascent-style";
+import { Star } from "lucide-react";
 import { useState, useTransition, type ReactNode } from "react";
 import {
   Button,
@@ -21,6 +22,7 @@ import {
   ASCENT_STYLES,
   GRADE_FEEL_VALUES,
   MAX_COMMENT_LENGTH,
+  RATING_VALUES,
   type AscentStyle,
   type GradeFeel,
 } from "@/lib/sends";
@@ -91,6 +93,70 @@ function AscentStylePicker({
   );
 }
 
+/** Rating as the row of stars the send is read back as (RatingStars), set by
+ * pressing one instead of picked out of a dropdown listing "★★★".
+ *
+ * Radio semantics like AscentStylePicker, plus a Clear: unlike an ascent
+ * style, no rating is the default and has to stay reachable. Pressing a star
+ * only ever sets it — pressing the current one to clear would turn a
+ * confirming second tap into a silent wipe. */
+function RatingPicker({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) {
+  // Fill follows the pointer (and focus) so the row previews a rating before
+  // the press commits it.
+  const [preview, setPreview] = useState<number | null>(null);
+  const filledThrough = preview ?? value ?? 0;
+
+  return (
+    <div className="flex items-center gap-2">
+      <div
+        role="radiogroup"
+        aria-label="Rating"
+        className="flex items-center"
+        onPointerLeave={() => setPreview(null)}
+      >
+        {RATING_VALUES.map((n) => (
+          <button
+            key={n}
+            type="button"
+            role="radio"
+            aria-checked={value === n}
+            aria-label={n === 1 ? "1 star" : `${n} stars`}
+            onPointerEnter={() => setPreview(n)}
+            onFocus={() => setPreview(n)}
+            onBlur={() => setPreview(null)}
+            onClick={() => onChange(n)}
+            className="cursor-pointer rounded-md p-1.5 focus-visible:status-focused"
+          >
+            <Star
+              className={clsx(
+                "size-8 transition-colors",
+                n <= filledThrough ? "fill-current text-warning" : "text-muted/60",
+              )}
+            />
+          </button>
+        ))}
+      </div>
+      {value == null ? (
+        <span className="text-sm text-muted">No rating</span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className="cursor-pointer text-sm text-muted underline underline-offset-2 hover:text-foreground"
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   // The user's local calendar date ("en-CA" formats as YYYY-MM-DD) — a UTC
   // date (toISOString) can be a day off from the user's local today.
@@ -107,9 +173,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
     existingSend != null && existingSend.dateSent == null,
   );
   const [comment, setComment] = useState(existingSend?.comment ?? "");
-  const [rating, setRating] = useState(
-    existingSend?.rating != null ? String(existingSend.rating) : "abstain",
-  );
+  const [rating, setRating] = useState<number | null>(existingSend?.rating ?? null);
   const [suggestedGrade, setSuggestedGrade] = useState(
     String(existingSend?.suggestedGrade ?? climb.grade ?? 0),
   );
@@ -127,7 +191,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
     formData.set("ascentStyle", ascentStyle);
     formData.set("dateSent", dateUnknown ? "" : dateSent);
     formData.set("comment", comment);
-    formData.set("rating", rating === "abstain" ? "" : rating);
+    formData.set("rating", rating == null ? "" : String(rating));
     formData.set("suggestedGrade", suggestedGrade);
     formData.set("gradeFeel", gradeFeel);
 
@@ -182,27 +246,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField>
             <Label>Rating</Label>
-            <Select
-              aria-label="Rating"
-              fullWidth
-              selectedKey={rating}
-              onSelectionChange={(key) => setRating(String(key))}
-            >
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  <ListBox.Item id="abstain">No rating</ListBox.Item>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <ListBox.Item key={n} id={String(n)}>
-                      {"★".repeat(n)}
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
+            <RatingPicker value={rating} onChange={setRating} />
           </TextField>
 
           <TextField>

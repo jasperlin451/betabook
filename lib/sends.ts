@@ -27,6 +27,10 @@ export const MAX_CLIMB_SENDS_LIMIT = 200;
 // functions.
 export const IMPORT_BATCH_SIZE = 25;
 
+/** The rating scale, in order — the stars RatingPicker draws and the range
+ * isRating enforces, so the form can't offer a value the server rejects. */
+export const RATING_VALUES = [1, 2, 3, 4, 5] as const;
+
 export const GRADE_FEEL_VALUES = ["low", "solid", "high"] as const;
 export type GradeFeel = (typeof GRADE_FEEL_VALUES)[number];
 
@@ -120,7 +124,12 @@ function parseDateSent(value: unknown, today: string): string | null {
  * every rating into climbs.rating_sum, which climbs.avg_rating is generated
  * from — one out-of-range value moves a shared climb's public average. */
 function isRating(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 5;
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= RATING_VALUES[0] &&
+    value <= RATING_VALUES[RATING_VALUES.length - 1]
+  );
 }
 
 function parseGradeFeel(value: unknown): GradeFeel {
