@@ -33,6 +33,17 @@ export type ClimbSearchPages = {
   loadedPages: number;
 };
 
+/** Combines page-accumulated sent ids with the latest server-rendered first
+ * page. The refreshed set is also the signed-in sentinel: when it is absent,
+ * row actions must disappear rather than leaking stale authenticated state. */
+export function mergeRefreshedSentClimbIds(
+  refreshed: Iterable<number> | undefined,
+  accumulated: Iterable<number> | undefined,
+): Set<number> | undefined {
+  if (refreshed === undefined) return undefined;
+  return new Set([...(accumulated ?? []), ...refreshed]);
+}
+
 export async function fetchClimbSearchPage(
   sort: SubtreeClimbsSort,
   filter: ClimbSearchFilter,

@@ -398,24 +398,68 @@ export type UserSendsExportPage = {
 /** Full-history export uses keyset pagination rather than the UI list's
  * bounded OFFSET. It therefore never replays/clamps at 10k rows and each
  * request seeks from the previous `(date_sent, id)` key through
- * sends_user_date_idx. */
+ * sends_user_date_idx. Dated and undated sends are fetched as separate index
+ * ranges: combining them with OR prevents SQLite from seeking past user_id
+ * and turns page N into a rescan of pages 1…N-1. */
 export async function getSendsForUserExportPage(
   db: Database,
   userId: string,
   cursor: UserSendsExportCursor | null,
 ): Promise<UserSendsExportPage> {
-  const afterCursor =
-    cursor === null
-      ? sql`1`
-      : cursor.dateSent === null
-        ? sql`sends.date_sent IS NULL AND sends.id > ${cursor.id}`
-        : sql`(
-            sends.date_sent < ${cursor.dateSent}
-            OR sends.date_sent IS NULL
-            OR (sends.date_sent = ${cursor.dateSent} AND sends.id > ${cursor.id})
-          )`;
+  const rows: UserSendRow[] = [];
 
-  const rows = await db.all<UserSendRow>(sql`
+  // Phase 1: dated rows. Matching DESC directions let the row-value range
+  // map directly to the (user_id, date_sent DESC, id DESC) index.
+  if (cursor === null || cursor.dateSent !== null) {
+    const datedRange =
+      cursor === null
+        ? sql`sends.date_sent IS NOT NULL`
+        : sql`sends.date_sent IS NOT NULL
+              AND (sends.date_sent, sends.id) < (${cursor.dateSent}, ${cursor.id})`;
+    rows.push(
+      ...(await getUserExportRows(
+        db,
+        userId,
+        datedRange,
+        EXPORT_SENDS_PAGE_SIZE + 1,
+      )),
+    );
+  }
+
+  // Phase 2: NULL dates sort after every dated row. Only enter this range
+  // once the dated range no longer fills the page; when a page straddles the
+  // boundary, fetch just enough NULL rows to fill it plus the has-more row.
+  if (rows.length <= EXPORT_SENDS_PAGE_SIZE) {
+    const undatedRange =
+      cursor?.dateSent === null
+        ? sql`sends.date_sent IS NULL AND sends.id < ${cursor.id}`
+        : sql`sends.date_sent IS NULL`;
+    rows.push(
+      ...(await getUserExportRows(
+        db,
+        userId,
+        undatedRange,
+        EXPORT_SENDS_PAGE_SIZE + 1 - rows.length,
+      )),
+    );
+  }
+
+  const hasMore = rows.length > EXPORT_SENDS_PAGE_SIZE;
+  const page = hasMore ? rows.slice(0, EXPORT_SENDS_PAGE_SIZE) : rows;
+  const last = page.at(-1);
+  return {
+    sends: page,
+    nextCursor: hasMore && last ? { dateSent: last.dateSent, id: last.id } : null,
+  };
+}
+
+function getUserExportRows(
+  db: Database,
+  userId: string,
+  range: SQL,
+  limit: number,
+): Promise<UserSendRow[]> {
+  return db.all<UserSendRow>(sql`
     SELECT
       sends.id AS id,
       sends.climb_id AS climbId,
@@ -433,18 +477,10 @@ export async function getSendsForUserExportPage(
     FROM sends INDEXED BY sends_user_date_idx
     JOIN climbs ON climbs.id = sends.climb_id
     JOIN areas ON areas.id = climbs.area_id
-    WHERE sends.user_id = ${userId} AND (${afterCursor})
-    ORDER BY sends.date_sent DESC, sends.id ASC
-    LIMIT ${EXPORT_SENDS_PAGE_SIZE + 1}
+    WHERE sends.user_id = ${userId} AND (${range})
+    ORDER BY sends.date_sent DESC, sends.id DESC
+    LIMIT ${limit}
   `);
-
-  const hasMore = rows.length > EXPORT_SENDS_PAGE_SIZE;
-  const page = hasMore ? rows.slice(0, EXPORT_SENDS_PAGE_SIZE) : rows;
-  const last = page.at(-1);
-  return {
-    sends: page,
-    nextCursor: hasMore && last ? { dateSent: last.dateSent, id: last.id } : null,
-  };
 }
 
 export type UserStatsSummary = {

@@ -815,6 +815,13 @@ describe("getSendsForUserExportPage", () => {
       await db.insert(sends).values(rows.slice(index, index + 10));
     }
 
+    const firstPage = await getSendsForUserExportPage(db, userId, null);
+    expect(firstPage.sends).toHaveLength(200);
+    expect(firstPage.sends.every((send) => send.dateSent !== null)).toBe(true);
+    expect(firstPage.sends.map((send) => send.id)).toEqual(
+      firstPage.sends.map((send) => send.id).sort((a, b) => b - a),
+    );
+
     const exported: Awaited<ReturnType<typeof getSendsForUserExportPage>>["sends"] = [];
     let cursor: UserSendsExportCursor | null = null;
     do {
@@ -826,5 +833,35 @@ describe("getSendsForUserExportPage", () => {
     expect(exported).toHaveLength(205);
     expect(new Set(exported.map((send) => send.id)).size).toBe(205);
     expect(exported.slice(-5).every((send) => send.dateSent === null)).toBe(true);
+  });
+
+  it("constrains both export cursor phases beyond user_id in the composite index", async () => {
+    const datedPlan = await db.all<{ detail: string }>(sql`
+      EXPLAIN QUERY PLAN
+      SELECT sends.id
+      FROM sends INDEXED BY sends_user_date_idx
+      WHERE sends.user_id = ${"test-user-export"}
+        AND sends.date_sent IS NOT NULL
+        AND (sends.date_sent, sends.id) < (${"2026-04-01"}, ${999999})
+      ORDER BY sends.date_sent DESC, sends.id DESC
+      LIMIT 201
+    `);
+    const undatedPlan = await db.all<{ detail: string }>(sql`
+      EXPLAIN QUERY PLAN
+      SELECT sends.id
+      FROM sends INDEXED BY sends_user_date_idx
+      WHERE sends.user_id = ${"test-user-export"}
+        AND sends.date_sent IS NULL
+        AND sends.id < ${999999}
+      ORDER BY sends.date_sent DESC, sends.id DESC
+      LIMIT 201
+    `);
+
+    const datedDetail = datedPlan.map((row) => row.detail).join("\n");
+    const undatedDetail = undatedPlan.map((row) => row.detail).join("\n");
+    expect(datedDetail).toContain("sends_user_date_idx");
+    expect(datedDetail).toContain("date_sent");
+    expect(undatedDetail).toContain("sends_user_date_idx");
+    expect(undatedDetail).toContain("date_sent=? AND id<?");
   });
 });

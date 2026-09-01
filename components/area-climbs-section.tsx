@@ -5,6 +5,7 @@ import { ClimbList } from "@/components/climb-list";
 import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { areaClimbsFilterToSearchParams, type AreaClimbsFilter } from "@/lib/area-climbs-filter";
 import type { AreaBreadcrumbs, ClimbSendStats, ClimbWithAreaName, SubtreeClimbsSort } from "@/db/queries";
+import { mergeRefreshedSentClimbIds } from "@/lib/climb-search-pages";
 
 type AreaClimbsSectionProps = {
   areaId: number;
@@ -50,6 +51,10 @@ export function AreaClimbsSection({
   // next page to request is however many full pages are already loaded —
   // not climbs.length, which would be wrong after any dedup/filter change.
   const [loadedPages, setLoadedPages] = useState(1);
+  const visibleSentClimbIds = mergeRefreshedSentClimbIds(
+    sentClimbIds,
+    loadedSentClimbIds,
+  );
 
   async function handleLoadMore() {
     setLoadingMore(true);
@@ -95,7 +100,7 @@ export function AreaClimbsSection({
           emptyMessage={emptyMessage}
           sendStats={sendStats}
           areaBreadcrumbs={areaBreadcrumbs}
-          sentClimbIds={loadedSentClimbIds}
+          sentClimbIds={visibleSentClimbIds}
           pagination={{
             hasNextPage,
             loadingMore,

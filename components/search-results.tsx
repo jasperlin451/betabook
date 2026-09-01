@@ -4,7 +4,11 @@ import { useState } from "react";
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
 import { type ClimbSearchFilter } from "@/lib/climb-search-filter";
-import { appendPage, fetchClimbSearchPage } from "@/lib/climb-search-pages";
+import {
+  appendPage,
+  fetchClimbSearchPage,
+  mergeRefreshedSentClimbIds,
+} from "@/lib/climb-search-pages";
 import type { ClimbSearchPages } from "@/lib/climb-search-pages";
 import type {
   AreaBreadcrumbs,
@@ -51,6 +55,10 @@ export function ClimbSearchResults({
   });
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+  const visibleSentClimbIds = mergeRefreshedSentClimbIds(
+    sentClimbIds,
+    pages.sentClimbIds,
+  );
 
   async function handleLoadMore() {
     setLoadingMore(true);
@@ -72,7 +80,7 @@ export function ClimbSearchResults({
       climbs={pages.climbs}
       sendStats={pages.sendStats}
       areaBreadcrumbs={pages.areaBreadcrumbs}
-      sentClimbIds={pages.sentClimbIds}
+      sentClimbIds={visibleSentClimbIds}
       emptyMessage="No climbs match your search."
       pagination={{
         hasNextPage: pages.hasNextPage,
