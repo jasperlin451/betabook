@@ -1,16 +1,9 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { Disclosure } from "@heroui/react";
-
-// Layout effects never run during SSR, and React warns when a component that
-// declares one is server-rendered — this component is a client component but
-// is still server-rendered on every area/user page. Picking the hook once per
-// environment (never per render) keeps hook order stable while dropping the
-// warning; the client still gets the pre-paint commit the fallback below
-// depends on.
-const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+import { useIsomorphicLayoutEffect } from "@/hooks/use-isomorphic-layout-effect";
 
 type Breakpoint = "md" | "lg";
 

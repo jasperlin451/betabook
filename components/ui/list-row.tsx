@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 import clsx from "clsx";
 import { AppLink } from "@/components/ui/app-link";
+import { ClampedComment } from "@/components/ui/clamped-comment";
 
 type ListRowProps = {
   leading?: ReactNode;
@@ -23,7 +24,7 @@ type ListRowProps = {
   actions?: ReactNode;
   comment?: string | null;
   /** Who the comment belongs to — rendered on its own line directly above
-   * it, outside the clamp so it never spends one of the comment's three
+   * it, outside the clamp so it never spends one of the comment's visible
    * lines. Only lists that mix authors need it (the home feed); a list
    * that's already scoped to one climber leaves it off. */
   commentAuthor?: ReactNode;
@@ -99,7 +100,7 @@ export function ListRow({
             // clickable) instead of click-navigating with the row.
             <div className="relative z-10 text-sm leading-relaxed text-foreground">
               {commentAuthor != null && <div className="font-medium">{commentAuthor}</div>}
-              {comment != null && <p className="line-clamp-3">{comment}</p>}
+              {comment != null && <ClampedComment>{comment}</ClampedComment>}
             </div>
           )}
         </div>
