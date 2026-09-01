@@ -14,22 +14,18 @@ import { parseAreaClimbsFilter, parseAreaClimbsSort, toSubtreeQueryFilter } from
 import {
   offsetReachesPaginationLimit,
   pageReachesPaginationLimit,
-  parseBoundedLimit,
   parseOffset,
   parsePage,
   parseSuggestionLimit,
   searchParamsToRecord,
 } from "@/lib/search-params";
 import { parseId } from "@/lib/parse-id";
-import { MAX_CLIMB_RECONCILE_ITEMS } from "@/lib/climb-search-pages";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 /** Backs two callers with the same query.
  *
- * With `offset`: incremental loading and bounded post-mutation reconciliation
- * for an area's climb list. A bounded `limit` can accompany it; without an
- * offset, `limit` retains its suggestion-mode meaning below.
+ * With `offset`: incremental loading for an area's climb list.
  *
  * With `limit`: suggestion mode for the area page's route typeahead, which
  * searches names within this area's subtree. Same skip-the-join-passes
@@ -44,9 +40,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   const filter = parseAreaClimbsFilter(searchParams);
   const offsetMode = url.searchParams.has("offset");
   const suggestionLimit = offsetMode ? null : parseSuggestionLimit(url.searchParams);
-  const pageSize = offsetMode
-    ? parseBoundedLimit(url.searchParams, PAGE_SIZE, MAX_CLIMB_RECONCILE_ITEMS)
-    : (suggestionLimit ?? PAGE_SIZE);
+  const pageSize = suggestionLimit ?? PAGE_SIZE;
   const page = offsetMode ? 1 : parsePage(url.searchParams, pageSize);
   const offset = offsetMode ? parseOffset(url.searchParams) : undefined;
 

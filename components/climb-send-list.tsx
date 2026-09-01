@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { formatGrade } from "@/lib/grades";
 import { formatDate } from "@/lib/format-date";
-import { MAX_CLIMB_SENDS_LIMIT } from "@/lib/sends";
 import type { Climb, ClimbSendRow, ClimbSendsPage } from "@/db/queries";
 import { AscentStyle } from "@/components/ascent-style";
 import { RatingStars } from "@/components/ui/rating-stars";
@@ -12,7 +11,7 @@ import { Grade } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
 import { SendListShell } from "@/components/send-list-shell";
 import { SendActionsMenu } from "@/components/send-actions-menu";
-import { useReconciledPagedList } from "@/hooks/use-reconciled-paged-list";
+import { usePagedList } from "@/hooks/use-paged-list";
 
 type ClimbSendListProps = {
   climb: Climb;
@@ -30,10 +29,8 @@ type ClimbSendListProps = {
 
 /** Community ascents for a single climb — one row per climber, paged from
  * the server the same way UserSendList is: server-rendered first page,
- * "load more" fetching subsequent pages, and post-mutation reconciliation of
- * the accumulated pages (a viewer editing/deleting their own send makes the
- * server action refresh() the route, which arrives as a new `initialSends`
- * prop identity — see UserSendList for the full reasoning on each piece). */
+ * "load more" fetching subsequent pages. A post-mutation server refresh
+ * resets the client list to its new first-page snapshot. */
 export function ClimbSendList({
   climb,
   initialSends,
@@ -47,16 +44,14 @@ export function ClimbSendList({
     loadingMore,
     loadMoreFailed,
     loadMore,
-  } = useReconciledPagedList<ClimbSendRow, null>({
+  } = usePagedList<ClimbSendRow, null>({
     initialItems: initialSends,
     initialHasMore,
     initialMeta: null,
-    maxReconcileItems: MAX_CLIMB_SENDS_LIMIT,
     itemKey: (send) => send.id,
     mergeMeta: () => null,
-    fetchPage: async (offset, limit) => {
+    fetchPage: async (offset) => {
       const params = new URLSearchParams({ offset: String(offset) });
-      if (limit !== undefined) params.set("limit", String(limit));
       const res = await fetch(`/api/climbs/${climb.id}/sends?${params.toString()}`);
       if (!res.ok) throw new Error(`Loading sends failed: ${res.status}`);
       const data: ClimbSendsPage = await res.json();

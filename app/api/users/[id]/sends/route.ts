@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { getAreaBreadcrumbs, getSendsForUserPage, getUser, USER_SENDS_PAGE_SIZE } from "@/db/queries";
-import { MAX_USER_SENDS_LIMIT, parseUserSendsFilter } from "@/lib/user-sends-filter";
+import { parseUserSendsFilter } from "@/lib/user-sends-filter";
 import {
   offsetReachesPaginationLimit,
-  parseBoundedLimit,
   parseOffset,
   searchParamsToRecord,
 } from "@/lib/search-params";
@@ -13,10 +12,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 
 /** Incremental "load more" for a user's send history — the initial page is
  * server-rendered; this backs subsequent pages so the client never has to
- * hold more than what's actually been scrolled to. The `limit` param (see
- * MAX_USER_SENDS_LIMIT) exists for UserSendList's post-mutation reconcile,
- * which re-fetches everything the user had loaded beyond page 1 in one
- * request. */
+ * hold more than what's actually been scrolled to. */
 export async function GET(request: Request, { params }: RouteParams) {
   const { id: userId } = await params;
   const url = new URL(request.url);
@@ -24,11 +20,6 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const filter = parseUserSendsFilter(searchParams);
   const safeOffset = parseOffset(url.searchParams);
-  const pageSize = parseBoundedLimit(
-    url.searchParams,
-    USER_SENDS_PAGE_SIZE,
-    MAX_USER_SENDS_LIMIT,
-  );
 
   const db = await getDb();
   // A real 404 rather than a normal-looking empty page for any id — the
@@ -42,7 +33,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ sends: [], hasMore: false, areaBreadcrumbs: {} });
   }
 
-  const page = await getSendsForUserPage(db, userId, filter, safeOffset, pageSize);
+  const page = await getSendsForUserPage(db, userId, filter, safeOffset);
   const areaBreadcrumbs = await getAreaBreadcrumbs(
     db,
     page.sends.map((send) => send.areaId),
@@ -50,7 +41,8 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   return NextResponse.json({
     ...page,
-    hasMore: page.hasMore && !offsetReachesPaginationLimit(safeOffset, pageSize),
+    hasMore:
+      page.hasMore && !offsetReachesPaginationLimit(safeOffset, USER_SENDS_PAGE_SIZE),
     areaBreadcrumbs,
   });
 }

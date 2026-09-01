@@ -17,19 +17,15 @@ import {
 import {
   offsetReachesPaginationLimit,
   pageReachesPaginationLimit,
-  parseBoundedLimit,
   parseOffset,
   parsePage,
   parseSuggestionLimit,
   searchParamsToRecord,
 } from "@/lib/search-params";
-import { MAX_CLIMB_RECONCILE_ITEMS } from "@/lib/climb-search-pages";
 
 /** Backs two callers with the same query.
  *
- * With `offset`: incremental loading and bounded post-mutation reconciliation
- * for home-page climb search. A bounded `limit` can accompany it; without an
- * offset, `limit` retains its suggestion-mode meaning below.
+ * With `offset`: incremental loading for home-page climb search.
  *
  * With `limit`: suggestion mode for the route typeaheads. A popover row
  * shows a name, an area, and a grade — all of which `searchClimbs` already
@@ -48,9 +44,7 @@ export async function GET(request: Request) {
 
   const sort = parseClimbSearchSort(searchParams);
   const filter = parseClimbSearchFilter(searchParams);
-  const pageSize = offsetMode
-    ? parseBoundedLimit(url.searchParams, SEARCH_PAGE_SIZE, MAX_CLIMB_RECONCILE_ITEMS)
-    : (suggestionLimit ?? SEARCH_PAGE_SIZE);
+  const pageSize = suggestionLimit ?? SEARCH_PAGE_SIZE;
   const page = offsetMode ? 1 : parsePage(url.searchParams, pageSize);
   const offset = offsetMode ? parseOffset(url.searchParams) : undefined;
 

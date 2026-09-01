@@ -9,7 +9,6 @@ import { formatDate } from "@/lib/format-date";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
 import {
   DEFAULT_USER_SENDS_FILTER,
-  MAX_USER_SENDS_LIMIT,
   userSendsFilterToSearchParams,
 } from "@/lib/user-sends-filter";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
@@ -30,7 +29,7 @@ import { SendActionsMenu } from "@/components/send-actions-menu";
 import { SendListShell } from "@/components/send-list-shell";
 import { SortSelect } from "@/components/ui/sort-select";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
-import { useReconciledPagedList } from "@/hooks/use-reconciled-paged-list";
+import { usePagedList } from "@/hooks/use-paged-list";
 
 /** Ascent-style checkboxes for the user sends filter — same structure as
  * DisciplinesFields in send-filter-form.tsx, but not shared there since it's
@@ -233,8 +232,8 @@ type UserSendsPageResponse = {
  * component syncing local state to changed props via an effect. A server
  * re-render under the SAME key (a send was deleted/edited via a row's
  * actions menu — the server action refresh()es the route) instead arrives
- * as a new `initialSends` prop identity, which is reconciled into the
- * accumulated pages below. */
+ * as a new `initialSends` prop identity, which resets the accumulated list
+ * to the server's fresh first page. */
 export function UserSendList({
   userId,
   filter,
@@ -251,26 +250,24 @@ export function UserSendList({
     loadingMore,
     loadMoreFailed,
     loadMore,
-  } = useReconciledPagedList({
+  } = usePagedList({
     initialItems: initialSends,
     initialHasMore,
     initialMeta: initialAreaBreadcrumbs,
-    maxReconcileItems: MAX_USER_SENDS_LIMIT,
     itemKey: (send) => send.id,
-    mergeMeta: (current, ...incoming) => Object.assign({}, current, ...incoming),
-    fetchPage: async (offset, limit) => {
-        const params = userSendsFilterToSearchParams(filter);
-        params.set("offset", String(offset));
-        if (limit !== undefined) params.set("limit", String(limit));
-        const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`);
-        if (!res.ok) throw new Error(`Loading sends failed: ${res.status}`);
-        const data: UserSendsPageResponse = await res.json();
-        return {
-          items: data.sends,
-          hasMore: data.hasMore,
-          meta: data.areaBreadcrumbs,
-        };
-      },
+    mergeMeta: (current, incoming) => ({ ...current, ...incoming }),
+    fetchPage: async (offset) => {
+      const params = userSendsFilterToSearchParams(filter);
+      params.set("offset", String(offset));
+      const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`);
+      if (!res.ok) throw new Error(`Loading sends failed: ${res.status}`);
+      const data: UserSendsPageResponse = await res.json();
+      return {
+        items: data.sends,
+        hasMore: data.hasMore,
+        meta: data.areaBreadcrumbs,
+      };
+    },
   });
 
   if (!hasAnySends) {

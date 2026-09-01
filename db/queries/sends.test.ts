@@ -456,8 +456,8 @@ describe("getUserSentClimbIds", () => {
   });
 
   it("scopes to more ids than D1 allows bound parameters", async () => {
-    // Bounded reconciliation requests can still exceed D1's 100-parameter
-    // statement cap, so the ids go over as one JSON binding.
+    // Keep the scoped helper safe for batches beyond D1's 100-parameter
+    // statement cap by sending the ids as one JSON binding.
     const manyIds = Array.from({ length: 400 }, (_, index) => index + 1);
     expect(await getUserSentClimbIds(db, "test-user-1", manyIds)).toEqual(new Set([1, 2]));
   });
@@ -492,7 +492,7 @@ describe("getClimbSendStats", () => {
     expect(await getClimbSendStats(db, [])).toEqual({});
   });
 
-  it("handles a reconciliation batch larger than D1's bound-parameter cap", async () => {
+  it("handles an id batch larger than D1's bound-parameter cap", async () => {
     const ids = Array.from({ length: 200 }, (_, index) => index + 1);
     const stats = await getClimbSendStats(db, ids);
     expect(Object.keys(stats)).toHaveLength(200);

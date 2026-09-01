@@ -7,10 +7,9 @@ import { type ClimbSearchFilter } from "@/lib/climb-search-filter";
 import {
   createClimbListMeta,
   fetchClimbSearchPage,
-  MAX_CLIMB_RECONCILE_ITEMS,
   mergeClimbListMeta,
 } from "@/lib/climb-search-pages";
-import { useReconciledPagedList } from "@/hooks/use-reconciled-paged-list";
+import { usePagedList } from "@/hooks/use-paged-list";
 import type {
   AreaBreadcrumbs,
   AreaWithAncestorPath,
@@ -47,12 +46,11 @@ export function ClimbSearchResults({
   const initialMeta = useMemo(
     () =>
       createClimbListMeta({
-        climbs: initialClimbs,
         sendStats: initialSendStats,
         areaBreadcrumbs: initialAreaBreadcrumbs,
         sentClimbIds,
       }),
-    [initialClimbs, initialSendStats, initialAreaBreadcrumbs, sentClimbIds],
+    [initialSendStats, initialAreaBreadcrumbs, sentClimbIds],
   );
   const {
     items: climbs,
@@ -61,15 +59,14 @@ export function ClimbSearchResults({
     loadingMore,
     loadMoreFailed,
     loadMore,
-  } = useReconciledPagedList({
+  } = usePagedList({
     initialItems: initialClimbs,
     initialHasMore: initialHasNextPage,
     initialMeta,
-    maxReconcileItems: MAX_CLIMB_RECONCILE_ITEMS,
     itemKey: (climb) => climb.id,
     mergeMeta: mergeClimbListMeta,
-    fetchPage: async (offset, limit) => {
-      const next = await fetchClimbSearchPage(sort, filter, 1, { offset, limit });
+    fetchPage: async (offset) => {
+      const next = await fetchClimbSearchPage(sort, filter, 1, { offset });
       return {
         items: next.climbs,
         hasMore: next.hasNextPage,

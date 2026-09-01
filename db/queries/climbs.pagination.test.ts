@@ -37,7 +37,7 @@ describe("getSubtreeClimbs pagination", () => {
     expect(page2.hasNextPage).toBe(false);
   });
 
-  it("supports a bounded offset slice for post-refresh reconciliation", async () => {
+  it("supports offset pagination independently of page numbers", async () => {
     const area = await getArea(db, 1);
     const page2 = await getSubtreeClimbs(db, area!, 2, "ascents_desc", undefined, 10);
     const slice = await getSubtreeClimbs(db, area!, 1, "ascents_desc", undefined, 10, 10);

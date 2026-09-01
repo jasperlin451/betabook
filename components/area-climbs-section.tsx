@@ -7,10 +7,9 @@ import { areaClimbsFilterToSearchParams, type AreaClimbsFilter } from "@/lib/are
 import type { AreaBreadcrumbs, ClimbSendStats, ClimbWithAreaName, SubtreeClimbsSort } from "@/db/queries";
 import {
   createClimbListMeta,
-  MAX_CLIMB_RECONCILE_ITEMS,
   mergeClimbListMeta,
 } from "@/lib/climb-search-pages";
-import { useReconciledPagedList } from "@/hooks/use-reconciled-paged-list";
+import { usePagedList } from "@/hooks/use-paged-list";
 
 type AreaClimbsSectionProps = {
   areaId: number;
@@ -48,12 +47,11 @@ export function AreaClimbsSection({
   const initialMeta = useMemo(
     () =>
       createClimbListMeta({
-        climbs: initialClimbs,
         sendStats: initialSendStats,
         areaBreadcrumbs: initialAreaBreadcrumbs,
         sentClimbIds,
       }),
-    [initialClimbs, initialSendStats, initialAreaBreadcrumbs, sentClimbIds],
+    [initialSendStats, initialAreaBreadcrumbs, sentClimbIds],
   );
 
   const {
@@ -63,17 +61,15 @@ export function AreaClimbsSection({
     loadingMore,
     loadMoreFailed,
     loadMore,
-  } = useReconciledPagedList({
+  } = usePagedList({
     initialItems: initialClimbs,
     initialHasMore: initialHasNextPage,
     initialMeta,
-    maxReconcileItems: MAX_CLIMB_RECONCILE_ITEMS,
     itemKey: (climb) => climb.id,
     mergeMeta: mergeClimbListMeta,
-    fetchPage: async (offset, limit) => {
+    fetchPage: async (offset) => {
       const params = areaClimbsFilterToSearchParams(sort, filter);
       params.set("offset", String(offset));
-      if (limit !== undefined) params.set("limit", String(limit));
       const res = await fetch(`/api/areas/${areaId}/climbs?${params.toString()}`);
       if (!res.ok) throw new Error(`Loading more climbs failed: ${res.status}`);
       const data: {

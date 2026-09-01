@@ -33,54 +33,19 @@ export type ClimbSearchPages = {
   loadedPages: number;
 };
 
-/** A refresh can re-fetch this many already-visible rows in one bounded
- * request. Beyond it the shared reconciler falls back to the fresh first
- * page instead of retaining a large, potentially stale client tail. */
-export const MAX_CLIMB_RECONCILE_ITEMS = 200;
-
-/** Per-row metadata that has to move in lockstep with a reconciled climb
- * list. `coveredClimbIds` makes sent state authoritative only for the rows a
- * response actually answered, so an un-send is adopted without discarding
- * answers for other loaded pages. */
+/** Per-row metadata accumulated as the viewer loads more climbs. A fresh
+ * server snapshot replaces this object along with the accumulated rows. */
 export type ClimbListMeta = {
   sendStats: Record<number, ClimbSendStats>;
   areaBreadcrumbs: AreaBreadcrumbs;
   sentClimbIds?: Set<number>;
-  coveredClimbIds: Set<number>;
 };
 
-/** Combines page-accumulated sent ids with the latest server-rendered first
- * page. The refreshed set is also the signed-in sentinel: when it is absent,
- * row actions must disappear rather than leaking stale authenticated state.
- *
- * `refreshedClimbIds` is what keeps this from being a plain union. Both sets
- * are answers about specific climbs, not global truth: the refreshed one
- * covers exactly the climbs on the re-rendered first page, so for those it is
- * authoritative in BOTH directions — a climb missing from it is unsent, and a
- * union would resurrect it from `accumulated` forever. Ids outside that page
- * still come from `accumulated`, which is the only answer anyone has for
- * climbs a refresh never looked at. */
-export function mergeRefreshedSentClimbIds(
-  refreshed: Iterable<number> | undefined,
-  accumulated: Iterable<number> | undefined,
-  refreshedClimbIds: Iterable<number>,
-): Set<number> | undefined {
-  if (refreshed === undefined) return undefined;
-  const answeredByRefresh = new Set(refreshedClimbIds);
-  const merged = new Set(refreshed);
-  for (const id of accumulated ?? []) {
-    if (!answeredByRefresh.has(id)) merged.add(id);
-  }
-  return merged;
-}
-
 export function createClimbListMeta({
-  climbs,
   sendStats,
   areaBreadcrumbs,
   sentClimbIds,
 }: {
-  climbs: readonly Pick<ClimbWithAreaName, "id">[];
   sendStats: Record<number, ClimbSendStats>;
   areaBreadcrumbs: AreaBreadcrumbs;
   sentClimbIds?: Iterable<number>;
@@ -89,34 +54,19 @@ export function createClimbListMeta({
     sendStats,
     areaBreadcrumbs,
     sentClimbIds: sentClimbIds === undefined ? undefined : new Set(sentClimbIds),
-    coveredClimbIds: new Set(climbs.map((climb) => climb.id)),
   };
 }
 
-/** Merge page metadata in arrival order. Each incoming page is authoritative
- * for the climbs it covers, while data for other loaded pages is retained. */
-export function mergeClimbListMeta(
-  current: ClimbListMeta,
-  ...incoming: ClimbListMeta[]
-): ClimbListMeta {
-  const sendStats = { ...current.sendStats };
-  const areaBreadcrumbs = { ...current.areaBreadcrumbs };
-  const coveredClimbIds = new Set(current.coveredClimbIds);
-  let sentClimbIds =
-    current.sentClimbIds === undefined ? undefined : new Set(current.sentClimbIds);
-
-  for (const next of incoming) {
-    Object.assign(sendStats, next.sendStats);
-    Object.assign(areaBreadcrumbs, next.areaBreadcrumbs);
-    sentClimbIds = mergeRefreshedSentClimbIds(
-      next.sentClimbIds,
-      sentClimbIds,
-      next.coveredClimbIds,
-    );
-    for (const id of next.coveredClimbIds) coveredClimbIds.add(id);
-  }
-
-  return { sendStats, areaBreadcrumbs, sentClimbIds, coveredClimbIds };
+/** Add one newly loaded page's metadata to the visible list. */
+export function mergeClimbListMeta(current: ClimbListMeta, incoming: ClimbListMeta): ClimbListMeta {
+  return {
+    sendStats: { ...current.sendStats, ...incoming.sendStats },
+    areaBreadcrumbs: { ...current.areaBreadcrumbs, ...incoming.areaBreadcrumbs },
+    sentClimbIds:
+      incoming.sentClimbIds === undefined
+        ? undefined
+        : new Set([...(current.sentClimbIds ?? []), ...incoming.sentClimbIds]),
+  };
 }
 
 export async function fetchClimbSearchPage(
@@ -127,18 +77,15 @@ export async function fetchClimbSearchPage(
     count = false,
     signal,
     offset,
-    limit,
   }: {
     count?: boolean;
     signal?: AbortSignal;
     offset?: number;
-    limit?: number;
   } = {},
 ): Promise<ClimbSearchPage> {
   const params = climbSearchFilterToSearchParams(sort, filter);
   if (offset !== undefined) {
     params.set("offset", String(offset));
-    if (limit !== undefined) params.set("limit", String(limit));
   } else if (page > 1) {
     params.set("page", String(page));
   }

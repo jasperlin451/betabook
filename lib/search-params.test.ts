@@ -6,7 +6,6 @@ import {
   offsetReachesPaginationLimit,
   pageReachesPaginationLimit,
   parseAscentStyles,
-  parseBoundedLimit,
   parseOffset,
   parsePage,
   parseDisciplines,
@@ -120,20 +119,6 @@ describe("parseSuggestionLimit", () => {
   it("truncates a fractional limit rather than rejecting it", () => {
     expect(limitOf("limit=3.7")).toBe(3);
   });
-});
-
-describe("parseBoundedLimit", () => {
-  it("reads and caps a valid integer", () => {
-    expect(parseBoundedLimit(new URLSearchParams("limit=80"), 25, 200)).toBe(80);
-    expect(parseBoundedLimit(new URLSearchParams("limit=500"), 25, 200)).toBe(200);
-  });
-
-  it.each(["", "limit=0", "limit=-1", "limit=1.5", "limit=abc"])(
-    "uses the normal page size for %s",
-    (query) => {
-      expect(parseBoundedLimit(new URLSearchParams(query), 25, 200)).toBe(25);
-    },
-  );
 });
 
 describe("parsePage", () => {

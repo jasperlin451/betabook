@@ -214,9 +214,9 @@ export async function getUserSentClimbIds(
   const distinctIds = climbIds ? [...new Set(climbIds)] : undefined;
   if (distinctIds?.length === 0) return new Set();
 
-  // The ids go over as one JSON binding rather than one parameter each: D1
-  // caps a statement at 100 bound parameters, while bounded reconciliation
-  // batches may contain more rows. Same reasoning as getAreaBreadcrumbs.
+  // The ids go over as one JSON binding rather than one parameter each, so a
+  // future caller cannot accidentally exceed D1's 100-parameter ceiling.
+  // Same reasoning as getAreaBreadcrumbs.
   const rows = await db.all<{ climbId: number }>(sql`
     SELECT sends.climb_id AS climbId
     FROM sends

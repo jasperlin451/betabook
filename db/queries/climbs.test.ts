@@ -620,7 +620,7 @@ describe("searchClimbs pagination", () => {
     expect(page3.hasNextPage).toBe(false);
   });
 
-  it("supports a bounded offset slice for post-refresh reconciliation", async () => {
+  it("supports offset pagination independently of page numbers", async () => {
     const page2 = await searchClimbs(db, SCOPE, 2, 10);
     const slice = await searchClimbs(db, SCOPE, 1, 10, 10);
     expect(slice).toEqual(page2);
