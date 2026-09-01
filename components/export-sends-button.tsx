@@ -12,11 +12,16 @@ type UserSendsPageResponse = {
   nextCursor: { dateSent: string | null; id: number } | null;
 };
 
-/** Exports the signed-in user's full send history as a CSV — fetched in
- * pages from the same /api/users/[id]/sends route that backs the profile
- * list (with an unfiltered default filter), rather than pulling the entire
- * history into one unbounded server-action response. The CSV is assembled
- * client-side with a running row count on the button. */
+/** Exports the signed-in user's full send history as a CSV, walked in keyset
+ * pages from /api/users/[id]/sends/export rather than pulled into one
+ * unbounded server-action response.
+ *
+ * That route exists separately from the profile list's because the two want
+ * opposite things from pagination: the list keeps a defensive OFFSET cap,
+ * which an export would silently truncate at. Keyset cursors have no such
+ * ceiling, so the loop below is bounded only by the history itself — hence
+ * the running row count, and the id set that stops a cursor that fails to
+ * advance from looping forever. The CSV is assembled client-side. */
 export function ExportSendsButton({ userId }: { userId: string }) {
   const [exportedRows, setExportedRows] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);

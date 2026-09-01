@@ -6,6 +6,7 @@ import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { areaClimbsFilterToSearchParams, type AreaClimbsFilter } from "@/lib/area-climbs-filter";
 import type { AreaBreadcrumbs, ClimbSendStats, ClimbWithAreaName, SubtreeClimbsSort } from "@/db/queries";
 import { mergeRefreshedSentClimbIds } from "@/lib/climb-search-pages";
+import { useSentClimbIdsRefresh } from "@/hooks/use-sent-climb-ids-refresh";
 
 type AreaClimbsSectionProps = {
   areaId: number;
@@ -54,7 +55,16 @@ export function AreaClimbsSection({
   const visibleSentClimbIds = mergeRefreshedSentClimbIds(
     sentClimbIds,
     loadedSentClimbIds,
+    initialClimbs.map((climb) => climb.id),
   );
+  // The refreshed prop only covers the first page, so rows paged in below it
+  // need their sent state re-asked for after a send.
+  useSentClimbIdsRefresh({
+    signedIn: sentClimbIds !== undefined,
+    firstPageClimbs: initialClimbs,
+    loadedClimbs: climbs,
+    onRevalidated: setLoadedSentClimbIds,
+  });
 
   async function handleLoadMore() {
     setLoadingMore(true);

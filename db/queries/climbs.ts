@@ -339,6 +339,16 @@ export async function getSubtreeClimbs(
   // name, though: it may scan that global index to exhaustion to find zero
   // matches. In that shape, drive from the selective FTS table and accept a
   // tiny result sort instead.
+  //
+  // Note this trades on the name being SELECTIVE, which the condition below
+  // does not actually test — it fires for any name on a large subtree. The
+  // FTS match is global rather than subtree-scoped and the ORDER BY is on
+  // `climbs` columns, so a one- or two-letter prefix here materializes every
+  // matching climb in the database and sorts it in a temp b-tree, with no
+  // way to stop at LIMIT. That is the same unbounded cost the sort indexes
+  // exist to avoid, moved to the other side. Gate on selectivity (a minimum
+  // query length, or an FTS count probe) before trusting this on a corpus
+  // where a short prefix matches a large fraction of rows.
   const useNameIndex = isLarge && nameQuery !== null;
   if (nameQuery) {
     conditions.push(

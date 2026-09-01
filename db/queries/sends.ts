@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas, climbs, sends, user } from "@/db/schema";
 import { formatGrade, type ClimbType } from "@/lib/grades";
@@ -214,14 +214,22 @@ export async function getUserSentClimbIds(
   const distinctIds = climbIds ? [...new Set(climbIds)] : undefined;
   if (distinctIds?.length === 0) return new Set();
 
-  const rows = await db
-    .select({ climbId: sends.climbId })
-    .from(sends)
-    .where(
+  // The ids go over as one JSON binding rather than one parameter each: D1
+  // caps a statement at 100 bound parameters, and this is called with every
+  // climb a client currently has loaded, not just one page of them. Same
+  // reasoning (and same fix) as getAreaBreadcrumbs.
+  const rows = await db.all<{ climbId: number }>(sql`
+    SELECT sends.climb_id AS climbId
+    FROM sends
+    WHERE sends.user_id = ${userId}
+    ${
       distinctIds
-        ? and(eq(sends.userId, userId), inArray(sends.climbId, distinctIds))
-        : eq(sends.userId, userId),
-    );
+        ? sql`AND sends.climb_id IN (
+            SELECT CAST(value AS INTEGER) FROM json_each(${JSON.stringify(distinctIds)})
+          )`
+        : sql``
+    }
+  `);
   return new Set(rows.map((r) => r.climbId));
 }
 

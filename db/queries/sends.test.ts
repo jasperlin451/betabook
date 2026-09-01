@@ -455,6 +455,15 @@ describe("getUserSentClimbIds", () => {
     expect(ids).toEqual(new Set());
   });
 
+  it("scopes to more ids than D1 allows bound parameters", async () => {
+    // /api/sent-climbs asks about every climb a client has paged in, which
+    // runs well past D1's 100-parameter statement cap — the ids go over as
+    // one JSON binding for exactly this reason. Binding them individually
+    // fails here, not in a unit test, so this is the guard.
+    const manyIds = Array.from({ length: 400 }, (_, index) => index + 1);
+    expect(await getUserSentClimbIds(db, "test-user-1", manyIds)).toEqual(new Set([1, 2]));
+  });
+
   it("can scope the lookup to only the visible climb ids", async () => {
     expect(await getUserSentClimbIds(db, "test-user-1", [2, 3])).toEqual(new Set([2]));
     expect(await getUserSentClimbIds(db, "test-user-1", [])).toEqual(new Set());
@@ -798,8 +807,13 @@ describe("getClimbSendSummary", () => {
 });
 
 describe("getSendsForUserExportPage", () => {
-  it("keyset-pages a history larger than one export batch without duplicates", async () => {
-    const userId = "test-user-export";
+  const userId = "test-user-export";
+
+  // Both tests below need this history: the paging one to cross the batch
+  // boundary, the query-plan one so the planner is choosing against a real,
+  // ANALYZEd table rather than an empty one. Seeded here rather than by the
+  // first `it` so neither test depends on the other having run.
+  beforeAll(async () => {
     const startId = 600_000;
     await seedFixtureUser(db, { id: userId, name: "Large Export" });
     await seedManyClimbs(db, 5, 205, startId);
@@ -814,7 +828,10 @@ describe("getSendsForUserExportPage", () => {
     for (let index = 0; index < rows.length; index += 10) {
       await db.insert(sends).values(rows.slice(index, index + 10));
     }
+    await db.run(sql`ANALYZE sends`);
+  });
 
+  it("keyset-pages a history larger than one export batch without duplicates", async () => {
     const firstPage = await getSendsForUserExportPage(db, userId, null);
     expect(firstPage.sends).toHaveLength(200);
     expect(firstPage.sends.every((send) => send.dateSent !== null)).toBe(true);
@@ -840,7 +857,7 @@ describe("getSendsForUserExportPage", () => {
       EXPLAIN QUERY PLAN
       SELECT sends.id
       FROM sends INDEXED BY sends_user_date_idx
-      WHERE sends.user_id = ${"test-user-export"}
+      WHERE sends.user_id = ${userId}
         AND sends.date_sent IS NOT NULL
         AND (sends.date_sent, sends.id) < (${"2026-04-01"}, ${999999})
       ORDER BY sends.date_sent DESC, sends.id DESC
@@ -850,7 +867,7 @@ describe("getSendsForUserExportPage", () => {
       EXPLAIN QUERY PLAN
       SELECT sends.id
       FROM sends INDEXED BY sends_user_date_idx
-      WHERE sends.user_id = ${"test-user-export"}
+      WHERE sends.user_id = ${userId}
         AND sends.date_sent IS NULL
         AND sends.id < ${999999}
       ORDER BY sends.date_sent DESC, sends.id DESC
@@ -859,9 +876,23 @@ describe("getSendsForUserExportPage", () => {
 
     const datedDetail = datedPlan.map((row) => row.detail).join("\n");
     const undatedDetail = undatedPlan.map((row) => row.detail).join("\n");
-    expect(datedDetail).toContain("sends_user_date_idx");
-    expect(datedDetail).toContain("date_sent");
-    expect(undatedDetail).toContain("sends_user_date_idx");
+
+    // `INDEXED BY` already forces this index or raises, so asserting the index
+    // NAME proves nothing. What has to hold is the shape of the access: a
+    // SEARCH (a seek to the cursor) rather than a SCAN, constrained past
+    // user_id by date_sent. Under 0019's original `id ASC` index the row-value
+    // range could not be used and this collapsed to `(user_id=?)` — every page
+    // re-reading every earlier one, which is the regression 0020 exists to
+    // prevent.
+    expect(datedDetail).toContain("SEARCH");
+    expect(datedDetail).toContain("date_sent<?");
+    expect(undatedDetail).toContain("SEARCH");
     expect(undatedDetail).toContain("date_sent=? AND id<?");
+
+    // The index has to satisfy the ORDER BY outright. A temp b-tree here means
+    // it sorted the whole matched range per page — silent, and exactly the
+    // failure 0018's comment warns descending indexes fail with.
+    expect(datedDetail).not.toContain("TEMP B-TREE");
+    expect(undatedDetail).not.toContain("TEMP B-TREE");
   });
 });

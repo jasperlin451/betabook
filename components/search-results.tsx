@@ -10,6 +10,7 @@ import {
   mergeRefreshedSentClimbIds,
 } from "@/lib/climb-search-pages";
 import type { ClimbSearchPages } from "@/lib/climb-search-pages";
+import { useSentClimbIdsRefresh } from "@/hooks/use-sent-climb-ids-refresh";
 import type {
   AreaBreadcrumbs,
   AreaWithAncestorPath,
@@ -58,7 +59,17 @@ export function ClimbSearchResults({
   const visibleSentClimbIds = mergeRefreshedSentClimbIds(
     sentClimbIds,
     pages.sentClimbIds,
+    initialClimbs.map((climb) => climb.id),
   );
+  // The refreshed prop only covers the first page, so rows paged in below it
+  // need their sent state re-asked for after a send.
+  useSentClimbIdsRefresh({
+    signedIn: sentClimbIds !== undefined,
+    firstPageClimbs: initialClimbs,
+    loadedClimbs: pages.climbs,
+    onRevalidated: (tailSentClimbIds) =>
+      setPages((prev) => ({ ...prev, sentClimbIds: tailSentClimbIds })),
+  });
 
   async function handleLoadMore() {
     setLoadingMore(true);

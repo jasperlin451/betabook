@@ -21,9 +21,16 @@ export type ParsedCsv = {
 };
 
 export const CLIMB_TYPES = ["boulder", "sport", "trad"] as const;
-/** Browser-side safety bounds: parsing is currently in-memory, so reject an
- * accidental database dump before `file.text()` duplicates it and before
- * Papa Parse materializes every cell. */
+/** Browser-side safety bounds, since parsing is all in-memory.
+ *
+ * The byte cap is the one that actually protects the parse: it is checked
+ * against `file.size` before `file.text()` duplicates the file and before
+ * Papa Parse sees any of it. The row cap is checked AFTER parsing — by then
+ * every cell is materialized — so it is a bound on what reaches the mapping
+ * UI and the import request, not on peak memory. The byte cap is what keeps
+ * that survivable; a 10 MB CSV of short rows still parses a few hundred
+ * thousand rows before being turned away. Moving the row cap upstream would
+ * take a streaming parse (Papa's `step`/`preview` with an abort). */
 export const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 50_000;
 
