@@ -127,15 +127,38 @@ export function formatDaySpan(days: number): string {
   return `${(days / 365.25).toFixed(1)} yr`;
 }
 
+/** Sends of one discipline carrying a grade the climber recorded themselves,
+ * on that discipline's scale. Every grade-axis chart on the analytics page
+ * comes through here, so all of them are denominated in the same currency:
+ * mix the climber's grade into one chart and the book grade into another and
+ * a pyramid comes out inverted, or a breakthrough claims a ceiling the
+ * progression line never draws. A send the climber never graded sits out,
+ * the way an undated one sits out of the time-based charts.
+ *
+ * Generic so a caller that already narrowed `dateSent` keeps that narrowing.
+ */
+function gradedSends<T extends AnalyticsSendRow>(
+  sends: T[],
+  type: ClimbType,
+): (T & { grade: number })[] {
+  const scale = nativeGradeArray(type);
+  const graded: (T & { grade: number })[] = [];
+  for (const s of sends) {
+    const grade = s.suggestedGrade;
+    if (s.climbType !== type || grade == null || grade < 0 || grade >= scale.length) continue;
+    graded.push({ ...s, grade });
+  }
+  return graded;
+}
+
 /** One discipline's send pyramid from any slice of a log (all time, or one
  * year's sends): counts per grade from the slice's hardest down to its
  * easiest, zeros kept so the shape is real. */
 export function buildPyramid(sends: AnalyticsSendRow[], type: ClimbType): PyramidRow[] {
   const scale = nativeGradeArray(type);
   const gradeCounts = new Map<number, number>();
-  for (const s of sends) {
-    if (s.climbType !== type || s.climbGrade == null || s.climbGrade >= scale.length) continue;
-    gradeCounts.set(s.climbGrade, (gradeCounts.get(s.climbGrade) ?? 0) + 1);
+  for (const s of gradedSends(sends, type)) {
+    gradeCounts.set(s.grade, (gradeCounts.get(s.grade) ?? 0) + 1);
   }
   if (gradeCounts.size === 0) return [];
 
@@ -166,21 +189,19 @@ export function buildUserAnalytics(
   const hardest: HardestSend[] = [];
   for (const type of disciplines) {
     const scale = nativeGradeArray(type);
-    const graded = sends.filter(
-      (s) => s.climbType === type && s.climbGrade != null && s.climbGrade < scale.length,
-    );
+    const graded = gradedSends(sends, type);
     if (graded.length === 0) continue;
     const top = graded.reduce((best, s) => {
-      if (s.climbGrade! > best.climbGrade!) return s;
-      if (s.climbGrade! === best.climbGrade! && s.dateSent != null) {
+      if (s.grade > best.grade) return s;
+      if (s.grade === best.grade && s.dateSent != null) {
         if (best.dateSent == null || s.dateSent < best.dateSent) return s;
       }
       return best;
     });
     hardest.push({
       type,
-      grade: top.climbGrade!,
-      label: scale[top.climbGrade!],
+      grade: top.grade,
+      label: scale[top.grade],
       climbId: top.climbId,
       climbName: top.climbName,
       dateSent: top.dateSent,
@@ -192,16 +213,13 @@ export function buildUserAnalytics(
   let hardestFirstTry: HardestSend | null = null;
   if (scope !== "all") {
     const scale = nativeGradeArray(scope);
-    const firstTries = sends.filter(
-      (s) =>
-        s.ascentStyle !== "redpoint" && s.climbGrade != null && s.climbGrade < scale.length,
-    );
+    const firstTries = gradedSends(sends, scope).filter((s) => s.ascentStyle !== "redpoint");
     if (firstTries.length > 0) {
-      const top = firstTries.reduce((best, s) => (s.climbGrade! > best.climbGrade! ? s : best));
+      const top = firstTries.reduce((best, s) => (s.grade > best.grade ? s : best));
       hardestFirstTry = {
         type: scope,
-        grade: top.climbGrade!,
-        label: scale[top.climbGrade!],
+        grade: top.grade,
+        label: scale[top.grade],
         climbId: top.climbId,
         climbName: top.climbName,
         dateSent: top.dateSent,
@@ -281,14 +299,17 @@ export function buildUserAnalytics(
   const breakthroughs: Breakthrough[] = [];
   for (const type of disciplines) {
     const scale = nativeGradeArray(type);
-    const graded = dated.filter(
-      (s) => s.climbType === type && s.climbGrade != null && s.climbGrade < scale.length,
+    // Oldest first, and easiest first inside a day: a day's sends carry no
+    // order of their own, so walking them up the scale makes every ceiling
+    // they crossed a breakthrough rather than letting insert order decide.
+    const graded = gradedSends(dated, type).sort((a, b) =>
+      a.dateSent < b.dateSent ? -1 : a.dateSent > b.dateSent ? 1 : a.grade - b.grade,
     );
 
     const hardestByMonth = new Map<string, number>();
     for (const s of graded) {
       const month = s.dateSent.slice(0, 7);
-      hardestByMonth.set(month, Math.max(hardestByMonth.get(month) ?? 0, s.climbGrade!));
+      hardestByMonth.set(month, Math.max(hardestByMonth.get(month) ?? 0, s.grade));
     }
     const months = [...hardestByMonth.keys()].sort();
     const points: ProgressionPoint[] = [];
@@ -305,21 +326,25 @@ export function buildUserAnalytics(
     let ceiling = -1;
     let previousDate: string | null = null;
     for (const s of graded) {
-      if (s.climbGrade! <= ceiling) continue;
+      if (s.grade <= ceiling) continue;
       breakthroughs.push({
         type,
-        grade: s.climbGrade!,
-        label: scale[s.climbGrade!],
+        grade: s.grade,
+        label: scale[s.grade],
         climbId: s.climbId,
         climbName: s.climbName,
         dateSent: s.dateSent,
         waitDays: previousDate == null ? null : diffDays(previousDate, s.dateSent),
       });
-      ceiling = s.climbGrade!;
+      ceiling = s.grade;
       previousDate = s.dateSent;
     }
   }
-  breakthroughs.sort((a, b) => (a.dateSent < b.dateSent ? 1 : a.dateSent > b.dateSent ? -1 : 0));
+  // Newest first, hardest first within a day — two ceilings raised on one day
+  // would otherwise print easiest on top, reading as a step backwards.
+  breakthroughs.sort((a, b) =>
+    a.dateSent < b.dateSent ? 1 : a.dateSent > b.dateSent ? -1 : b.grade - a.grade,
+  );
 
   return {
     scope,

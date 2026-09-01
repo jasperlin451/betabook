@@ -469,7 +469,10 @@ export type AnalyticsSendRow = {
   climbId: number;
   climbName: string;
   climbType: ClimbType;
-  climbGrade: number | null;
+  /** The climber's own grade for this send — the only grade the analytics
+   * page reads. climbs.grade is deliberately absent: a page that mixed the
+   * two would let one chart's ceiling contradict another's. */
+  suggestedGrade: number | null;
   areaId: number;
   areaName: string;
   ascentStyle: AscentStyle;
@@ -490,7 +493,7 @@ export async function getUserSendsForAnalytics(
       climbId: sends.climbId,
       climbName: climbs.name,
       climbType: climbs.type,
-      climbGrade: climbs.grade,
+      suggestedGrade: sends.suggestedGrade,
       areaId: climbs.areaId,
       areaName: areas.name,
       ascentStyle: sends.ascentStyle,
