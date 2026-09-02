@@ -8,18 +8,25 @@ export const MAX_COMMENT_LENGTH = 2000;
 
 // How many rows one importSends call may carry. Cloudflare Workers cap a
 // single invocation at 50 subrequests (Free plan). Per db/mutations/import.ts's
-// importSends: ~2 for the session/auth lookup, 1 for getUserSentClimbIds, up
-// to IMPORT_BATCH_SIZE for climb resolution (one query per row), and 1 for the
-// single atomic insert+overwrite db.batch (one subrequest regardless of how
-// many statements ride in it). 25 rows -> ~29 subrequests, comfortable margin
-// under 50. The wizard slices the CSV into batches of this size; importSends
-// rejects anything larger, since a direct caller would otherwise run one
-// resolution query per row until the invocation died. It lives here rather
-// than lib/sends-import.ts so the "use server" module can enforce it without
-// pulling the wizard's parser into the Worker bundle, and not in
-// db/mutations/import.ts because a "use server" file can only export async
-// functions.
-export const IMPORT_BATCH_SIZE = 25;
+// importSends: ~2 for the session/auth lookup, 1 to load the batch's climbs
+// by id, 1 for getUserSentClimbIds, and 1 for the single atomic
+// insert+overwrite db.batch (one subrequest regardless of how many statements
+// ride in it) — a fixed ~5 whatever the row count, since climbs are resolved
+// to ids before the import (see resolveImportClimbs). The cap is instead set
+// by the db.batch's statement count: every overwrite is its own UPDATE, so a
+// 50-row overwrite batch is ~55 statements, which D1 handles comfortably. The
+// wizard slices the CSV into batches of this size; importSends rejects
+// anything larger. It lives here rather than lib/sends-import.ts so the "use
+// server" module can enforce it without pulling the wizard's parser into the
+// Worker bundle, and not in db/mutations/import.ts because a "use server"
+// file can only export async functions.
+export const IMPORT_BATCH_SIZE = 50;
+
+// How many distinct climb names one resolveImportClimbs call may look up.
+// They travel as a single JSON binding (see findClimbCandidatesByNames), so
+// this bounds the statement's work and the response size rather than D1's
+// bound-parameter cap.
+export const RESOLVE_BATCH_SIZE = 100;
 
 export const GRADE_FEEL_VALUES = ["low", "solid", "high"] as const;
 export type GradeFeel = (typeof GRADE_FEEL_VALUES)[number];
@@ -171,6 +178,17 @@ export type ImportSendValues = {
   comment: string | null;
   rating: number | null;
   gradeFeel: GradeFeel;
+};
+
+/** One row as the wizard hands it to importSends: a climb already resolved
+ * to an id (in the wizard's match step), plus the send's values. The grade
+ * stays as text because the ordinal depends on the resolved climb's type,
+ * which only the server trusts itself to know. */
+export type ImportSendRow = ImportSendValues & {
+  climbId: number;
+  gradeText: string | null;
+  /** What a null gradeText means — see NormalizedImportRow.blankGradeMeans. */
+  blankGradeMeans: "posted-grade" | "no-suggestion";
 };
 
 /** Server-side enforcement of the contract normalizeRows applies in the

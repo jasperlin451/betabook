@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { createDb } from "@/db/client";
-import { getArea, getSubareas, getSubtreeClimbs, findClimbsByNameAndArea } from "@/db/queries";
+import { getArea, getSubareas, getSubtreeClimbs, findClimbCandidatesByNames } from "@/db/queries";
 import { seedFixtureTree } from "@/test/fixtures";
 import { createArea, createClimb, updateArea } from "@/db/mutations";
 
@@ -101,23 +101,19 @@ describe("a brand-new area is immediately correct", () => {
     expect(await climbNamesUnder(TEST_SPORT_WALL)).not.toContain("Test Roof Problem");
   });
 
-  it("is resolvable by an ancestor's name — the CSV import lookup", async () => {
+  it("reports its full ancestor chain to the CSV import lookup immediately", async () => {
     const created = await createArea(TEST_BOULDERS, areaForm("Test Import Alcove"));
     const newAreaId = created.ok ? created.value : 0;
     await createClimb(newAreaId, climbForm("Test Imported Climb"));
 
-    // How import.ts matches a CSV row that names a broad area rather than the
-    // exact one. Under the placeholder scheme this returned nothing until a
-    // recompute landed, so the import reported "climb not found" for a climb
-    // the user had just created.
-    const byAncestor = await findClimbsByNameAndArea(db, "Test Imported Climb", "Test Crag");
-    expect(byAncestor).toHaveLength(1);
-
-    const byOwnArea = await findClimbsByNameAndArea(db, "Test Imported Climb", "Test Import Alcove");
-    expect(byOwnArea).toHaveLength(1);
-
-    const byUnrelatedArea = await findClimbsByNameAndArea(db, "Test Imported Climb", "Test Sport Wall");
-    expect(byUnrelatedArea).toHaveLength(0);
+    // What the import wizard's Area column and hints are matched against.
+    // Under the placeholder scheme this chain was empty until a recompute
+    // landed, so the import reported "climb not found" for a climb the user
+    // had just created.
+    const [found] = await findClimbCandidatesByNames(db, ["Test Imported Climb"]);
+    expect(found.areaId).toBe(newAreaId);
+    expect(found.areaName).toBe("Test Import Alcove");
+    expect(found.ancestors.map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
   });
 
   it("keeps concurrent creates under different parents out of each other's listings", async () => {

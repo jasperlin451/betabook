@@ -124,14 +124,27 @@ function resultSummary(matchCount: number, loaded: number): string {
 export function ClimbPicker({
   onPick,
   sentClimbIds,
+  initialName = "",
+  initialAreaName = "",
 }: {
-  onPick: (climb: ClimbWithAreaName) => void;
+  /** `context` is what the result list knew about the row beyond the climb
+   * itself — its ancestor breadcrumbs and ascent count — for callers that
+   * keep the pick around as a described climb (the import wizard) rather
+   * than moving straight on to a form. */
+  onPick: (
+    climb: ClimbWithAreaName,
+    context: { ancestors: { id: number; name: string }[]; sendCount: number },
+  ) => void;
   /** Every climb id the viewer has already logged, when known — those rows
    * are marked and inert instead of failing on submit. */
   sentClimbIds?: Set<number>;
+  /** Seeds for the search fields, where the caller already knows roughly
+   * what's being looked for (a CSV row's climb and area names). */
+  initialName?: string;
+  initialAreaName?: string;
 }) {
-  const [name, setName] = useState("");
-  const [areaName, setAreaName] = useState("");
+  const [name, setName] = useState(initialName);
+  const [areaName, setAreaName] = useState(initialAreaName);
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const { pages, matchCount, status, loadingMore, loadMoreFailed, loadMore } = useClimbSearch({
     name,
@@ -228,7 +241,12 @@ export function ClimbPicker({
                 sendCount={pages.sendStats[climb.id]?.sendCount ?? 0}
                 sent={sentClimbIds?.has(climb.id) ?? false}
                 pickable={current}
-                onPick={() => onPick(climb)}
+                onPick={() =>
+                  onPick(climb, {
+                    ancestors: pages.areaBreadcrumbs[climb.areaId] ?? [],
+                    sendCount: pages.sendStats[climb.id]?.sendCount ?? 0,
+                  })
+                }
               />
             ))}
           </div>

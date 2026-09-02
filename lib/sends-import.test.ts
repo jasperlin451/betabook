@@ -1,25 +1,32 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFailedRowsCsv,
+  deriveSourceColumns,
   detectDateFormat,
+  detectGradeScale,
+  detectImportSource,
   distinctValues,
+  findPlaceholderTimestamps,
   guessAscentStyleMapping,
   guessClimbTypeMapping,
   guessColumnMapping,
   guessGradeFeelMapping,
   missingRequiredColumns,
   needsDateFormatChoice,
+  normalizeHeader,
   normalizeImportRows,
   parseCsvText,
   parseDateWithFormat,
+  splitAreaHint,
+  valueCounts,
+  MP_ASCENT_COLUMN,
   type AscentStyleMapping,
-  type BatchErrorRow,
   type ClimbTypeMapping,
   type ColumnMapping,
   type DateFormat,
+  type FailedImportRow,
   type GradeFeelMapping,
   type InvalidImportRow,
-  type NotFoundRow,
   type ParsedCsv,
 } from "./sends-import";
 import { MAX_COMMENT_LENGTH } from "./sends";
@@ -41,13 +48,31 @@ const FULL_MAPPING: ColumnMapping = {
   ascentStyle: "Send Type",
   climbName: "Climb",
   areaName: "Area",
+  // "Country" is a hint, not the area: it names a subtree, not a crag.
+  areaHints: ["Country"],
   climbType: "Climb Type",
-  grade: "Grade",
-  suggestedGrade: null,
+  // Sendage's grade is the grade the climber logged, i.e. their suggested
+  // grade — the posted-grade field stays unmapped.
+  grade: null,
+  suggestedGrade: "Grade",
   gradeFeel: null,
   rating: "Rating",
   comment: "Comments",
 };
+
+const KAYA_HEADERS = [
+  "date",
+  "stiffness",
+  "rating",
+  "ascent_type",
+  "attempts",
+  "grade",
+  "color",
+  "climb_name",
+  "gym",
+  "location",
+  "country",
+];
 
 const ASCENT_STYLE_MAPPING: AscentStyleMapping = {
   redpoint: "redpoint",
@@ -70,7 +95,54 @@ const GRADE_FEEL_MAPPING: GradeFeelMapping = {
 const TODAY = "2026-08-19";
 
 function csv(rows: Record<string, string>[]): ParsedCsv {
-  return { headers: SAMPLE_HEADERS, rows, warnings: [] };
+  return { headers: SAMPLE_HEADERS, rows, warnings: [], derived: [] };
+}
+
+const MP_HEADERS = [
+  "Date",
+  "Route",
+  "Rating",
+  "Notes",
+  "URL",
+  "Pitches",
+  "Location",
+  "Avg Stars",
+  "Your Stars",
+  "Style",
+  "Lead Style",
+  "Route Type",
+  "Your Rating",
+  "Length",
+  "Rating Code",
+];
+
+function mpRow(overrides: Partial<Record<string, string>> = {}): Record<string, string> {
+  return {
+    Date: "2026-08-02",
+    Route: "Rainy Day Dream Away",
+    Rating: "5.10c",
+    Notes: "",
+    URL: "https://www.mountainproject.com/route/105842909/rainy-day-dream-away",
+    Pitches: "1",
+    Location:
+      "International > North America > Canada > British Columbia > Squamish > Stawamus Chief > The Bulletheads > Campground Wall",
+    "Avg Stars": "3.8",
+    "Your Stars": "4",
+    Style: "Lead",
+    "Lead Style": "Redpoint",
+    "Route Type": "Trad",
+    "Your Rating": "",
+    Length: "100",
+    "Rating Code": "3200",
+    ...overrides,
+  };
+}
+
+function mpCsv(rows: Record<string, string>[]): ParsedCsv {
+  return deriveSourceColumns(
+    { headers: MP_HEADERS, rows, warnings: [], derived: [] },
+    "mountainproject",
+  );
 }
 
 function row(overrides: Partial<Record<string, string>> = {}): Record<string, string> {
@@ -118,7 +190,7 @@ describe("parseCsvText", () => {
   });
 
   it("returns empty headers and rows for empty input", () => {
-    expect(parseCsvText("")).toEqual({ headers: [], rows: [], warnings: [] });
+    expect(parseCsvText("")).toEqual({ headers: [], rows: [], warnings: [], derived: [] });
   });
 
   it("parses quoted fields containing commas", () => {
@@ -168,9 +240,10 @@ describe("guessColumnMapping", () => {
       ascentStyle: "Style",
       climbName: "Route",
       areaName: "Crag",
+      areaHints: [],
       climbType: "Discipline",
-      grade: "Difficulty",
-      suggestedGrade: null,
+      grade: null,
+      suggestedGrade: "Difficulty",
       gradeFeel: null,
       rating: "Stars",
       comment: "Notes",
@@ -194,10 +267,16 @@ describe("guessColumnMapping", () => {
     expect(guessColumnMapping(["Feel"]).gradeFeel).toBe("Feel");
   });
 
-  it("maps Suggested Grade separately from Grade", () => {
+  it("maps Suggested Grade separately from Grade when a file has both", () => {
     const mapping = guessColumnMapping(["Grade", "Suggested Grade"]);
     expect(mapping.grade).toBe("Grade");
     expect(mapping.suggestedGrade).toBe("Suggested Grade");
+  });
+
+  it("reads a lone Grade column as the climber's grade, not the climb's", () => {
+    const mapping = guessColumnMapping(["Route", "Grade"]);
+    expect(mapping.suggestedGrade).toBe("Grade");
+    expect(mapping.grade).toBeNull();
   });
 
   it("auto-maps every column of a betabook export", () => {
@@ -218,6 +297,7 @@ describe("guessColumnMapping", () => {
       ascentStyle: "Ascent Style",
       climbName: "Climb Name",
       areaName: "Area Name",
+      areaHints: [],
       climbType: "Climb Type",
       grade: "Grade",
       suggestedGrade: "Suggested Grade",
@@ -225,6 +305,141 @@ describe("guessColumnMapping", () => {
       rating: "Rating",
       comment: "Comment",
     });
+  });
+
+  it("reads underscored and hyphenated headers as their spaced aliases", () => {
+    const mapping = guessColumnMapping(["ascent_type", "climb-name", "Date_Sent"]);
+    expect(mapping.ascentStyle).toBe("ascent_type");
+    expect(mapping.climbName).toBe("climb-name");
+    expect(mapping.date).toBe("Date_Sent");
+  });
+
+  it("maps a KAYA export, demoting its boulder-name location to a hint", () => {
+    expect(guessColumnMapping(KAYA_HEADERS)).toEqual({
+      date: "date",
+      ascentStyle: "ascent_type",
+      climbName: "climb_name",
+      areaName: null,
+      areaHints: ["location", "country"],
+      climbType: null,
+      grade: null,
+      suggestedGrade: "grade",
+      gradeFeel: "stiffness",
+      rating: "rating",
+      comment: null,
+    });
+  });
+
+  it("still reads 'location' as the area for a file that isn't KAYA's", () => {
+    const mapping = guessColumnMapping(["Route", "Location", "Type"]);
+    expect(mapping.areaName).toBe("Location");
+    expect(mapping.areaHints).toEqual([]);
+  });
+
+  it("offers country/state/region columns as hints rather than the area", () => {
+    const mapping = guessColumnMapping(["Route", "Area", "State", "Country"]);
+    expect(mapping.areaName).toBe("Area");
+    expect(mapping.areaHints).toEqual(["Country", "State"]);
+  });
+
+  it("maps a Mountain Project export, reading Rating as the grade and Your Stars as the rating", () => {
+    const parsed = mpCsv([mpRow()]);
+    expect(guessColumnMapping([...parsed.headers, ...parsed.derived])).toEqual({
+      date: "Date",
+      ascentStyle: MP_ASCENT_COLUMN,
+      climbName: "Route",
+      areaName: null,
+      areaHints: ["Location"],
+      climbType: "Route Type",
+      grade: "Rating",
+      suggestedGrade: "Your Rating",
+      gradeFeel: null,
+      rating: "Your Stars",
+      comment: "Notes",
+    });
+  });
+});
+
+describe("deriveSourceColumns", () => {
+  it("adds Mountain Project's combined ascent column, preferring Lead Style over Style", () => {
+    const parsed = mpCsv([
+      mpRow({ Style: "Lead", "Lead Style": "Onsight" }),
+      mpRow({ Style: "Send", "Lead Style": "" }),
+      mpRow({ Style: "TR", "Lead Style": "" }),
+    ]);
+    expect(parsed.headers).toEqual(MP_HEADERS); // the file's own columns are untouched
+    expect(parsed.derived).toEqual([MP_ASCENT_COLUMN]);
+    expect(parsed.rows.map((r) => r[MP_ASCENT_COLUMN])).toEqual(["Onsight", "Send", "TR"]);
+  });
+
+  it("leaves other sources alone", () => {
+    const parsed = { headers: SAMPLE_HEADERS, rows: [row()], warnings: [], derived: [] };
+    expect(deriveSourceColumns(parsed, "sendage")).toBe(parsed);
+  });
+});
+
+describe("splitAreaHint", () => {
+  it("splits a ' > ' path into segments, leaf first", () => {
+    expect(splitAreaHint("International > North America > Canada > Squamish > Campground Wall")).toEqual([
+      "Campground Wall",
+      "Squamish",
+      "Canada",
+      "North America",
+      "International",
+    ]);
+  });
+
+  it("returns a plain name as itself and nothing for a blank", () => {
+    expect(splitAreaHint("Grandma Peabody")).toEqual(["Grandma Peabody"]);
+    expect(splitAreaHint("  ")).toEqual([]);
+  });
+});
+
+describe("normalizeHeader", () => {
+  it("lowercases, trims, and reads underscores and hyphens as spaces", () => {
+    expect(normalizeHeader("  Ascent_Type ")).toBe("ascent type");
+    expect(normalizeHeader("climb--name")).toBe("climb name");
+    expect(normalizeHeader("Date  Sent")).toBe("date sent");
+  });
+});
+
+describe("detectImportSource", () => {
+  it("recognizes KAYA, betabook, Sendage, and Mountain Project header rows", () => {
+    expect(detectImportSource(KAYA_HEADERS)).toBe("kaya");
+    expect(detectImportSource(MP_HEADERS)).toBe("mountainproject");
+    expect(
+      detectImportSource(["Date Sent", "Ascent Style", "Climb Name", "Area Name", "Grade"]),
+    ).toBe("betabook");
+    expect(detectImportSource(SAMPLE_HEADERS)).toBe("sendage");
+  });
+
+  it("falls back to unknown for an unfamiliar file", () => {
+    expect(detectImportSource(["Route", "Style", "Crag"])).toBe("unknown");
+  });
+});
+
+describe("findPlaceholderTimestamps", () => {
+  const exportStamp = "Wed Sep 02 2026 16:42:54 GMT+0000 (GMT+00:00)";
+
+  it("flags a non-midnight timestamp shared by several rows", () => {
+    const rows = [
+      { Date: exportStamp },
+      { Date: exportStamp },
+      { Date: "Sat Nov 11 2017 00:00:00 GMT+0000 (GMT+00:00)" },
+      { Date: "Sat Nov 11 2017 00:00:00 GMT+0000 (GMT+00:00)" },
+    ];
+    expect(findPlaceholderTimestamps(rows, "Date")).toEqual([{ value: exportStamp, count: 2 }]);
+  });
+
+  it("leaves a one-off timestamp and every midnight or date-only value alone", () => {
+    const rows = [
+      { Date: exportStamp },
+      { Date: "2026-01-05T09:30:00.000Z" },
+      { Date: "2026-01-05" },
+      { Date: "2026-01-05" },
+    ];
+    expect(findPlaceholderTimestamps(rows, "Date")).toEqual([]);
+    expect(findPlaceholderTimestamps(rows, null)).toEqual([]);
   });
 });
 
@@ -235,13 +450,20 @@ describe("missingRequiredColumns", () => {
 
   it("names each unmapped required field so the columns step can block Next", () => {
     expect(
-      missingRequiredColumns({ ...FULL_MAPPING, ascentStyle: null, areaName: null }),
-    ).toEqual(["ascentStyle", "areaName"]);
+      missingRequiredColumns({ ...FULL_MAPPING, ascentStyle: null, climbName: null }),
+    ).toEqual(["ascentStyle", "climbName"]);
   });
 
-  it("ignores unmapped optional fields", () => {
+  it("ignores unmapped optional fields, the area included", () => {
     expect(
-      missingRequiredColumns({ ...FULL_MAPPING, date: null, grade: null, rating: null }),
+      missingRequiredColumns({
+        ...FULL_MAPPING,
+        date: null,
+        grade: null,
+        rating: null,
+        areaName: null,
+        areaHints: [],
+      }),
     ).toEqual([]);
   });
 });
@@ -402,15 +624,18 @@ describe("normalizeImportRows", () => {
     expect(invalid).toEqual([]);
     expect(valid).toEqual([
       {
+        rowIndex: 0,
         climbName: "I'll Burn the Building Down",
         areaName: "Office Space",
+        areaHints: [],
         climbTypeHint: "sport",
         ascentStyle: "onsight",
         dateSent: "2026-08-12",
         rating: 4,
         comment: "Very fun climbing",
         gradeText: "5.11c",
-        blankGradeMeans: "posted-grade",
+        blankGradeMeans: "no-suggestion",
+        postedGradeText: null,
         gradeFeel: "solid",
         raw: row(),
       },
@@ -576,7 +801,12 @@ describe("normalizeImportRows", () => {
   it("resolves a Grade Feel value through the grade-feel mapping", () => {
     const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
     const { valid } = normalizeImportRows(
-      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "High" })], warnings: [] },
+      {
+        headers: [...SAMPLE_HEADERS, "Grade Feel"],
+        rows: [row({ "Grade Feel": "High" })],
+        warnings: [],
+        derived: [],
+      },
       mappingWithFeel,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
@@ -595,7 +825,12 @@ describe("normalizeImportRows", () => {
   it("defaults gradeFeel to solid for an unmapped value, without invalidating the row", () => {
     const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
     const { valid, invalid } = normalizeImportRows(
-      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "medium" })], warnings: [] },
+      {
+        headers: [...SAMPLE_HEADERS, "Grade Feel"],
+        rows: [row({ "Grade Feel": "medium" })],
+        warnings: [],
+        derived: [],
+      },
       mappingWithFeel,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
@@ -610,7 +845,12 @@ describe("normalizeImportRows", () => {
   it("falls back to solid when a grade feel value is explicitly skipped", () => {
     const mappingWithFeel: ColumnMapping = { ...FULL_MAPPING, gradeFeel: "Grade Feel" };
     const { valid, invalid } = normalizeImportRows(
-      { headers: [...SAMPLE_HEADERS, "Grade Feel"], rows: [row({ "Grade Feel": "High" })], warnings: [] },
+      {
+        headers: [...SAMPLE_HEADERS, "Grade Feel"],
+        rows: [row({ "Grade Feel": "High" })],
+        warnings: [],
+        derived: [],
+      },
       mappingWithFeel,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
@@ -622,9 +862,9 @@ describe("normalizeImportRows", () => {
     expect(valid[0].gradeFeel).toBe("solid");
   });
 
-  it("rejects a row missing climb name or area name", () => {
+  it("rejects a row missing its climb name", () => {
     const { valid, invalid } = normalizeImportRows(
-      csv([row({ Climb: "" }), row({ Area: "" })]),
+      csv([row({ Climb: "" })]),
       FULL_MAPPING,
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
@@ -633,7 +873,123 @@ describe("normalizeImportRows", () => {
       { today: TODAY },
     );
     expect(valid).toEqual([]);
-    expect(invalid).toHaveLength(2);
+    expect(invalid).toEqual([{ rowIndex: 0, raw: row({ Climb: "" }), reason: "Missing climb name" }]);
+  });
+
+  // The area used to be required, which turned every row of an export with
+  // no area column (KAYA's) into "Missing area name". It's now a filter the
+  // match step applies when present and skips when not.
+  it("keeps a row with a blank or unmapped area, with areaName null", () => {
+    const blankCell = normalizeImportRows(
+      csv([row({ Area: "" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(blankCell.invalid).toEqual([]);
+    expect(blankCell.valid[0].areaName).toBeNull();
+
+    const unmapped = normalizeImportRows(
+      csv([row()]),
+      { ...FULL_MAPPING, areaName: null },
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(unmapped.valid[0].areaName).toBeNull();
+  });
+
+  it("collects the non-blank hint cells in column order", () => {
+    const { valid } = normalizeImportRows(
+      csv([row({ Country: "Canada" }), row({ Country: "" })]),
+      { ...FULL_MAPPING, areaHints: ["Country", "Area"] },
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid[0].areaHints).toEqual(["Canada", "Office Space"]);
+    expect(valid[1].areaHints).toEqual(["Office Space"]);
+  });
+
+  it("splits a path hint into leaf-first segments", () => {
+    const parsed = mpCsv([mpRow()]);
+    const mapping = guessColumnMapping([...parsed.headers, ...parsed.derived]);
+    const { valid } = normalizeImportRows(
+      parsed,
+      mapping,
+      guessAscentStyleMapping(distinctValues(parsed.rows, mapping.ascentStyle)),
+      guessClimbTypeMapping(distinctValues(parsed.rows, mapping.climbType)),
+      {},
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid[0].areaHints.slice(0, 3)).toEqual([
+      "Campground Wall",
+      "The Bulletheads",
+      "Stawamus Chief",
+    ]);
+    expect(valid[0].areaName).toBeNull();
+    expect(valid[0].climbTypeHint).toBe("trad");
+    expect(valid[0].ascentStyle).toBe("redpoint");
+  });
+
+  it("keeps the posted grade for matching when the climber gave no grade of their own", () => {
+    const parsed = mpCsv([mpRow({ Rating: "5.10c", "Your Rating": "" }), mpRow({ Rating: "5.9 R", "Your Rating": "5.10a" })]);
+    const mapping = guessColumnMapping([...parsed.headers, ...parsed.derived]);
+    const { valid, warnings } = normalizeImportRows(
+      parsed,
+      mapping,
+      guessAscentStyleMapping(distinctValues(parsed.rows, mapping.ascentStyle)),
+      guessClimbTypeMapping(distinctValues(parsed.rows, mapping.climbType)),
+      {},
+      "iso",
+      { today: TODAY },
+    );
+    expect(warnings).toEqual([]);
+    expect(valid[0].gradeText).toBeNull();
+    expect(valid[0].blankGradeMeans).toBe("no-suggestion");
+    expect(valid[0].postedGradeText).toBe("5.10c");
+    // A protection rating is stripped from either grade column.
+    expect(valid[1].gradeText).toBe("5.10a");
+    expect(valid[1].postedGradeText).toBe("5.9");
+  });
+
+  it("drops a zero or negative star rating silently, as an app's 'not rated'", () => {
+    const { valid, warnings } = normalizeImportRows(
+      csv([row({ Rating: "-1" }), row({ Rating: "0" }), row({ Rating: "banana" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid.map((r) => r.rating)).toEqual([null, null, null]);
+    expect(warnings).toEqual([
+      { field: "rating", message: "invalid rating, imported without a rating", count: 1, examples: ['Row 3: "banana"'] },
+    ]);
+  });
+
+  it("reads a listed placeholder date value as no date instead of parsing it", () => {
+    const stamp = "Wed Sep 02 2026 16:42:54 GMT+0000 (GMT+00:00)";
+    const { valid, invalid } = normalizeImportRows(
+      csv([row({ Date: stamp }), row({ Date: "2026-08-12" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY, undatedValues: [stamp] },
+    );
+    expect(invalid).toEqual([]);
+    expect(valid.map((r) => r.dateSent)).toEqual([null, "2026-08-12"]);
   });
 });
 
@@ -641,11 +997,12 @@ describe("normalizeImportRows suggested-grade semantics", () => {
   const HEADERS_WITH_SUGGESTED = [...SAMPLE_HEADERS, "Suggested Grade"];
   const MAPPING_WITH_SUGGESTED: ColumnMapping = {
     ...FULL_MAPPING,
+    grade: "Grade",
     suggestedGrade: "Suggested Grade",
   };
 
   function csvWithSuggested(rows: Record<string, string>[]): ParsedCsv {
-    return { headers: HEADERS_WITH_SUGGESTED, rows, warnings: [] };
+    return { headers: HEADERS_WITH_SUGGESTED, rows, warnings: [], derived: [] };
   }
 
   it("prefers a mapped Suggested Grade column over the Grade column", () => {
@@ -677,10 +1034,10 @@ describe("normalizeImportRows suggested-grade semantics", () => {
     expect(valid[0].blankGradeMeans).toBe("no-suggestion");
   });
 
-  it("keeps posted-grade fallback semantics when only a Grade column is mapped", () => {
+  it("keeps posted-grade fallback semantics when only a posted Grade column is mapped", () => {
     const { valid } = normalizeImportRows(
       csv([row({ Grade: "" })]),
-      FULL_MAPPING,
+      { ...FULL_MAPPING, grade: "Grade", suggestedGrade: null },
       ASCENT_STYLE_MAPPING,
       CLIMB_TYPE_MAPPING,
       GRADE_FEEL_MAPPING,
@@ -776,6 +1133,7 @@ describe("normalizeImportRows coercion warnings", () => {
         headers: [...SAMPLE_HEADERS, "Grade Feel"],
         rows: [row({ "Grade Feel": "medium" }), row({ "Grade Feel": "High" })],
         warnings: [],
+        derived: [],
       },
       mappingWithFeel,
       ASCENT_STYLE_MAPPING,
@@ -838,117 +1196,88 @@ describe("normalizeImportRows coercion warnings", () => {
 
 describe("buildFailedRowsCsv", () => {
   it("outputs the source headers plus an appended reason column", () => {
-    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], [], []);
+    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, []);
     const [header] = csvText.trim().split("\n");
     expect(header).toBe([...SAMPLE_HEADERS, "Import Failure Reason"].join(","));
   });
 
-  it("carries an invalid row's original CSV values through unchanged, including unmapped columns", () => {
-    const invalid: InvalidImportRow[] = [
-      { rowIndex: 4, raw: row({ Country: "Canada" }), reason: "Missing climb name" },
+  it("carries a row's original CSV values through unchanged, including unmapped columns", () => {
+    const failures: FailedImportRow[] = [
+      { raw: row({ Country: "Canada" }), reason: "Missing climb name" },
     ];
-    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, invalid, [], []);
+    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, failures);
     expect(csvText).toContain("I'll Burn the Building Down");
     expect(csvText).toContain("Office Space");
     expect(csvText).toContain("Canada"); // Country isn't used by any wizard field, but must still round-trip
     expect(csvText).toContain("Missing climb name");
   });
 
-  it("includes a not-found row's original values with a human-readable reason", () => {
-    const notFound: NotFoundRow[] = [
-      {
-        climbName: "Ghost Route",
-        areaName: "Nowhere",
-        dateSent: "2026-01-01",
-        reason: "climb-not-found",
-        raw: row({ Climb: "Ghost Route", Area: "Nowhere" }),
-      },
+  it("writes one data row per failure, whatever stage produced it", () => {
+    const invalid: InvalidImportRow = { rowIndex: 0, raw: row(), reason: "Missing climb name" };
+    const failures: FailedImportRow[] = [
+      { raw: invalid.raw, reason: invalid.reason },
+      { raw: row({ Climb: "Ghost Route" }), reason: "No climb with this name" },
+      { raw: row({ Climb: "Batch Route" }), reason: "Not imported: network error" },
     ];
-    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], notFound, []);
-    expect(csvText).toContain("Ghost Route");
-    expect(csvText).toContain("Nowhere");
-    expect(csvText).toContain("Climb not found");
-  });
-
-  it("includes an ambiguous-match reason distinctly from not-found", () => {
-    const notFound: NotFoundRow[] = [
-      {
-        climbName: "Direct",
-        areaName: "Big Wall",
-        dateSent: null,
-        reason: "climb-ambiguous",
-        raw: row({ Climb: "Direct", Area: "Big Wall" }),
-      },
-    ];
-    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], notFound, []);
-    expect(csvText).toContain("Ambiguous climb match");
-  });
-
-  it("includes batch-error rows with the batch's error message", () => {
-    const batchErrors: BatchErrorRow[] = [
-      {
-        message: "Not signed in",
-        rows: [
-          {
-            climbName: "Some Route",
-            areaName: "Some Crag",
-            climbTypeHint: null,
-            ascentStyle: "redpoint",
-            dateSent: "2026-01-01",
-            rating: 5,
-            comment: "Great",
-            gradeText: "5.10a",
-            blankGradeMeans: "posted-grade",
-            gradeFeel: "solid",
-            raw: row({ Climb: "Some Route", Area: "Some Crag" }),
-          },
-        ],
-      },
-    ];
-    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], [], batchErrors);
-    expect(csvText).toContain("Some Route");
-    expect(csvText).toContain("Not imported: Not signed in");
-  });
-
-  it("combines all three buckets into one CSV", () => {
-    const invalid: InvalidImportRow[] = [{ rowIndex: 0, raw: row(), reason: "Missing area name" }];
-    const notFound: NotFoundRow[] = [
-      {
-        climbName: "Ghost Route",
-        areaName: "Nowhere",
-        dateSent: null,
-        reason: "climb-not-found",
-        raw: row({ Climb: "Ghost Route", Area: "Nowhere" }),
-      },
-    ];
-    const batchErrors: BatchErrorRow[] = [
-      {
-        message: "network error",
-        rows: [
-          {
-            climbName: "Batch Route",
-            areaName: "Batch Crag",
-            climbTypeHint: null,
-            ascentStyle: "flash",
-            dateSent: null,
-            rating: null,
-            comment: null,
-            gradeText: null,
-            blankGradeMeans: "posted-grade",
-            gradeFeel: "solid",
-            raw: row({ Climb: "Batch Route", Area: "Batch Crag" }),
-          },
-        ],
-      },
-    ];
-    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, invalid, notFound, batchErrors);
-    const lines = csvText.trim().split("\n");
+    const lines = buildFailedRowsCsv(SAMPLE_HEADERS, failures).trim().split("\n");
     expect(lines).toHaveLength(4); // header + 3 data rows
+    expect(lines[2]).toContain("Ghost Route");
+    expect(lines[3]).toContain("Not imported: network error");
   });
 
   it("returns just a header row when there's nothing to export", () => {
-    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, [], [], []);
+    const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, []);
     expect(csvText.trim().split("\n")).toHaveLength(1);
+  });
+});
+
+describe("guessAscentStyleMapping", () => {
+  it("recognizes other apps' words for the three styles and skips non-sends", () => {
+    expect(
+      guessAscentStyleMapping(["Redpoint", "Pinkpoint", "Send", "Lead", "Onsight", "Flash", "TR", "Fell/Hung", "Attempt"]),
+    ).toEqual({
+      Redpoint: "redpoint",
+      Pinkpoint: "redpoint",
+      Send: "redpoint",
+      Lead: "redpoint",
+      Onsight: "onsight",
+      Flash: "flash",
+      TR: "skip",
+      "Fell/Hung": "skip",
+      Attempt: "skip",
+    });
+  });
+});
+
+describe("guessClimbTypeMapping", () => {
+  it("takes the first recognized type from a comma-separated value", () => {
+    expect(guessClimbTypeMapping(["Sport, TR", "Trad, Sport", "Boulder, Alpine", "Bouldering", "Ice"])).toEqual({
+      "Sport, TR": "sport",
+      "Trad, Sport": "trad",
+      "Boulder, Alpine": "boulder",
+      Bouldering: "boulder",
+      Ice: "skip",
+    });
+  });
+});
+
+describe("detectGradeScale", () => {
+  it("picks the notation that reads more of the column, staying native on a tie", () => {
+    expect(detectGradeScale(["V4", "V6", "5.11a", "6A"])).toBe("native");
+    expect(detectGradeScale(["6A", "7B+", "6c", "V2"])).toBe("converted");
+    expect(detectGradeScale(["banana", ""])).toBe("native");
+    expect(detectGradeScale(["6A", "V4"])).toBe("native");
+  });
+});
+
+describe("valueCounts", () => {
+  it("counts each distinct trimmed value, most common first", () => {
+    const rows = [{ T: "Redpoint" }, { T: " Flash " }, { T: "Redpoint" }, { T: "" }];
+    expect(valueCounts(rows, "T")).toEqual([
+      { value: "Redpoint", count: 2 },
+      { value: "Flash", count: 1 },
+    ]);
+    expect(valueCounts(rows, null)).toEqual([]);
   });
 });
 

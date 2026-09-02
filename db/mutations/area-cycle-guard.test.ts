@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
 import { createDb, type Database } from "@/db/client";
 import { areas } from "@/db/schema";
-import { getAncestors, getSubtreeClimbs, findClimbsByNameAndArea } from "@/db/queries";
+import { getAncestors, getSubtreeClimbs, findClimbCandidatesByNames } from "@/db/queries";
 import { seedFixtureTree } from "@/test/fixtures";
 
 /** Every subtree and ancestor query in db/queries walks parent_id through a
@@ -157,13 +157,14 @@ describe("the guard only blocks cycles, not ordinary tree writes", () => {
 describe("the readers that depend on the invariant", () => {
   it("keeps the subtree and ancestor walks terminating over the guarded tree", async () => {
     // Both directions of the UNION ALL walk the guard protects: down
-    // (subtreeAreaIds) and up (findClimbsByNameAndArea, the import lookup).
+    // (subtreeAreaIds) and up (findClimbCandidatesByNames, the import lookup).
     const crag = await db.select().from(areas).where(eq(areas.id, TEST_CRAG)).get();
     const { climbs } = await getSubtreeClimbs(db, crag!);
     expect(climbs.length).toBeGreaterThan(0);
 
-    const found = await findClimbsByNameAndArea(db, "Test Highball", "Test Crag");
+    const found = await findClimbCandidatesByNames(db, ["Test Highball"]);
     expect(found.map((c) => c.id)).toEqual([1]);
+    expect(found[0].ancestors.map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
   });
 
   it("has no cyclic edge anywhere in the table", async () => {
