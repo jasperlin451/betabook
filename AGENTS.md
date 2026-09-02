@@ -29,6 +29,7 @@ betabook/
 │   ├── areas/[id]/     # Area exploration, tree view, and climb listings
 │   ├── climbs/[id]/    # Climb details & send history
 │   ├── users/[id]/     # User profile, send logbook, and analytics
+│   ├── sitemap.ts      # Sharded sitemap (+ sitemap-index.xml route); opengraph-image.tsx
 │   └── api/            # Route handlers (auth, feed, search, exports)
 ├── components/         # React UI Components
 │   ├── ui/             # Design tokens & generic primitives (buttons, modals, fields)
@@ -46,7 +47,9 @@ betabook/
 │   ├── sends-import.ts # CSV parsing, column mapping, and value detection
 │   ├── import-matching.ts # Candidate matching algorithms for climb imports
 │   ├── action-result.ts # Standardized ActionResult & ActionError types
-│   └── session.ts      # Authentication & session validation helpers
+│   ├── session.ts      # Authentication & session validation helpers
+│   ├── site.ts         # Canonical origin, site name, OG image constants
+│   └── seo.ts          # Pure title / description / JSON-LD builders + pageMetadata()
 └── test/               # Test setup, fixtures, and Cloudflare Worker test pool
 ```
 
@@ -75,6 +78,17 @@ Strict boundaries are codified in `oxlint.config.ts` via `typescript/no-restrict
 
 5. **Import Safety Suite**:
    - Oxlint enforces cycle-free (`import/no-cycle`), duplicate-free (`import/no-duplicates`), and relative-parent-free (`import/no-relative-parent-imports`) imports across all modules.
+
+## SEO & Metadata
+
+`robots.txt` is managed at Cloudflare (not in-repo). LLM/AI crawlers are blocked there; Google/Bing indexing is controlled **per page** in code. When adding a route under `app/`, decide up front whether it should be indexable:
+
+- **Indexable** (an entity page, a landing/marketing page): export `generateMetadata` returning `pageMetadata({ title, description, path, ogType? })` from `@/lib/seo`. It sets the per-page title, a synthesized `description`, a self-referential canonical, and a **complete** `openGraph`/`twitter` block — Next _overwrites_ (not merges) those objects, so never hand-roll a partial one. Compose the title/description strings with the builders in `@/lib/seo` (e.g. `climbTitle`, `areaDescription`).
+- **Not indexable** (auth pages, `*/new` forms, anything session-gated, `users/[id]` + `users/[id]/analytics`): add `robots: { index: false }` to the page's `metadata`/`generateMetadata`. For an otherwise-indexable page whose query params spawn infinite filter/search states, `noindex` when any param is present (see `app/page.tsx`).
+- **Entity detail pages** (climb, area, and future equivalents): also render `<JsonLd data={…} />` (`@/components/ui/json-ld`) with at least a `BreadcrumbList`. JSON-LD builders live in `@/lib/seo`; don't emit `AggregateRating`/`Review` markup (manual-action risk for types Google doesn't support).
+- **A new crawlable entity type** must be added to `app/sitemap.ts` as a shard, backed by `countX` + `getXIdsPage` queries in `db/queries`. The submittable sitemap URL is `app/sitemap-index.xml` — Next emits the numbered shards but no index. API/JSON routes get `X-Robots-Tag: noindex` via `next.config.ts` `headers()`.
+
+Site identity constants (canonical origin, name, OG image) live in `@/lib/site`. `lib/seo.ts` is pure and unit-tested (`lib/seo.test.ts`) — extend the tests when you add builders.
 
 ## Validation Commands
 
