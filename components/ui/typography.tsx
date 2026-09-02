@@ -1,5 +1,5 @@
+import { clsx } from "clsx";
 import type { ReactNode } from "react";
-import clsx from "clsx";
 
 /** The guidebook display voice (Barlow Condensed) for page h1s — one
  * canonical treatment so content pages and card pages stop disagreeing
@@ -22,4 +22,3 @@ export function SectionHeading({
 }) {
   return <h2 className={clsx("text-lg font-semibold", className)}>{children}</h2>;
 }
-

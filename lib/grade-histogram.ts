@@ -1,6 +1,6 @@
+import type { GradeHistogramRow, SuggestedGradeCount } from "@/db/queries";
 import { BOULDER_HUECO, nativeGradeArray, ROPE_YDS, type ClimbType } from "@/lib/grades";
 import type { GradeFeel } from "@/lib/sends";
-import type { GradeHistogramRow, SuggestedGradeCount } from "@/db/queries";
 
 /** One histogram bar. Boulder buckets are one V grade each; rope buckets
  * collapse letter grades to the number ("5.10a–d" → "5.10"). `range` is the
@@ -76,7 +76,7 @@ export function buildLoggedGradeRows(
     rows.some((row) => row.isPosted);
   if (!postedRepresented) {
     rows.push({
-      label: scale[postedGrade as number],
+      label: scale[postedGrade],
       total: 0,
       isPosted: true,
       feelCounts: { low: 0, solid: 0, high: 0 },
@@ -166,10 +166,7 @@ export function buildGradeHistogram(rows: GradeHistogramRow[]): GradeHistogram {
   const boulderIndices = [...(countsByType.get("boulder")?.keys() ?? [])];
   const boulderSpan: [string, string] | null =
     boulderIndices.length > 0
-      ? [
-          BOULDER_HUECO[Math.min(...boulderIndices)],
-          BOULDER_HUECO[Math.max(...boulderIndices)],
-        ]
+      ? [BOULDER_HUECO[Math.min(...boulderIndices)], BOULDER_HUECO[Math.max(...boulderIndices)]]
       : null;
 
   const ropeIndices = [

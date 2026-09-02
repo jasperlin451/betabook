@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+
 import type { ClimbCandidate } from "@/db/queries";
 import type { NormalizedImportRow } from "@/lib/sends-import";
+
 import {
   areaLookupsNeeded,
   candidatePath,
@@ -203,7 +205,7 @@ describe("matchRow", () => {
     expect(single).toMatchObject({
       kind: "ambiguous",
       total: 1,
-      conflict: "The one climb with this name isn't a route, but \"5.10a\" is a route grade",
+      conflict: 'The one climb with this name isn\'t a route, but "5.10a" is a route grade',
     });
   });
 
@@ -268,11 +270,7 @@ describe("matchRow", () => {
   it("uses hint columns in order, ignoring a hint that matches nothing", () => {
     const boulders = indexOf([WAVES[0], WAVES[1]]);
     // A KAYA row: boulder name first (matches no area here), country second.
-    const match = matchRow(
-      row({ areaHints: ["Some Boulder", "Canada"] }),
-      boulders,
-      NO_PREFERENCE,
-    );
+    const match = matchRow(row({ areaHints: ["Some Boulder", "Canada"] }), boulders, NO_PREFERENCE);
     expect(match).toMatchObject({ kind: "inferred", reason: 'matches "Canada"' });
     if (match.kind === "inferred") expect(match.climb.id).toBe(2);
   });
@@ -280,11 +278,20 @@ describe("matchRow", () => {
   it("leaves a tie ambiguous when a hint narrows but doesn't settle it", () => {
     const usBoulders = indexOf([
       WAVES[0],
-      candidate({ id: 4, grade: 4, areaName: "Kraft Boulders", ancestors: [US, { id: 98, name: "Nevada" }] }),
+      candidate({
+        id: 4,
+        grade: 4,
+        areaName: "Kraft Boulders",
+        ancestors: [US, { id: 98, name: "Nevada" }],
+      }),
       WAVES[1],
     ]);
     const match = matchRow(row({ areaHints: ["United States"] }), usBoulders, NO_PREFERENCE);
-    expect(match).toMatchObject({ kind: "ambiguous", conflict: null, narrowedBy: '"United States"' });
+    expect(match).toMatchObject({
+      kind: "ambiguous",
+      conflict: null,
+      narrowedBy: '"United States"',
+    });
     if (match.kind === "ambiguous") {
       expect(match.candidates.map((c) => c.id)).toEqual([1, 4]);
       expect(match.pool.map((c) => c.id)).toEqual([1, 4, 2]);
@@ -303,7 +310,11 @@ describe("matchRow", () => {
     // one of the two out proves nothing about the other 28.
     const truncated = indexCandidates([WAVES[0], WAVES[1]].map((c) => ({ ...c, total: 30 })));
     const match = matchRow(row({ gradeText: "V6" }), truncated, NO_PREFERENCE);
-    expect(match).toMatchObject({ kind: "ambiguous", truncated: true, narrowedBy: 'the grade "V6"' });
+    expect(match).toMatchObject({
+      kind: "ambiguous",
+      truncated: true,
+      narrowedBy: 'the grade "V6"',
+    });
     if (match.kind === "ambiguous") expect(match.candidates.map((c) => c.id)).toEqual([2]);
 
     // Even a lone survivor of the hard filters isn't trusted.
@@ -315,7 +326,11 @@ describe("matchRow", () => {
 
     // Unless the Area column picked it: that lookup saw every climb of the
     // name in the area.
-    const byArea = matchRow(row({ areaName: "Squamish", gradeText: "V6" }), truncated, NO_PREFERENCE);
+    const byArea = matchRow(
+      row({ areaName: "Squamish", gradeText: "V6" }),
+      truncated,
+      NO_PREFERENCE,
+    );
     expect(byArea).toMatchObject({ kind: "exact" });
     if (byArea.kind === "exact") expect(byArea.climb.id).toBe(2);
   });

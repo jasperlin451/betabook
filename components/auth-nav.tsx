@@ -1,10 +1,11 @@
 "use client";
 
 import { clsx } from "clsx";
-import { authClient } from "@/lib/auth-client";
+
 import { NavLink } from "@/components/nav-link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMounted } from "@/hooks/use-mounted";
+import { authClient } from "@/lib/auth-client";
 
 type AuthNavProps = {
   direction?: "row" | "col";
@@ -69,7 +70,9 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
   }
 
   return (
-    <span className={clsx("flex gap-4", direction === "col" ? "flex-col items-start" : "items-center")}>
+    <span
+      className={clsx("flex gap-4", direction === "col" ? "flex-col items-start" : "items-center")}
+    >
       <NavLink href="/sign-in" onClick={onNavigate}>
         Sign in
       </NavLink>

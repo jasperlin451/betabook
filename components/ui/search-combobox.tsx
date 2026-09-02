@@ -1,7 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { ComboBox, Input, Label, ListBox } from "@heroui/react";
+import type { ReactNode } from "react";
+
 import { useTypeahead, type TypeaheadFetcher } from "@/hooks/use-typeahead";
 
 export type SearchComboboxProps<T extends object> = {
@@ -100,12 +101,12 @@ export function SearchCombobox<T extends object>({
     >
       {label && <Label>{label}</Label>}
       {/* ComboBox.InputGroup's sibling wiring requires exactly its Input +
-        * Trigger children — a wrapper, an icon, an InputGroup.Prefix, or a
-        * missing trigger all corrupt it. So the magnifier is a themed
-        * background image on the input (search-combo-input in globals.css)
-        * and the trigger stays in the tree but hidden: typing is what opens
-        * the suggestions, and an arrow on an empty field would promise a
-        * list that isn't there. */}
+       * Trigger children — a wrapper, an icon, an InputGroup.Prefix, or a
+       * missing trigger all corrupt it. So the magnifier is a themed
+       * background image on the input (search-combo-input in globals.css)
+       * and the trigger stays in the tree but hidden: typing is what opens
+       * the suggestions, and an arrow on an empty field would promise a
+       * list that isn't there. */}
       <ComboBox.InputGroup>
         <Input placeholder={placeholder} className={`search-combo-input ${inputClassName ?? ""}`} />
         <ComboBox.Trigger className="hidden" />

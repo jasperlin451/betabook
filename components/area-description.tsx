@@ -2,6 +2,7 @@
 
 import { Button, useOverlayState } from "@heroui/react";
 import { Pencil } from "lucide-react";
+
 import { AreaFormDrawer } from "@/components/area-form-drawer";
 import type { Area } from "@/db/queries";
 
@@ -13,18 +14,18 @@ export function AreaDescription({ area, isEditor }: { area: Area; isEditor: bool
   const editState = useOverlayState();
 
   if (!isEditor) {
-    return <p className="text-muted mt-1">{area.description || "No description yet."}</p>;
+    return <p className="mt-1 text-muted">{area.description || "No description yet."}</p>;
   }
 
   return (
     <>
       {/* items-start so the pencil sits on the description's first line rather
-        * than floating beside the middle of a long one; min-w-0 so the text
-        * wraps instead of widening the row. */}
-      <p className="text-muted mt-1 flex items-start gap-1.5">
+       * than floating beside the middle of a long one; min-w-0 so the text
+       * wraps instead of widening the row. */}
+      <p className="mt-1 flex items-start gap-1.5 text-muted">
         {/* italic for the placeholder, so an area with no description reads as
-          * missing one rather than as having "No description yet." written in
-          * it. */}
+         * missing one rather than as having "No description yet." written in
+         * it. */}
         <span className={`min-w-0 ${area.description ? "" : "italic"}`}>
           {area.description || "No description yet."}
         </span>

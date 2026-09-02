@@ -1,8 +1,17 @@
 import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
+
 import { createDb, type Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
+import {
+  seedFixtureSend,
+  seedFixtureTree,
+  seedFixtureUser,
+  seedManyAreas,
+  seedManyClimbs,
+} from "@/test/fixtures";
+
 import { getArea } from "./areas";
 import {
   countSearchClimbs,
@@ -18,13 +27,6 @@ import {
   searchClimbs,
   LARGE_AREA_SUBTREE_AREAS,
 } from "./climbs";
-import {
-  seedFixtureSend,
-  seedFixtureTree,
-  seedFixtureUser,
-  seedManyAreas,
-  seedManyClimbs,
-} from "@/test/fixtures";
 
 // getSubtreeClimbs forces climbs_area_idx below LARGE_AREA_SUBTREE_AREAS
 // (see climbs.ts) — this fixture tree has a handful of areas, so it always
@@ -93,7 +95,10 @@ describe("getSubtreeClimbs", () => {
       // A user can only send a given climb once (sends.user_id/climb_id is
       // unique), so each send below needs its own distinct user.
       for (let i = 1; i <= 6; i++) {
-        await seedFixtureUser(db, { id: `test-user-climbs-sort-${i}`, name: `Climbs Sort Tester ${i}` });
+        await seedFixtureUser(db, {
+          id: `test-user-climbs-sort-${i}`,
+          name: `Climbs Sort Tester ${i}`,
+        });
       }
 
       // Test Slab (climb 2): 2 sends, ratings 5 and 3 -> avg 4.
@@ -284,7 +289,11 @@ describe("getSubtreeClimbs", () => {
         boulderRange: [0, 20],
         tradRange: [0, 20],
       });
-      expect(climbs.map((c) => c.name).sort()).toEqual(["Test Crack", "Test Highball", "Test Slab"]);
+      expect(climbs.map((c) => c.name).sort()).toEqual([
+        "Test Crack",
+        "Test Highball",
+        "Test Slab",
+      ]);
     });
 
     it("fuzzy-matches by partial climb name", async () => {
@@ -771,16 +780,22 @@ describe("findClimbCandidatesByNames", () => {
 describe("findClimbCandidatesInAreas", () => {
   it("matches a climb by its own area or any ancestor, never an unrelated area", async () => {
     // Test Highball is climb 1 in Test Highball Alcove (4) under Test Boulders (2) under Test Crag (1).
-    const own = await findClimbCandidatesInAreas(db, [{ name: "test highball", areaName: " TEST HIGHBALL ALCOVE " }]);
+    const own = await findClimbCandidatesInAreas(db, [
+      { name: "test highball", areaName: " TEST HIGHBALL ALCOVE " },
+    ]);
     expect(own.map((c) => c.id)).toEqual([1]);
 
-    const [byAncestor] = await findClimbCandidatesInAreas(db, [{ name: "Test Highball", areaName: "Test Crag" }]);
+    const [byAncestor] = await findClimbCandidatesInAreas(db, [
+      { name: "Test Highball", areaName: "Test Crag" },
+    ]);
     expect(byAncestor.id).toBe(1);
     expect(byAncestor.key).toBe("test highball");
     expect(byAncestor.areaName).toBe("Test Highball Alcove");
     expect(byAncestor.ancestors.map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
 
-    const unrelated = await findClimbCandidatesInAreas(db, [{ name: "Test Highball", areaName: "Test Sport Wall" }]);
+    const unrelated = await findClimbCandidatesInAreas(db, [
+      { name: "Test Highball", areaName: "Test Sport Wall" },
+    ]);
     expect(unrelated).toEqual([]);
   });
 
@@ -802,7 +817,7 @@ describe("findClimbCandidatesInAreas", () => {
 describe("getClimbsByIds", () => {
   it("returns the requested climbs and silently drops unknown ids", async () => {
     const results = await getClimbsByIds(db, [3, 1, 424242, 3]);
-    expect(results.map((c) => c.id).sort()).toEqual([1, 3]);
+    expect(results.map((c) => c.id).sort((a, b) => a - b)).toEqual([1, 3]);
     expect(results.find((c) => c.id === 3)).toEqual({
       id: 3,
       areaId: 3,

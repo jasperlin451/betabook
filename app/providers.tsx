@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useTheme } from "@heroui/react";
+import { useRouter } from "next/navigation";
 import { RouterProvider } from "react-aria-components";
 
 export function Providers({ children }: { children: React.ReactNode }) {

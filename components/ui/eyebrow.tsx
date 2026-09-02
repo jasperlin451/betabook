@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import { clsx } from "clsx";
 import type { LucideIcon } from "lucide-react";
-import clsx from "clsx";
+import type { ReactNode } from "react";
 
 /** The letterspaced micro-label treatment, as a class for inline spots
  * (stat labels, list section headings) that can't take the block element. */

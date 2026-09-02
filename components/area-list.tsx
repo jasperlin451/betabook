@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { buttonVariants, Button } from "@heroui/react";
-import type { Area } from "@/db/queries";
+import { useState } from "react";
+
+import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { AppLink } from "@/components/ui/app-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ListRow } from "@/components/ui/list-row";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
-import { AreaBreadcrumb } from "@/components/area-breadcrumb";
+import type { Area } from "@/db/queries";
 
 /** How many sub-area pills the card variant shows before collapsing behind a
  * "Show all N" toggle — a state-level area can have hundreds of sub-areas,
@@ -67,7 +68,7 @@ export function AreaList({
             <ListRow
               key={area.id}
               leading={
-                <span className="w-6 shrink-0 text-sm tabular-nums text-muted">
+                <span className="w-6 shrink-0 text-sm text-muted tabular-nums">
                   {String(index + 1).padStart(2, "0")}
                 </span>
               }
@@ -88,9 +89,7 @@ export function AreaList({
         {areas.map((area) => (
           <div key={area.id}>
             <AppLink href={`/areas/${area.id}`}>{area.name}</AppLink>
-            {area.ancestorPath && (
-              <p className="text-muted text-sm">Parent: {area.ancestorPath}</p>
-            )}
+            {area.ancestorPath && <p className="text-sm text-muted">Parent: {area.ancestorPath}</p>}
           </div>
         ))}
       </div>

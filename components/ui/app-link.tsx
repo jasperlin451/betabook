@@ -1,9 +1,9 @@
 "use client";
 
+import { clsx } from "clsx";
+import NextLink from "next/link";
 import { useReducer } from "react";
 import type { ComponentProps } from "react";
-import NextLink from "next/link";
-import { clsx } from "clsx";
 
 type AppLinkProps = ComponentProps<typeof NextLink>;
 

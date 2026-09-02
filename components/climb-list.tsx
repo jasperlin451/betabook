@@ -1,17 +1,17 @@
 "use client";
 
-import { describeGradeTrend } from "@/lib/grades";
-import type { ClimbType } from "@/lib/grades";
-import { formatCount } from "@/lib/format";
-import type { ClimbWithAreaName } from "@/db/queries";
+import { AreaBreadcrumb } from "@/components/area-breadcrumb";
+import { ClimbSentIndicator } from "@/components/climb-sent-indicator";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Grade, GradeArrow } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
-import { RatingStars } from "@/components/ui/rating-stars";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
-import { AreaBreadcrumb } from "@/components/area-breadcrumb";
-import { ClimbSentIndicator } from "@/components/climb-sent-indicator";
+import { RatingStars } from "@/components/ui/rating-stars";
+import type { ClimbWithAreaName } from "@/db/queries";
+import { formatCount } from "@/lib/format";
+import { describeGradeTrend } from "@/lib/grades";
+import type { ClimbType } from "@/lib/grades";
 
 type ClimbListProps = {
   climbs: ClimbWithAreaName[];
@@ -66,9 +66,7 @@ export function ClimbList({
           <ListRow
             key={climb.id}
             leading={
-              sentClimbIds && (
-                <ClimbSentIndicator climb={climb} sent={sentClimbIds.has(climb.id)} />
-              )
+              sentClimbIds && <ClimbSentIndicator climb={climb} sent={sentClimbIds.has(climb.id)} />
             }
             title={climb.name}
             href={`/climbs/${climb.id}`}
@@ -89,13 +87,16 @@ export function ClimbList({
                       avgSuggestedGrade={sendStats?.[climb.id]?.avgSuggestedGrade ?? null}
                     />
                   </Grade>
-                  <RatingStars rating={sendStats?.[climb.id]?.avgRating ?? null} precision="decimal" />
+                  <RatingStars
+                    rating={sendStats?.[climb.id]?.avgRating ?? null}
+                    precision="decimal"
+                  />
                 </div>
                 <div className="flex items-center gap-2">
                   <DisciplineChip type={climb.type} />
                   {/* Fixed width so the singular/plural swap ("1 ascent" vs
-                    * "0 ascents") can't change the column's width and shift
-                    * every neighbouring row's chip sideways. */}
+                   * "0 ascents") can't change the column's width and shift
+                   * every neighbouring row's chip sideways. */}
                   <span className="w-16 text-right text-xs text-muted">
                     {formatCount(sendStats?.[climb.id]?.sendCount ?? 0, "ascent")}
                   </span>

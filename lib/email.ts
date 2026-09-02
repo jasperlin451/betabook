@@ -1,5 +1,5 @@
-import { Resend } from "resend";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { Resend } from "resend";
 
 const FROM = "Betabook <noreply@betabook.ca>";
 
@@ -118,11 +118,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
  * them; this one is the entire point of the visitor's click, and reporting
  * success for a message that never left would be a lie they can't detect.
  */
-export async function sendContactEmail(opts: {
-  replyTo: string;
-  subject: string;
-  text: string;
-}) {
+export async function sendContactEmail(opts: { replyTo: string; subject: string; text: string }) {
   const resend = await getResend();
   if (!resend) {
     console.log(

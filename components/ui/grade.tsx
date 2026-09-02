@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
-import clsx from "clsx";
+import { clsx } from "clsx";
 import { ArrowDown, ArrowUp } from "lucide-react";
+import type { ReactNode } from "react";
 
 type GradeProps = {
   children: ReactNode;

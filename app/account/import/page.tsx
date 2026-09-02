@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
+import { ImportWizard } from "@/components/import-wizard";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
-import { ImportWizard } from "@/components/import-wizard";
 
 export const metadata: Metadata = {
   title: "Import sends",

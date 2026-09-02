@@ -1,11 +1,13 @@
 import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
+
 import { createDb, type Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
+import { seedFixtureSend, seedFixtureUser } from "@/test/fixtures";
+
 import { getArea, type Area } from "./areas";
 import { getSubtreeClimbs, type SubtreeClimbsSort } from "./climbs";
-import { seedFixtureSend, seedFixtureUser } from "@/test/fixtures";
 
 // getSubtreeClimbs forces a different index (climbs_area_idx vs a per-sort
 // index) depending on whether the queried area's subtree clears
@@ -146,22 +148,16 @@ describe("getSubtreeClimbs on a large-area-shaped subtree", () => {
 
   it("drives selective name filters from FTS on the large-subtree branch", async () => {
     const area = await getArea(db, AREA_ID);
-    const result = await getSubtreeClimbs(
-      db,
-      { ...area!, largeSubtree: true },
-      1,
-      "ascents_desc",
-      { disciplines: [], name: "Crusher" },
-    );
+    const result = await getSubtreeClimbs(db, { ...area!, largeSubtree: true }, 1, "ascents_desc", {
+      disciplines: [],
+      name: "Crusher",
+    });
     expect(result.climbs.map((climb) => climb.name)).toEqual(["Crusher Face"]);
 
-    const empty = await getSubtreeClimbs(
-      db,
-      { ...area!, largeSubtree: true },
-      1,
-      "ascents_desc",
-      { disciplines: [], name: "No Such Large Area Climb" },
-    );
+    const empty = await getSubtreeClimbs(db, { ...area!, largeSubtree: true }, 1, "ascents_desc", {
+      disciplines: [],
+      name: "No Such Large Area Climb",
+    });
     expect(empty).toEqual({
       climbs: [],
       page: 1,
@@ -172,13 +168,10 @@ describe("getSubtreeClimbs on a large-area-shaped subtree", () => {
 
   it("keeps broad short prefixes on the limit-bounded sort-index path", async () => {
     const area = await getArea(db, AREA_ID);
-    const result = await getSubtreeClimbs(
-      db,
-      { ...area!, largeSubtree: true },
-      1,
-      "name_asc",
-      { disciplines: [], name: "A" },
-    );
+    const result = await getSubtreeClimbs(db, { ...area!, largeSubtree: true }, 1, "name_asc", {
+      disciplines: [],
+      name: "A",
+    });
     expect(result.climbs.map((climb) => climb.name)).toEqual(["Aardvark Wall"]);
 
     const plan = await db.all<{ detail: string }>(sql`
@@ -207,9 +200,9 @@ describe("getSubtreeClimbs on a large-area-shaped subtree", () => {
 
   it("rejects a sort value with no matching index instead of inlining it into SQL", async () => {
     const area = await getArea(db, AREA_ID);
-    await expect(
-      largeSubtreeClimbs(area!, "not_a_real_sort" as never),
-    ).rejects.toThrow("Invalid sort value");
+    await expect(largeSubtreeClimbs(area!, "not_a_real_sort" as never)).rejects.toThrow(
+      "Invalid sort value",
+    );
   });
 
   // The guard has to hold on the small-subtree branch too: that branch's

@@ -1,16 +1,19 @@
 "use client";
 
-import { SURFACE_CARD_CLASS } from "@/components/ui/card";
-import { FIELD_CLASS } from "@/components/ui/field";
-import { Eyebrow } from "@/components/ui/eyebrow";
-import { ASCENT_STYLE_CHIP_CLASSNAME, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
-import { choicePillClass } from "@/components/ui/choice-pill";
-import { SegmentedButtons } from "@/components/ui/segmented-buttons";
-import { useState, useTransition, type ReactNode } from "react";
 import { Button, Checkbox, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
-import clsx from "clsx";
+import { clsx } from "clsx";
 import { Star } from "lucide-react";
+import { useState, useTransition, type ReactNode } from "react";
+
+import { ASCENT_STYLE_CHIP_CLASSNAME, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import { SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { choicePillClass } from "@/components/ui/choice-pill";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { FIELD_CLASS } from "@/components/ui/field";
+import { SegmentedButtons } from "@/components/ui/segmented-buttons";
 import { createSend, updateSend } from "@/db/mutations";
+import type { EditableSend, SendableClimb } from "@/db/queries";
+import { nativeGradeArray } from "@/lib/grades";
 import {
   ASCENT_STYLES,
   GRADE_FEEL_VALUES,
@@ -18,8 +21,6 @@ import {
   type AscentStyle,
   type GradeFeel,
 } from "@/lib/sends";
-import { nativeGradeArray } from "@/lib/grades";
-import type { EditableSend, SendableClimb } from "@/db/queries";
 
 type SendFormProps = {
   climb: SendableClimb;
@@ -164,9 +165,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   const [suggestedGrade, setSuggestedGrade] = useState(
     String(existingSend?.suggestedGrade ?? climb.grade ?? 0),
   );
-  const [gradeFeel, setGradeFeel] = useState<GradeFeel>(
-    existingSend?.gradeFeel ?? "solid",
-  );
+  const [gradeFeel, setGradeFeel] = useState<GradeFeel>(existingSend?.gradeFeel ?? "solid");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -204,7 +203,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         <TextField>
           <Label>Date sent</Label>
           {/* Native, deliberately: the platform's own date picker beats
-            * anything hand-built here, especially on a phone. */}
+           * anything hand-built here, especially on a phone. */}
           <input
             type="date"
             value={dateSent}
@@ -214,11 +213,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
             className={FIELD_CLASS}
           />
           {/* Disabled rather than cleared so toggling back keeps the date. */}
-          <Checkbox
-            className="mt-2"
-            isSelected={dateUnknown}
-            onChange={setDateUnknown}
-          >
+          <Checkbox className="mt-2" isSelected={dateUnknown} onChange={setDateUnknown}>
             <Checkbox.Content>
               <Checkbox.Control>
                 <Checkbox.Indicator />
@@ -272,6 +267,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
               <Select.Popover>
                 <ListBox className="max-h-64 overflow-y-auto">
                   {gradeOptions.map((label, i) => (
+                    // oxlint-disable-next-line react/no-array-index-key -- grade index is stable option id
                     <ListBox.Item key={i} id={String(i)}>
                       {label}
                     </ListBox.Item>
@@ -284,7 +280,11 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
 
         <TextField>
           <Label>Grade feel</Label>
-          <SegmentedButtons value={gradeFeel} onChange={setGradeFeel} options={GRADE_FEEL_OPTIONS} />
+          <SegmentedButtons
+            value={gradeFeel}
+            onChange={setGradeFeel}
+            options={GRADE_FEEL_OPTIONS}
+          />
         </TextField>
       </FormSection>
 
@@ -293,7 +293,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
           <Label>Comment</Label>
           <TextArea maxLength={MAX_COMMENT_LENGTH} placeholder="How'd it go?" />
           {/* The count is a helper line, not part of the label: a label
-            * names the field, and nothing quietly does two jobs. */}
+           * names the field, and nothing quietly does two jobs. */}
           <p className="mt-1 text-xs text-muted">
             {MAX_COMMENT_LENGTH - comment.length} characters left
           </p>

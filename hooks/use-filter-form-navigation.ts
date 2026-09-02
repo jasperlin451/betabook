@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
+
 import { useReportNavigationPending } from "@/components/navigation-pending";
+import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
 
 /** Shared by every filter form that auto-navigates on each field change
  * (climb search, area search, the area page, the user sends list): name/

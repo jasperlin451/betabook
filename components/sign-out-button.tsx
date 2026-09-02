@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@heroui/react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
 import { authClient } from "@/lib/auth-client";
 
 export function SignOutButton() {
@@ -13,7 +14,7 @@ export function SignOutButton() {
   function handleSignOut() {
     setError(null);
     setPending(true);
-    authClient.signOut({
+    void authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
           router.push("/");

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
 
@@ -18,6 +19,8 @@ type SendListShellProps<T extends { id: number }> = {
   loadMoreFailed?: boolean;
 };
 
+const DEFAULT_EMPTY_STATE = <EmptyState message="No sends yet." />;
+
 /** Shared empty-state + "load more" + row-list structure for a list of
  * sends. Used by ClimbSendList and UserSendList, both of which page from the
  * server via `onLoadMore` — there's deliberately no client-side slicing mode
@@ -26,7 +29,7 @@ type SendListShellProps<T extends { id: number }> = {
 export function SendListShell<T extends { id: number }>({
   sends,
   renderRow,
-  emptyState = <EmptyState message="No sends yet." />,
+  emptyState = DEFAULT_EMPTY_STATE,
   hasMore,
   onLoadMore,
   loadingMore = false,

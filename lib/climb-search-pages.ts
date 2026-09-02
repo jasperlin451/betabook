@@ -1,13 +1,10 @@
-import {
-  climbSearchFilterToSearchParams,
-  type ClimbSearchFilter,
-} from "@/lib/climb-search-filter";
 import type {
   AreaBreadcrumbs,
   ClimbSendStats,
   ClimbWithAreaName,
   SubtreeClimbsSort,
 } from "@/db/queries";
+import { climbSearchFilterToSearchParams, type ClimbSearchFilter } from "@/lib/climb-search-filter";
 
 /** One page of /api/search/climbs in its full (non-suggestion) shape — what
  * the home search and the climb picker both page through. `count` only comes

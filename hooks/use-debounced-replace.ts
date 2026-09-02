@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 
 /** Debounces navigation to `href` — used by every filter panel/search form
  * that auto-navigates on each field change instead of requiring a submit.

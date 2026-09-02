@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   BOULDER_HUECO,
   HUECO_TO_FONT,

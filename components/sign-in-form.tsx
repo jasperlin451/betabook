@@ -1,18 +1,14 @@
 "use client";
 
-import { PageTitle } from "@/components/ui/typography";
-import { FORM_CARD_CLASS } from "@/components/ui/card";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button, Input, Label, TextField } from "@heroui/react";
-import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
 import { AppLink } from "@/components/ui/app-link";
-import {
-  DEFAULT_SIGNED_IN_PATH,
-  safeNextPath,
-  signInUrl,
-  signUpUrl,
-} from "@/lib/sign-in-redirect";
+import { FORM_CARD_CLASS } from "@/components/ui/card";
+import { PageTitle } from "@/components/ui/typography";
+import { authClient } from "@/lib/auth-client";
+import { DEFAULT_SIGNED_IN_PATH, safeNextPath, signInUrl, signUpUrl } from "@/lib/sign-in-redirect";
 
 export function SignInForm({ next }: { next?: string }) {
   const router = useRouter();
@@ -39,7 +35,7 @@ export function SignInForm({ next }: { next?: string }) {
     setResent(false);
     setResendError(null);
     setPending(true);
-    authClient.signIn.email(
+    void authClient.signIn.email(
       { email: attemptedEmail, password },
       {
         onSuccess: () => router.push(nextPath ?? DEFAULT_SIGNED_IN_PATH),
@@ -71,7 +67,7 @@ export function SignInForm({ next }: { next?: string }) {
     setResent(false);
     setResendError(null);
     setResendPending(true);
-    authClient.sendVerificationEmail(
+    void authClient.sendVerificationEmail(
       // After the verification link is clicked, land back on this sign-in
       // URL, continuation included.
       { email: unverifiedEmail, callbackURL: signInUrl(nextPath) },
@@ -85,10 +81,7 @@ export function SignInForm({ next }: { next?: string }) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={FORM_CARD_CLASS}
-    >
+    <form onSubmit={handleSubmit} className={FORM_CARD_CLASS}>
       <PageTitle className="text-2xl">Sign in</PageTitle>
       <TextField value={email} onChange={handleEmailChange} type="email" isRequired>
         <Label>Email</Label>
@@ -105,11 +98,7 @@ export function SignInForm({ next }: { next?: string }) {
       {unverifiedEmail !== null && (
         <div className="flex flex-col gap-2 text-sm text-danger">
           <p>Please verify your email address before signing in.</p>
-          <Button
-            variant="ghost"
-            onPress={resendVerification}
-            isDisabled={resent || resendPending}
-          >
+          <Button variant="ghost" onPress={resendVerification} isDisabled={resent || resendPending}>
             {resent ? "Verification email sent" : "Resend verification email"}
           </Button>
           {resendError && <p>{resendError}</p>}

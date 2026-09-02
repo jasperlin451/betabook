@@ -52,7 +52,7 @@ export function mergeCandidates(
 
 /** Whether the server cut this name's list to its per-name cap, so climbs
  * with the name may be missing from the index. */
-export function isTruncated(candidates: readonly ClimbCandidate[]): boolean {
+function isTruncated(candidates: readonly ClimbCandidate[]): boolean {
   return candidates.length > 0 && candidates[0].total > candidates.length;
 }
 
@@ -209,7 +209,11 @@ export function matchRow(
   if (row.climbTypeHint) {
     const kept = candidates.filter((c) => c.type === row.climbTypeHint);
     if (kept.length === 0) {
-      return ambiguous(candidates, all, describeConflict(total, `a ${TYPE_LABEL[row.climbTypeHint]} climb`));
+      return ambiguous(
+        candidates,
+        all,
+        describeConflict(total, `a ${TYPE_LABEL[row.climbTypeHint]} climb`),
+      );
     }
     candidates = kept;
   }
@@ -298,7 +302,14 @@ export function matchRow(
   }
 
   for (const hint of row.areaHints) {
-    if (narrow((c) => inArea(c, hint), () => `matches "${hint}"`, `"${hint}"`)) return inferred();
+    if (
+      narrow(
+        (c) => inArea(c, hint),
+        () => `matches "${hint}"`,
+        `"${hint}"`,
+      )
+    )
+      return inferred();
   }
 
   if (implied.boulder !== null || implied.rope !== null) {

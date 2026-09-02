@@ -1,9 +1,13 @@
-import clsx from "clsx";
+import { clsx } from "clsx";
+
+import { HomeSearchEntry } from "@/components/command-palette";
+import {
+  NavigationPendingProvider,
+  NavigationPendingRegion,
+} from "@/components/navigation-pending";
+import { RecentSendsFeed } from "@/components/recent-sends-feed";
 import { AreaSearchToolbar, ClimbSearchToolbar } from "@/components/search-form";
 import { AreaSearchResults, ClimbSearchResults } from "@/components/search-results";
-import { NavigationPendingProvider, NavigationPendingRegion } from "@/components/navigation-pending";
-import { HomeSearchEntry } from "@/components/command-palette";
-import { RecentSendsFeed } from "@/components/recent-sends-feed";
 import { AppLink } from "@/components/ui/app-link";
 import { SectionHeading } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
@@ -24,8 +28,8 @@ import {
   parseClimbSearchSort,
   toSearchClimbsQueryParams,
 } from "@/lib/climb-search-filter";
-import { getSession } from "@/lib/session";
 import type { SearchParamsRecord } from "@/lib/search-params";
+import { getSession } from "@/lib/session";
 
 type SearchPageProps = {
   searchParams: Promise<SearchParamsRecord>;
@@ -52,10 +56,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <h1 className="sr-only">Betabook</h1>
 
         {/* Search leads: it is how someone arrives looking for a route, and
-          * the feed below is what they read when they aren't. The header's
-          * icon is enough once you know the site, but it is far too quiet to
-          * be the only search on a landing page — especially on a phone,
-          * where the keyboard shortcut it stands for doesn't exist. */}
+         * the feed below is what they read when they aren't. The header's
+         * icon is enough once you know the site, but it is far too quiet to
+         * be the only search on a landing page — especially on a phone,
+         * where the keyboard shortcut it stands for doesn't exist. */}
         <section className="mx-auto w-full max-w-3xl">
           <HomeSearchEntry />
         </section>
@@ -81,7 +85,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     const [results, totalCount] = name
       ? await Promise.all([searchAreas(db, name), countSearchAreas(db, name)])
       : [{ areas: [], hasNextPage: false }, 0];
-    const areaBreadcrumbs = await getAreaBreadcrumbs(db, results.areas.map((a) => a.id));
+    const areaBreadcrumbs = await getAreaBreadcrumbs(
+      db,
+      results.areas.map((a) => a.id),
+    );
 
     const currentSearch = new URLSearchParams({ mode: "area" });
     if (name) currentSearch.set("name", name);
@@ -90,7 +97,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       <NavigationPendingProvider>
         <div className="flex flex-col gap-6">
           {/* The page's content starts straight at the search controls — the
-            * h1 exists for the document outline/assistive tech, not the eye. */}
+           * h1 exists for the document outline/assistive tech, not the eye. */}
           <h1 className="sr-only">Search areas</h1>
           <ModeSwitch mode={mode} name={name} currentSearch={currentSearch.toString()} />
           <section className="flex flex-col gap-3">
@@ -139,8 +146,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     getSession(),
   ]);
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
-    getClimbSendStats(db, results.climbs.map((c) => c.id)),
-    getAreaBreadcrumbs(db, results.climbs.map((c) => c.areaId)),
+    getClimbSendStats(
+      db,
+      results.climbs.map((c) => c.id),
+    ),
+    getAreaBreadcrumbs(
+      db,
+      results.climbs.map((c) => c.areaId),
+    ),
     session
       ? getUserSentClimbIds(
           db,
@@ -154,7 +167,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     <NavigationPendingProvider>
       <div className="flex flex-col gap-6">
         {/* See the area-mode h1 above — visually the page starts at the
-          * search controls. */}
+         * search controls. */}
         <h1 className="sr-only">Search climbs</h1>
         <ModeSwitch
           mode={mode}
@@ -190,9 +203,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
  * "load more" is visibly worth pressing instead of results silently capping. */
 function ResultCount({ count }: { count: number }) {
   return (
-    <span className="text-muted ml-1.5 text-sm font-normal">
-      ({count.toLocaleString("en-US")})
-    </span>
+    <span className="ml-1.5 text-sm font-normal text-muted">({count.toLocaleString("en-US")})</span>
   );
 }
 

@@ -1,4 +1,5 @@
 import { eq, getTableColumns, sql, type SQL } from "drizzle-orm";
+
 import type { Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
 import { MAX_RATING } from "@/lib/climb-stats-filter";
@@ -7,8 +8,9 @@ import {
   DEFAULT_SPORT_RANGE,
   DEFAULT_TRAD_RANGE,
 } from "@/lib/discipline-filter";
-import { PAGE_SIZE, toFtsPrefixQuery } from "./shared";
+
 import { areaNameCondition, type Area } from "./areas";
+import { PAGE_SIZE, toFtsPrefixQuery } from "./shared";
 
 export type Climb = typeof climbs.$inferSelect;
 
@@ -22,7 +24,12 @@ export async function getClimb(db: Database, id: number): Promise<Climb | undefi
  * viewer's current sort/filter query params, so it can come back empty even
  * when the area has climbs. */
 export async function hasClimbsInArea(db: Database, areaId: number): Promise<boolean> {
-  const row = await db.select({ id: climbs.id }).from(climbs).where(eq(climbs.areaId, areaId)).limit(1).get();
+  const row = await db
+    .select({ id: climbs.id })
+    .from(climbs)
+    .where(eq(climbs.areaId, areaId))
+    .limit(1)
+    .get();
   return row != null;
 }
 
@@ -218,9 +225,7 @@ function reachesLargeSubtree(areaId: number): SQL<number> {
  * getAreaWithSubtreeSize, which folds the same predicate into the area lookup
  * those callers were making anyway. */
 async function isLargeSubtree(db: Database, areaId: number): Promise<boolean> {
-  const rows = await db.all<{ large: number }>(
-    sql`SELECT ${reachesLargeSubtree(areaId)} AS large`,
-  );
+  const rows = await db.all<{ large: number }>(sql`SELECT ${reachesLargeSubtree(areaId)} AS large`);
   return rows[0]?.large === 1;
 }
 
@@ -350,12 +355,13 @@ export async function getSubtreeClimbs(
   // global FTS result sort and an eagerly materialized IN-list.
   const longestNameTerm = Math.max(
     0,
-    ...(filter?.name?.trim().split(/\s+/).map((term) => term.length) ?? []),
+    ...(filter?.name
+      ?.trim()
+      .split(/\s+/)
+      .map((term) => term.length) ?? []),
   );
   const useNameIndex =
-    isLarge &&
-    nameQuery !== null &&
-    longestNameTerm >= MIN_LARGE_AREA_FTS_DRIVER_TERM_LENGTH;
+    isLarge && nameQuery !== null && longestNameTerm >= MIN_LARGE_AREA_FTS_DRIVER_TERM_LENGTH;
   if (nameQuery) {
     conditions.push(
       useNameIndex
@@ -379,9 +385,10 @@ export async function getSubtreeClimbs(
   // Keyed on the size decision itself, not on the index name it produces:
   // naming the index here is what silently dropped the chain when the small
   // -area index was renamed.
-  const orderBy = isLarge && !useNameIndex
-    ? sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, climbs.id`
-    : sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, ${sortTieBreak(sort)}, climbs.id`;
+  const orderBy =
+    isLarge && !useNameIndex
+      ? sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, climbs.id`
+      : sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, ${sortTieBreak(sort)}, climbs.id`;
   const climbSource = useNameIndex
     ? sql`climbs_fts JOIN climbs ON climbs.id = climbs_fts.rowid`
     : sql`climbs INDEXED BY ${sql.raw(indexName)}`;
@@ -436,7 +443,10 @@ export type ClimbSummary = Pick<Climb, "id" | "areaId" | "name" | "type" | "grad
 /** The named climbs by id, in no particular order; ids with no climb are
  * simply absent. One statement however many ids, bound as a single JSON
  * value (see getUserSentClimbIds for why). */
-export async function getClimbsByIds(db: Database, ids: readonly number[]): Promise<ClimbSummary[]> {
+export async function getClimbsByIds(
+  db: Database,
+  ids: readonly number[],
+): Promise<ClimbSummary[]> {
   const distinct = [...new Set(ids)];
   if (distinct.length === 0) return [];
   return db.all<ClimbSummary>(sql`
@@ -450,7 +460,10 @@ export async function getClimbsByIds(db: Database, ids: readonly number[]): Prom
 /** One climb that shares a looked-up name, with enough of its surroundings
  * for the import wizard to tell same-named climbs apart without another
  * round trip. */
-export type ClimbCandidate = Pick<Climb, "id" | "areaId" | "name" | "type" | "grade" | "sendCount"> & {
+export type ClimbCandidate = Pick<
+  Climb,
+  "id" | "areaId" | "name" | "type" | "grade" | "sendCount"
+> & {
   /** `LOWER(TRIM(name))` as SQLite computed it — what callers group by, and
    * what lib/import-matching's foldClimbName reproduces for the CSV side. */
   key: string;
@@ -702,10 +715,7 @@ export async function searchClimbs(
  * joined only when needed. Callers should skip the count entirely for a
  * fully unfiltered search (see app/page.tsx) — COUNT(*) over every climb
  * is a full index scan with nothing to show for it on a default landing. */
-export async function countSearchClimbs(
-  db: Database,
-  params: SearchClimbsParams,
-): Promise<number> {
+export async function countSearchClimbs(db: Database, params: SearchClimbsParams): Promise<number> {
   const conditions = searchClimbsConditions(params);
   if (conditions === null) return 0;
 

@@ -1,7 +1,9 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "cloudflare:test";
 import { and, eq, inArray } from "drizzle-orm";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createDb } from "@/db/client";
+import { importSends, resolveImportClimbs, resolveImportClimbsInAreas } from "@/db/mutations";
 import { climbs, sends } from "@/db/schema";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
 import {
@@ -11,7 +13,6 @@ import {
   type ImportSendRow,
 } from "@/lib/sends";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyClimbs } from "@/test/fixtures";
-import { importSends, resolveImportClimbs, resolveImportClimbsInAreas } from "@/db/mutations";
 
 /** importSends's commit contract: each call is all-or-nothing (one db.batch
  * = one D1 transaction), duplicate rows are skipped via the user+climb key
@@ -21,8 +22,8 @@ import { importSends, resolveImportClimbs, resolveImportClimbsInAreas } from "@/
 const sessionState = vi.hoisted(() => ({ userId: "import-user" as string | null }));
 
 const cacheMocks = vi.hoisted(() => ({
-  revalidatePath: vi.fn(),
-  refresh: vi.fn(),
+  revalidatePath: vi.fn<(path: string) => void>(),
+  refresh: vi.fn<() => void>(),
 }));
 
 vi.mock("next/cache", () => cacheMocks);
@@ -32,8 +33,7 @@ vi.mock("next/cache", () => cacheMocks);
 vi.mock("@/lib/session", async () => {
   const { NotSignedInError } = await import("@/lib/action-result");
   return {
-    getSession: async () =>
-      sessionState.userId ? { user: { id: sessionState.userId } } : null,
+    getSession: async () => (sessionState.userId ? { user: { id: sessionState.userId } } : null),
     requireSession: async () => {
       if (!sessionState.userId) throw new NotSignedInError();
       return { user: { id: sessionState.userId } };
@@ -150,7 +150,9 @@ describe("importSends atomic commit", () => {
     const result = await importSends(bulkRows(25, 36), IMPORT_OPTIONS);
 
     expect(result).toEqual({ ok: false, error: GENERIC_ERROR_MESSAGE });
-    expect(await db.select().from(sends).where(eq(sends.userId, "ghost-user")).all()).toHaveLength(0);
+    expect(await db.select().from(sends).where(eq(sends.userId, "ghost-user")).all()).toHaveLength(
+      0,
+    );
     const bulkIds = Array.from({ length: 12 }, (_, i) => 125 + i);
     const touched = await db.select().from(climbs).where(inArray(climbs.id, bulkIds)).all();
     expect(touched.every((c) => c.sendCount === 0)).toBe(true);
@@ -164,12 +166,20 @@ describe("importSends atomic commit", () => {
     const rows = bulkRows(37, 39);
 
     const first = await importSends(rows, IMPORT_OPTIONS);
-    expect(first).toEqual({ ok: true, value: { imported: 3, overwritten: 0, alreadyLogged: 0, missing: [] } });
+    expect(first).toEqual({
+      ok: true,
+      value: { imported: 3, overwritten: 0, alreadyLogged: 0, missing: [] },
+    });
 
     const second = await importSends(rows, IMPORT_OPTIONS);
-    expect(second).toEqual({ ok: true, value: { imported: 0, overwritten: 0, alreadyLogged: 3, missing: [] } });
+    expect(second).toEqual({
+      ok: true,
+      value: { imported: 0, overwritten: 0, alreadyLogged: 3, missing: [] },
+    });
 
-    expect(await db.select().from(sends).where(eq(sends.userId, "retry-user")).all()).toHaveLength(3);
+    expect(await db.select().from(sends).where(eq(sends.userId, "retry-user")).all()).toHaveLength(
+      3,
+    );
     const climb = await db.select().from(climbs).where(eq(climbs.id, 137)).get();
     expect(climb?.sendCount).toBe(1); // not double-counted by the retry
   });
@@ -221,9 +231,9 @@ describe("importSends against a caller that skipped the wizard", () => {
       error: `An import batch can carry at most ${IMPORT_BATCH_SIZE} rows`,
     });
     expect(batchCalls.count).toBe(0);
-    expect(await db.select().from(sends).where(eq(sends.userId, "hostile-user")).all()).toHaveLength(
-      0,
-    );
+    expect(
+      await db.select().from(sends).where(eq(sends.userId, "hostile-user")).all(),
+    ).toHaveLength(0);
   });
 
   it("commits a batch of exactly IMPORT_BATCH_SIZE in one db.batch", async () => {
@@ -245,10 +255,7 @@ describe("importSends against a caller that skipped the wizard", () => {
   it("rejects a row whose climb id isn't a positive integer", async () => {
     sessionState.userId = "hostile-user";
     for (const climbId of ["1", 1.5, -1, 0, null]) {
-      const result = await importSends(
-        [importRow(climbId as unknown as number)],
-        IMPORT_OPTIONS,
-      );
+      const result = await importSends([importRow(climbId as unknown as number)], IMPORT_OPTIONS);
       expect(result).toEqual({ ok: false, error: "Invalid import rows" });
     }
     expect(batchCalls.count).toBe(0);
@@ -292,10 +299,7 @@ describe("importSends against a caller that skipped the wizard", () => {
 
   // A row the wizard would have refused to produce fails the whole call
   // rather than being silently dropped — the commit contract is unchanged.
-  async function expectRejected(
-    overrides: Partial<ImportSendRow>,
-    message: string,
-  ): Promise<void> {
+  async function expectRejected(overrides: Partial<ImportSendRow>, message: string): Promise<void> {
     sessionState.userId = "reject-user";
     const result = await importSends([importRow(132, overrides)], IMPORT_OPTIONS);
 
@@ -397,7 +401,9 @@ describe("resolveImportClimbsInAreas", () => {
   });
 
   it("rejects malformed pairs and requires a session", async () => {
-    expect(await resolveImportClimbsInAreas([{ name: "x" } as { name: string; areaName: string }])).toEqual({
+    expect(
+      await resolveImportClimbsInAreas([{ name: "x" } as { name: string; areaName: string }]),
+    ).toEqual({
       ok: false,
       error: "Invalid climb names",
     });

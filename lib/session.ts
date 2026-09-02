@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
-import { initAuth } from "@/lib/auth";
+
 import { NotSignedInError } from "@/lib/action-result";
+import { initAuth } from "@/lib/auth";
 
 export async function getSession() {
   const auth = await initAuth();

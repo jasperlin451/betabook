@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback } from "react";
-import { SearchCombobox } from "@/components/ui/search-combobox";
+
 import { Grade } from "@/components/ui/grade";
+import { SearchCombobox } from "@/components/ui/search-combobox";
 import { formatGrade } from "@/lib/grades";
 import { fetchRouteSuggestions, type RouteSuggestion } from "@/lib/search-suggestions";
 
@@ -14,7 +15,7 @@ export function RouteSuggestionRow({ route }: { route: RouteSuggestion }) {
     <span className="flex w-full items-center justify-between gap-3">
       <span className="min-w-0">
         <p className="truncate">{route.name}</p>
-        <p className="truncate text-muted text-xs">{route.areaName}</p>
+        <p className="truncate text-xs text-muted">{route.areaName}</p>
       </span>
       <Grade>{formatGrade(route.type, route.grade)}</Grade>
     </span>

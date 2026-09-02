@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, ButtonGroup } from "@heroui/react";
-import clsx from "clsx";
+import { clsx } from "clsx";
 
 type SegmentedButtonsProps<V extends string> = {
   value: V;

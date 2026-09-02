@@ -1,8 +1,8 @@
 "use client";
 
-import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 import { IndexRangeSelect } from "@/components/ui/index-select";
 import type { DisciplineFilter } from "@/lib/discipline-filter";
+import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 
 /** One min/max grade range per checked discipline — the expanded half of
  * every filter toolbar. Generic over `T` since each caller's filter type

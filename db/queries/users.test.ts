@@ -1,8 +1,10 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
+
 import { createDb, type Database } from "@/db/client";
-import { getUser } from "./users";
 import { seedFixtureUser } from "@/test/fixtures";
+
+import { getUser } from "./users";
 
 let db: Database;
 

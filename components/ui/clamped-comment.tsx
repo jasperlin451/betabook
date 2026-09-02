@@ -1,7 +1,8 @@
 "use client";
 
+import { clsx } from "clsx";
 import { useId, useRef, useState, type RefObject } from "react";
-import clsx from "clsx";
+
 import { useIsomorphicLayoutEffect } from "@/hooks/use-isomorphic-layout-effect";
 
 // Sub-pixel line heights make a paragraph that fits its clamp exactly report
@@ -40,7 +41,7 @@ function useIsOverflowing(ref: RefObject<HTMLElement | null>, enabled: boolean):
     observer.observe(element);
     // Not awaited anywhere, so the flag is what keeps a late swap from
     // measuring an unmounted (or since-expanded) paragraph.
-    document.fonts?.ready.then(measure);
+    void document.fonts?.ready.then(measure);
 
     return () => {
       cancelled = true;
@@ -84,7 +85,7 @@ export function ClampedComment({ children }: { children: string }) {
           onClick={() => setExpanded((wasExpanded) => !wasExpanded)}
           aria-expanded={expanded}
           aria-controls={commentId}
-          className="link focus-visible:status-focused text-sm font-medium"
+          className="link text-sm font-medium focus-visible:status-focused"
         >
           {expanded ? "Show less" : "Show more"}
         </button>

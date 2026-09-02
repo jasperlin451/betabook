@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
 import { Button, Input, Label, TextArea, TextField } from "@heroui/react";
+import { useEffect, useRef, useState, useTransition } from "react";
+
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/typography";
-import { authClient } from "@/lib/auth-client";
 import { useMounted } from "@/hooks/use-mounted";
+import { authClient } from "@/lib/auth-client";
 import {
   HONEYPOT_FIELD,
   MAX_EMAIL_LENGTH,
@@ -57,7 +58,10 @@ export function ContactForm() {
     formData.set("email", email.trim());
     formData.set("message", message.trim());
     formData.set(HONEYPOT_FIELD, honeypot);
-    formData.set("elapsed", String(mountedAt.current === null ? 0 : Date.now() - mountedAt.current));
+    formData.set(
+      "elapsed",
+      String(mountedAt.current === null ? 0 : Date.now() - mountedAt.current),
+    );
 
     startTransition(async () => {
       const result = await submitContactMessage(formData);
@@ -104,11 +108,11 @@ export function ContactForm() {
       </TextField>
 
       {/* Honeypot. Off-screen rather than `hidden` or display:none — those
-        * are exactly what a form-filler checks for. aria-hidden and
-        * tabIndex=-1 keep it out of the accessibility tree and the tab
-        * order, so no real visitor can reach it; anything that fills it is
-        * filling every input on the page. Raw input, not a HeroUI
-        * TextField, so nothing themed has to be hidden back out again. */}
+       * are exactly what a form-filler checks for. aria-hidden and
+       * tabIndex=-1 keep it out of the accessibility tree and the tab
+       * order, so no real visitor can reach it; anything that fills it is
+       * filling every input on the page. Raw input, not a HeroUI
+       * TextField, so nothing themed has to be hidden back out again. */}
       <input
         type="text"
         name={HONEYPOT_FIELD}

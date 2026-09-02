@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { getDb } from "@/db/client";
 import {
   getAreaBreadcrumbs,
@@ -9,8 +10,12 @@ import {
   PAGE_SIZE,
   resolveSubareaScope,
 } from "@/db/queries";
-import { getSession } from "@/lib/session";
-import { parseAreaClimbsFilter, parseAreaClimbsSort, toSubtreeQueryFilter } from "@/lib/area-climbs-filter";
+import {
+  parseAreaClimbsFilter,
+  parseAreaClimbsSort,
+  toSubtreeQueryFilter,
+} from "@/lib/area-climbs-filter";
+import { parseId } from "@/lib/parse-id";
 import {
   offsetReachesPaginationLimit,
   pageReachesPaginationLimit,
@@ -19,7 +24,7 @@ import {
   parseSuggestionLimit,
   searchParamsToRecord,
 } from "@/lib/search-params";
-import { parseId } from "@/lib/parse-id";
+import { getSession } from "@/lib/session";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -85,8 +90,14 @@ export async function GET(request: Request, { params }: RouteParams) {
   }
 
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
-    getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
-    getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),
+    getClimbSendStats(
+      db,
+      subtreeClimbs.climbs.map((c) => c.id),
+    ),
+    getAreaBreadcrumbs(
+      db,
+      subtreeClimbs.climbs.map((c) => c.areaId),
+    ),
     session
       ? getUserSentClimbIds(
           db,

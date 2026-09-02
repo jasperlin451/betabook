@@ -1,5 +1,5 @@
+import { clsx } from "clsx";
 import type { ReactNode } from "react";
-import clsx from "clsx";
 
 type EmptyStateProps = {
   /** What's empty and why, in the interface's voice ("No sends yet."). */

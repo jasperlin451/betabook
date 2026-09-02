@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { getDb } from "@/db/client";
 import {
   SEARCH_PAGE_SIZE,
@@ -8,7 +9,6 @@ import {
   getUserSentClimbIds,
   searchClimbs,
 } from "@/db/queries";
-import { getSession } from "@/lib/session";
 import {
   parseClimbSearchFilter,
   parseClimbSearchSort,
@@ -22,6 +22,7 @@ import {
   parseSuggestionLimit,
   searchParamsToRecord,
 } from "@/lib/search-params";
+import { getSession } from "@/lib/session";
 
 /** Backs two callers with the same query.
  *
@@ -74,8 +75,14 @@ export async function GET(request: Request) {
   }
 
   const [sendStats, areaBreadcrumbs, count, sentClimbIds] = await Promise.all([
-    getClimbSendStats(db, results.climbs.map((c) => c.id)),
-    getAreaBreadcrumbs(db, results.climbs.map((c) => c.areaId)),
+    getClimbSendStats(
+      db,
+      results.climbs.map((c) => c.id),
+    ),
+    getAreaBreadcrumbs(
+      db,
+      results.climbs.map((c) => c.areaId),
+    ),
     withCount ? countSearchClimbs(db, queryParams) : Promise.resolve(undefined),
     session
       ? getUserSentClimbIds(

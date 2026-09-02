@@ -1,5 +1,5 @@
-import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 import type { AnalyticsSendRow } from "@/db/queries";
+import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 
 /** Which slice of a climber's log the analytics page is reading — grades
  * only compare within one discipline, so "all" keeps per-discipline
@@ -12,7 +12,7 @@ export function parseDisciplineScope(value: string | undefined): DisciplineScope
   return value === "boulder" || value === "sport" || value === "trad" ? value : "all";
 }
 
-export type HardestSend = {
+type HardestSend = {
   type: ClimbType;
   grade: number;
   label: string;
@@ -30,12 +30,12 @@ export type ProgressionPoint = {
   best: number;
 };
 
-export type DisciplineProgression = { type: ClimbType; points: ProgressionPoint[] };
+type DisciplineProgression = { type: ClimbType; points: ProgressionPoint[] };
 
 export type PyramidRow = { grade: number; label: string; count: number };
 /** Rows run hardest → easiest, zeros kept, so the shape reads as the
  * classic send pyramid: thin peak on top, base underneath. */
-export type DisciplinePyramid = { type: ClimbType; rows: PyramidRow[] };
+type DisciplinePyramid = { type: ClimbType; rows: PyramidRow[] };
 
 export type Breakthrough = {
   type: ClimbType;

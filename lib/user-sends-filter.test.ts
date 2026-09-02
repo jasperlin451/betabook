@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
+
+import type { UserSendsFilter } from "@/db/queries";
+
 import { searchParamsToRecord } from "./search-params";
 import {
   DEFAULT_USER_SENDS_FILTER,
   parseUserSendsFilter,
   userSendsFilterToSearchParams,
 } from "./user-sends-filter";
-import type { UserSendsFilter } from "@/db/queries";
 
 // Same fixed-point invariant as climb-search-filter.test.ts: the user sends
 // page's debounced filter navigation compares built hrefs against the

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { searchParamsToRecord } from "./search-params";
+
 import {
   climbSearchFilterToSearchParams,
   DEFAULT_CLIMB_SEARCH_FILTER,
@@ -8,6 +8,7 @@ import {
   parseClimbSearchSort,
   type ClimbSearchFilter,
 } from "./climb-search-filter";
+import { searchParamsToRecord } from "./search-params";
 
 // The debounced filter navigation only fires when the href built from local
 // state differs from the canonical href of the current URL (see

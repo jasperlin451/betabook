@@ -1,10 +1,4 @@
-import {
-  sqliteTable,
-  integer,
-  text,
-  index,
-  type AnySQLiteColumn,
-} from "drizzle-orm/sqlite-core";
+import { sqliteTable, integer, text, index, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 
 export const areas = sqliteTable(
   "areas",
@@ -15,10 +9,9 @@ export const areas = sqliteTable(
     // parent_id update that would make an area reachable from itself.
     // Declared there rather than here because drizzle-kit doesn't model
     // triggers — nothing in this file will tell you they exist.
-    parentId: integer("parent_id").references(
-      (): AnySQLiteColumn => areas.id,
-      { onDelete: "restrict" },
-    ),
+    parentId: integer("parent_id").references((): AnySQLiteColumn => areas.id, {
+      onDelete: "restrict",
+    }),
     name: text("name").notNull(),
     description: text("description"),
   },

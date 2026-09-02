@@ -1,7 +1,8 @@
-import { PageTitle } from "@/components/ui/typography";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
 import { NewAreaForm } from "@/components/new-area-form";
+import { PageTitle } from "@/components/ui/typography";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
 

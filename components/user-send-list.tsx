@@ -1,32 +1,30 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { Checkbox } from "@heroui/react";
-import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
-import { formatDate } from "@/lib/format-date";
-import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
-import {
-  DEFAULT_USER_SENDS_FILTER,
-  userSendsFilterToSearchParams,
-} from "@/lib/user-sends-filter";
-import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
-import { AppLink } from "@/components/ui/app-link";
-import { EmptyState } from "@/components/ui/empty-state";
-import { AscentStyle, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import { useRouter } from "next/navigation";
+
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
-import { NavigationPendingRegion } from "@/components/navigation-pending";
-import { ListRow } from "@/components/ui/list-row";
+import { AreaSearchField } from "@/components/area-search-field";
+import { AscentStyle, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { FilterToolbar } from "@/components/filter-toolbar";
 import { LogSendButton } from "@/components/log-send-button";
+import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { RouteSearchField } from "@/components/route-search-field";
-import { AreaSearchField } from "@/components/area-search-field";
-import { LabeledIndexSelect } from "@/components/ui/index-select";
 import { SendActionsMenu } from "@/components/send-actions-menu";
 import { SendGradeCell } from "@/components/send-grade-cell";
 import { SendListShell } from "@/components/send-list-shell";
+import { AppLink } from "@/components/ui/app-link";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LabeledIndexSelect } from "@/components/ui/index-select";
+import { ListRow } from "@/components/ui/list-row";
 import { SortSelect } from "@/components/ui/sort-select";
+import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import { usePagedList } from "@/hooks/use-paged-list";
+import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
+import { formatDate } from "@/lib/format-date";
+import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
+import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 
 /** Ascent-style checkboxes for the user sends filter — same structure as
  * DisciplinesFields in send-filter-form.tsx, but not shared there since it's
@@ -63,9 +61,20 @@ function AscentStyleFields({
   );
 }
 
-function MinRatingSelect({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+function MinRatingSelect({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+}) {
   return (
-    <LabeledIndexSelect label="Min rating" options={RATING_OPTIONS} index={value} onChange={onChange} />
+    <LabeledIndexSelect
+      label="Min rating"
+      options={RATING_OPTIONS}
+      index={value}
+      onChange={onChange}
+    />
   );
 }
 

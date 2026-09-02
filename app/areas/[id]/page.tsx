@@ -1,13 +1,14 @@
-import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { AreaBreadcrumbs } from "@/components/breadcrumbs";
-import { AreaHeaderActions } from "@/components/area-header-actions";
+import { cache } from "react";
+
 import { AreaClimbsSection } from "@/components/area-climbs-section";
 import { AreaClimbsToolbar } from "@/components/area-climbs-toolbar";
 import { AreaCragHeader } from "@/components/area-crag-header";
-import { RegisterSearchScope } from "@/components/search-scope";
+import { AreaHeaderActions } from "@/components/area-header-actions";
+import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
+import { RegisterSearchScope } from "@/components/search-scope";
 import { SubareaRail } from "@/components/subarea-rail";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { SidebarLayout } from "@/components/ui/page-shell";
@@ -31,8 +32,8 @@ import {
   toSubtreeQueryFilter,
 } from "@/lib/area-climbs-filter";
 import { buildGradeHistogram } from "@/lib/grade-histogram";
-import { getSession } from "@/lib/session";
 import type { SearchParamsRecord } from "@/lib/search-params";
+import { getSession } from "@/lib/session";
 
 type AreaPageProps = {
   params: Promise<{ id: string }>;
@@ -86,20 +87,25 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   // header, histogram, and rail always describe the whole area.
   const listScope = await resolveSubareaScope(db, area, filter.subareaId);
 
-  const [ancestors, subareas, subtreeClimbs, hasClimbs, histogramRows] =
-    await Promise.all([
-      getAncestors(db, area),
-      getSubareas(db, area.id),
-      getSubtreeClimbs(db, listScope, 1, sort, toSubtreeQueryFilter(filter)),
-      hasClimbsInArea(db, area.id),
-      histogramEligible ? getSubtreeGradeHistogram(db, area) : [],
-    ]);
+  const [ancestors, subareas, subtreeClimbs, hasClimbs, histogramRows] = await Promise.all([
+    getAncestors(db, area),
+    getSubareas(db, area.id),
+    getSubtreeClimbs(db, listScope, 1, sort, toSubtreeQueryFilter(filter)),
+    hasClimbsInArea(db, area.id),
+    histogramEligible ? getSubtreeGradeHistogram(db, area) : [],
+  ]);
   const canDeleteArea = subareas.length === 0 && !hasClimbs;
   const histogram = buildGradeHistogram(histogramRows);
 
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
-    getClimbSendStats(db, subtreeClimbs.climbs.map((c) => c.id)),
-    getAreaBreadcrumbs(db, subtreeClimbs.climbs.map((c) => c.areaId)),
+    getClimbSendStats(
+      db,
+      subtreeClimbs.climbs.map((c) => c.id),
+    ),
+    getAreaBreadcrumbs(
+      db,
+      subtreeClimbs.climbs.map((c) => c.areaId),
+    ),
     session
       ? getUserSentClimbIds(
           db,

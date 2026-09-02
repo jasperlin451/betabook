@@ -1,10 +1,12 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
+
 import { createDb, type Database } from "@/db/client";
 import { areas } from "@/db/schema";
+import { seedManyClimbs } from "@/test/fixtures";
+
 import { getArea } from "./areas";
 import { getSubtreeClimbs } from "./climbs";
-import { seedManyClimbs } from "@/test/fixtures";
 
 // Isolated from climbs.test.ts's fixture tree on purpose: searchClimbs there
 // searches globally (no area scoping), so bulk climbs from a pagination test

@@ -11,7 +11,7 @@ export function useMounted(): boolean {
   useEffect(() => {
     // One-time SSR/CSR reconciliation, not a derived-state sync: this fires
     // exactly once per mount, so it can't cascade.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // oxlint-disable-next-line react/set-state-in-effect
     setMounted(true);
   }, []);
 

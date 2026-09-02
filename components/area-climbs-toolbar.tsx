@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
 import { FilterToolbar } from "@/components/filter-toolbar";
 import { RouteSearchField } from "@/components/route-search-field";
+import type { SubtreeClimbsSort } from "@/db/queries";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import {
   areaClimbsFilterToSearchParams,
@@ -12,9 +14,12 @@ import {
   DEFAULT_AREA_CLIMBS_SORT,
   type AreaClimbsFilter,
 } from "@/lib/area-climbs-filter";
-import type { SubtreeClimbsSort } from "@/db/queries";
 
-function buildClimbsHref(areaId: number, sort: SubtreeClimbsSort, filter: AreaClimbsFilter): string {
+function buildClimbsHref(
+  areaId: number,
+  sort: SubtreeClimbsSort,
+  filter: AreaClimbsFilter,
+): string {
   return `/areas/${areaId}?${areaClimbsFilterToSearchParams(sort, filter).toString()}`;
 }
 
@@ -31,7 +36,13 @@ export function AreaClimbsToolbar({
   filter: AreaClimbsFilter;
 }) {
   const router = useRouter();
-  const { name, setName, filter: value, setFilter: setValue, reset } = useFilterFormNavigation({
+  const {
+    name,
+    setName,
+    filter: value,
+    setFilter: setValue,
+    reset,
+  } = useFilterFormNavigation({
     initialFilter: {
       disciplines: filter.disciplines,
       boulderRange: filter.boulderRange,

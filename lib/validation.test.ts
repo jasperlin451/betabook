@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { parseGradeIndex, pickFormFields, requireTrimmed, trimOrNull } from "./validation";
 
 describe("trimOrNull", () => {
@@ -34,9 +35,7 @@ describe("parseGradeIndex", () => {
     expect(() => parseGradeIndex("-1", 10, "Grade")).toThrow("Invalid grade");
     expect(() => parseGradeIndex("10", 10, "Grade")).toThrow("Invalid grade");
     expect(() => parseGradeIndex("1.5", 10, "Grade")).toThrow("Invalid grade");
-    expect(() => parseGradeIndex("nope", 10, "Suggested grade")).toThrow(
-      "Invalid suggested grade",
-    );
+    expect(() => parseGradeIndex("nope", 10, "Suggested grade")).toThrow("Invalid suggested grade");
   });
 
   it("returns the parsed index when in bounds", () => {

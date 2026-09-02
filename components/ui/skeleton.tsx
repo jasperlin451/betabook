@@ -1,4 +1,5 @@
-import clsx from "clsx";
+import { clsx } from "clsx";
+
 import { cardClass } from "@/components/ui/card";
 
 const TONE_CLASSNAME = {

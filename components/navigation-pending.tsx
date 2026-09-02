@@ -1,7 +1,7 @@
 "use client";
 
+import { clsx } from "clsx";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import clsx from "clsx";
 
 type NavigationPending = {
   isPending: boolean;

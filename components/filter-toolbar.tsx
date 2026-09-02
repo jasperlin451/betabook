@@ -1,10 +1,11 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { Button, buttonVariants, Disclosure } from "@heroui/react";
-import { cardClass } from "@/components/ui/card";
-import { DisciplineGradeSliders } from "@/components/discipline-grade-sliders";
+import type { ReactNode } from "react";
+
 import { DisciplineChips } from "@/components/discipline-chips";
+import { DisciplineGradeSliders } from "@/components/discipline-grade-sliders";
+import { cardClass } from "@/components/ui/card";
 import type { DisciplineFilter } from "@/lib/discipline-filter";
 
 /** One toolbar row above a list — search fields, discipline chips, a "More
@@ -48,17 +49,17 @@ export function FilterToolbar<T extends DisciplineFilter>({
             />
 
             {/* The disclosure and the sort travel together rather than the
-              * sort being pushed off alone with ms-auto, which strands it
-              * hard right against empty space once the row wraps.
-              *
-              * Paired at the left until lg, spread apart above it: the
-              * filters-left/sort-right convention needs a full line to read
-              * as an arrangement — on a phone's wrapped line it is just a
-              * gap between two controls that belong together.
-              *
-              * grow, not flex-1: flex-1 zeroes the basis, so the group would
-              * always "fit" whatever sliver is left and get crushed instead
-              * of wrapping to its own line. */}
+             * sort being pushed off alone with ms-auto, which strands it
+             * hard right against empty space once the row wraps.
+             *
+             * Paired at the left until lg, spread apart above it: the
+             * filters-left/sort-right convention needs a full line to read
+             * as an arrangement — on a phone's wrapped line it is just a
+             * gap between two controls that belong together.
+             *
+             * grow, not flex-1: flex-1 zeroes the basis, so the group would
+             * always "fit" whatever sliver is left and get crushed instead
+             * of wrapping to its own line. */}
             <div className="flex min-w-0 grow items-center gap-3 lg:justify-between">
               <Disclosure.Heading className="contents">
                 <Disclosure.Trigger className={buttonVariants({ variant: "ghost", size: "sm" })}>
@@ -77,12 +78,12 @@ export function FilterToolbar<T extends DisciplineFilter>({
           <Disclosure.Content className="min-w-0">
             <Disclosure.Body style={{ padding: 0 }}>
               {/* Its own surface, so the expanded filters read as one panel
-                * belonging to the bar rather than loose page content. */}
+               * belonging to the bar rather than loose page content. */}
               <div className={`mt-3 flex flex-col gap-4 ${cardClass("sm")}`}>
                 {extraFilters}
                 <DisciplineGradeSliders value={value} onChange={onChange} />
                 {/* Separated footer so Reset reads as an action on the panel
-                  * rather than one more filter in the stack. */}
+                 * rather than one more filter in the stack. */}
                 <div className="flex justify-end border-t border-separator pt-3">
                   <Button variant="ghost" size="sm" onPress={onReset}>
                     Reset filters

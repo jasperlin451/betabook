@@ -1,6 +1,7 @@
 import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createDb, type Database } from "@/db/client";
 import { user } from "@/db/schema";
 import { sendWelcomeEmail } from "@/lib/email";
@@ -14,7 +15,7 @@ import { seedFixtureUser } from "@/test/fixtures";
 
 // Reaching for getCloudflareContext outside a request. Stub the decision —
 // whether an email went out — not the Resend client.
-vi.mock("@/lib/email", () => ({ sendWelcomeEmail: vi.fn(async () => {}) }));
+vi.mock("@/lib/email", () => ({ sendWelcomeEmail: vi.fn<() => Promise<void>>(async () => {}) }));
 
 let db: Database;
 

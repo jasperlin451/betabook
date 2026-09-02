@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+
 import { SignInForm } from "@/components/sign-in-form";
 import { safeNextPath } from "@/lib/sign-in-redirect";
 

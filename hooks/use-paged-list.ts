@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export type PagedListPage<T, Meta> = {
+type PagedListPage<T, Meta> = {
   items: T[];
   hasMore: boolean;
   meta: Meta;
@@ -71,9 +71,7 @@ export function usePagedList<T, Meta>({
       const page = await fetchPage(state.items.length, state.pagesLoaded + 1);
 
       const existingKeys = new Set(state.items.map(itemKey));
-      const nextItems = page.items.filter(
-        (item) => !existingKeys.has(itemKey(item)),
-      );
+      const nextItems = page.items.filter((item) => !existingKeys.has(itemKey(item)));
       if (page.hasMore && nextItems.length === 0) {
         throw new Error("Paged response did not advance");
       }

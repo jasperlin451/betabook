@@ -1,7 +1,7 @@
-import { nativeGradeArray, type ClimbType } from "@/lib/grades";
-import { ActionError } from "@/lib/action-result";
-import { parseGradeIndex, requireTrimmed, trimOrNull } from "@/lib/validation";
 import type { Climb } from "@/db/queries";
+import { ActionError } from "@/lib/action-result";
+import { nativeGradeArray, type ClimbType } from "@/lib/grades";
+import { parseGradeIndex, requireTrimmed, trimOrNull } from "@/lib/validation";
 
 const CLIMB_TYPES = ["boulder", "sport", "trad"] as const;
 

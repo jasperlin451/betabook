@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+
 import { AreaSearchField } from "@/components/area-search-field";
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import { ClimbStatsFields } from "@/components/climb-stats-filter-fields";
 import { FilterToolbar } from "@/components/filter-toolbar";
 import { RouteSearchField } from "@/components/route-search-field";
+import type { SubtreeClimbsSort } from "@/db/queries";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import {
   climbSearchFilterToSearchParams,
@@ -13,7 +15,6 @@ import {
   DEFAULT_CLIMB_SEARCH_SORT,
   type ClimbSearchFilter,
 } from "@/lib/climb-search-filter";
-import type { SubtreeClimbsSort } from "@/db/queries";
 
 /** Area search's one control: the name field, in the toolbar position the
  * climb toolbar occupies so switching modes keeps the page's shape. Auto-
@@ -62,17 +63,24 @@ export function ClimbSearchToolbar({
   sort?: SubtreeClimbsSort;
 }) {
   const router = useRouter();
-  const { name, setName, areaName, setAreaName, filter: value, setFilter: setValue, reset } =
-    useFilterFormNavigation({
-      initialFilter: filter,
-      initialName: filter.name ?? "",
-      initialAreaName: filter.areaName ?? "",
-      defaultFilter: DEFAULT_CLIMB_SEARCH_FILTER,
-      sort,
-      defaultSort: DEFAULT_CLIMB_SEARCH_SORT,
-      buildHref: (value, name, areaName, effectiveSort = sort) =>
-        buildSearchHref(effectiveSort, { ...value, name, areaName }),
-    });
+  const {
+    name,
+    setName,
+    areaName,
+    setAreaName,
+    filter: value,
+    setFilter: setValue,
+    reset,
+  } = useFilterFormNavigation({
+    initialFilter: filter,
+    initialName: filter.name ?? "",
+    initialAreaName: filter.areaName ?? "",
+    defaultFilter: DEFAULT_CLIMB_SEARCH_FILTER,
+    sort,
+    defaultSort: DEFAULT_CLIMB_SEARCH_SORT,
+    buildHref: (value, name, areaName, effectiveSort = sort) =>
+      buildSearchHref(effectiveSort, { ...value, name, areaName }),
+  });
 
   return (
     <FilterToolbar

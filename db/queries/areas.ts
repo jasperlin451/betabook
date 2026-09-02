@@ -1,8 +1,10 @@
 import { eq, sql, type SQL } from "drizzle-orm";
+
 import type { Database } from "@/db/client";
 import { areas } from "@/db/schema";
-import { toFtsPrefixQuery } from "./shared";
 import { AREA_SEARCH_PAGE_SIZE } from "@/lib/page-sizes";
+
+import { toFtsPrefixQuery } from "./shared";
 
 export type Area = typeof areas.$inferSelect;
 

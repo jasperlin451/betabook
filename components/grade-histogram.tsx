@@ -1,6 +1,8 @@
-import clsx from "clsx";
-import type { GradeHistogram, DisciplineHistogram, GradeBucket } from "@/lib/grade-histogram";
-import type { ClimbType } from "@/lib/grades";
+import { clsx } from "clsx";
+
+import { AppLink } from "@/components/ui/app-link";
+import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import {
   areaClimbsFilterToSearchParams,
   DEFAULT_AREA_CLIMBS_FILTER,
@@ -8,9 +10,8 @@ import {
   type AreaClimbsFilter,
 } from "@/lib/area-climbs-filter";
 import { formatCount } from "@/lib/format";
-import { AppLink } from "@/components/ui/app-link";
-import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
-import { Eyebrow } from "@/components/ui/eyebrow";
+import type { GradeHistogram, DisciplineHistogram, GradeBucket } from "@/lib/grade-histogram";
+import type { ClimbType } from "@/lib/grades";
 
 // Same discipline → palette hue mapping as the discipline chips.
 const BAR_COLOR: Record<ClimbType, string> = {
@@ -78,8 +79,8 @@ function BucketColumn({
         {children}
       </div>
       {/* Every bar wears its grade; the label is also the hover cue — it
-        * lifts and darkens under the cursor so the bar reads as clickable.
-        * Empty spacer buckets stay unlabeled (the bars carry the axis). */}
+       * lifts and darkens under the cursor so the bar reads as clickable.
+       * Empty spacer buckets stay unlabeled (the bars carry the axis). */}
       <span
         aria-hidden
         className={clsx(

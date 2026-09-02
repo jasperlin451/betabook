@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
+
 import { getDb } from "@/db/client";
 import { AREA_SEARCH_PAGE_SIZE, getAreaBreadcrumbs, searchAreas } from "@/db/queries";
-import {
-  pageReachesPaginationLimit,
-  parsePage,
-  parseSuggestionLimit,
-} from "@/lib/search-params";
+import { pageReachesPaginationLimit, parsePage, parseSuggestionLimit } from "@/lib/search-params";
 
 /** Backs two callers with the same query.
  *
@@ -25,9 +22,7 @@ export async function GET(request: Request) {
 
   if (page === null) {
     return NextResponse.json(
-      limit === null
-        ? { areas: [], hasNextPage: false, areaBreadcrumbs: {} }
-        : { areas: [] },
+      limit === null ? { areas: [], hasNextPage: false, areaBreadcrumbs: {} } : { areas: [] },
     );
   }
 

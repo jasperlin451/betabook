@@ -1,3 +1,4 @@
+import type { UserSendsFilter, UserSendsSort } from "@/db/queries";
 import { MAX_RATING } from "@/lib/climb-stats-filter";
 import {
   DEFAULT_DISCIPLINE_FILTER,
@@ -5,16 +6,15 @@ import {
   parseDisciplineFilter,
 } from "@/lib/discipline-filter";
 import { parseAscentStyles, toArray, type SearchParamsRecord } from "@/lib/search-params";
-import type { UserSendsFilter, UserSendsSort } from "@/db/queries";
 
-const USER_SENDS_SORTS: UserSendsSort[] = [
+const USER_SENDS_SORTS = new Set<UserSendsSort>([
   "date_desc",
   "date_asc",
   "grade_desc",
   "grade_asc",
   "rating_desc",
   "rating_asc",
-];
+]);
 
 // No disciplines checked means "don't filter on discipline or grade at
 // all" — not "match nothing". Checking one activates that filter (and
@@ -31,7 +31,7 @@ export const DEFAULT_USER_SENDS_FILTER: UserSendsFilter = {
  * view, not "match nothing" (see DEFAULT_USER_SENDS_FILTER). */
 export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilter {
   const rawSort = toArray(params.sort)[0];
-  const sort = USER_SENDS_SORTS.includes(rawSort as UserSendsSort)
+  const sort = USER_SENDS_SORTS.has(rawSort as UserSendsSort)
     ? (rawSort as UserSendsSort)
     : DEFAULT_USER_SENDS_FILTER.sort;
 

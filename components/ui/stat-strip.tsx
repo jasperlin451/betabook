@@ -1,5 +1,6 @@
+import { clsx } from "clsx";
 import type { ReactNode } from "react";
-import clsx from "clsx";
+
 import { cardClass } from "@/components/ui/card";
 import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
 
@@ -20,10 +21,7 @@ export function StatStrip({ cards, className }: StatStripProps) {
   return (
     <div className={clsx("flex flex-row flex-wrap gap-4 lg:w-full lg:flex-col", className)}>
       {cards.map((card) => (
-        <div
-          key={card.key}
-          className={clsx("min-w-56 flex-1 lg:min-w-0", cardClass("sm"))}
-        >
+        <div key={card.key} className={clsx("min-w-56 flex-1 lg:min-w-0", cardClass("sm"))}>
           {card.heading && <div className="mb-3">{card.heading}</div>}
           <div className="flex flex-col gap-2">
             {card.stats.map((stat) => (

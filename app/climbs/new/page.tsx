@@ -1,7 +1,8 @@
-import { PageTitle } from "@/components/ui/typography";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
 import { NewClimbForm } from "@/components/new-climb-form";
+import { PageTitle } from "@/components/ui/typography";
 import { isClimbType } from "@/lib/climbs";
 import { toArray, type SearchParamsRecord } from "@/lib/search-params";
 import { getSession } from "@/lib/session";

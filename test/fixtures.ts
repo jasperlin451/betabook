@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+
 import type { Database } from "@/db/client";
 import { areas, climbs, user, sends } from "@/db/schema";
 
@@ -37,12 +38,7 @@ export async function seedFixtureTree(db: Database) {
 }
 
 /** Inserts `count` boulder climbs into `areaId`, for pagination tests. */
-export async function seedManyClimbs(
-  db: Database,
-  areaId: number,
-  count: number,
-  startId: number,
-) {
+export async function seedManyClimbs(db: Database, areaId: number, count: number, startId: number) {
   const area = await db.select().from(areas).where(eq(areas.id, areaId)).get();
   if (!area) throw new Error(`seedManyClimbs: no area with id ${areaId}`);
 
@@ -73,7 +69,10 @@ export async function seedManyAreas(
   db: Database,
   count: number,
   startId: number,
-  { parentId = null, namePrefix = "Bulk Area" }: { parentId?: number | null; namePrefix?: string } = {},
+  {
+    parentId = null,
+    namePrefix = "Bulk Area",
+  }: { parentId?: number | null; namePrefix?: string } = {},
 ) {
   const rows = Array.from({ length: count }, (_, i) => ({
     id: startId + i,
