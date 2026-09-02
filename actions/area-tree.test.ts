@@ -2,8 +2,8 @@ import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { createArea, createClimb, updateArea } from "@/actions";
 import { createDb } from "@/db/client";
-import { createArea, createClimb, updateArea } from "@/db/mutations";
 import { getArea, getSubareas, getSubtreeClimbs, findClimbCandidatesByNames } from "@/db/queries";
 import { seedFixtureTree } from "@/test/fixtures";
 

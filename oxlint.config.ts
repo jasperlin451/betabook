@@ -54,8 +54,24 @@ export default defineConfig({
     // Enforce strict equality (=== / !==) while permitting standard nullish (== null) comparisons.
     eqeqeq: ["error", "always", { null: "ignore" }],
 
+    // Comprehensive import plugin rule suite:
     // Allow CSS side-effect imports (e.g. globals.css) while forbidding unassigned JS imports.
     "import/no-unassigned-import": ["error", { allow: ["**/*.css"] }],
+    "import/no-cycle": "error",
+    "import/no-self-import": "error",
+    "import/no-duplicates": "error",
+    "import/no-mutable-exports": "error",
+    "import/no-named-as-default": "error",
+    "import/no-named-as-default-member": "error",
+    "import/default": "error",
+    "import/named": "error",
+    "import/namespace": "error",
+    "import/export": "error",
+    "import/extensions": "error",
+    "import/first": "error",
+    "import/no-relative-parent-imports": "error",
+    "import/no-dynamic-require": "error",
+    "import/no-anonymous-default-export": "error",
 
     // Ensure tests have assertions while recognizing custom assertion helpers (e.g. expectCycleRejection).
     "vitest/expect-expect": ["error", { assertFunctionNames: ["expect", "expect*"] }],
@@ -106,4 +122,80 @@ export default defineConfig({
     // Immutable object spreading in .map() transformations is idiomatic and clean.
     "oxc/no-map-spread": "off",
   },
+  overrides: [
+    {
+      files: ["components/**"],
+      rules: {
+        "typescript/no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "@/db/client",
+                  "@/db/queries",
+                  "@/db/queries/**",
+                  "@/db/schema",
+                  "@/db/schema/**",
+                ],
+                allowTypeImports: true,
+                message:
+                  "Components must not access database clients, queries, or schemas directly at runtime. Use Server Actions (@/actions) or page loaders.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["lib/**"],
+      rules: {
+        "typescript/no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: ["@/components/**", "@/app/**", "@/actions/**"],
+                message:
+                  "Pure domain logic and utilities in lib/ must not depend on UI components, routes, or Server Actions.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["actions/**"],
+      rules: {
+        "typescript/no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: ["@/components/**", "@/app/**"],
+                message: "Server Actions must not depend on UI components or application routes.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ["db/**"],
+      rules: {
+        "typescript/no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: ["@/components/**", "@/app/**", "@/actions/**"],
+                message:
+                  "Database queries and schemas must not depend on UI components, routes, or Server Actions.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
 });

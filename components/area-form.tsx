@@ -3,10 +3,10 @@
 import { Button, Label, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
+import { createArea, updateArea } from "@/actions";
 import { AreaPicker, type PickedArea } from "@/components/area-picker";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { FIELD_CLASS } from "@/components/ui/field";
-import { createArea, updateArea } from "@/db/mutations";
 import type { Area } from "@/db/queries";
 
 type AreaFormProps = {

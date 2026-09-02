@@ -4,10 +4,10 @@ import { Menu, Tooltip, useOverlayState } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { deleteClimb } from "@/actions";
 import { ClimbFormDrawer } from "@/components/climb-form-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
-import { deleteClimb } from "@/db/mutations";
 import type { Climb } from "@/db/queries";
 
 type ClimbActionsMenuProps = {

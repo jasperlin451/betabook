@@ -1,6 +1,12 @@
-import type { Discipline, DisciplineGradeFilter } from "@/db/queries";
-import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
+import { BOULDER_HUECO, ROPE_YDS, type Discipline } from "@/lib/grades";
 import { parseDisciplines, toRange, type SearchParamsRecord } from "@/lib/search-params";
+
+export type DisciplineGradeFilter = {
+  disciplines: Discipline[];
+  boulderRange?: [number, number];
+  sportRange?: [number, number];
+  tradRange?: [number, number];
+};
 
 export const DEFAULT_BOULDER_RANGE: [number, number] = [0, BOULDER_HUECO.length - 1];
 export const DEFAULT_SPORT_RANGE: [number, number] = [0, ROPE_YDS.length - 1];

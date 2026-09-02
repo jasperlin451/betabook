@@ -2,8 +2,8 @@ import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createClimb, createSend, deleteClimb, updateClimb, updateSend } from "@/actions";
 import { createDb } from "@/db/client";
-import { createClimb, createSend, deleteClimb, updateClimb, updateSend } from "@/db/mutations";
 import { climbs, sends } from "@/db/schema";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";

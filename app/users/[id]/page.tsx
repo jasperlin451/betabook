@@ -11,8 +11,7 @@ import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { SidebarLayout } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
-import { SectionHeading } from "@/components/ui/typography";
-import { PageTitle } from "@/components/ui/typography";
+import { PageTitle, SectionHeading } from "@/components/ui/typography";
 import { UserSendList, UserSendsFilterToolbar } from "@/components/user-send-list";
 import { getDb } from "@/db/client";
 import {

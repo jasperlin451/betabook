@@ -2,8 +2,8 @@ import { env } from "cloudflare:test";
 import { and, eq, inArray } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { importSends, resolveImportClimbs, resolveImportClimbsInAreas } from "@/actions";
 import { createDb } from "@/db/client";
-import { importSends, resolveImportClimbs, resolveImportClimbsInAreas } from "@/db/mutations";
 import { climbs, sends } from "@/db/schema";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
 import {

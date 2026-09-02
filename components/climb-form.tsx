@@ -3,10 +3,10 @@
 import { Button, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
+import { createClimb, updateClimb } from "@/actions";
 import { AreaPicker, type PickedArea } from "@/components/area-picker";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { FIELD_CLASS } from "@/components/ui/field";
-import { createClimb, updateClimb } from "@/db/mutations";
 import type { Climb } from "@/db/queries";
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 

@@ -6,10 +6,6 @@ import { X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AreaSearchField } from "@/components/area-search-field";
-import {
-  ImportClimbSearchDrawer,
-  type SearchTarget,
-} from "@/components/import-climb-search-drawer";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -29,6 +25,8 @@ import {
   type ResolvedState,
   type ResolvedSummary,
 } from "@/lib/import-matching";
+
+import { ImportClimbSearchDrawer, type SearchTarget } from "./import-climb-search-drawer";
 
 /** Where the climb-name lookup stands — the step renders its list only once
  * every name has been asked about. */
