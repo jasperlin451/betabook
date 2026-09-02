@@ -159,21 +159,21 @@ export async function importSends(
     const missing: number[] = [];
     let alreadyLogged = 0;
 
-    rows.forEach((row, index) => {
+    for (const [index, row] of rows.entries()) {
       const climb = climbsById.get(climbIds[index]);
       if (!climb) {
         missing.push(index);
-        return;
+        continue;
       }
 
       if (processed.has(climb.id)) {
-        alreadyLogged++;
-        return;
+        alreadyLogged += 1;
+        continue;
       }
 
       if (alreadySent.has(climb.id) && options.onConflict === "skip") {
-        alreadyLogged++;
-        return;
+        alreadyLogged += 1;
+        continue;
       }
 
       // Identical for both branches apart from userId/climbId — which is what
@@ -206,7 +206,7 @@ export async function importSends(
       } else {
         toInsert.push({ userId: session.user.id, climbId: climb.id, ...values });
       }
-    });
+    }
 
     // ONE db.batch for the whole call — a D1 batch runs as a single
     // transaction (and a single Workers subrequest), so every row here commits

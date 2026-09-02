@@ -94,7 +94,7 @@ describe("getSubtreeClimbs", () => {
     beforeAll(async () => {
       // A user can only send a given climb once (sends.user_id/climb_id is
       // unique), so each send below needs its own distinct user.
-      for (let i = 1; i <= 6; i++) {
+      for (let i = 1; i <= 6; i += 1) {
         await seedFixtureUser(db, {
           id: `test-user-climbs-sort-${i}`,
           name: `Climbs Sort Tester ${i}`,
@@ -645,7 +645,7 @@ describe("searchClimbs pagination", () => {
   it("pages over fully tied climbs without duplicating or skipping any", async () => {
     for (const sort of [undefined, "grade_asc"] as const) {
       const ids: number[] = [];
-      for (let page = 1; page <= 3; page++) {
+      for (let page = 1; page <= 3; page += 1) {
         const result = await searchClimbs(db, { ...SCOPE, sort }, page);
         ids.push(...result.climbs.map((c) => c.id));
       }

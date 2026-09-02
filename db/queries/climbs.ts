@@ -309,6 +309,7 @@ function climbStatsConditions(filter: ClimbStatsFilter): SQL[] {
  * a different area than the one being listed — the two travel together or not
  * at all. A test that wants a specific branch on a fixture too small to earn
  * it spreads the flag on: `{ ...area, largeSubtree: true }`. */
+// oxlint-disable-next-line complexity -- sort / discipline / pagination / large-subtree branches
 export async function getSubtreeClimbs(
   db: Database,
   area: Area | AreaWithSubtreeSize,

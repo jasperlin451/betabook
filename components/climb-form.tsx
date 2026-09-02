@@ -29,6 +29,7 @@ const CLIMB_TYPE_LABELS: Record<ClimbType, string> = {
   trad: "Trad",
 };
 
+// oxlint-disable-next-line complexity -- create/edit form with many conditionally-rendered fields
 export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: ClimbFormProps) {
   const disciplineLocked = (climb?.sendCount ?? 0) > 0;
 
@@ -57,7 +58,8 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
     setError(null);
     setSubmitAttempted(true);
 
-    if (!trimmedName || (!climb && areaId == null)) return;
+    const targetAreaId = areaId;
+    if (!trimmedName || (!climb && targetAreaId == null)) return;
 
     const formData = new FormData();
     formData.set("name", trimmedName);
@@ -73,8 +75,8 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
           return;
         }
         onDone?.(climb.id);
-      } else {
-        const result = await createClimb(areaId as number, formData);
+      } else if (targetAreaId != null) {
+        const result = await createClimb(targetAreaId, formData);
         if (!result.ok) {
           setError(result.error);
           return;

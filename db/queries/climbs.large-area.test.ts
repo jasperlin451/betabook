@@ -43,7 +43,7 @@ beforeAll(async () => {
     { id: START_ID + 3, areaId: AREA_ID, name: "Driftwood Slab", type: "boulder", grade: null },
   ]);
 
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 4; i += 1) {
     await seedFixtureUser(db, { id: `test-user-large-area-${i}`, name: `Large Area Tester ${i}` });
   }
   // Crusher Face (id START_ID+2): 2 sends, ratings 5 and 3 -> avg 4.

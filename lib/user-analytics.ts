@@ -160,7 +160,7 @@ export function buildPyramid(sends: AnalyticsSendRow[], type: ClimbType): Pyrami
   const min = Math.min(...indices);
   const max = Math.max(...indices);
   const rows: PyramidRow[] = [];
-  for (let grade = max; grade >= min; grade--) {
+  for (let grade = max; grade >= min; grade -= 1) {
     rows.push({ grade, label: scale[grade], count: gradeCounts.get(grade) ?? 0 });
   }
   return rows;
@@ -168,6 +168,7 @@ export function buildPyramid(sends: AnalyticsSendRow[], type: ClimbType): Pyrami
 
 /** Aggregates one user's full send log into everything the analytics page
  * shows, filtered to `scope`. Pure — see user-analytics.test.ts. */
+// oxlint-disable-next-line complexity -- one branch per independent stat computed in a single pass
 export function buildUserAnalytics(
   allSends: AnalyticsSendRow[],
   scope: DisciplineScope,
@@ -185,13 +186,16 @@ export function buildUserAnalytics(
     const scale = nativeGradeArray(type);
     const graded = gradedSends(sends, type);
     if (graded.length === 0) continue;
-    const top = graded.reduce((best, s) => {
-      if (s.grade > best.grade) return s;
-      if (s.grade === best.grade && s.dateSent != null) {
-        if (best.dateSent == null || s.dateSent < best.dateSent) return s;
+    let top = graded[0];
+    for (const s of graded.slice(1)) {
+      if (s.grade > top.grade) {
+        top = s;
+      } else if (s.grade === top.grade && s.dateSent != null) {
+        if (top.dateSent == null || s.dateSent < top.dateSent) {
+          top = s;
+        }
       }
-      return best;
-    });
+    }
     hardest.push({
       type,
       grade: top.grade,
@@ -209,7 +213,12 @@ export function buildUserAnalytics(
     const scale = nativeGradeArray(scope);
     const firstTries = gradedSends(sends, scope).filter((s) => s.ascentStyle !== "redpoint");
     if (firstTries.length > 0) {
-      const top = firstTries.reduce((best, s) => (s.grade > best.grade ? s : best));
+      let top = firstTries[0];
+      for (const s of firstTries.slice(1)) {
+        if (s.grade > top.grade) {
+          top = s;
+        }
+      }
       hardestFirstTry = {
         type: scope,
         grade: top.grade,
@@ -241,7 +250,7 @@ export function buildUserAnalytics(
   let longestStreak: UserAnalytics["longestStreak"] = null;
   let longestLayoff: UserAnalytics["longestLayoff"] = null;
   let streak = 1;
-  for (let i = 0; i < days.length; i++) {
+  for (let i = 0; i < days.length; i += 1) {
     if (i > 0) {
       const gap = diffDays(days[i - 1], days[i]);
       streak = gap === 1 ? streak + 1 : 1;
@@ -307,7 +316,7 @@ export function buildUserAnalytics(
     const months = [...hardestByMonth.keys()].sort();
     const points: ProgressionPoint[] = [];
     for (const month of months) {
-      const monthHardest = hardestByMonth.get(month)!;
+      const monthHardest = hardestByMonth.get(month) ?? 0;
       const prevBest = points.length > 0 ? points[points.length - 1].best : 0;
       points.push({ month, hardest: monthHardest, best: Math.max(prevBest, monthHardest) });
     }

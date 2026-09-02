@@ -187,6 +187,7 @@ function describeConflict(total: number, predicate: string, suffix = ""): string
  * then the grade. A truncated list is never resolved by soft signals — the
  * right climb may be among the ones the cap dropped — unless the Area
  * column vouches for the survivors (see areaLookupsNeeded). */
+// oxlint-disable-next-line complexity -- layered hard-then-soft signal filters, each a guarded branch
 export function matchRow(
   row: NormalizedImportRow,
   index: CandidateIndex,
@@ -242,10 +243,11 @@ export function matchRow(
     candidates = kept;
   }
 
-  if (row.areaName) {
-    const kept = candidates.filter((c) => inArea(c, row.areaName!));
+  const rowAreaName = row.areaName;
+  if (rowAreaName) {
+    const kept = candidates.filter((c) => inArea(c, rowAreaName));
     if (kept.length === 0) {
-      return ambiguous(candidates, all, describeConflict(total, `in "${row.areaName}"`));
+      return ambiguous(candidates, all, describeConflict(total, `in "${rowAreaName}"`));
     }
     candidates = kept;
   }
@@ -397,8 +399,8 @@ export function summarizeResolved(rows: readonly ResolvedRow[]): ResolvedSummary
     ready: 0,
   };
   for (const resolved of rows) {
-    summary[resolved.state]++;
-    if (resolved.climb) summary.ready++;
+    summary[resolved.state] += 1;
+    if (resolved.climb) summary.ready += 1;
   }
   return summary;
 }

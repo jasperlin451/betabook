@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
   // `192.168.attacker.com`. Add yours via DEV_ORIGINS (comma-separated).
   allowedDevOrigins: [
     "192.168.50.242",
+    // oxlint-disable-next-line node/no-process-env
     ...(process.env.DEV_ORIGINS?.split(",")
       .map((origin) => origin.trim())
       .filter(Boolean) ?? []),

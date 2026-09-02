@@ -12,7 +12,7 @@ import type {
   SubtreeClimbsSort,
 } from "@/db/queries";
 import { usePagedList } from "@/hooks/use-paged-list";
-import { type ClimbSearchFilter } from "@/lib/climb-search-filter";
+import type { ClimbSearchFilter } from "@/lib/climb-search-filter";
 import {
   createClimbListMeta,
   fetchClimbSearchPage,

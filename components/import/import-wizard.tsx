@@ -209,6 +209,7 @@ function toImportSendRow(resolved: ResolvedRow, climb: ClimbCandidate): ImportSe
   };
 }
 
+// oxlint-disable-next-line complexity -- multi-step wizard state machine; each step adds a branch
 export function ImportWizard({ profileHref }: { profileHref: string }) {
   const [step, setStep] = useState<Step>("upload");
   const [error, setError] = useState<string | null>(null);
@@ -529,7 +530,8 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
    * re-entered the step) writes nothing. `scale` is passed rather than read
    * from state because the upload step calls this in the tick that sets it. */
   async function runLookup(valid: NormalizedImportRow[], scale: GradeScale) {
-    const run = ++lookupRunRef.current;
+    lookupRunRef.current += 1;
+    const run = lookupRunRef.current;
     const chunk = <T,>(items: T[]): T[][] =>
       Array.from({ length: Math.ceil(items.length / RESOLVE_BATCH_SIZE) }, (_, i) =>
         items.slice(i * RESOLVE_BATCH_SIZE, (i + 1) * RESOLVE_BATCH_SIZE),
@@ -558,7 +560,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
         return false;
       }
       index = mergeCandidates(index, result.value);
-      done++;
+      done += 1;
       setLookup({ phase: "loading", done, total });
       return true;
     };
@@ -599,7 +601,9 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     setError(null);
     cancelRequestedRef.current = false;
     setCancelRequested(false);
-    const toImport = resolved.filter((r) => r.climb !== null);
+    const toImport = resolved.filter(
+      (r): r is ResolvedRow & { climb: ClimbCandidate } => r.climb !== null,
+    );
     const total = toImport.length;
     setProgress({
       completed: 0,
@@ -630,7 +634,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
         // — offline, or the worker erroring outside the action. Either way
         // it's the same story for this batch: nothing committed.
         const result = await importSends(
-          batch.map((r) => toImportSendRow(r, r.climb!)),
+          batch.map((r) => toImportSendRow(r, r.climb)),
           { gradeScale, onConflict },
         ).catch(() => ({ ok: false, error: "Import failed" }) as const);
         if (result.ok) {
@@ -645,7 +649,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
           batchErrors.push({ rows: batch, message: result.error });
           failedRows += batch.length;
           lastError = result.error;
-          consecutiveFailures++;
+          consecutiveFailures += 1;
         }
         nextIndex += batch.length;
         setProgress({
@@ -707,7 +711,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
   }
 
   function reset() {
-    lookupRunRef.current++;
+    lookupRunRef.current += 1;
     setStep("upload");
     setParsedCsv(null);
     setSource("unknown");
@@ -1055,7 +1059,9 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
           <ImportMatchStep
             resolved={resolved}
             lookup={lookup}
-            onRetryLookup={() => void runLookup(normalized.valid, gradeScale)}
+            onRetryLookup={() => {
+              void runLookup(normalized.valid, gradeScale);
+            }}
             preferredAreas={preferredAreas}
             onPreferredAreasChange={setPreferredAreas}
             filter={matchFilter}

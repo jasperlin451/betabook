@@ -26,13 +26,17 @@ const email = rawEmail.trim().toLowerCase();
 // mistake: better-auth's validator wants a TLD.
 if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
   console.error(`Not a valid email address: ${rawEmail}`);
-  process.exit(1);
-}
-if (password.length < 8) {
+  process.exitCode = 1;
+} else if (password.length < 8) {
   console.error(
     "Password must be at least 8 characters (better-auth's default minPasswordLength).",
   );
-  process.exit(1);
+  process.exitCode = 1;
+} else {
+  main().catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
 
 /** SQLite string literal — doubling `'` is the whole escaping rule. */
@@ -76,8 +80,3 @@ WHERE provider_id = 'credential'
   console.log(`Seeded local user ${email} (password: ${password})`);
   console.log("Sign in at http://localhost:3000/sign-in");
 }
-
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});

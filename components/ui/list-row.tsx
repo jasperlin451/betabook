@@ -1,5 +1,5 @@
 import { clsx } from "clsx";
-import { type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { AppLink } from "@/components/ui/app-link";
 import { ClampedComment } from "@/components/ui/clamped-comment";

@@ -128,7 +128,7 @@ export function parseCsvText(text: string): ParsedCsv {
     let n = 2;
     let renamed = `${header} (${n})`;
     while (used.has(renamed) || rawHeaders.includes(renamed)) {
-      n++;
+      n += 1;
       renamed = `${header} (${n})`;
     }
     used.add(renamed);
@@ -138,9 +138,9 @@ export function parseCsvText(text: string): ParsedCsv {
 
   const rows = rawRows.slice(headerIndex + 1).map((r) => {
     const row: Record<string, string> = {};
-    headers.forEach((h, i) => {
+    for (const [i, h] of headers.entries()) {
       row[h] = r[i] ?? "";
-    });
+    }
     return row;
   });
 
@@ -621,12 +621,12 @@ export function detectGradeScale(values: string[]): GradeScale {
   for (const value of values) {
     const text = cleanGradeText(value);
     if (!text) continue;
-    if (parseGrade("boulder", text) !== null || parseGrade("sport", text) !== null) native++;
+    if (parseGrade("boulder", text) !== null || parseGrade("sport", text) !== null) native += 1;
     if (
       parseGrade("boulder", text, "converted") !== null ||
       parseGrade("sport", text, "converted") !== null
     ) {
-      converted++;
+      converted += 1;
     }
   }
   return converted > native ? "converted" : "native";
@@ -776,6 +776,7 @@ export type NormalizeOptions = {
  * coercion warnings for the value adjustments made to rows in the valid
  * bucket.
  */
+// oxlint-disable-next-line complexity -- one coercion + validation branch per mapped CSV column
 export function normalizeImportRows(
   parsed: ParsedCsv,
   mapping: ColumnMapping,
@@ -800,19 +801,22 @@ export function normalizeImportRows(
   const warningBuckets = new Map<CoercionWarning["field"], { count: number; examples: string[] }>();
   const warn = (field: CoercionWarning["field"], rowIndex: number, example: string) => {
     const bucket = warningBuckets.get(field) ?? { count: 0, examples: [] };
-    bucket.count++;
+    bucket.count += 1;
     if (bucket.examples.length < WARNING_EXAMPLE_LIMIT) {
       bucket.examples.push(`Row ${rowIndex + 1}: ${example}`);
     }
     warningBuckets.set(field, bucket);
   };
 
-  parsed.rows.forEach((row, rowIndex) => {
+  for (const [rowIndex, row] of parsed.rows.entries()) {
     const fail = (reason: string) => invalid.push({ rowIndex, raw: row, reason });
     const cell = (column: string | null) => (column ? (row[column] ?? "").trim() : "");
 
     const climbName = cell(mapping.climbName);
-    if (!climbName) return fail("Missing climb name");
+    if (!climbName) {
+      fail("Missing climb name");
+      continue;
+    }
 
     const areaName = cell(mapping.areaName) || null;
     const areaHints = mapping.areaHints.flatMap((column) => splitAreaHint(cell(column)));
@@ -820,17 +824,24 @@ export function normalizeImportRows(
     const rawAscentStyle = cell(mapping.ascentStyle);
     const mappedAscentStyle = rawAscentStyle ? ascentStyleMapping[rawAscentStyle] : undefined;
     if (!mappedAscentStyle || mappedAscentStyle === "skip") {
-      return fail(
+      fail(
         rawAscentStyle ? `Unmapped ascent style value "${rawAscentStyle}"` : "Missing ascent style",
       );
+      continue;
     }
 
     const rawDate = cell(mapping.date);
     let dateSent: string | null = null;
     if (rawDate && !undated.has(rawDate)) {
       dateSent = parseDateWithFormat(rawDate, dateFormat);
-      if (dateSent === null) return fail(`Unparseable date "${rawDate}"`);
-      if (dateSent > latestDateSent) return fail(`Date "${rawDate}" is in the future`);
+      if (dateSent === null) {
+        fail(`Unparseable date "${rawDate}"`);
+        continue;
+      }
+      if (dateSent > latestDateSent) {
+        fail(`Date "${rawDate}" is in the future`);
+        continue;
+      }
     }
 
     const rawClimbType = cell(mapping.climbType);
@@ -899,7 +910,7 @@ export function normalizeImportRows(
       gradeFeel,
       raw: row,
     });
-  });
+  }
 
   const warnings: CoercionWarning[] = (
     ["suggestedGrade", "rating", "gradeFeel", "comment"] as const
