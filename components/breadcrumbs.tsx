@@ -3,6 +3,8 @@
 import { Breadcrumbs } from "@heroui/react";
 import { useRouter } from "next/navigation";
 
+import { areaHref } from "@/lib/slug";
+
 type BreadcrumbNamed = { id: number; name: string };
 
 type AreaBreadcrumbsProps = {
@@ -38,7 +40,7 @@ export function AreaBreadcrumbs({ ancestors, current }: AreaBreadcrumbsProps) {
       <span className="h-px w-6 shrink-0 bg-palette-primary" aria-hidden />
       <Breadcrumbs>
         {ancestors.map((ancestor, index) => {
-          const href = `/areas/${ancestor.id}`;
+          const href = areaHref(ancestor.id, ancestor.name);
           return (
             <Breadcrumbs.Item
               key={ancestor.id}

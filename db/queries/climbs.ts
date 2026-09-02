@@ -29,22 +29,21 @@ export async function countClimbs(db: Database): Promise<number> {
   return row?.count ?? 0;
 }
 
-/** One page of climb ids in id order — a sitemap shard. Keyset would be
- * tighter, but the sitemap runs a few times a day and OFFSET over an
- * integer PK stays an index scan. */
-export async function getClimbIdsPage(
+/** One page of climb id + name rows in id order — a sitemap shard. The name
+ * builds the URL slug. Keyset would be tighter, but the sitemap runs a few
+ * times a day and OFFSET over an integer PK stays an index scan. */
+export async function getClimbSitemapRows(
   db: Database,
   limit: number,
   offset: number,
-): Promise<number[]> {
-  const rows = await db
-    .select({ id: climbs.id })
+): Promise<{ id: number; name: string }[]> {
+  return db
+    .select({ id: climbs.id, name: climbs.name })
     .from(climbs)
     .orderBy(climbs.id)
     .limit(limit)
     .offset(offset)
     .all();
-  return rows.map((row) => row.id);
 }
 
 /** Whether any climb is directly in `areaId` — an existence check (indexed

@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ListRow } from "@/components/ui/list-row";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
 import type { Area } from "@/db/queries";
+import { areaHref } from "@/lib/slug";
 
 /** How many sub-area pills the card variant shows before collapsing behind a
  * "Show all N" toggle — a state-level area can have hundreds of sub-areas,
@@ -73,7 +74,7 @@ export function AreaList({
                 </span>
               }
               title={area.name}
-              href={`/areas/${area.id}`}
+              href={areaHref(area.id, area.name)}
               subtitle={<AreaBreadcrumb ancestors={areaBreadcrumbs?.[area.id] ?? []} />}
             />
           ))}
@@ -88,7 +89,7 @@ export function AreaList({
       <div className="flex flex-col gap-3">
         {areas.map((area) => (
           <div key={area.id}>
-            <AppLink href={`/areas/${area.id}`}>{area.name}</AppLink>
+            <AppLink href={areaHref(area.id, area.name)}>{area.name}</AppLink>
             {area.ancestorPath && <p className="text-sm text-muted">Parent: {area.ancestorPath}</p>}
           </div>
         ))}
@@ -107,7 +108,7 @@ export function AreaList({
         <ul className="columns-2 gap-x-8 sm:columns-3 lg:columns-4">
           {shownAreas.map((area) => (
             <li key={area.id} className="mb-1.5 break-inside-avoid text-sm">
-              <AppLink href={`/areas/${area.id}`}>{area.name}</AppLink>
+              <AppLink href={areaHref(area.id, area.name)}>{area.name}</AppLink>
             </li>
           ))}
         </ul>
@@ -130,7 +131,7 @@ export function AreaList({
       {areas.map((area) => (
         <AppLink
           key={area.id}
-          href={`/areas/${area.id}`}
+          href={areaHref(area.id, area.name)}
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           {area.name}

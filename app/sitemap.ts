@@ -2,8 +2,9 @@ import type { MetadataRoute } from "next";
 import { cache } from "react";
 
 import { getDb } from "@/db/client";
-import { countAreas, countClimbs, getAreaIdsPage, getClimbIdsPage } from "@/db/queries";
+import { countAreas, countClimbs, getAreaSitemapRows, getClimbSitemapRows } from "@/db/queries";
 import { SITE_URL } from "@/lib/site";
+import { areaHref, climbHref } from "@/lib/slug";
 
 // Google caps a sitemap at 50,000 URLs; stay under with headroom.
 const SHARD_SIZE = 40_000;
@@ -55,12 +56,12 @@ export default async function sitemap({
   const areaShards = Math.max(1, Math.ceil(areas / SHARD_SIZE));
 
   if (shard < areaShards) {
-    const ids = await getAreaIdsPage(db, SHARD_SIZE, shard * SHARD_SIZE);
-    const areaEntries = ids.map((areaId) => ({ url: `${SITE_URL}/areas/${areaId}` }));
+    const rows = await getAreaSitemapRows(db, SHARD_SIZE, shard * SHARD_SIZE);
+    const areaEntries = rows.map((a) => ({ url: `${SITE_URL}${areaHref(a.id, a.name)}` }));
     if (shard !== 0) return areaEntries;
     return [...STATIC_PATHS.map((path) => ({ url: `${SITE_URL}${path}` })), ...areaEntries];
   }
 
-  const ids = await getClimbIdsPage(db, SHARD_SIZE, (shard - areaShards) * SHARD_SIZE);
-  return ids.map((climbId) => ({ url: `${SITE_URL}/climbs/${climbId}` }));
+  const rows = await getClimbSitemapRows(db, SHARD_SIZE, (shard - areaShards) * SHARD_SIZE);
+  return rows.map((c) => ({ url: `${SITE_URL}${climbHref(c.id, c.name)}` }));
 }

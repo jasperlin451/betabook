@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
 
 import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
@@ -38,9 +38,13 @@ import type { AscentStyle as AscentStyleType } from "@/lib/sends";
 import { climbDescription, climbJsonLd, climbTitle, locationTrail, pageMetadata } from "@/lib/seo";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
+import { areaHref, climbHref, slugify } from "@/lib/slug";
 
 type ClimbPageProps = {
-  params: Promise<{ id: string }>;
+  // Optional catch-all: `slug` is undefined for /climbs/:id and a segment
+  // array for /climbs/:id/anything. The id is authoritative; the slug is
+  // decorative and normalized by the redirect below.
+  params: Promise<{ id: string; slug?: string[] }>;
 };
 
 // Shared between generateMetadata and the page — see the identical pattern in
@@ -58,12 +62,25 @@ const getAreaById = cache(async (id: number) => getArea(await getDb(), id));
 const getAreaAncestors = cache(async (area: Area) => getAncestors(await getDb(), area));
 
 export async function generateMetadata({ params }: ClimbPageProps): Promise<Metadata> {
-  const { id } = await params;
+  const { id, slug } = await params;
   const climbId = Number(id);
   if (!Number.isInteger(climbId)) notFound();
 
   const climb = await getClimbById(climbId);
   if (!climb) notFound();
+
+  // Normalize any other spelling of the URL (no slug, stale slug, extra
+  // segments) to the canonical id + slug. Done in generateMetadata, not the
+  // page body, so it runs before the page's own data fetches. On this
+  // streamed Workers deployment it emits a `<meta http-equiv="refresh"
+  // content="0;url=...">` rather than a 308 — Google treats a 0-second
+  // refresh as a permanent redirect, and the rendered page's rel=canonical
+  // points at the same URL. Internal links and the sitemap already use the
+  // canonical form, so this only catches stale external links. A real 308
+  // would have to move into middleware.ts with an id -> name lookup.
+  if ((slug?.join("/") ?? "") !== slugify(climb.name)) {
+    permanentRedirect(climbHref(climb.id, climb.name));
+  }
 
   const area = await getAreaById(climb.areaId);
   if (!area) notFound();
@@ -73,7 +90,7 @@ export async function generateMetadata({ params }: ClimbPageProps): Promise<Meta
   return pageMetadata({
     title: climbTitle(climb, area.name),
     description: climbDescription(climb, trail),
-    path: `/climbs/${climb.id}`,
+    path: climbHref(climb.id, climb.name),
     ogType: "article",
   });
 }
@@ -87,7 +104,8 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   // Grouped by dependency tier so independent fetches overlap instead of
   // waterfalling: the db handle, the climb row, and the session don't depend
   // on each other; the sends queries need only the climb; and the ancestor
-  // chain needs the area row's parentId.
+  // chain needs the area row's parentId. A stale/absent slug has already
+  // 308'd in generateMetadata.
   const [db, climb, session] = await Promise.all([getDb(), getClimbById(climbId), getSession()]);
   if (!climb) notFound();
 
@@ -107,9 +125,9 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   const trail = locationTrail([...ancestors.map((a) => a.name), area.name]);
   const breadcrumbCrumbs = [
     { name: "Home", path: "/" },
-    ...ancestors.map((a) => ({ name: a.name, path: `/areas/${a.id}` })),
-    { name: area.name, path: `/areas/${area.id}` },
-    { name: climb.name, path: `/climbs/${climb.id}` },
+    ...ancestors.map((a) => ({ name: a.name, path: areaHref(a.id, a.name) })),
+    { name: area.name, path: areaHref(area.id, area.name) },
+    { name: climb.name, path: climbHref(climb.id, climb.name) },
   ];
 
   const loggedBreakdown = Object.entries(summary.styleBreakdown).filter(([, count]) => count > 0);
@@ -124,7 +142,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
       <JsonLd
         data={climbJsonLd({
           name: climb.name,
-          path: `/climbs/${climb.id}`,
+          path: climbHref(climb.id, climb.name),
           description: climbDescription(climb, trail),
           crumbs: breadcrumbCrumbs,
         })}
@@ -208,7 +226,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
               // never learn ascents can be logged. The continuation brings
               // them straight back here after signing in.
               <AppLink
-                href={signInUrl(`/climbs/${climb.id}`)}
+                href={signInUrl(climbHref(climb.id, climb.name))}
                 className="text-center text-sm text-muted"
               >
                 Sign in to log this climb
@@ -233,7 +251,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                       <LogSendButton climb={climb} fullWidth />
                     )
                   ) : (
-                    <AppLink href={signInUrl(`/climbs/${climb.id}`)} className="text-sm">
+                    <AppLink href={signInUrl(climbHref(climb.id, climb.name))} className="text-sm">
                       Sign in to log the first send
                     </AppLink>
                   )

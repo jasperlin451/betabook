@@ -2,6 +2,7 @@ import { AppLink } from "@/components/ui/app-link";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { Grade } from "@/components/ui/grade";
 import { formatDate } from "@/lib/format-date";
+import { climbHref } from "@/lib/slug";
 import { formatDaySpan, type Breakthrough } from "@/lib/user-analytics";
 
 /** The ceiling register: every send that raised a personal best, newest
@@ -25,7 +26,7 @@ export function BreakthroughList({
           <Grade className="w-11 shrink-0">{breakthrough.label}</Grade>
           <div className="min-w-0 flex-1">
             <AppLink
-              href={`/climbs/${breakthrough.climbId}`}
+              href={climbHref(breakthrough.climbId, breakthrough.climbName)}
               className="block truncate text-sm text-foreground"
             >
               {breakthrough.climbName}

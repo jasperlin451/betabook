@@ -17,12 +17,16 @@ import type { GradeHistogram } from "@/lib/grade-histogram";
  * deciding to scroll the route table. */
 export function AreaCragHeader({
   area,
+  areaPath,
   histogram,
   actions,
   isEditor = false,
   filter,
 }: {
   area: Area;
+  /** Canonical id + slug URL for this area — the histogram bars filter
+   * through it so a click doesn't bounce off a redirect. */
+  areaPath: string;
   histogram: GradeHistogram;
   /** The area's editor actions, rendered beside the title (editors only). */
   actions?: ReactNode;
@@ -89,7 +93,7 @@ export function AreaCragHeader({
        * trigger row opening onto nothing. */}
       {histogram.groups.length > 0 && (
         <CollapsibleSection title="Grade spread" breakpoint="md" showTitleOnDesktop={false}>
-          <GradeHistogramChart histogram={histogram} areaId={area.id} filter={filter} />
+          <GradeHistogramChart histogram={histogram} areaPath={areaPath} filter={filter} />
         </CollapsibleSection>
       )}
     </div>

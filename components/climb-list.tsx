@@ -12,6 +12,7 @@ import type { ClimbWithAreaName } from "@/db/queries";
 import { formatCount } from "@/lib/format";
 import { describeGradeTrend } from "@/lib/grades";
 import type { ClimbType } from "@/lib/grades";
+import { climbHref } from "@/lib/slug";
 
 type ClimbListProps = {
   climbs: ClimbWithAreaName[];
@@ -69,7 +70,7 @@ export function ClimbList({
               sentClimbIds && <ClimbSentIndicator climb={climb} sent={sentClimbIds.has(climb.id)} />
             }
             title={climb.name}
-            href={`/climbs/${climb.id}`}
+            href={climbHref(climb.id, climb.name)}
             subtitle={
               <AreaBreadcrumb
                 areaId={climb.areaId}

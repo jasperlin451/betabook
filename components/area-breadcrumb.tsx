@@ -1,4 +1,5 @@
 import { AppLink } from "@/components/ui/app-link";
+import { areaHref } from "@/lib/slug";
 
 /** Up to two ancestor areas, then (optionally) the leaf area — each a link.
  * Shared by any row that shows "where" something is: a user's sends and
@@ -35,7 +36,7 @@ export function AreaBreadcrumb({
         <span className="hidden md:inline">
           {leading.map((segment) => (
             <span key={segment.id}>
-              <AppLink href={`/areas/${segment.id}`} className={linkClassName}>
+              <AppLink href={areaHref(segment.id, segment.name)} className={linkClassName}>
                 {segment.name}
               </AppLink>
               <span aria-hidden> / </span>
@@ -43,7 +44,7 @@ export function AreaBreadcrumb({
           ))}
         </span>
       )}
-      <AppLink href={`/areas/${last.id}`} className={linkClassName}>
+      <AppLink href={areaHref(last.id, last.name)} className={linkClassName}>
         {last.name}
       </AppLink>
     </span>
