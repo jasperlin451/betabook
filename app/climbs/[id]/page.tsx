@@ -16,12 +16,14 @@ import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Grade } from "@/components/ui/grade";
+import { JsonLd } from "@/components/ui/json-ld";
 import { SidebarLayout } from "@/components/ui/page-shell";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { PageTitle, SectionHeading } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
 import {
+  type Area,
   getAncestors,
   getArea,
   getClimb,
@@ -33,6 +35,7 @@ import { missingDescriptionMessage } from "@/lib/descriptions";
 import { buildLoggedGradeRows } from "@/lib/grade-histogram";
 import { formatGrade } from "@/lib/grades";
 import type { AscentStyle as AscentStyleType } from "@/lib/sends";
+import { climbDescription, climbJsonLd, climbTitle, locationTrail, pageMetadata } from "@/lib/seo";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
 
@@ -41,12 +44,18 @@ type ClimbPageProps = {
 };
 
 // Shared between generateMetadata and the page — see the identical pattern in
-// app/areas/[id]/page.tsx for why the whole id -> climb lookup is memoized
-// rather than the (db, id)-keyed query helper.
+// app/areas/[id]/page.tsx for why the whole id -> row lookup is memoized
+// rather than the (db, id)-keyed query helper. The area and its ancestor
+// chain are keyed the same way so generateMetadata (title, description,
+// breadcrumb JSON-LD) and the page share one round trip for each.
 const getClimbById = cache(async (id: number) => {
   const db = await getDb();
   return getClimb(db, id);
 });
+
+const getAreaById = cache(async (id: number) => getArea(await getDb(), id));
+
+const getAreaAncestors = cache(async (area: Area) => getAncestors(await getDb(), area));
 
 export async function generateMetadata({ params }: ClimbPageProps): Promise<Metadata> {
   const { id } = await params;
@@ -56,10 +65,17 @@ export async function generateMetadata({ params }: ClimbPageProps): Promise<Meta
   const climb = await getClimbById(climbId);
   if (!climb) notFound();
 
-  return {
-    title:
-      climb.grade == null ? climb.name : `${climb.name} (${formatGrade(climb.type, climb.grade)})`,
-  };
+  const area = await getAreaById(climb.areaId);
+  if (!area) notFound();
+  const ancestors = await getAreaAncestors(area);
+
+  const trail = locationTrail([...ancestors.map((a) => a.name), area.name]);
+  return pageMetadata({
+    title: climbTitle(climb, area.name),
+    description: climbDescription(climb, trail),
+    path: `/climbs/${climb.id}`,
+    ogType: "article",
+  });
 }
 
 export default async function ClimbPage({ params }: ClimbPageProps) {
@@ -79,14 +95,22 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   // query — a popular climb's full send history never ships in the RSC
   // payload (ClimbSendList "load more"-fetches the rest on demand).
   const [area, userSend, sendsPage, summary] = await Promise.all([
-    getArea(db, climb.areaId),
+    getAreaById(climb.areaId),
     session ? getUserSendForClimb(db, session.user.id, climb.id).then((s) => s ?? null) : null,
     getSendsForClimb(db, climb.id),
     getClimbSendSummary(db, climb.id),
   ]);
   if (!area) notFound();
 
-  const ancestors = await getAncestors(db, area);
+  const ancestors = await getAreaAncestors(area);
+
+  const trail = locationTrail([...ancestors.map((a) => a.name), area.name]);
+  const breadcrumbCrumbs = [
+    { name: "Home", path: "/" },
+    ...ancestors.map((a) => ({ name: a.name, path: `/areas/${a.id}` })),
+    { name: area.name, path: `/areas/${area.id}` },
+    { name: climb.name, path: `/climbs/${climb.id}` },
+  ];
 
   const loggedBreakdown = Object.entries(summary.styleBreakdown).filter(([, count]) => count > 0);
   const loggedGradeRows = buildLoggedGradeRows(
@@ -97,6 +121,14 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
 
   return (
     <div className="flex flex-col gap-6">
+      <JsonLd
+        data={climbJsonLd({
+          name: climb.name,
+          path: `/climbs/${climb.id}`,
+          description: climbDescription(climb, trail),
+          crumbs: breadcrumbCrumbs,
+        })}
+      />
       <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
 
       <div className="flex items-start justify-between gap-2">

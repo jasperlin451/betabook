@@ -10,6 +10,7 @@ import { signInUrl } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
   title: "Add climb",
+  robots: { index: false },
 };
 
 type NewClimbPageProps = {

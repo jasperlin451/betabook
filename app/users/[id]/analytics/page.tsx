@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: UserAnalyticsPageProps): Prom
   const user = await getUserById(id);
   if (!user) notFound();
 
-  return { title: `${user.name} · Analytics` };
+  return { title: `${user.name} · Analytics`, robots: { index: false } };
 }
 
 function analyticsHref(userId: string, scope: ClimbType): string {

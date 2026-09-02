@@ -1,4 +1,5 @@
 import { clsx } from "clsx";
+import type { Metadata } from "next";
 
 import { HomeSearchEntry } from "@/components/command-palette";
 import {
@@ -34,6 +35,16 @@ import { getSession } from "@/lib/session";
 type SearchPageProps = {
   searchParams: Promise<SearchParamsRecord>;
 };
+
+export async function generateMetadata({ searchParams }: SearchPageProps): Promise<Metadata> {
+  // Any param at all is a search/filter state (see the page body) — infinite
+  // and low-value as a landing page, so it's kept out of the index and
+  // canonicalized to the bare feed.
+  const isSearch = Object.keys(await searchParams).length > 0;
+  return isSearch
+    ? { title: "Search", robots: { index: false }, alternates: { canonical: "/" } }
+    : { alternates: { canonical: "/" } };
+}
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;

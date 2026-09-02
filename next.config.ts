@@ -22,6 +22,18 @@ const nextConfig: NextConfig = {
     // shell fully prerenderable (cacheComponents) later.
     NEXT_PUBLIC_BUILD_YEAR: String(new Date().getFullYear()),
   },
+  async headers() {
+    return [
+      {
+        // The /api routes back the app's own "load more" fetches (feed,
+        // search) and return JSON — never a search result. robots.txt is
+        // Cloudflare-managed, so the header is how these stay out of the
+        // index.
+        source: "/api/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex" }],
+      },
+    ];
+  },
 };
 
 void initOpenNextCloudflareForDev();

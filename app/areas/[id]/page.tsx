@@ -11,10 +11,12 @@ import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { RegisterSearchScope } from "@/components/search-scope";
 import { SubareaRail } from "@/components/subarea-rail";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { JsonLd } from "@/components/ui/json-ld";
 import { SidebarLayout } from "@/components/ui/page-shell";
 import { SectionHeading } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
 import {
+  type Area,
   getAncestors,
   getAreaBreadcrumbs,
   getAreaWithSubtreeSize,
@@ -33,6 +35,7 @@ import {
 } from "@/lib/area-climbs-filter";
 import { buildGradeHistogram } from "@/lib/grade-histogram";
 import type { SearchParamsRecord } from "@/lib/search-params";
+import { areaDescription, areaJsonLd, areaTitle, locationTrail, pageMetadata } from "@/lib/seo";
 import { getSession } from "@/lib/session";
 
 type AreaPageProps = {
@@ -49,6 +52,11 @@ const getAreaById = cache(async (id: number) => {
   return getAreaWithSubtreeSize(db, id);
 });
 
+// Same memoization for the ancestor chain, keyed on the area row so
+// generateMetadata (title, description, breadcrumb JSON-LD) and the page
+// walk it once between them.
+const getAreaAncestors = cache(async (area: Area) => getAncestors(await getDb(), area));
+
 export async function generateMetadata({ params }: AreaPageProps): Promise<Metadata> {
   const { id } = await params;
   const areaId = Number(id);
@@ -56,8 +64,14 @@ export async function generateMetadata({ params }: AreaPageProps): Promise<Metad
 
   const area = await getAreaById(areaId);
   if (!area) notFound();
+  const ancestors = await getAreaAncestors(area);
 
-  return { title: area.name };
+  const trail = locationTrail(ancestors.map((a) => a.name));
+  return pageMetadata({
+    title: areaTitle(area.name, ancestors.at(-1)?.name ?? null),
+    description: areaDescription(area.name, trail),
+    path: `/areas/${area.id}`,
+  });
 }
 
 export default async function AreaPage({ params, searchParams }: AreaPageProps) {
@@ -88,7 +102,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   const listScope = await resolveSubareaScope(db, area, filter.subareaId);
 
   const [ancestors, subareas, subtreeClimbs, hasClimbs, histogramRows] = await Promise.all([
-    getAncestors(db, area),
+    getAreaAncestors(area),
     getSubareas(db, area.id),
     getSubtreeClimbs(db, listScope, 1, sort, toSubtreeQueryFilter(filter)),
     hasClimbsInArea(db, area.id),
@@ -96,6 +110,14 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   ]);
   const canDeleteArea = subareas.length === 0 && !hasClimbs;
   const histogram = buildGradeHistogram(histogramRows);
+
+  const areaPath = `/areas/${area.id}`;
+  const ancestorNames = ancestors.map((a) => a.name);
+  const areaCrumbs = [
+    { name: "Home", path: "/" },
+    ...ancestors.map((a) => ({ name: a.name, path: `/areas/${a.id}` })),
+    { name: area.name, path: areaPath },
+  ];
 
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
     getClimbSendStats(
@@ -117,6 +139,15 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
 
   return (
     <div className="flex flex-col gap-6">
+      <JsonLd
+        data={areaJsonLd({
+          name: area.name,
+          path: areaPath,
+          description: areaDescription(area.name, locationTrail(ancestorNames)),
+          crumbs: areaCrumbs,
+          ancestorNames,
+        })}
+      />
       {/* Lets ⌘K lead with this area's own routes while the viewer is here. */}
       <RegisterSearchScope areaId={area.id} areaName={area.name} />
       <AreaBreadcrumbs ancestors={ancestors} current={area} />
