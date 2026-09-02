@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { ActionError } from "@/lib/action-result";
 import {
   CONTACT_FORM_FIELDS,
@@ -85,12 +86,7 @@ describe("validateContactInput", () => {
 
   it.each([
     ["name", { name: "a".repeat(MAX_NAME_LENGTH + 1) }, MAX_NAME_LENGTH, "Name"],
-    [
-      "email",
-      { email: `${"a".repeat(MAX_EMAIL_LENGTH)}@example.com` },
-      MAX_EMAIL_LENGTH,
-      "Email",
-    ],
+    ["email", { email: `${"a".repeat(MAX_EMAIL_LENGTH)}@example.com` }, MAX_EMAIL_LENGTH, "Email"],
     ["message", { message: "a".repeat(MAX_MESSAGE_LENGTH + 1) }, MAX_MESSAGE_LENGTH, "Message"],
   ])("caps the %s", (_field, overrides, max, label) => {
     expect(() => validateContactInput(raw(overrides))).toThrow(
@@ -141,6 +137,12 @@ describe("CONTACT_FORM_FIELDS", () => {
   // pickFormFields — a field dropped from this list silently arrives as
   // null, so pin the set rather than trusting the two sides to agree.
   it("covers every field the form submits", () => {
-    expect([...CONTACT_FORM_FIELDS]).toEqual(["name", "email", "message", HONEYPOT_FIELD, "elapsed"]);
+    expect([...CONTACT_FORM_FIELDS]).toEqual([
+      "name",
+      "email",
+      "message",
+      HONEYPOT_FIELD,
+      "elapsed",
+    ]);
   });
 });

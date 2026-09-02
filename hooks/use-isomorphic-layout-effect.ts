@@ -10,4 +10,5 @@ import { useEffect, useLayoutEffect } from "react";
  * hook order stable while dropping the warning; the client still gets the
  * pre-paint commit that anything measuring or matching against layout depends
  * on to avoid a flash of the wrong state. */
-export const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+export const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;

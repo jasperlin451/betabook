@@ -2,6 +2,7 @@
 
 import { Button, useOverlayState } from "@heroui/react";
 import { CirclePlus } from "lucide-react";
+
 import { SendFormDrawer } from "@/components/send-form-drawer";
 import type { Climb } from "@/db/queries";
 
@@ -26,7 +27,7 @@ export function LogSendButton({ climb, sentClimbIds, fullWidth }: LogSendButtonP
     <>
       <Button fullWidth={fullWidth} onPress={state.open} className="gap-2">
         {/* Same icon the climb lists use for their per-row log trigger (see
-          * ClimbSentIndicator). */}
+         * ClimbSentIndicator). */}
         <CirclePlus className="size-5" />
         Log send
       </Button>

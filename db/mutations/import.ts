@@ -1,10 +1,9 @@
 "use server";
 
-import { refresh } from "next/cache";
 import { and, eq } from "drizzle-orm";
-import { requireSession } from "@/lib/session";
+import { refresh } from "next/cache";
+
 import { getDb } from "@/db/client";
-import { sends } from "@/db/schema";
 import {
   findClimbCandidatesByNames,
   findClimbCandidatesInAreas,
@@ -12,14 +11,17 @@ import {
   getUserSentClimbIds,
   type ClimbCandidate,
 } from "@/db/queries";
-import { parseGrade } from "@/lib/grades";
+import { sends } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
+import { parseGrade } from "@/lib/grades";
 import {
   IMPORT_BATCH_SIZE,
   RESOLVE_BATCH_SIZE,
   validateImportSendValues,
   type ImportSendRow,
 } from "@/lib/sends";
+import { requireSession } from "@/lib/session";
+
 import { revalidateSendSurfaces } from "./revalidation";
 
 export type ImportResult = {
@@ -86,15 +88,14 @@ export async function resolveImportClimbsInAreas(
 
     if (
       !Array.isArray(pairs) ||
-      pairs.some(
-        (pair) =>
-          typeof pair?.name !== "string" || typeof pair?.areaName !== "string",
-      )
+      pairs.some((pair) => typeof pair?.name !== "string" || typeof pair?.areaName !== "string")
     ) {
       throw new ActionError("Invalid climb names");
     }
     if (pairs.length > RESOLVE_BATCH_SIZE) {
-      throw new ActionError(`A lookup can carry at most ${RESOLVE_BATCH_SIZE} climb and area pairs`);
+      throw new ActionError(
+        `A lookup can carry at most ${RESOLVE_BATCH_SIZE} climb and area pairs`,
+      );
     }
 
     const db = await getDb();

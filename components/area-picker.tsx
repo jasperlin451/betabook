@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+
 import { AreaSearchField } from "@/components/area-search-field";
 import type { AreaSuggestion } from "@/lib/search-suggestions";
 

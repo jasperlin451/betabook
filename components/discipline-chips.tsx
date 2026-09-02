@@ -4,7 +4,7 @@ import { choicePillClass } from "@/components/ui/choice-pill";
 import { DISCIPLINE_CHIP_CLASSNAME, DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import type { Discipline } from "@/db/queries";
 
-export const DISCIPLINES: Discipline[] = ["boulder", "sport", "trad"];
+const DISCIPLINES: Discipline[] = ["boulder", "sport", "trad"];
 
 /** Discipline toggles as the same palette chips the rows themselves wear —
  * three taps instead of a labelled checkbox group, which is what lets a whole
@@ -30,9 +30,7 @@ export function DisciplineChips({
             type="button"
             aria-pressed={selected}
             onClick={() =>
-              onChange(
-                selected ? value.filter((d) => d !== discipline) : [...value, discipline],
-              )
+              onChange(selected ? value.filter((d) => d !== discipline) : [...value, discipline])
             }
             className={choicePillClass(selected, DISCIPLINE_CHIP_CLASSNAME[discipline])}
           >

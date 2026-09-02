@@ -1,15 +1,18 @@
 "use client";
 
 import { useMemo } from "react";
+
 import { ClimbList } from "@/components/climb-list";
 import { NavigationPendingRegion } from "@/components/navigation-pending";
-import { areaClimbsFilterToSearchParams, type AreaClimbsFilter } from "@/lib/area-climbs-filter";
-import type { AreaBreadcrumbs, ClimbSendStats, ClimbWithAreaName, SubtreeClimbsSort } from "@/db/queries";
-import {
-  createClimbListMeta,
-  mergeClimbListMeta,
-} from "@/lib/climb-search-pages";
+import type {
+  AreaBreadcrumbs,
+  ClimbSendStats,
+  ClimbWithAreaName,
+  SubtreeClimbsSort,
+} from "@/db/queries";
 import { usePagedList } from "@/hooks/use-paged-list";
+import { areaClimbsFilterToSearchParams, type AreaClimbsFilter } from "@/lib/area-climbs-filter";
+import { createClimbListMeta, mergeClimbListMeta } from "@/lib/climb-search-pages";
 
 type AreaClimbsSectionProps = {
   areaId: number;

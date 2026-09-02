@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
 import { HONEYPOT_FIELD, MIN_FILL_MS } from "@/lib/contact";
+import { submitContactMessage } from "@/lib/contact-action";
 import { sendContactEmail } from "@/lib/email";
 import { allowContactSubmission } from "@/lib/rate-limit";
-import { submitContactMessage } from "@/lib/contact-action";
 
 /** The action boundary must never throw — Next.js redacts uncaught
  * server-action errors in production, so these tests pin the structured
@@ -19,8 +20,10 @@ vi.mock("next/headers", () => ({
 
 // Both of these reach for getCloudflareContext, which only exists inside a
 // Worker request. Stub the decisions, not the bindings.
-vi.mock("@/lib/rate-limit", () => ({ allowContactSubmission: vi.fn(async () => true) }));
-vi.mock("@/lib/email", () => ({ sendContactEmail: vi.fn(async () => {}) }));
+vi.mock("@/lib/rate-limit", () => ({
+  allowContactSubmission: vi.fn<() => Promise<boolean>>(async () => true),
+}));
+vi.mock("@/lib/email", () => ({ sendContactEmail: vi.fn<() => Promise<void>>(async () => {}) }));
 
 function contactFormData(overrides: Record<string, string> = {}): FormData {
   const formData = new FormData();

@@ -1,8 +1,11 @@
 import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
+
 import { createDb, type Database } from "@/db/client";
 import { areas } from "@/db/schema";
+import { seedFixtureTree, seedManyAreas } from "@/test/fixtures";
+
 import {
   countSearchAreas,
   getAncestors,
@@ -12,7 +15,6 @@ import {
   getSubareas,
   searchAreas,
 } from "./areas";
-import { seedFixtureTree, seedManyAreas } from "@/test/fixtures";
 
 let db: Database;
 
@@ -36,10 +38,7 @@ describe("getArea", () => {
 describe("getSubareas", () => {
   it("returns only direct children, not grandchildren", async () => {
     const subareas = await getSubareas(db, 1);
-    expect(subareas.map((a) => a.name).sort()).toEqual([
-      "Test Boulders",
-      "Test Sport Wall",
-    ]);
+    expect(subareas.map((a) => a.name).sort()).toEqual(["Test Boulders", "Test Sport Wall"]);
   });
 
   it("returns an empty array for a leaf area", async () => {
@@ -63,13 +62,7 @@ describe("getSubareas", () => {
     ]);
 
     const names = (await getSubareas(db, 700)).map((a) => a.name);
-    expect(names).toEqual([
-      "aardvark ledge",
-      "Çitdibi",
-      "Črni kal",
-      "Datca",
-      "Zebra Wall",
-    ]);
+    expect(names).toEqual(["aardvark ledge", "Çitdibi", "Črni kal", "Datca", "Zebra Wall"]);
   });
 });
 

@@ -1,15 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+
 import { AreaList } from "@/components/area-list";
 import { ClimbList } from "@/components/climb-list";
-import { type ClimbSearchFilter } from "@/lib/climb-search-filter";
-import {
-  createClimbListMeta,
-  fetchClimbSearchPage,
-  mergeClimbListMeta,
-} from "@/lib/climb-search-pages";
-import { usePagedList } from "@/hooks/use-paged-list";
 import type {
   AreaBreadcrumbs,
   AreaWithAncestorPath,
@@ -17,6 +11,13 @@ import type {
   ClimbWithAreaName,
   SubtreeClimbsSort,
 } from "@/db/queries";
+import { usePagedList } from "@/hooks/use-paged-list";
+import { type ClimbSearchFilter } from "@/lib/climb-search-filter";
+import {
+  createClimbListMeta,
+  fetchClimbSearchPage,
+  mergeClimbListMeta,
+} from "@/lib/climb-search-pages";
 
 /** Owns the accumulated "load more" state for home-page climb search and the
  * fetch that backs it (/api/search/climbs) — same pattern as

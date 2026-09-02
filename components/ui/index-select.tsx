@@ -12,7 +12,7 @@ type IndexSelectProps = {
 /** A `Select` whose selection is an index into `options`, rather than the
  * option's own value — shared by every "discrete-step dropdown" (grade,
  * rating, ...) in the app. */
-export function IndexSelect({ label, options, index, onChange }: IndexSelectProps) {
+function IndexSelect({ label, options, index, onChange }: IndexSelectProps) {
   return (
     <Select
       aria-label={label}
@@ -26,6 +26,7 @@ export function IndexSelect({ label, options, index, onChange }: IndexSelectProp
       <Select.Popover>
         <ListBox>
           {options.map((option, i) => (
+            // oxlint-disable-next-line react/no-array-index-key -- selection by array index
             <ListBox.Item key={i} id={String(i)}>
               {option}
             </ListBox.Item>

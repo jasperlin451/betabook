@@ -1,5 +1,7 @@
 import { format as formatDate, isValid, parse } from "date-fns";
 import Papa from "papaparse";
+
+import { parseGrade, type ClimbType } from "@/lib/grades";
 import {
   ASCENT_STYLES,
   GRADE_FEEL_VALUES,
@@ -8,7 +10,6 @@ import {
   type AscentStyle,
   type GradeFeel,
 } from "@/lib/sends";
-import { parseGrade, type ClimbType } from "@/lib/grades";
 import { CSV_UNPARSE_CONFIG } from "@/lib/sends-export";
 
 export type ParsedCsv = {
@@ -92,9 +93,7 @@ export function parseCsvText(text: string): ParsedCsv {
     warnings.push(err.row != null ? `Row ${err.row + 1}: ${err.message}` : err.message);
   }
   if (parseErrors.length > MAX_PARSE_ERROR_WARNINGS) {
-    warnings.push(
-      `…and ${parseErrors.length - MAX_PARSE_ERROR_WARNINGS} more parse issues`,
-    );
+    warnings.push(`…and ${parseErrors.length - MAX_PARSE_ERROR_WARNINGS} more parse issues`);
   }
 
   const rawRows = result.data;
@@ -574,8 +573,7 @@ export function guessAscentStyleMapping(values: string[]): AscentStyleMapping {
   const mapping: AscentStyleMapping = {};
   for (const value of values) {
     const normalized = value.trim().toLowerCase();
-    const match =
-      ASCENT_STYLES.find((t) => t === normalized) ?? ASCENT_STYLE_ALIASES[normalized];
+    const match = ASCENT_STYLES.find((t) => t === normalized) ?? ASCENT_STYLE_ALIASES[normalized];
     mapping[value] = match ?? "skip";
   }
   return mapping;
@@ -646,7 +644,7 @@ export function splitAreaHint(value: string): string[] {
     .split(AREA_PATH_SEPARATOR_RE)
     .map((segment) => segment.trim())
     .filter(Boolean)
-    .reverse();
+    .toReversed();
 }
 
 // Other sites rarely use betabook's own low/solid/high wording — soft/stiff
@@ -674,8 +672,7 @@ export function guessGradeFeelMapping(values: string[]): GradeFeelMapping {
   const mapping: GradeFeelMapping = {};
   for (const value of values) {
     const normalized = value.trim().toLowerCase();
-    const match =
-      GRADE_FEEL_VALUES.find((t) => t === normalized) ?? GRADE_FEEL_ALIASES[normalized];
+    const match = GRADE_FEEL_VALUES.find((t) => t === normalized) ?? GRADE_FEEL_ALIASES[normalized];
     mapping[value] = match ?? "skip";
   }
   return mapping;
@@ -821,14 +818,10 @@ export function normalizeImportRows(
     const areaHints = mapping.areaHints.flatMap((column) => splitAreaHint(cell(column)));
 
     const rawAscentStyle = cell(mapping.ascentStyle);
-    const mappedAscentStyle = rawAscentStyle
-      ? ascentStyleMapping[rawAscentStyle]
-      : undefined;
+    const mappedAscentStyle = rawAscentStyle ? ascentStyleMapping[rawAscentStyle] : undefined;
     if (!mappedAscentStyle || mappedAscentStyle === "skip") {
       return fail(
-        rawAscentStyle
-          ? `Unmapped ascent style value "${rawAscentStyle}"`
-          : "Missing ascent style",
+        rawAscentStyle ? `Unmapped ascent style value "${rawAscentStyle}"` : "Missing ascent style",
       );
     }
 
@@ -871,7 +864,9 @@ export function normalizeImportRows(
     // send's suggested grade; the Grade column only fills that role when no
     // Suggested Grade column exists (see NormalizedImportRow.blankGradeMeans).
     const gradeColumn = mapping.suggestedGrade ?? mapping.grade;
-    const blankGradeMeans = mapping.suggestedGrade ? ("no-suggestion" as const) : ("posted-grade" as const);
+    const blankGradeMeans = mapping.suggestedGrade
+      ? ("no-suggestion" as const)
+      : ("posted-grade" as const);
     const gradeText = cleanGradeText(cell(gradeColumn));
     if (gradeText && !gradeTextParses(gradeText, climbTypeHint, gradeScalePreference)) {
       warn("suggestedGrade", rowIndex, `"${gradeText}"`);

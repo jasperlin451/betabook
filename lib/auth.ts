@@ -1,10 +1,11 @@
-import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { betterAuth } from "better-auth";
+
 import { getDb } from "@/db/client";
+import * as schema from "@/db/schema";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@/lib/email";
 import { sendWelcomeEmailOnce } from "@/lib/welcome-email";
-import * as schema from "@/db/schema";
 
 async function authBuilder() {
   const db = await getDb();
@@ -33,12 +34,10 @@ async function authBuilder() {
       // that someone signed in for another month. No "sign out everywhere"
       // control exists in the UI, so this is the only thing that ends them.
       revokeSessionsOnPasswordReset: true,
-      sendResetPassword: ({ user, url }) =>
-        sendResetPasswordEmail(user.email, url),
+      sendResetPassword: ({ user, url }) => sendResetPasswordEmail(user.email, url),
     },
     emailVerification: {
-      sendVerificationEmail: ({ user, url }) =>
-        sendVerificationEmail(user.email, url),
+      sendVerificationEmail: ({ user, url }) => sendVerificationEmail(user.email, url),
       // Better Auth returns early from /verify-email for an already-verified
       // user, so a re-clicked link never reaches here — this fires on the
       // false -> true transition and on a later change-email verification.

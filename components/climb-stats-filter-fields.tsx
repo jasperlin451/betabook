@@ -1,6 +1,7 @@
 "use client";
 
 import { NumberField } from "@heroui/react";
+
 import { IndexRangeSelect } from "@/components/ui/index-select";
 import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
 
@@ -9,7 +10,7 @@ import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
  * denormalized climbs.avg_rating column. Index = rating value on both
  * sides, with 0 ("Any", `anyIndex`) meaning that bound is inactive — see
  * RATING_OPTIONS in lib/climb-stats-filter.ts. */
-export function RatingRangeSelect({
+function RatingRangeSelect({
   range,
   onChange,
 }: {
@@ -33,7 +34,7 @@ export function RatingRangeSelect({
 /** Minimum logged-ascent-count filter, over climbs.send_count — a free-form
  * count rather than a fixed set of steps, so a plain number input fits
  * better than a dropdown. 0 means the filter is inactive. */
-export function MinAscentsField({
+function MinAscentsField({
   value,
   onChange,
 }: {

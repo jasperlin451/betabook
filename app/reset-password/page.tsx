@@ -1,8 +1,9 @@
-import { PageTitle } from "@/components/ui/typography";
-import { FORM_CARD_CLASS } from "@/components/ui/card";
 import type { Metadata } from "next";
+
 import { ResetPasswordForm } from "@/components/reset-password-form";
 import { AppLink } from "@/components/ui/app-link";
+import { FORM_CARD_CLASS } from "@/components/ui/card";
+import { PageTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
   title: "Reset password",

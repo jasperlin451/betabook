@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
+
+import type { AnalyticsSendRow } from "@/db/queries";
+
 import {
   buildPyramid,
   buildUserAnalytics,
   formatDaySpan,
   parseDisciplineScope,
 } from "./user-analytics";
-import type { AnalyticsSendRow } from "@/db/queries";
 
 let nextClimbId = 1;
 function send(over: Partial<AnalyticsSendRow>): AnalyticsSendRow {

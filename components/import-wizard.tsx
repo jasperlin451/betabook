@@ -1,41 +1,36 @@
 "use client";
 
-import { PageTitle } from "@/components/ui/typography";
-import { OptionSelect, type SelectOption } from "@/components/ui/option-select";
-import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { Button, Checkbox, Label, TextField } from "@heroui/react";
-import clsx from "clsx";
+import { clsx } from "clsx";
 import { Upload } from "lucide-react";
-import { AppLink } from "@/components/ui/app-link";
-import { cardClass } from "@/components/ui/card";
-import { choicePillClass } from "@/components/ui/choice-pill";
-import { Eyebrow, EYEBROW_CLASS } from "@/components/ui/eyebrow";
-import { SegmentedButtons } from "@/components/ui/segmented-buttons";
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+
+import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import {
   ImportMatchStep,
   defaultFilter,
   type Filter,
   type LookupStatus,
 } from "@/components/import-match-step";
-import { ProgressBar } from "@/components/ui/progress-bar";
-import { formatCount } from "@/lib/format";
-import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { GRADE_FEEL_LABELS } from "@/components/send-form";
+import { AppLink } from "@/components/ui/app-link";
+import { cardClass } from "@/components/ui/card";
+import { choicePillClass } from "@/components/ui/choice-pill";
 import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
+import { Eyebrow, EYEBROW_CLASS } from "@/components/ui/eyebrow";
+import { OptionSelect, type SelectOption } from "@/components/ui/option-select";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { SegmentedButtons } from "@/components/ui/segmented-buttons";
+import { PageTitle } from "@/components/ui/typography";
 import {
   importSends,
   resolveImportClimbs,
   resolveImportClimbsInAreas,
   type ImportResult,
 } from "@/db/mutations";
+import type { ClimbCandidate } from "@/db/queries";
 import { downloadCsv } from "@/lib/download";
-import {
-  ASCENT_STYLES,
-  GRADE_FEEL_VALUES,
-  IMPORT_BATCH_SIZE,
-  RESOLVE_BATCH_SIZE,
-  type ImportSendRow,
-} from "@/lib/sends";
+import { formatCount } from "@/lib/format";
 import {
   areaLookupsNeeded,
   distinctClimbNames,
@@ -48,6 +43,13 @@ import {
   type PreferredArea,
   type ResolvedRow,
 } from "@/lib/import-matching";
+import {
+  ASCENT_STYLES,
+  GRADE_FEEL_VALUES,
+  IMPORT_BATCH_SIZE,
+  RESOLVE_BATCH_SIZE,
+  type ImportSendRow,
+} from "@/lib/sends";
 import {
   buildFailedRowsCsv,
   deriveSourceColumns,
@@ -86,7 +88,6 @@ import {
   type NormalizedImportRow,
   type ParsedCsv,
 } from "@/lib/sends-import";
-import type { ClimbCandidate } from "@/db/queries";
 
 type Step = "upload" | "columns" | "values" | "match" | "review" | "result";
 
@@ -207,8 +208,7 @@ const GRADE_SCALE_OPTIONS: readonly SelectOption<GradeScale>[] = [
 
 const SOURCE_NOTES: Record<Exclude<ImportSource, "unknown">, string> = {
   betabook: "Every column maps back to the field it was exported from.",
-  kaya:
-    "KAYA has no area column. Its “location” is the boulder and “country” the country, so both are used as hints when a climb name matches in more than one place.",
+  kaya: "KAYA has no area column. Its “location” is the boulder and “country” the country, so both are used as hints when a climb name matches in more than one place.",
   sendage: "“Country” is used as a hint when a climb name matches in more than one place.",
   mountainproject:
     "“Rating” is the route's grade and “Your Rating” yours. “Location” is the full area path, used as hints from the wall up. Ascent style comes from “Lead Style”, or from “Style” where that is blank.",
@@ -267,14 +267,26 @@ function toImportSendRow(resolved: ResolvedRow, climb: ClimbCandidate): ImportSe
 
 /** A stat the review and result steps lead with — the number, then what it
  * counts. */
-function Stat({ label, value, tone }: { label: string; value: number; tone?: "danger" | "warning" }) {
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "danger" | "warning";
+}) {
   return (
     <div className="flex flex-col gap-1">
       <span className={EYEBROW_CLASS}>{label}</span>
       <span
         className={clsx(
           "font-display text-3xl font-semibold tabular-nums",
-          tone === "danger" ? "text-danger" : tone === "warning" ? "text-warning" : "text-foreground",
+          tone === "danger"
+            ? "text-danger"
+            : tone === "warning"
+              ? "text-warning"
+              : "text-foreground",
         )}
       >
         {value.toLocaleString("en-US")}
@@ -301,7 +313,10 @@ function ValueMappingSection<V extends string>({
   skipLabel: string;
 }) {
   if (values.length === 0) return null;
-  const choices: readonly SelectOption<V | "skip">[] = [...options, { value: "skip", label: skipLabel }];
+  const choices: readonly SelectOption<V | "skip">[] = [
+    ...options,
+    { value: "skip", label: skipLabel },
+  ];
   return (
     <section className="flex flex-col gap-3">
       <div>
@@ -309,11 +324,11 @@ function ValueMappingSection<V extends string>({
         {description && <p className="mt-1 text-xs text-muted">{description}</p>}
       </div>
       {/* Value and count share a row with the select from sm up; on a phone
-        * the select drops to its own full-width row underneath. */}
+       * the select drops to its own full-width row underneath. */}
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(11rem,auto)]">
         {values.map(({ value, count }) => (
           <div key={value} className="contents">
-            <span className="text-sm break-words">{value}</span>
+            <span className="text-sm wrap-break-word">{value}</span>
             <span className="text-xs text-muted tabular-nums">{formatCount(count, "row")}</span>
             <OptionSelect
               ariaLabel={`Map “${value}”`}
@@ -329,9 +344,15 @@ function ValueMappingSection<V extends string>({
   );
 }
 
-const ASCENT_STYLE_OPTIONS = ASCENT_STYLES.map((value) => ({ value, label: ASCENT_STYLE_LABELS[value] }));
+const ASCENT_STYLE_OPTIONS = ASCENT_STYLES.map((value) => ({
+  value,
+  label: ASCENT_STYLE_LABELS[value],
+}));
 const CLIMB_TYPE_OPTIONS = CLIMB_TYPES.map((value) => ({ value, label: DISCIPLINE_LABELS[value] }));
-const GRADE_FEEL_OPTIONS = GRADE_FEEL_VALUES.map((value) => ({ value, label: GRADE_FEEL_LABELS[value] }));
+const GRADE_FEEL_OPTIONS = GRADE_FEEL_VALUES.map((value) => ({
+  value,
+  label: GRADE_FEEL_LABELS[value],
+}));
 
 export function ImportWizard({ profileHref }: { profileHref: string }) {
   const [step, setStep] = useState<Step>("upload");
@@ -344,8 +365,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
   const [parsedCsv, setParsedCsv] = useState<ParsedCsv | null>(null);
   const [source, setSource] = useState<ImportSource>("unknown");
   const [columnMapping, setColumnMapping] = useState<ColumnMapping | null>(null);
-  const [ascentStyleMapping, setAscentStyleMapping] =
-    useState<AscentStyleMapping>({});
+  const [ascentStyleMapping, setAscentStyleMapping] = useState<AscentStyleMapping>({});
   const [climbTypeMapping, setClimbTypeMapping] = useState<ClimbTypeMapping>({});
   const [gradeFeelMapping, setGradeFeelMapping] = useState<GradeFeelMapping>({});
   const [dateFormat, setDateFormat] = useState<DateFormat>("iso");
@@ -491,7 +511,9 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
       ...importResult.batchErrors.flatMap((batch) =>
         batch.rows.map((r) => fromResolved(r, `Not imported: ${batch.message}`)),
       ),
-      ...importResult.notAttempted.map((r) => fromResolved(r, `Not imported: ${NOT_ATTEMPTED_MESSAGE}`)),
+      ...importResult.notAttempted.map((r) =>
+        fromResolved(r, `Not imported: ${NOT_ATTEMPTED_MESSAGE}`),
+      ),
     ].sort((a, b) => a.rowIndex - b.rowIndex);
   }, [importResult, normalized, resolved]);
 
@@ -883,7 +905,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
             ...columns.map((column) => ({ value: columnKey(column), label: column })),
           ]}
         />
-        <p className="mt-1.5 text-xs text-muted break-words">
+        <p className="mt-1.5 text-xs wrap-break-word text-muted">
           {preview ? `From the file: ${preview}` : hint}
         </p>
       </TextField>
@@ -902,9 +924,9 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
       {step === "upload" && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-muted">
-            Upload a CSV export of your climbing log. Mountain Project, KAYA, Sendage, and
-            betabook exports are recognized and mapped automatically. Any CSV with a climb name
-            and an ascent style column works.
+            Upload a CSV export of your climbing log. Mountain Project, KAYA, Sendage, and betabook
+            exports are recognized and mapped automatically. Any CSV with a climb name and an ascent
+            style column works.
           </p>
           {/* The file input stays in the DOM but hidden: it's the only way to
               open the picker, and the drop zone drives it so the styling
@@ -963,8 +985,8 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
             )}
             {parsedCsv.warnings.length > 0 && (
               <ul className="flex flex-col gap-1 text-xs text-warning">
-                {parsedCsv.warnings.map((warning, i) => (
-                  <li key={i}>{warning}</li>
+                {parsedCsv.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
                 ))}
               </ul>
             )}
@@ -973,14 +995,18 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
           <section className="flex flex-col gap-4 border-t border-separator pt-4">
             <Eyebrow>Required</Eyebrow>
             <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-              {COLUMN_FIELDS.filter((f) => REQUIRED_COLUMN_KEYS.includes(f.key)).map(renderColumnField)}
+              {COLUMN_FIELDS.filter((f) => REQUIRED_COLUMN_KEYS.includes(f.key)).map(
+                renderColumnField,
+              )}
             </div>
           </section>
 
           <section className="flex flex-col gap-4 border-t border-separator pt-4">
             <Eyebrow>Optional</Eyebrow>
             <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-              {COLUMN_FIELDS.filter((f) => !REQUIRED_COLUMN_KEYS.includes(f.key)).map(renderColumnField)}
+              {COLUMN_FIELDS.filter((f) => !REQUIRED_COLUMN_KEYS.includes(f.key)).map(
+                renderColumnField,
+              )}
             </div>
           </section>
 
@@ -988,8 +1014,8 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
             <div>
               <Eyebrow>Location hints</Eyebrow>
               <p className="mt-1 text-xs text-muted">
-                Columns that roughly place a climb, such as a country, state, or boulder. They
-                only break ties between climbs that share a name.
+                Columns that roughly place a climb, such as a country, state, or boulder. They only
+                break ties between climbs that share a name.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1164,8 +1190,8 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
               {/* The columns step would have shown these; this path skipped it. */}
               {parsedCsv && parsedCsv.warnings.length > 0 && (
                 <ul className="flex flex-col gap-1 text-xs text-warning">
-                  {parsedCsv.warnings.map((warning, i) => (
-                    <li key={i}>{warning}</li>
+                  {parsedCsv.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
                   ))}
                 </ul>
               )}
@@ -1250,8 +1276,8 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
                 View rows that can&apos;t be imported
               </summary>
               <ul className="mt-2 flex flex-col gap-1 text-xs text-muted">
-                {normalized.invalid.map((row, i) => (
-                  <li key={i}>
+                {normalized.invalid.map((row) => (
+                  <li key={row.rowIndex}>
                     Row {row.rowIndex + 1}: {row.reason}
                   </li>
                 ))}
@@ -1287,8 +1313,8 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
               </p>
               {progress.lastError && (
                 <p className="text-xs text-danger">
-                  {progress.failed} {progress.failed === 1 ? "row has" : "rows have"} failed so
-                  far. Latest error: {progress.lastError}
+                  {progress.failed} {progress.failed === 1 ? "row has" : "rows have"} failed so far.
+                  Latest error: {progress.lastError}
                 </p>
               )}
               <div>

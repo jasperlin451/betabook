@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  createClimbListMeta,
-  mergeClimbListMeta,
-} from "./climb-search-pages";
+
+import { createClimbListMeta, mergeClimbListMeta } from "./climb-search-pages";
 
 describe("mergeClimbListMeta", () => {
   it("accumulates metadata from a newly loaded page", () => {

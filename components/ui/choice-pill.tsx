@@ -1,4 +1,4 @@
-import clsx from "clsx";
+import { clsx } from "clsx";
 
 /** The pill-shaped choice: a bordered, muted pill that lights up in its
  * tag's own color when chosen. One look for every chip-shaped selector —

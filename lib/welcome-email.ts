@@ -1,4 +1,5 @@
 import { and, eq, isNull } from "drizzle-orm";
+
 import type { Database } from "@/db/client";
 import { user } from "@/db/schema";
 import { sendWelcomeEmail } from "@/lib/email";

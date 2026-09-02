@@ -1,11 +1,12 @@
 "use client";
 
-import { PageTitle } from "@/components/ui/typography";
-import { FORM_CARD_CLASS } from "@/components/ui/card";
-import { useState } from "react";
 import { Button, Input, Label, TextField } from "@heroui/react";
-import { authClient } from "@/lib/auth-client";
+import { useState } from "react";
+
 import { AppLink } from "@/components/ui/app-link";
+import { FORM_CARD_CLASS } from "@/components/ui/card";
+import { PageTitle } from "@/components/ui/typography";
+import { authClient } from "@/lib/auth-client";
 import { safeNextPath, signInUrl } from "@/lib/sign-in-redirect";
 
 export function SignUpForm({ next }: { next?: string }) {
@@ -32,7 +33,7 @@ export function SignUpForm({ next }: { next?: string }) {
     setSubmitAttempted(true);
     if (password !== confirmPassword) return;
     setPending(true);
-    authClient.signUp.email(
+    void authClient.signUp.email(
       // The verification link lands back on sign-in, carrying the original
       // destination so the continuation survives sign-up → verify → sign-in.
       { name, email, password, callbackURL: signInUrl(nextPath) },
@@ -50,7 +51,7 @@ export function SignUpForm({ next }: { next?: string }) {
     setResent(false);
     setResendError(null);
     setResendPending(true);
-    authClient.sendVerificationEmail(
+    void authClient.sendVerificationEmail(
       { email, callbackURL: signInUrl(nextPath) },
       {
         onSuccess: () => setResent(true),
@@ -69,11 +70,7 @@ export function SignUpForm({ next }: { next?: string }) {
           We sent a verification link to {email}. Verify your address, then{" "}
           <AppLink href={signInUrl(nextPath)}>sign in</AppLink>.
         </p>
-        <Button
-          variant="ghost"
-          onPress={resendVerification}
-          isDisabled={resent || resendPending}
-        >
+        <Button variant="ghost" onPress={resendVerification} isDisabled={resent || resendPending}>
           {resent ? "Verification email sent" : "Resend verification email"}
         </Button>
         {resendError && <p className="text-sm text-danger">{resendError}</p>}
@@ -82,10 +79,7 @@ export function SignUpForm({ next }: { next?: string }) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={FORM_CARD_CLASS}
-    >
+    <form onSubmit={handleSubmit} className={FORM_CARD_CLASS}>
       <PageTitle className="text-2xl">Sign up</PageTitle>
       <TextField value={name} onChange={setName} isRequired>
         <Label>Name</Label>
@@ -99,18 +93,11 @@ export function SignUpForm({ next }: { next?: string }) {
         <Label>Password</Label>
         <Input />
       </TextField>
-      <TextField
-        value={confirmPassword}
-        onChange={setConfirmPassword}
-        type="password"
-        isRequired
-      >
+      <TextField value={confirmPassword} onChange={setConfirmPassword} type="password" isRequired>
         <Label>Confirm password</Label>
         <Input />
       </TextField>
-      {passwordMismatch && (
-        <p className="text-sm text-danger">Passwords do not match.</p>
-      )}
+      {passwordMismatch && <p className="text-sm text-danger">Passwords do not match.</p>}
       {error && <p className="text-sm text-danger">{error}</p>}
       <Button type="submit" fullWidth isDisabled={pending}>
         Sign up

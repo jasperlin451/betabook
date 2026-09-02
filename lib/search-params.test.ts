@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   DEFAULT_SUGGESTION_LIMIT,
   MAX_PAGINATION_OFFSET,
@@ -122,8 +123,7 @@ describe("parseSuggestionLimit", () => {
 });
 
 describe("parsePage", () => {
-  const pageOf = (query: string, pageSize = 25) =>
-    parsePage(new URLSearchParams(query), pageSize);
+  const pageOf = (query: string, pageSize = 25) => parsePage(new URLSearchParams(query), pageSize);
 
   it("reads a 1-based page", () => {
     expect(pageOf("page=3")).toBe(3);

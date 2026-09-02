@@ -1,4 +1,5 @@
 import { Chip } from "@heroui/react";
+
 import type { ClimbType } from "@/lib/grades";
 
 // success/warning are reserved for ascent-style chips (AscentStyle), and

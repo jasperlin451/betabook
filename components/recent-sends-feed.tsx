@@ -1,15 +1,15 @@
 "use client";
 
-import { formatDate } from "@/lib/format-date";
-import type { AreaBreadcrumbs, RecentSendRow } from "@/db/queries";
-import { AppLink } from "@/components/ui/app-link";
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { AscentStyle } from "@/components/ascent-style";
+import { SendGradeCell } from "@/components/send-grade-cell";
+import { AppLink } from "@/components/ui/app-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ListRow } from "@/components/ui/list-row";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
-import { SendGradeCell } from "@/components/send-grade-cell";
+import type { AreaBreadcrumbs, RecentSendRow } from "@/db/queries";
 import { usePagedList } from "@/hooks/use-paged-list";
+import { formatDate } from "@/lib/format-date";
 
 type FeedPageResponse = {
   sends: RecentSendRow[];
@@ -90,14 +90,14 @@ export function RecentSendsFeed({
             // the route is what the row is about, but a feed still has to say
             // whose send this is — so the name sits on its own line above the
             // comment, and shows even on a send with no comment at all.
-            commentAuthor={
-              <AppLink href={`/users/${send.userId}`}>{send.userName}</AppLink>
-            }
+            commentAuthor={<AppLink href={`/users/${send.userId}`}>{send.userName}</AppLink>}
             comment={send.comment}
           />
         ))}
       </div>
-      {hasMore && <LoadMoreButton onPress={loadMore} loading={loadingMore} failed={loadMoreFailed} />}
+      {hasMore && (
+        <LoadMoreButton onPress={loadMore} loading={loadingMore} failed={loadMoreFailed} />
+      )}
     </div>
   );
 }

@@ -1,15 +1,16 @@
 "use server";
 
-import { refresh, revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
-import { requireSession } from "@/lib/session";
+import { refresh, revalidatePath } from "next/cache";
+
 import { getDb } from "@/db/client";
-import { areas } from "@/db/schema";
 import { getArea, getSubareas, hasClimbsInArea } from "@/db/queries";
-import { validateAreaInput, type RawAreaInput } from "@/lib/areas";
+import { areas } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
-import { pickFormFields } from "@/lib/validation";
+import { validateAreaInput, type RawAreaInput } from "@/lib/areas";
 import { parseId } from "@/lib/parse-id";
+import { requireSession } from "@/lib/session";
+import { pickFormFields } from "@/lib/validation";
 
 const AREA_FORM_FIELDS = ["name", "description"] as const;
 
@@ -89,7 +90,8 @@ export async function deleteArea(areaId: number): Promise<ActionResult> {
 
     const subareas = await getSubareas(db, areaId);
     if (subareas.length > 0) throw new ActionError("Can't delete an area with sub-areas");
-    if (await hasClimbsInArea(db, areaId)) throw new ActionError("Can't delete an area with climbs");
+    if (await hasClimbsInArea(db, areaId))
+      throw new ActionError("Can't delete an area with climbs");
 
     await db.delete(areas).where(eq(areas.id, areaId));
 

@@ -1,10 +1,11 @@
 "use client";
 
+import { Button, Label, TextArea, TextField } from "@heroui/react";
+import { useState, useTransition } from "react";
+
+import { AreaPicker, type PickedArea } from "@/components/area-picker";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { FIELD_CLASS } from "@/components/ui/field";
-import { useState, useTransition } from "react";
-import { Button, Label, TextArea, TextField } from "@heroui/react";
-import { AreaPicker, type PickedArea } from "@/components/area-picker";
 import { createArea, updateArea } from "@/db/mutations";
 import type { Area } from "@/db/queries";
 
@@ -71,10 +72,7 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={SURFACE_CARD_CLASS}
-    >
+    <form onSubmit={handleSubmit} className={SURFACE_CARD_CLASS}>
       {!area && fixedParentId == null && (
         <TextField>
           <Label>Parent area</Label>

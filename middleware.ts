@@ -1,5 +1,6 @@
-import { NextResponse, type NextRequest } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
+import { NextResponse, type NextRequest } from "next/server";
+
 import { signInUrl } from "@/lib/sign-in-redirect";
 
 // Deliberately kept as the deprecated `middleware.ts` convention instead of
@@ -10,10 +11,9 @@ import { signInUrl } from "@/lib/sign-in-redirect";
 export function middleware(request: NextRequest) {
   if (!getSessionCookie(request)) {
     const { pathname, search } = request.nextUrl;
-    return NextResponse.redirect(
-      new URL(signInUrl(pathname + search), request.url),
-    );
+    return NextResponse.redirect(new URL(signInUrl(pathname + search), request.url));
   }
+  return NextResponse.next();
 }
 
 export const config = {

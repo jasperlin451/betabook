@@ -1,13 +1,8 @@
 import { sql } from "drizzle-orm";
-import {
-  sqliteTable,
-  integer,
-  text,
-  index,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
-import { climbs } from "./climbs";
+import { sqliteTable, integer, text, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+
 import { user } from "./auth";
+import { climbs } from "./climbs";
 
 export const sends = sqliteTable(
   "sends",

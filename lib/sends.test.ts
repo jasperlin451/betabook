@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import {
   MAX_COMMENT_LENGTH,
   validateImportSendValues,
@@ -35,28 +36,26 @@ describe("validateSendInput", () => {
 
   it("accepts each ascent style", () => {
     for (const ascentStyle of ["redpoint", "flash", "onsight"]) {
-      expect(validateSendInput("sport", raw({ ascentStyle }), TODAY).ascentStyle).toBe(
-        ascentStyle,
-      );
+      expect(validateSendInput("sport", raw({ ascentStyle }), TODAY).ascentStyle).toBe(ascentStyle);
     }
   });
 
   it("rejects an invalid ascent style", () => {
-    expect(() =>
-      validateSendInput("boulder", raw({ ascentStyle: "attempt" }), TODAY),
-    ).toThrow("Invalid ascent style");
+    expect(() => validateSendInput("boulder", raw({ ascentStyle: "attempt" }), TODAY)).toThrow(
+      "Invalid ascent style",
+    );
   });
 
   it("rejects a malformed send date", () => {
-    expect(() =>
-      validateSendInput("boulder", raw({ dateSent: "08/19/2026" }), TODAY),
-    ).toThrow("Invalid send date");
+    expect(() => validateSendInput("boulder", raw({ dateSent: "08/19/2026" }), TODAY)).toThrow(
+      "Invalid send date",
+    );
   });
 
   it("rejects a send date two days past UTC today", () => {
-    expect(() =>
-      validateSendInput("boulder", raw({ dateSent: "2026-08-21" }), TODAY),
-    ).toThrow("can't be in the future");
+    expect(() => validateSendInput("boulder", raw({ dateSent: "2026-08-21" }), TODAY)).toThrow(
+      "can't be in the future",
+    );
   });
 
   it("accepts a send date equal to today", () => {
@@ -64,9 +63,9 @@ describe("validateSendInput", () => {
   });
 
   it("accepts a send date one day past UTC today (a UTC+14 client's local today)", () => {
-    expect(
-      validateSendInput("boulder", raw({ dateSent: "2026-08-20" }), TODAY).dateSent,
-    ).toBe("2026-08-20");
+    expect(validateSendInput("boulder", raw({ dateSent: "2026-08-20" }), TODAY).dateSent).toBe(
+      "2026-08-20",
+    );
   });
 
   it("applies the one-day tolerance across a month boundary", () => {
@@ -139,27 +138,27 @@ describe("validateSendInput", () => {
   });
 
   it("accepts a suggested grade within the climb type's native scale", () => {
-    expect(
-      validateSendInput("boulder", raw({ suggestedGrade: "5" }), TODAY).suggestedGrade,
-    ).toBe(5);
-    expect(
-      validateSendInput("sport", raw({ suggestedGrade: "10" }), TODAY).suggestedGrade,
-    ).toBe(10);
+    expect(validateSendInput("boulder", raw({ suggestedGrade: "5" }), TODAY).suggestedGrade).toBe(
+      5,
+    );
+    expect(validateSendInput("sport", raw({ suggestedGrade: "10" }), TODAY).suggestedGrade).toBe(
+      10,
+    );
   });
 
   it("rejects a suggested grade out of range for the climb type", () => {
-    expect(() =>
-      validateSendInput("boulder", raw({ suggestedGrade: "999" }), TODAY),
-    ).toThrow("Invalid suggested grade");
-    expect(() =>
-      validateSendInput("boulder", raw({ suggestedGrade: "-1" }), TODAY),
-    ).toThrow("Invalid suggested grade");
+    expect(() => validateSendInput("boulder", raw({ suggestedGrade: "999" }), TODAY)).toThrow(
+      "Invalid suggested grade",
+    );
+    expect(() => validateSendInput("boulder", raw({ suggestedGrade: "-1" }), TODAY)).toThrow(
+      "Invalid suggested grade",
+    );
   });
 
   it("rejects a non-integer suggested grade", () => {
-    expect(() =>
-      validateSendInput("boulder", raw({ suggestedGrade: "2.5" }), TODAY),
-    ).toThrow("Invalid suggested grade");
+    expect(() => validateSendInput("boulder", raw({ suggestedGrade: "2.5" }), TODAY)).toThrow(
+      "Invalid suggested grade",
+    );
   });
 
   it("accepts each grade feel value", () => {

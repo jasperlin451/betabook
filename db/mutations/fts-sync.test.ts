@@ -1,8 +1,7 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "cloudflare:test";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createDb } from "@/db/client";
-import { searchAreas, searchClimbs } from "@/db/queries";
-import { seedFixtureTree } from "@/test/fixtures";
 import {
   createArea,
   createClimb,
@@ -11,6 +10,8 @@ import {
   updateArea,
   updateClimb,
 } from "@/db/mutations";
+import { searchAreas, searchClimbs } from "@/db/queries";
+import { seedFixtureTree } from "@/test/fixtures";
 
 /** The FTS indexes are maintained by triggers
  * (drizzle/migrations/0015_fts_sync_triggers.sql), inside the same statement
@@ -31,8 +32,7 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/session", async () => {
   const { NotSignedInError } = await import("@/lib/action-result");
   return {
-    getSession: async () =>
-      sessionState.userId ? { user: { id: sessionState.userId } } : null,
+    getSession: async () => (sessionState.userId ? { user: { id: sessionState.userId } } : null),
     requireSession: async () => {
       if (!sessionState.userId) throw new NotSignedInError();
       return { user: { id: sessionState.userId } };
@@ -89,7 +89,9 @@ describe("FTS sync triggers", () => {
   // triggers and some manual insert both indexed the same row.
   it("indexes each seeded row exactly once", async () => {
     expect((await searchAreas(db, "Test Crag")).areas).toHaveLength(1);
-    expect((await searchClimbs(db, { name: "Test Crack", disciplines: [] })).climbs).toHaveLength(1);
+    expect((await searchClimbs(db, { name: "Test Crack", disciplines: [] })).climbs).toHaveLength(
+      1,
+    );
   });
 
   it("makes a renamed area searchable under its new name and not its old one", async () => {
@@ -134,7 +136,9 @@ describe("FTS sync triggers", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(
-        (await searchClimbs(db, { name: "Fresh Problem", disciplines: [] })).climbs.map((c) => c.id),
+        (await searchClimbs(db, { name: "Fresh Problem", disciplines: [] })).climbs.map(
+          (c) => c.id,
+        ),
       ).toEqual([result.value]);
     }
   });

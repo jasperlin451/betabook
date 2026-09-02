@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/session";
-import { signInUrl } from "@/lib/sign-in-redirect";
-import { AppLink } from "@/components/ui/app-link";
-import { FORM_CARD_CLASS } from "@/components/ui/card";
-import { Eyebrow } from "@/components/ui/eyebrow";
-import { PageTitle } from "@/components/ui/typography";
+
 import { ExportSendsButton } from "@/components/export-sends-button";
 import { ResetPasswordButton } from "@/components/reset-password-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AppLink } from "@/components/ui/app-link";
+import { FORM_CARD_CLASS } from "@/components/ui/card";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { PageTitle } from "@/components/ui/typography";
+import { getSession } from "@/lib/session";
+import { signInUrl } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
   title: "Account",

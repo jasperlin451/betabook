@@ -5,9 +5,7 @@ export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: integer("email_verified", { mode: "boolean" })
-    .default(false)
-    .notNull(),
+  emailVerified: integer("email_verified", { mode: "boolean" }).default(false).notNull(),
   // Null means "never welcomed", and that is not derivable from
   // emailVerified: better-auth routes a *changed* address through the same
   // afterEmailVerification hook as a first verification, so an established

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { sqliteTable, integer, text, real, index } from "drizzle-orm/sqlite-core";
+
 import { areas } from "./areas";
 
 export const climbs = sqliteTable(

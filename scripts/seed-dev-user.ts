@@ -9,6 +9,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
+
 import { hashPassword } from "better-auth/crypto";
 
 const [rawEmail = "dev@example.com", password = "password", name = "Dev User"] =
@@ -28,7 +29,9 @@ if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
   process.exit(1);
 }
 if (password.length < 8) {
-  console.error("Password must be at least 8 characters (better-auth's default minPasswordLength).");
+  console.error(
+    "Password must be at least 8 characters (better-auth's default minPasswordLength).",
+  );
   process.exit(1);
 }
 

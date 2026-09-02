@@ -1,5 +1,5 @@
+import { clsx } from "clsx";
 import { Star } from "lucide-react";
-import clsx from "clsx";
 
 type RatingStarsProps = {
   rating: number | null;
@@ -14,7 +14,7 @@ export function RatingStars({ rating, precision = "integer", className }: Rating
   if (rating == null) {
     // "—" is the app-wide fallback for absent row values (grades, ratings,
     // dates) — long labels like "No rating" crush row titles on phones.
-    return <span className={clsx("text-muted text-sm", className)}>—</span>;
+    return <span className={clsx("text-sm text-muted", className)}>—</span>;
   }
 
   return (

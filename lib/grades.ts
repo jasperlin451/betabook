@@ -11,8 +11,8 @@
  */
 
 export type ClimbType = "boulder" | "sport" | "trad";
-export type BoulderScale = "hueco" | "font";
-export type RopeScale = "yds" | "french";
+type BoulderScale = "hueco" | "font";
+type RopeScale = "yds" | "french";
 export type GradeScale = BoulderScale | RopeScale;
 
 export const BOULDER_HUECO = [

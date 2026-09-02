@@ -1,7 +1,8 @@
 "use client";
 
-import type { ComponentProps } from "react";
 import { usePathname } from "next/navigation";
+import type { ComponentProps } from "react";
+
 import { AppLink } from "@/components/ui/app-link";
 
 type NavLinkProps = Omit<ComponentProps<typeof AppLink>, "href"> & {
@@ -14,11 +15,5 @@ type NavLinkProps = Omit<ComponentProps<typeof AppLink>, "href"> & {
  * client component. */
 export function NavLink({ href, ...props }: NavLinkProps) {
   const pathname = usePathname();
-  return (
-    <AppLink
-      href={href}
-      aria-current={pathname === href ? "page" : undefined}
-      {...props}
-    />
-  );
+  return <AppLink href={href} aria-current={pathname === href ? "page" : undefined} {...props} />;
 }

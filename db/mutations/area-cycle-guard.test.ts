@@ -1,9 +1,10 @@
 import { env } from "cloudflare:test";
-import { beforeAll, describe, expect, it } from "vitest";
 import { eq, sql } from "drizzle-orm";
+import { beforeAll, describe, expect, it } from "vitest";
+
 import { createDb, type Database } from "@/db/client";
-import { areas } from "@/db/schema";
 import { getAncestors, getSubtreeClimbs, findClimbCandidatesByNames } from "@/db/queries";
+import { areas } from "@/db/schema";
 import { seedFixtureTree } from "@/test/fixtures";
 
 /** Every subtree and ancestor query in db/queries walks parent_id through a

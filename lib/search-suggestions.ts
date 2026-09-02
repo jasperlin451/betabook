@@ -1,5 +1,5 @@
-import { TYPEAHEAD_LIMIT } from "@/hooks/use-typeahead";
 import type { AreaWithAncestorPath, ClimbWithAreaName } from "@/db/queries";
+import { TYPEAHEAD_LIMIT } from "@/hooks/use-typeahead";
 
 export type RouteSuggestion = {
   id: number;

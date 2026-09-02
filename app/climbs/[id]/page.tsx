@@ -1,22 +1,26 @@
-import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { AreaBreadcrumbs } from "@/components/breadcrumbs";
-import { LogSendButton } from "@/components/log-send-button";
-import { EditSendButton } from "@/components/edit-send-button";
-import { ClimbActionsMenu } from "@/components/climb-actions-menu";
-import { ClimbSendList } from "@/components/climb-send-list";
-import { GradeWithTrend } from "@/components/climb-list";
+import { cache } from "react";
+
 import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import { AreaBreadcrumbs } from "@/components/breadcrumbs";
+import { ClimbActionsMenu } from "@/components/climb-actions-menu";
+import { GradeWithTrend } from "@/components/climb-list";
+import { ClimbSendList } from "@/components/climb-send-list";
+import { EditSendButton } from "@/components/edit-send-button";
+import { LogSendButton } from "@/components/log-send-button";
+import { LoggedGradeHistogram } from "@/components/logged-grade-histogram";
+import { AppLink } from "@/components/ui/app-link";
+import { cardClass } from "@/components/ui/card";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Grade } from "@/components/ui/grade";
-import { PageTitle, SectionHeading } from "@/components/ui/typography";
 import { SidebarLayout } from "@/components/ui/page-shell";
-import { cardClass } from "@/components/ui/card";
-import { StatStrip } from "@/components/ui/stat-strip";
 import { RatingStars } from "@/components/ui/rating-stars";
+import { StatStrip } from "@/components/ui/stat-strip";
+import { PageTitle, SectionHeading } from "@/components/ui/typography";
+import { getDb } from "@/db/client";
 import {
   getAncestors,
   getArea,
@@ -25,15 +29,12 @@ import {
   getSendsForClimb,
   getUserSendForClimb,
 } from "@/db/queries";
-import { formatGrade } from "@/lib/grades";
-import { buildLoggedGradeRows } from "@/lib/grade-histogram";
-import type { AscentStyle as AscentStyleType } from "@/lib/sends";
 import { missingDescriptionMessage } from "@/lib/descriptions";
-import { LoggedGradeHistogram } from "@/components/logged-grade-histogram";
-import { getDb } from "@/db/client";
+import { buildLoggedGradeRows } from "@/lib/grade-histogram";
+import { formatGrade } from "@/lib/grades";
+import type { AscentStyle as AscentStyleType } from "@/lib/sends";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
-import { AppLink } from "@/components/ui/app-link";
 
 type ClimbPageProps = {
   params: Promise<{ id: string }>;
@@ -57,9 +58,7 @@ export async function generateMetadata({ params }: ClimbPageProps): Promise<Meta
 
   return {
     title:
-      climb.grade == null
-        ? climb.name
-        : `${climb.name} (${formatGrade(climb.type, climb.grade)})`,
+      climb.grade == null ? climb.name : `${climb.name} (${formatGrade(climb.type, climb.grade)})`,
   };
 }
 
@@ -108,9 +107,7 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
             <Grade size="md">{formatGrade(climb.type, climb.grade)}</Grade>
             <DisciplineChip type={climb.type} />
           </div>
-          <p className="text-muted mt-1">
-            {climb.description || missingDescriptionMessage()}
-          </p>
+          <p className="mt-1 text-muted">{climb.description || missingDescriptionMessage()}</p>
         </div>
         {session && <ClimbActionsMenu climb={climb} />}
       </div>
@@ -200,7 +197,9 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
                 message="No sends yet — this line is waiting for its first ascent."
                 cta={
                   session ? (
-                    userSend ? undefined : <LogSendButton climb={climb} fullWidth />
+                    userSend ? undefined : (
+                      <LogSendButton climb={climb} fullWidth />
+                    )
                   ) : (
                     <AppLink href={signInUrl(`/climbs/${climb.id}`)} className="text-sm">
                       Sign in to log the first send

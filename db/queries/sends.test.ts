@@ -1,8 +1,12 @@
 import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
+
 import { createDb, type Database } from "@/db/client";
 import { climbs, sends } from "@/db/schema";
+import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
+import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyClimbs } from "@/test/fixtures";
+
 import {
   getClimbSendStats,
   getClimbSendSummary,
@@ -15,13 +19,6 @@ import {
   type UserSendsExportCursor,
   type UserSendsFilter,
 } from "./sends";
-import {
-  seedFixtureSend,
-  seedFixtureTree,
-  seedFixtureUser,
-  seedManyClimbs,
-} from "@/test/fixtures";
-import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 
 const ALL_SENDS_FILTER: UserSendsFilter = {
   disciplines: ["boulder", "sport", "trad"],
@@ -146,33 +143,53 @@ describe("getSendsForUserPage", () => {
       dateSent: "2026-02-01",
     });
 
-    const boulderOnly = await getSendsForUserPage(db, "test-user-5", {
-      ...ALL_SENDS_FILTER,
-      disciplines: ["boulder"],
-    }, 0);
+    const boulderOnly = await getSendsForUserPage(
+      db,
+      "test-user-5",
+      {
+        ...ALL_SENDS_FILTER,
+        disciplines: ["boulder"],
+      },
+      0,
+    );
     expect(boulderOnly.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
 
-    const sportOnly = await getSendsForUserPage(db, "test-user-5", {
-      ...ALL_SENDS_FILTER,
-      disciplines: ["sport"],
-    }, 0);
+    const sportOnly = await getSendsForUserPage(
+      db,
+      "test-user-5",
+      {
+        ...ALL_SENDS_FILTER,
+        disciplines: ["sport"],
+      },
+      0,
+    );
     expect(sportOnly.sends.map((s) => s.climbName)).toEqual(["Test Crimper"]);
   });
 
   it("returns every discipline when none are selected (unfiltered, not empty)", async () => {
-    const results = await getSendsForUserPage(db, "test-user-5", {
-      ...ALL_SENDS_FILTER,
-      disciplines: [],
-    }, 0);
+    const results = await getSendsForUserPage(
+      db,
+      "test-user-5",
+      {
+        ...ALL_SENDS_FILTER,
+        disciplines: [],
+      },
+      0,
+    );
     expect(results.sends.map((s) => s.climbName)).toEqual(["Test Crimper", "Test Highball"]);
   });
 
   it("filters by grade range within a discipline", async () => {
     // Test Highball is V4 (ordinal 5), Test Slab is V1 (ordinal 2).
-    const highOnly = await getSendsForUserPage(db, "test-user-1", {
-      ...ALL_SENDS_FILTER,
-      boulderRange: [3, BOULDER_HUECO.length - 1],
-    }, 0);
+    const highOnly = await getSendsForUserPage(
+      db,
+      "test-user-1",
+      {
+        ...ALL_SENDS_FILTER,
+        boulderRange: [3, BOULDER_HUECO.length - 1],
+      },
+      0,
+    );
     expect(highOnly.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
   });
 
@@ -203,10 +220,15 @@ describe("getSendsForUserPage", () => {
     });
 
     it("includes grade-unknown sends while the discipline's grade range is the full default", async () => {
-      const results = await getSendsForUserPage(db, "test-user-nullgrade", {
-        ...ALL_SENDS_FILTER,
-        disciplines: ["boulder"],
-      }, 0);
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-nullgrade",
+        {
+          ...ALL_SENDS_FILTER,
+          disciplines: ["boulder"],
+        },
+        0,
+      );
       expect(results.sends.map((s) => s.climbName).sort()).toEqual([
         "Test Graded Problem",
         "Test Mystery Problem",
@@ -218,20 +240,30 @@ describe("getSendsForUserPage", () => {
       // "grade unknown" send matched every narrowed range. An unknown grade
       // can't be known to fall inside [V2, top], so only the graded (V4)
       // climb's send matches.
-      const results = await getSendsForUserPage(db, "test-user-nullgrade", {
-        ...ALL_SENDS_FILTER,
-        disciplines: ["boulder"],
-        boulderRange: [3, BOULDER_HUECO.length - 1],
-      }, 0);
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-nullgrade",
+        {
+          ...ALL_SENDS_FILTER,
+          disciplines: ["boulder"],
+          boulderRange: [3, BOULDER_HUECO.length - 1],
+        },
+        0,
+      );
       expect(results.sends.map((s) => s.climbName)).toEqual(["Test Graded Problem"]);
     });
 
     it("excludes grade-unknown sends when only the upper bound is narrowed", async () => {
-      const results = await getSendsForUserPage(db, "test-user-nullgrade", {
-        ...ALL_SENDS_FILTER,
-        disciplines: ["boulder"],
-        boulderRange: [0, 3],
-      }, 0);
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-nullgrade",
+        {
+          ...ALL_SENDS_FILTER,
+          disciplines: ["boulder"],
+          boulderRange: [0, 3],
+        },
+        0,
+      );
       expect(results.sends).toEqual([]);
     });
   });
@@ -255,42 +287,70 @@ describe("getSendsForUserPage", () => {
     });
 
     it("fuzzy-matches by partial climb name", async () => {
-      const results = await getSendsForUserPage(db, "test-user-10", {
-        ...ALL_SENDS_FILTER,
-        name: "Highb",
-      }, 0);
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-10",
+        {
+          ...ALL_SENDS_FILTER,
+          name: "Highb",
+        },
+        0,
+      );
       expect(results.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
     });
 
     it("matches by area name against the climb's own area or any ancestor", async () => {
-      const results = await getSendsForUserPage(db, "test-user-10", {
-        ...ALL_SENDS_FILTER,
-        areaName: "Boulders",
-      }, 0);
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-10",
+        {
+          ...ALL_SENDS_FILTER,
+          areaName: "Boulders",
+        },
+        0,
+      );
       expect(results.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
     });
 
     it("matches every send under a shared top-level ancestor", async () => {
-      const results = await getSendsForUserPage(db, "test-user-10", {
-        ...ALL_SENDS_FILTER,
-        areaName: "Test Crag",
-      }, 0);
-      expect(results.sends.map((s) => s.climbName).sort()).toEqual(["Test Crimper", "Test Highball"]);
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-10",
+        {
+          ...ALL_SENDS_FILTER,
+          areaName: "Test Crag",
+        },
+        0,
+      );
+      expect(results.sends.map((s) => s.climbName).sort()).toEqual([
+        "Test Crimper",
+        "Test Highball",
+      ]);
     });
 
     it("returns no sends when the climb name matches nothing", async () => {
-      const results = await getSendsForUserPage(db, "test-user-10", {
-        ...ALL_SENDS_FILTER,
-        name: "NoSuchClimbNameAtAll",
-      }, 0);
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-10",
+        {
+          ...ALL_SENDS_FILTER,
+          name: "NoSuchClimbNameAtAll",
+        },
+        0,
+      );
       expect(results).toEqual({ sends: [], hasMore: false });
     });
 
     it("returns no sends when the area name matches nothing", async () => {
-      const results = await getSendsForUserPage(db, "test-user-10", {
-        ...ALL_SENDS_FILTER,
-        areaName: "NoSuchAreaNameAtAll",
-      }, 0);
+      const results = await getSendsForUserPage(
+        db,
+        "test-user-10",
+        {
+          ...ALL_SENDS_FILTER,
+          areaName: "NoSuchAreaNameAtAll",
+        },
+        0,
+      );
       expect(results).toEqual({ sends: [], hasMore: false });
     });
   });

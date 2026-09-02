@@ -1,11 +1,12 @@
 "use client";
 
-import { PageTitle } from "@/components/ui/typography";
-import { FORM_CARD_CLASS } from "@/components/ui/card";
-import { useState } from "react";
 import { Button, Input, Label, TextField } from "@heroui/react";
-import { authClient } from "@/lib/auth-client";
+import { useState } from "react";
+
 import { AppLink } from "@/components/ui/app-link";
+import { FORM_CARD_CLASS } from "@/components/ui/card";
+import { PageTitle } from "@/components/ui/typography";
+import { authClient } from "@/lib/auth-client";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
@@ -17,7 +18,7 @@ export function ForgotPasswordForm() {
     e.preventDefault();
     setError(null);
     setPending(true);
-    authClient.requestPasswordReset(
+    void authClient.requestPasswordReset(
       { email, redirectTo: "/reset-password" },
       {
         onSuccess: () => setDone(true),
@@ -32,22 +33,18 @@ export function ForgotPasswordForm() {
       <div className={FORM_CARD_CLASS}>
         <PageTitle className="text-2xl">Check your email</PageTitle>
         <p className="text-sm text-muted">
-          If an account exists for {email}, we sent a link to reset your
-          password. <AppLink href="/sign-in">Back to sign in</AppLink>.
+          If an account exists for {email}, we sent a link to reset your password.{" "}
+          <AppLink href="/sign-in">Back to sign in</AppLink>.
         </p>
       </div>
     );
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={FORM_CARD_CLASS}
-    >
+    <form onSubmit={handleSubmit} className={FORM_CARD_CLASS}>
       <PageTitle className="text-2xl">Forgot password</PageTitle>
       <p className="text-sm text-muted">
-        Enter your email and we&apos;ll send you a link to reset your
-        password.
+        Enter your email and we&apos;ll send you a link to reset your password.
       </p>
       <TextField value={email} onChange={setEmail} type="email" isRequired>
         <Label>Email</Label>

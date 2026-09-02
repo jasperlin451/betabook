@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+
+import { MAX_COMMENT_LENGTH } from "./sends";
 import {
   buildFailedRowsCsv,
   deriveSourceColumns,
@@ -29,7 +31,6 @@ import {
   type InvalidImportRow,
   type ParsedCsv,
 } from "./sends-import";
-import { MAX_COMMENT_LENGTH } from "./sends";
 
 const SAMPLE_HEADERS = [
   "Date",
@@ -233,7 +234,16 @@ describe("guessColumnMapping", () => {
   });
 
   it("maps differently-named headers via aliases", () => {
-    const headers = ["Ascent Date", "Style", "Route", "Discipline", "Difficulty", "Crag", "Stars", "Notes"];
+    const headers = [
+      "Ascent Date",
+      "Style",
+      "Route",
+      "Discipline",
+      "Difficulty",
+      "Crag",
+      "Stars",
+      "Notes",
+    ];
     const mapping = guessColumnMapping(headers);
     expect(mapping).toEqual({
       date: "Ascent Date",
@@ -387,13 +397,9 @@ describe("deriveSourceColumns", () => {
 
 describe("splitAreaHint", () => {
   it("splits a ' > ' path into segments, leaf first", () => {
-    expect(splitAreaHint("International > North America > Canada > Squamish > Campground Wall")).toEqual([
-      "Campground Wall",
-      "Squamish",
-      "Canada",
-      "North America",
-      "International",
-    ]);
+    expect(
+      splitAreaHint("International > North America > Canada > Squamish > Campground Wall"),
+    ).toEqual(["Campground Wall", "Squamish", "Canada", "North America", "International"]);
   });
 
   it("returns a plain name as itself and nothing for a blank", () => {
@@ -456,9 +462,9 @@ describe("missingRequiredColumns", () => {
   });
 
   it("names each unmapped required field so the columns step can block Next", () => {
-    expect(
-      missingRequiredColumns({ ...FULL_MAPPING, ascentStyle: null, climbName: null }),
-    ).toEqual(["ascentStyle", "climbName"]);
+    expect(missingRequiredColumns({ ...FULL_MAPPING, ascentStyle: null, climbName: null })).toEqual(
+      ["ascentStyle", "climbName"],
+    );
   });
 
   it("ignores unmapped optional fields, the area included", () => {
@@ -507,9 +513,9 @@ describe("parseDateWithFormat", () => {
   it("parses unambiguous formats whatever the chosen format is", () => {
     for (const format of ["iso", "mdy", "dmy"] as const) {
       // JS Date#toString, which is what a naively serialized Date looks like.
-      expect(
-        parseDateWithFormat("Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", format),
-      ).toBe("2019-10-15");
+      expect(parseDateWithFormat("Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", format)).toBe(
+        "2019-10-15",
+      );
       expect(parseDateWithFormat("2026-08-12", format)).toBe("2026-08-12");
       expect(parseDateWithFormat("Oct 15, 2019", format)).toBe("2019-10-15");
     }
@@ -528,7 +534,7 @@ describe("parseDateWithFormat", () => {
       ["10/15/2019 2:05 PM", "2019-10-15"],
     ];
     for (const [raw, expected] of cases) {
-      expect(parseDateWithFormat(raw, "mdy"), raw).toBe(expected);
+      expect(parseDateWithFormat(raw, "mdy")).toBe(expected);
     }
   });
 
@@ -550,7 +556,7 @@ describe("parseDateWithFormat", () => {
       ["10/15/89", "mdy", "1989-10-15"], // two-digit years pivot like a spreadsheet's
     ];
     for (const [raw, format, expected] of cases) {
-      expect(parseDateWithFormat(raw, format), raw).toBe(expected);
+      expect(parseDateWithFormat(raw, format)).toBe(expected);
     }
   });
 
@@ -578,9 +584,9 @@ describe("detectDateFormat", () => {
   });
 
   it("lets the all-numeric values decide when unambiguous values are mixed in", () => {
-    expect(
-      detectDateFormat(["Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", "25/8/2026"]),
-    ).toBe("dmy");
+    expect(detectDateFormat(["Tue Oct 15 2019 00:00:00 GMT+0000 (GMT+00:00)", "25/8/2026"])).toBe(
+      "dmy",
+    );
   });
 });
 
@@ -825,7 +831,15 @@ describe("normalizeImportRows", () => {
   });
 
   it("defaults gradeFeel to solid when the CSV has no matching column", () => {
-    const { valid } = normalizeImportRows(csv([row()]), FULL_MAPPING, ASCENT_STYLE_MAPPING, CLIMB_TYPE_MAPPING, GRADE_FEEL_MAPPING, "iso", { today: TODAY });
+    const { valid } = normalizeImportRows(
+      csv([row()]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
     expect(valid[0].gradeFeel).toBe("solid");
   });
 
@@ -880,7 +894,9 @@ describe("normalizeImportRows", () => {
       { today: TODAY },
     );
     expect(valid).toEqual([]);
-    expect(invalid).toEqual([{ rowIndex: 0, raw: row({ Climb: "" }), reason: "Missing climb name" }]);
+    expect(invalid).toEqual([
+      { rowIndex: 0, raw: row({ Climb: "" }), reason: "Missing climb name" },
+    ]);
   });
 
   // The area used to be required, which turned every row of an export with
@@ -948,7 +964,10 @@ describe("normalizeImportRows", () => {
   });
 
   it("keeps the posted grade for matching when the climber gave no grade of their own", () => {
-    const parsed = mpCsv([mpRow({ Rating: "5.10c", "Your Rating": "" }), mpRow({ Rating: "5.9 R", "Your Rating": "5.10a" })]);
+    const parsed = mpCsv([
+      mpRow({ Rating: "5.10c", "Your Rating": "" }),
+      mpRow({ Rating: "5.9 R", "Your Rating": "5.10a" }),
+    ]);
     const mapping = guessColumnMapping([...parsed.headers, ...parsed.derived]);
     const { valid, warnings } = normalizeImportRows(
       parsed,
@@ -980,7 +999,12 @@ describe("normalizeImportRows", () => {
     );
     expect(valid.map((r) => r.rating)).toEqual([null, null, null]);
     expect(warnings).toEqual([
-      { field: "rating", message: "invalid rating, imported without a rating", count: 1, examples: ['Row 3: "banana"'] },
+      {
+        field: "rating",
+        message: "invalid rating, imported without a rating",
+        count: 1,
+        examples: ['Row 3: "banana"'],
+      },
     ]);
   });
 
@@ -1241,7 +1265,17 @@ describe("buildFailedRowsCsv", () => {
 describe("guessAscentStyleMapping", () => {
   it("recognizes other apps' words for the three styles and skips non-sends", () => {
     expect(
-      guessAscentStyleMapping(["Redpoint", "Pinkpoint", "Send", "Lead", "Onsight", "Flash", "TR", "Fell/Hung", "Attempt"]),
+      guessAscentStyleMapping([
+        "Redpoint",
+        "Pinkpoint",
+        "Send",
+        "Lead",
+        "Onsight",
+        "Flash",
+        "TR",
+        "Fell/Hung",
+        "Attempt",
+      ]),
     ).toEqual({
       Redpoint: "redpoint",
       Pinkpoint: "redpoint",
@@ -1258,7 +1292,9 @@ describe("guessAscentStyleMapping", () => {
 
 describe("guessClimbTypeMapping", () => {
   it("takes the first recognized type from a comma-separated value", () => {
-    expect(guessClimbTypeMapping(["Sport, TR", "Trad, Sport", "Boulder, Alpine", "Bouldering", "Ice"])).toEqual({
+    expect(
+      guessClimbTypeMapping(["Sport, TR", "Trad, Sport", "Boulder, Alpine", "Bouldering", "Ice"]),
+    ).toEqual({
       "Sport, TR": "sport",
       "Trad, Sport": "trad",
       "Boulder, Alpine": "boulder",

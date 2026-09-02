@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": true,
+  "singleQuote": false,
+  "jsxSingleQuote": false,
+  "trailingComma": "all",
+  "bracketSpacing": true,
+  "arrowParens": "always",
+  "endOfLine": "lf",
+  "sortImports": true,
+  "sortPackageJson": true,
+  "sortTailwindcss": {
+    "functions": ["clsx"],
+    "stylesheet": "app/globals.css"
+  },
+  "ignorePatterns": [
+    ".next/**",
+    "out/**",
+    "build/**",
+    ".open-next/**",
+    ".wrangler/**",
+    "climbs_data/**",
+    ".claude/**",
+    "drizzle/migrations/**",
+    "worker-configuration.d.ts",
+    "next-env.d.ts"
+  ]
+}

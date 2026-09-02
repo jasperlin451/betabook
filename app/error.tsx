@@ -1,7 +1,8 @@
 "use client"; // Error boundaries must be Client Components
 
-import { useEffect } from "react";
 import { Button } from "@heroui/react";
+import { useEffect } from "react";
+
 import { AppLink } from "@/components/ui/app-link";
 import { PageTitle } from "@/components/ui/typography";
 
@@ -24,8 +25,8 @@ export default function ErrorPage({
       <div className="flex flex-col gap-2">
         <PageTitle className="text-2xl">Something went wrong</PageTitle>
         <p className="text-muted">
-          An unexpected error kept this page from loading. It may be temporary
-          — trying again often fixes it.
+          An unexpected error kept this page from loading. It may be temporary — trying again often
+          fixes it.
         </p>
       </div>
       <div className="flex items-center gap-4">

@@ -1,20 +1,21 @@
 "use client";
 
+import { clsx } from "clsx";
 import { useState } from "react";
-import clsx from "clsx";
-import { AppLink } from "@/components/ui/app-link";
+
 import { AreaSearchField } from "@/components/area-search-field";
 import { DisciplineChips } from "@/components/discipline-chips";
+import { AppLink } from "@/components/ui/app-link";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { FIELD_CLASS } from "@/components/ui/field";
 import { Grade } from "@/components/ui/grade";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
+import type { AreaBreadcrumbs, ClimbWithAreaName, Discipline } from "@/db/queries";
 import { useClimbSearch } from "@/hooks/use-climb-search";
 import { formatCount } from "@/lib/format";
 import { formatGrade } from "@/lib/grades";
-import type { AreaBreadcrumbs, ClimbWithAreaName, Discipline } from "@/db/queries";
 
 /** Where a result sits, as plain text — these rows are buttons that pick a
  * climb, so the linked <AreaBreadcrumb> every other list uses can't go inside
@@ -94,11 +95,7 @@ function ClimbRow({
 /** Seeds for the new-climb form (see app/climbs/new). The discipline only
  * carries when one chip is selected — two or three describe a search, not a
  * climb, and picking one of them for the user would be a guess. */
-function newClimbParams(
-  name: string,
-  areaName: string,
-  disciplines: Discipline[],
-): string {
+function newClimbParams(name: string, areaName: string, disciplines: Discipline[]): string {
   const params = new URLSearchParams();
   if (name.trim()) params.set("name", name.trim());
   if (areaName.trim()) params.set("areaName", areaName.trim());
@@ -165,30 +162,31 @@ export function ClimbPicker({
   return (
     <div className="flex flex-col gap-4">
       {/* Sticky against the drawer body's own scroll (see .drawer__body) — a
-        * search box that scrolls away is gone exactly when the list is long
-        * enough to need narrowing.
-        *
-        * Pinned a few px ABOVE top-0, with the same amount padded back on:
-        * .drawer__body carries 3px of padding (room for focus rings), and a
-        * scroll container clips at its padding box, not its content box — so
-        * at top-0 rows stay visible scrolling through that strip above the
-        * header. Overshooting covers it; the extra is background, not text. */}
+       * search box that scrolls away is gone exactly when the list is long
+       * enough to need narrowing.
+       *
+       * Pinned a few px ABOVE top-0, with the same amount padded back on:
+       * .drawer__body carries 3px of padding (room for focus rings), and a
+       * scroll container clips at its padding box, not its content box — so
+       * at top-0 rows stay visible scrolling through that strip above the
+       * header. Overshooting covers it; the extra is background, not text. */}
       <div className="sticky -top-1 z-10 flex flex-col gap-3 bg-overlay pt-1 pb-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Eyebrow>Which climb?</Eyebrow>
           {/* Discipline first, and the same chips the list toolbars use: it's
-            * the cheapest cut available — one tap drops a name search by
-            * roughly two thirds — and it's the one thing you always know
-            * about a climb you just did, even when you're unsure of the
-            * spelling. Narrows on its own too, with no text at all. */}
+           * the cheapest cut available — one tap drops a name search by
+           * roughly two thirds — and it's the one thing you always know
+           * about a climb you just did, even when you're unsure of the
+           * spelling. Narrows on its own too, with no text at all. */}
           <DisciplineChips value={disciplines} onChange={setDisciplines} />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {/* Plain text, not RouteSearchField: the list below is already the
-            * suggestion surface, and a popover would cover it. Bare input, no
-            * TextField wrapper — HeroUI wires its label to its own <Input>,
-            * not to a raw one, so the name has to come from aria-label. */}
+           * suggestion surface, and a popover would cover it. Bare input, no
+           * TextField wrapper — HeroUI wires its label to its own <Input>,
+           * not to a raw one, so the name has to come from aria-label. */}
           <input
+            // oxlint-disable-next-line jsx-a11y/no-autofocus -- modal search input focuses on mount
             autoFocus
             aria-label="Route name"
             value={name}
@@ -196,7 +194,7 @@ export function ClimbPicker({
             placeholder="Route name…"
             // search-combo-input for the magnifier, so this reads as the same
             // kind of control as the area combobox beside it.
-            className={`${FIELD_CLASS} search-combo-input w-full`}
+            className={`${FIELD_CLASS} w-full search-combo-input`}
           />
           <AreaSearchField
             value={areaName}
@@ -220,41 +218,45 @@ export function ClimbPicker({
             // A send needs a climb to hang off, so an unlisted route is a
             // dead end here without this. The search that just failed seeds
             // the form, since it's already a description of the climb.
-            <AppLink href={`/climbs/new?${newClimbParams(name, areaName, disciplines)}`} className="text-sm">
+            <AppLink
+              href={`/climbs/new?${newClimbParams(name, areaName, disciplines)}`}
+              className="text-sm"
+            >
               Add the climb
             </AppLink>
           }
         />
       )}
 
-      {pages != null && pages.climbs.length > 0 && (
-        // Until the new query is answered these rows describe the old one, so
-        // they go dim and inert: picking one would write a send against a
-        // climb the search no longer shows.
-        <div className={clsx("flex flex-col gap-3", !current && "opacity-50")}>
-          <div className="flex flex-col divide-y divide-separator">
-            {pages.climbs.map((climb) => (
-              <ClimbRow
-                key={climb.id}
-                climb={climb}
-                path={areaPath(climb, pages.areaBreadcrumbs)}
-                sendCount={pages.sendStats[climb.id]?.sendCount ?? 0}
-                sent={sentClimbIds?.has(climb.id) ?? false}
-                pickable={current}
-                onPick={() =>
-                  onPick(climb, {
-                    ancestors: pages.areaBreadcrumbs[climb.areaId] ?? [],
-                    sendCount: pages.sendStats[climb.id]?.sendCount ?? 0,
-                  })
-                }
-              />
-            ))}
+      {pages != null &&
+        pages.climbs.length > 0 && (
+          // Until the new query is answered these rows describe the old one, so
+          // they go dim and inert: picking one would write a send against a
+          // climb the search no longer shows.
+          <div className={clsx("flex flex-col gap-3", !current && "opacity-50")}>
+            <div className="flex flex-col divide-y divide-separator">
+              {pages.climbs.map((climb) => (
+                <ClimbRow
+                  key={climb.id}
+                  climb={climb}
+                  path={areaPath(climb, pages.areaBreadcrumbs)}
+                  sendCount={pages.sendStats[climb.id]?.sendCount ?? 0}
+                  sent={sentClimbIds?.has(climb.id) ?? false}
+                  pickable={current}
+                  onPick={() =>
+                    onPick(climb, {
+                      ancestors: pages.areaBreadcrumbs[climb.areaId] ?? [],
+                      sendCount: pages.sendStats[climb.id]?.sendCount ?? 0,
+                    })
+                  }
+                />
+              ))}
+            </div>
+            {current && pages.hasNextPage && (
+              <LoadMoreButton onPress={loadMore} loading={loadingMore} failed={loadMoreFailed} />
+            )}
           </div>
-          {current && pages.hasNextPage && (
-            <LoadMoreButton onPress={loadMore} loading={loadingMore} failed={loadMoreFailed} />
-          )}
-        </div>
-      )}
+        )}
     </div>
   );
 }

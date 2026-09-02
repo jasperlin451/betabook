@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { Breadcrumbs } from "@heroui/react";
+import { useRouter } from "next/navigation";
 
 type BreadcrumbNamed = { id: number; name: string };
 
@@ -34,7 +34,7 @@ export function AreaBreadcrumbs({ ancestors, current }: AreaBreadcrumbsProps) {
   return (
     <div className="flex items-center gap-3">
       {/* The topo line: a short rope-end leading into the trail of areas,
-        * the way a guidebook topo traces a route to its start. */}
+       * the way a guidebook topo traces a route to its start. */}
       <span className="h-px w-6 shrink-0 bg-palette-primary" aria-hidden />
       <Breadcrumbs>
         {ancestors.map((ancestor, index) => {

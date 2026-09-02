@@ -1,5 +1,5 @@
+import { clsx } from "clsx";
 import type { ReactNode } from "react";
-import clsx from "clsx";
 
 type SidebarLayoutProps = {
   /** The filter/stat column. On narrow screens it stacks above the main

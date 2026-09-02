@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { safeNextPath, signInUrl, signUpUrl } from "./sign-in-redirect";
 
 describe("safeNextPath", () => {
@@ -6,9 +7,7 @@ describe("safeNextPath", () => {
     expect(safeNextPath("/account")).toBe("/account");
     expect(safeNextPath("/account/import")).toBe("/account/import");
     expect(safeNextPath("/climbs/new")).toBe("/climbs/new");
-    expect(safeNextPath("/areas/12?sort=grade&dir=desc")).toBe(
-      "/areas/12?sort=grade&dir=desc",
-    );
+    expect(safeNextPath("/areas/12?sort=grade&dir=desc")).toBe("/areas/12?sort=grade&dir=desc");
   });
 
   it("rejects absolute URLs", () => {
@@ -47,9 +46,7 @@ describe("signInUrl / signUpUrl", () => {
   });
 
   it("encodes the continuation into the next param", () => {
-    expect(signInUrl("/account/import")).toBe(
-      "/sign-in?next=%2Faccount%2Fimport",
-    );
+    expect(signInUrl("/account/import")).toBe("/sign-in?next=%2Faccount%2Fimport");
     expect(signUpUrl("/climbs/new")).toBe("/sign-up?next=%2Fclimbs%2Fnew");
     expect(signInUrl("/areas/12?sort=grade&dir=desc")).toBe(
       "/sign-in?next=%2Fareas%2F12%3Fsort%3Dgrade%26dir%3Ddesc",

@@ -1,18 +1,20 @@
 import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
+
 import type { Database } from "@/db/client";
 import { areas, climbs, sends, user } from "@/db/schema";
-import { formatGrade, type ClimbType } from "@/lib/grades";
-import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
-import { areaNameCondition } from "./areas";
-import { toFtsPrefixQuery } from "./shared";
-import type { Climb, Discipline } from "./climbs";
 import {
   DEFAULT_BOULDER_RANGE,
   DEFAULT_SPORT_RANGE,
   DEFAULT_TRAD_RANGE,
   type DisciplineFilter,
 } from "@/lib/discipline-filter";
+import { formatGrade, type ClimbType } from "@/lib/grades";
 import { RECENT_SENDS_PAGE_SIZE } from "@/lib/page-sizes";
+import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
+
+import { areaNameCondition } from "./areas";
+import type { Climb, Discipline } from "./climbs";
+import { toFtsPrefixQuery } from "./shared";
 
 export type Send = typeof sends.$inferSelect;
 
@@ -177,9 +179,10 @@ export async function getClimbSendSummary(
   db: Database,
   climbId: number,
 ): Promise<ClimbSendSummary> {
-  const styleBreakdown = Object.fromEntries(
-    ASCENT_STYLES.map((style) => [style, 0]),
-  ) as Record<AscentStyle, number>;
+  const styleBreakdown = Object.fromEntries(ASCENT_STYLES.map((style) => [style, 0])) as Record<
+    AscentStyle,
+    number
+  >;
 
   const [stats, styleRows, suggestedGradeCounts] = await Promise.all([
     getClimbSendStats(db, [climbId]),
@@ -316,7 +319,9 @@ function disciplineGradeClause(
 function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
   const disciplineClauses: SQL[] = [];
   if (filter.disciplines.includes("boulder")) {
-    disciplineClauses.push(disciplineGradeClause("boulder", filter.boulderRange, DEFAULT_BOULDER_RANGE));
+    disciplineClauses.push(
+      disciplineGradeClause("boulder", filter.boulderRange, DEFAULT_BOULDER_RANGE),
+    );
   }
   if (filter.disciplines.includes("sport")) {
     disciplineClauses.push(disciplineGradeClause("sport", filter.sportRange, DEFAULT_SPORT_RANGE));
@@ -333,7 +338,10 @@ function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
 
   if (filter.ascentStyles.length > 0) {
     conditions.push(
-      sql`sends.ascent_style IN (${sql.join(filter.ascentStyles.map((s) => sql`${s}`), sql`, `)})`,
+      sql`sends.ascent_style IN (${sql.join(
+        filter.ascentStyles.map((s) => sql`${s}`),
+        sql`, `,
+      )})`,
     );
   }
 
@@ -396,7 +404,7 @@ export async function getSendsForUserPage(
   return { sends: hasMore ? rows.slice(0, pageSize) : rows, hasMore };
 }
 
-export const EXPORT_SENDS_PAGE_SIZE = 200;
+const EXPORT_SENDS_PAGE_SIZE = 200;
 export type UserSendsExportCursor = { dateSent: string | null; id: number };
 export type UserSendsExportPage = {
   sends: UserSendRow[];
@@ -424,14 +432,7 @@ export async function getSendsForUserExportPage(
         ? sql`sends.date_sent IS NOT NULL`
         : sql`sends.date_sent IS NOT NULL
               AND (sends.date_sent, sends.id) < (${cursor.dateSent}, ${cursor.id})`;
-    rows.push(
-      ...(await getUserExportRows(
-        db,
-        userId,
-        datedRange,
-        EXPORT_SENDS_PAGE_SIZE + 1,
-      )),
-    );
+    rows.push(...(await getUserExportRows(db, userId, datedRange, EXPORT_SENDS_PAGE_SIZE + 1)));
   }
 
   // Phase 2: NULL dates sort after every dated row. Only enter this range
@@ -518,7 +519,13 @@ export async function getUserSendsSummary(db: Database, userId: string): Promise
   `);
 
   if (!totals || totals.sendCount === 0) {
-    return { sendCount: 0, areaCount: 0, peakGrade: null, mostLoggedDiscipline: null, latestSendDate: null };
+    return {
+      sendCount: 0,
+      areaCount: 0,
+      peakGrade: null,
+      mostLoggedDiscipline: null,
+      latestSendDate: null,
+    };
   }
 
   const [topDiscipline] = await db.all<TopDiscipline>(sql`
@@ -535,9 +542,13 @@ export async function getUserSendsSummary(db: Database, userId: string): Promise
     sendCount: totals.sendCount,
     areaCount: totals.areaCount,
     latestSendDate: totals.latestSendDate,
-    mostLoggedDiscipline: topDiscipline ? { type: topDiscipline.type, count: topDiscipline.count } : null,
+    mostLoggedDiscipline: topDiscipline
+      ? { type: topDiscipline.type, count: topDiscipline.count }
+      : null,
     peakGrade:
-      topDiscipline?.maxGrade != null ? formatGrade(topDiscipline.type, topDiscipline.maxGrade) : null,
+      topDiscipline?.maxGrade != null
+        ? formatGrade(topDiscipline.type, topDiscipline.maxGrade)
+        : null,
   };
 }
 

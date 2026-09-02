@@ -1,10 +1,11 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
 import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+
 import { createDb } from "@/db/client";
+import { createArea, createClimb, updateArea } from "@/db/mutations";
 import { getArea, getSubareas, getSubtreeClimbs, findClimbCandidatesByNames } from "@/db/queries";
 import { seedFixtureTree } from "@/test/fixtures";
-import { createArea, createClimb, updateArea } from "@/db/mutations";
 
 /** A newly created area has to be *fully placed* the moment createArea
  * returns: its own page, its parent's sub-area list, and every ancestor's
@@ -206,7 +207,7 @@ describe("a new area always goes under an existing one", () => {
 
 async function countRoots(): Promise<number> {
   const { results } = await db.run(sql`SELECT COUNT(*) AS n FROM areas WHERE parent_id IS NULL`);
-  return Number((results[0] as { n: number }).n);
+  return (results[0] as { n: number }).n;
 }
 
 // Declared after use for readability above; hoisted function declarations.

@@ -2,8 +2,9 @@
 
 import { Button, useOverlayState } from "@heroui/react";
 import { CirclePlus } from "lucide-react";
-import type { SendableClimb } from "@/db/queries";
+
 import { SendFormDrawer } from "@/components/send-form-drawer";
+import type { SendableClimb } from "@/db/queries";
 
 /** Leading-slot indicator: a static check if the viewer has already sent
  * this climb, or a compact trigger opening the same create-send drawer used
@@ -32,7 +33,7 @@ export function ClimbSentIndicator({ climb, sent }: { climb: SendableClimb; sent
         className={INDICATOR_BOX_CLASS}
       >
         {/* The guidebook tick, drawn in on mount (stroke-dash draw — see
-          * tick-draw in globals.css); reduced-motion users get it static. */}
+         * tick-draw in globals.css); reduced-motion users get it static. */}
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -43,11 +44,7 @@ export function ClimbSentIndicator({ climb, sent }: { climb: SendableClimb; sent
           className="size-5 text-success-soft-foreground"
           aria-hidden
         >
-          <path
-            d="M4 13l5 5L20 6"
-            strokeDasharray={24}
-            className="motion-safe:animate-tick-draw"
-          />
+          <path d="M4 13l5 5L20 6" strokeDasharray={24} className="motion-safe:animate-tick-draw" />
         </svg>
       </span>
     );

@@ -1,16 +1,17 @@
 "use server";
 
 import { headers } from "next/headers";
+
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
-import { pickFormFields } from "@/lib/validation";
 import {
   CONTACT_FORM_FIELDS,
   formatContactEmail,
   looksAutomated,
   validateContactInput,
 } from "@/lib/contact";
-import { allowContactSubmission } from "@/lib/rate-limit";
 import { sendContactEmail } from "@/lib/email";
+import { allowContactSubmission } from "@/lib/rate-limit";
+import { pickFormFields } from "@/lib/validation";
 
 const THROTTLED_MESSAGE = "Too many messages from this network. Try again in a minute.";
 

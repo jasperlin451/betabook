@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import clsx from "clsx";
 import { Disclosure } from "@heroui/react";
+import { clsx } from "clsx";
+import { useState, type ReactNode } from "react";
+
 import { useIsomorphicLayoutEffect } from "@/hooks/use-isomorphic-layout-effect";
 
 type Breakpoint = "md" | "lg";

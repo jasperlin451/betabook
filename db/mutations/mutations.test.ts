@@ -1,17 +1,12 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { createDb } from "@/db/client";
+import { createClimb, createSend, deleteClimb, updateClimb, updateSend } from "@/db/mutations";
 import { climbs, sends } from "@/db/schema";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
-import {
-  createClimb,
-  createSend,
-  deleteClimb,
-  updateClimb,
-  updateSend,
-} from "@/db/mutations";
 
 /** The action boundary must never throw — Next.js redacts uncaught
  * server-action errors in production, so these tests pin the structured
@@ -31,8 +26,7 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/session", async () => {
   const { NotSignedInError } = await import("@/lib/action-result");
   return {
-    getSession: async () =>
-      sessionState.userId ? { user: { id: sessionState.userId } } : null,
+    getSession: async () => (sessionState.userId ? { user: { id: sessionState.userId } } : null),
     requireSession: async () => {
       if (!sessionState.userId) throw new NotSignedInError();
       return { user: { id: sessionState.userId } };
@@ -194,7 +188,7 @@ describe("deleteClimb action boundary", () => {
   });
 
   it("keeps sends safe even when a raw delete bypasses the action", async () => {
-    await expect(db.delete(climbs).where(eq(climbs.id, 1))).rejects.toThrow();
+    await expect(db.delete(climbs).where(eq(climbs.id, 1))).rejects.toThrow(/Failed query/i);
     expect(await db.select().from(climbs).where(eq(climbs.id, 1)).get()).toBeDefined();
     expect(await db.select().from(sends).where(eq(sends.climbId, 1)).get()).toBeDefined();
   });
@@ -215,12 +209,10 @@ describe("updateClimb discipline invariant", () => {
   });
 
   it("enforces the same rule for writes that bypass the action", async () => {
-    await expect(
-      db.update(climbs).set({ type: "sport" }).where(eq(climbs.id, 1)),
-    ).rejects.toThrow();
-    expect((await db.select().from(climbs).where(eq(climbs.id, 1)).get())?.type).toBe(
-      "boulder",
+    await expect(db.update(climbs).set({ type: "sport" }).where(eq(climbs.id, 1))).rejects.toThrow(
+      /Failed query/i,
     );
+    expect((await db.select().from(climbs).where(eq(climbs.id, 1)).get())?.type).toBe("boulder");
   });
 });
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+
 import { NotFoundMessage } from "@/components/ui/not-found-message";
 
 export const metadata: Metadata = {

@@ -1,10 +1,11 @@
-import { cache } from "react";
+import { ChartColumnIncreasing } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ChartColumnIncreasing } from "lucide-react";
+import { cache } from "react";
+
 import { AnalyticsGradePyramid } from "@/components/analytics-grade-pyramid";
-import { AnalyticsYearSelect } from "@/components/analytics-year-select";
 import { StatTiles, type StatTile } from "@/components/analytics-stat-tiles";
+import { AnalyticsYearSelect } from "@/components/analytics-year-select";
 import { BreakthroughList } from "@/components/breakthrough-list";
 import { ClimbingCalendar } from "@/components/climbing-calendar";
 import { ProgressionChart } from "@/components/progression-chart";
@@ -75,8 +76,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
   const requested = parseDisciplineScope(
     typeof search.discipline === "string" ? search.discipline : undefined,
   );
-  const scope =
-    requested !== "all" && present.includes(requested) ? requested : (dominant ?? null);
+  const scope = requested !== "all" && present.includes(requested) ? requested : (dominant ?? null);
 
   if (scope == null) {
     return (
@@ -97,9 +97,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
 
   // The pyramid has its own year selector — null means all time.
   const requestedPyramidYear = Number(typeof search.pyramid === "string" ? search.pyramid : NaN);
-  const pyramidYear = analytics.years.includes(requestedPyramidYear)
-    ? requestedPyramidYear
-    : null;
+  const pyramidYear = analytics.years.includes(requestedPyramidYear) ? requestedPyramidYear : null;
   const pyramidRows =
     pyramidYear == null
       ? (analytics.pyramid[0]?.rows ?? [])
@@ -136,8 +134,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     {
       label: "Days out",
       value: analytics.daysOut,
-      sub:
-        analytics.daysPerMonth != null ? `${analytics.daysPerMonth.toFixed(1)} per month` : null,
+      sub: analytics.daysPerMonth != null ? `${analytics.daysPerMonth.toFixed(1)} per month` : null,
     },
     {
       label: "Best year",
@@ -249,7 +246,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
             {analytics.years.length > 0 && (
               <AnalyticsYearSelect
                 param="pyramid"
-                years={[...analytics.years].reverse()}
+                years={analytics.years.toReversed()}
                 selected={pyramidYear}
                 allLabel="All time"
                 label="Pyramid year"
@@ -258,9 +255,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
           </div>
           {pyramidRows.length === 0 ? (
             <p className="text-sm text-muted">
-              {pyramidYear == null
-                ? "No graded sends yet."
-                : `No graded sends in ${pyramidYear}.`}
+              {pyramidYear == null ? "No graded sends yet." : `No graded sends in ${pyramidYear}.`}
             </p>
           ) : (
             <AnalyticsGradePyramid type={scope} rows={pyramidRows} />
@@ -293,7 +288,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
           {analytics.years.length > 1 && (
             <AnalyticsYearSelect
               param="year"
-              years={[...analytics.years].reverse()}
+              years={analytics.years.toReversed()}
               selected={year}
               label="Calendar year"
             />
@@ -319,8 +314,7 @@ function AnalyticsHeader({ id, name }: { id: string; name: string }) {
       <Eyebrow icon={ChartColumnIncreasing}>Analytics</Eyebrow>
       <PageTitle>{name}</PageTitle>
       <p className="mt-1 text-sm text-muted">
-        Progression, pyramid, and season rhythm from every logged send, at the grades they
-        logged.{" "}
+        Progression, pyramid, and season rhythm from every logged send, at the grades they logged.{" "}
         <AppLink href={`/users/${id}`}>Back to profile</AppLink>
       </p>
     </div>

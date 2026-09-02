@@ -1,5 +1,5 @@
-import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 import { ActionError } from "@/lib/action-result";
+import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 import { parseGradeIndex, trimOrNull } from "@/lib/validation";
 
 export const ASCENT_STYLES = ["redpoint", "flash", "onsight"] as const;

@@ -34,7 +34,9 @@ export function ClimbingCalendar({
   year: number;
   hue: string;
 }) {
+  // oxlint-disable-next-line react/capitalized-calls -- Date.UTC is standard JavaScript built-in
   const jan1 = Date.UTC(year, 0, 1);
+  // oxlint-disable-next-line react/capitalized-calls -- Date.UTC is standard JavaScript built-in
   const daysInYear = Math.round((Date.UTC(year + 1, 0, 1) - jan1) / MS_PER_DAY);
   // Monday-first rows, like a paper calendar.
   const offset = (new Date(jan1).getUTCDay() + 6) % 7;
@@ -115,11 +117,11 @@ export function ClimbingCalendar({
           </div>
           <div className="mt-1 ml-9 flex items-center gap-1 text-[10px] text-muted">
             Less
-            {LEVEL_OPACITY.map((opacity, i) => (
+            {LEVEL_OPACITY.map((opacity) => (
               <span
-                key={i}
+                key={opacity}
                 className="size-[10px] rounded-[2px] bg-foreground/10"
-                style={i > 0 ? { backgroundColor: hue, opacity } : undefined}
+                style={opacity > 0 ? { backgroundColor: hue, opacity } : undefined}
               />
             ))}
             More

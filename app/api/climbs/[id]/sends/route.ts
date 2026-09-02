@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+
 import { getDb } from "@/db/client";
 import { CLIMB_SENDS_PAGE_SIZE, getClimb, getSendsForClimb } from "@/db/queries";
-import { offsetReachesPaginationLimit, parseOffset } from "@/lib/search-params";
 import { parseId } from "@/lib/parse-id";
+import { offsetReachesPaginationLimit, parseOffset } from "@/lib/search-params";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -32,7 +33,6 @@ export async function GET(request: Request, { params }: RouteParams) {
   const page = await getSendsForClimb(db, climb.id, safeOffset);
   return NextResponse.json({
     ...page,
-    hasMore:
-      page.hasMore && !offsetReachesPaginationLimit(safeOffset, CLIMB_SENDS_PAGE_SIZE),
+    hasMore: page.hasMore && !offsetReachesPaginationLimit(safeOffset, CLIMB_SENDS_PAGE_SIZE),
   });
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildGradeHistogram, buildLoggedGradeRows } from "./grade-histogram";
+
 import type { GradeHistogramRow } from "@/db/queries";
+
+import { buildGradeHistogram, buildLoggedGradeRows } from "./grade-histogram";
 
 describe("buildGradeHistogram", () => {
   it("returns an empty histogram for no rows", () => {
@@ -61,7 +63,9 @@ describe("buildGradeHistogram", () => {
     const h = buildGradeHistogram(rows);
     expect(h.ungradedCount).toBe(4);
     expect(h.totalClimbs).toBe(5);
-    expect(h.groups).toEqual([{ type: "sport", buckets: [{ label: "5.8", count: 1, range: [8, 8] }] }]);
+    expect(h.groups).toEqual([
+      { type: "sport", buckets: [{ label: "5.8", count: 1, range: [8, 8] }] },
+    ]);
   });
 
   it("lists disciplines present in boulder → sport → trad order", () => {
@@ -78,7 +82,9 @@ describe("buildGradeHistogram", () => {
       { type: "boulder", grade: 2, count: 1 },
     ];
     const h = buildGradeHistogram(rows);
-    expect(h.groups).toEqual([{ type: "boulder", buckets: [{ label: "V1", count: 1, range: [2, 2] }] }]);
+    expect(h.groups).toEqual([
+      { type: "boulder", buckets: [{ label: "V1", count: 1, range: [2, 2] }] },
+    ]);
   });
 });
 

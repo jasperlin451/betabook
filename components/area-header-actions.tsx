@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Button, Menu, Tooltip, useOverlayState } from "@heroui/react";
 import { CirclePlus, FolderPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+
 import { AreaFormDrawer } from "@/components/area-form-drawer";
 import { ClimbFormDrawer } from "@/components/climb-form-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
@@ -50,8 +51,8 @@ export function AreaHeaderActions({ area, canDelete }: AreaHeaderActionsProps) {
   return (
     <>
       {/* Wraps rather than shrink-0: on a phone these sit on their own line
-        * under the title (see AreaCragHeader), where refusing to shrink is
-        * what dragged the page past the viewport edge. */}
+       * under the title (see AreaCragHeader), where refusing to shrink is
+       * what dragged the page past the viewport edge. */}
       <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
         <Button size="sm" onPress={addClimbState.open} className="gap-1.5">
           <CirclePlus className="size-4" />

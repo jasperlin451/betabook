@@ -1,4 +1,10 @@
-import { DEFAULT_MIN_ASCENTS, DEFAULT_RATING_RANGE, parseRatingRange } from "@/lib/climb-stats-filter";
+import type { ClimbStatsFilter, DisciplineGradeFilter, SubtreeClimbsSort } from "@/db/queries";
+import { DEFAULT_CLIMB_LIST_SORT, parseClimbListSort } from "@/lib/climb-list-sort";
+import {
+  DEFAULT_MIN_ASCENTS,
+  DEFAULT_RATING_RANGE,
+  parseRatingRange,
+} from "@/lib/climb-stats-filter";
 import {
   DEFAULT_DISCIPLINE_FILTER,
   appendDisciplineFilterParams,
@@ -7,16 +13,8 @@ import {
   type DisciplineFilter,
 } from "@/lib/discipline-filter";
 import { toArray, type SearchParamsRecord } from "@/lib/search-params";
-import { DEFAULT_CLIMB_LIST_SORT, parseClimbListSort } from "@/lib/climb-list-sort";
-import type { ClimbStatsFilter, DisciplineGradeFilter, SubtreeClimbsSort } from "@/db/queries";
 
 export const DEFAULT_AREA_CLIMBS_SORT = DEFAULT_CLIMB_LIST_SORT;
-
-export {
-  DEFAULT_BOULDER_RANGE,
-  DEFAULT_SPORT_RANGE,
-  DEFAULT_TRAD_RANGE,
-} from "@/lib/discipline-filter";
 
 /** Ranges are always present (unlike DisciplineGradeFilter's, which are
  * optional) — a range slider needs a default position to render even for an

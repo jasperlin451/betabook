@@ -16,13 +16,7 @@ export const MIN_FILL_MS = 2000;
  * component and the validator can't drift apart. */
 export const HONEYPOT_FIELD = "website";
 
-export const CONTACT_FORM_FIELDS = [
-  "name",
-  "email",
-  "message",
-  HONEYPOT_FIELD,
-  "elapsed",
-] as const;
+export const CONTACT_FORM_FIELDS = ["name", "email", "message", HONEYPOT_FIELD, "elapsed"] as const;
 
 export type RawContactInput = Record<
   (typeof CONTACT_FORM_FIELDS)[number],
@@ -97,8 +91,11 @@ export function formatContactEmail(input: ContactInput): { subject: string; text
 
   return {
     subject: `Betabook contact: ${from}`,
-    text: [`From: ${input.name ?? "(no name given)"}`, `Email: ${input.email}`, "", input.message].join(
-      "\n",
-    ),
+    text: [
+      `From: ${input.name ?? "(no name given)"}`,
+      `Email: ${input.email}`,
+      "",
+      input.message,
+    ].join("\n"),
   };
 }

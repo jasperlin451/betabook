@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
 import { Button, Drawer } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
+import { useState } from "react";
+
 import { ClimbPicker } from "@/components/climb-picker";
 import { SendForm } from "@/components/send-form";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { Grade } from "@/components/ui/grade";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
-import { formatGrade } from "@/lib/grades";
 import type { ClimbWithAreaName, EditableSend, SendableClimb } from "@/db/queries";
+import { formatGrade } from "@/lib/grades";
 
 type SendFormDrawerProps = {
   /** The climb the send is written against. Omitted where the surface isn't
@@ -25,12 +26,7 @@ type SendFormDrawerProps = {
 /** The create-a-send and edit-a-send forms both live in this same drawer
  * shell — only the SendForm inside (and the title) differ based on whether
  * existingSend is passed. Without a `climb`, a search step comes first. */
-export function SendFormDrawer({
-  climb,
-  existingSend,
-  sentClimbIds,
-  state,
-}: SendFormDrawerProps) {
+export function SendFormDrawer({ climb, existingSend, sentClimbIds, state }: SendFormDrawerProps) {
   return (
     <Drawer.Root state={state}>
       <Drawer.Backdrop>

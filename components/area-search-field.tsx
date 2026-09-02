@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+
 import { SearchCombobox } from "@/components/ui/search-combobox";
 import { fetchAreaSuggestions, type AreaSuggestion } from "@/lib/search-suggestions";
 
@@ -11,7 +12,7 @@ export function AreaSuggestionRow({ area }: { area: AreaSuggestion }) {
   return (
     <span className="min-w-0">
       <p className="truncate">{area.name}</p>
-      {area.ancestorPath && <p className="truncate text-muted text-xs">{area.ancestorPath}</p>}
+      {area.ancestorPath && <p className="truncate text-xs text-muted">{area.ancestorPath}</p>}
     </span>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+
+import type { Discipline } from "@/db/queries";
 import { TYPEAHEAD_DEBOUNCE_MS } from "@/hooks/use-typeahead";
 import {
   DEFAULT_CLIMB_SEARCH_FILTER,
@@ -13,7 +15,6 @@ import {
   firstPage,
   type ClimbSearchPages,
 } from "@/lib/climb-search-pages";
-import type { Discipline } from "@/db/queries";
 
 /** What a climb search is asked by. Any of the three narrows it; none of them
  * means there's nothing to look up. Empty `disciplines` means all — the
@@ -26,7 +27,7 @@ export type ClimbSearchQuery = {
 
 /** Where the current query stands. Nothing may be acted on unless this says
  * "answered" — `pages` can still hold the previous query's rows. */
-export type ClimbSearchStatus = "idle" | "searching" | "failed" | "answered";
+type ClimbSearchStatus = "idle" | "searching" | "failed" | "answered";
 
 type Settled = ClimbSearchPages & {
   filter: ClimbSearchFilter;

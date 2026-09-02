@@ -2,10 +2,11 @@
 
 import { Drawer } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
+
 import { ClimbPicker } from "@/components/climb-picker";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
-import { foldClimbName } from "@/lib/import-matching";
 import type { ClimbCandidate, ClimbWithAreaName } from "@/db/queries";
+import { foldClimbName } from "@/lib/import-matching";
 
 export type SearchTarget = {
   rowIndex: number;
@@ -38,8 +39,8 @@ export function ImportClimbSearchDrawer({
             </Drawer.Header>
             <Drawer.Body>
               {/* Keyed by row so the picker's seeded fields reset per target
-                * even if the drawer is reopened before its exit animation
-                * has unmounted the previous one. */}
+               * even if the drawer is reopened before its exit animation
+               * has unmounted the previous one. */}
               {target && (
                 <ClimbPicker
                   key={target.rowIndex}

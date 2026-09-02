@@ -10,4 +10,5 @@ declare global {
   }
 }
 
+// oxlint-disable-next-line unicorn/require-module-specifiers -- required in .d.ts to treat file as module
 export {};

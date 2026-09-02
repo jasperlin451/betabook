@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_RATING_RANGE, MAX_RATING, parseRatingRange, RATING_OPTIONS } from "./climb-stats-filter";
+
+import {
+  DEFAULT_RATING_RANGE,
+  MAX_RATING,
+  parseRatingRange,
+  RATING_OPTIONS,
+} from "./climb-stats-filter";
 
 describe("RATING_OPTIONS / DEFAULT_RATING_RANGE", () => {
   it("keeps index = rating value, with the 'Any' sentinel at 0", () => {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+
 import { getDb } from "@/db/client";
 import { RECENT_SENDS_PAGE_SIZE, getAreaBreadcrumbs, getRecentSends } from "@/db/queries";
 import { pageReachesPaginationLimit, parsePage } from "@/lib/search-params";
@@ -22,8 +23,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     ...feed,
-    hasMore:
-      feed.hasMore && !pageReachesPaginationLimit(page, RECENT_SENDS_PAGE_SIZE),
+    hasMore: feed.hasMore && !pageReachesPaginationLimit(page, RECENT_SENDS_PAGE_SIZE),
     areaBreadcrumbs,
   });
 }

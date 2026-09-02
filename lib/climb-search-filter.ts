@@ -1,5 +1,10 @@
-import { DEFAULT_MIN_ASCENTS, DEFAULT_RATING_RANGE, parseRatingRange } from "@/lib/climb-stats-filter";
+import type { SearchClimbsParams, SubtreeClimbsSort } from "@/db/queries";
 import { DEFAULT_CLIMB_LIST_SORT, parseClimbListSort } from "@/lib/climb-list-sort";
+import {
+  DEFAULT_MIN_ASCENTS,
+  DEFAULT_RATING_RANGE,
+  parseRatingRange,
+} from "@/lib/climb-stats-filter";
 import {
   DEFAULT_DISCIPLINE_FILTER,
   appendDisciplineFilterParams,
@@ -8,7 +13,6 @@ import {
   type DisciplineFilter,
 } from "@/lib/discipline-filter";
 import { toArray, type SearchParamsRecord } from "@/lib/search-params";
-import type { SearchClimbsParams, SubtreeClimbsSort } from "@/db/queries";
 
 export const DEFAULT_CLIMB_SEARCH_SORT = DEFAULT_CLIMB_LIST_SORT;
 export const parseClimbSearchSort = parseClimbListSort;

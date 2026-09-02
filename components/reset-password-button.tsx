@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Button } from "@heroui/react";
+import { useEffect, useState } from "react";
+
 import { authClient } from "@/lib/auth-client";
 
 /** How long a successful send stays disabled before offering "Send again" —
@@ -24,7 +25,7 @@ export function ResetPasswordButton({ email }: { email: string }) {
   function handleClick() {
     setError(null);
     setPending(true);
-    authClient.requestPasswordReset(
+    void authClient.requestPasswordReset(
       { email, redirectTo: "/reset-password" },
       {
         onSuccess: () => {

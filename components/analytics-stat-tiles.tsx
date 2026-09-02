@@ -1,5 +1,6 @@
+import { clsx } from "clsx";
 import type { ReactNode } from "react";
-import clsx from "clsx";
+
 import { cardClass } from "@/components/ui/card";
 import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
 

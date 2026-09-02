@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
+
 import { getDb } from "@/db/client";
-import { getAreaBreadcrumbs, getSendsForUserPage, getUser, USER_SENDS_PAGE_SIZE } from "@/db/queries";
-import { parseUserSendsFilter } from "@/lib/user-sends-filter";
+import {
+  getAreaBreadcrumbs,
+  getSendsForUserPage,
+  getUser,
+  USER_SENDS_PAGE_SIZE,
+} from "@/db/queries";
 import {
   offsetReachesPaginationLimit,
   parseOffset,
   searchParamsToRecord,
 } from "@/lib/search-params";
+import { parseUserSendsFilter } from "@/lib/user-sends-filter";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -41,8 +47,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   return NextResponse.json({
     ...page,
-    hasMore:
-      page.hasMore && !offsetReachesPaginationLimit(safeOffset, USER_SENDS_PAGE_SIZE),
+    hasMore: page.hasMore && !offsetReachesPaginationLimit(safeOffset, USER_SENDS_PAGE_SIZE),
     areaBreadcrumbs,
   });
 }

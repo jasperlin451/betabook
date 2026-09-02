@@ -45,6 +45,7 @@ jobs:
           pnpm cf-typegen
 
       - run: pnpm lint
+      - run: pnpm format:check
 
       # The Vitest worker applies every D1 migration to a fresh database, so
       # this catches migration and query regressions before production changes.

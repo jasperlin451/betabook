@@ -19,9 +19,9 @@ export default function Loading() {
           <Skeleton className="h-5 w-16" rounded="rounded-full" />
         </div>
         {/* The histogram is a collapsed accordion below md and the charts
-          * themselves from md up (see AreaCragHeader), so the skeleton
-          * splits the same way — a trigger row on a phone, sized like the
-          * sub-area heading below, rather than charts that never arrive. */}
+         * themselves from md up (see AreaCragHeader), so the skeleton
+         * splits the same way — a trigger row on a phone, sized like the
+         * sub-area heading below, rather than charts that never arrive. */}
         <Skeleton className="mt-2 h-6 w-28 md:hidden" />
         <div className="mt-2 hidden items-end gap-6 md:flex">
           <Skeleton className="h-20 w-64 max-w-[45%]" />

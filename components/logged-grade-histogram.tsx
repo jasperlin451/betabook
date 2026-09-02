@@ -1,8 +1,9 @@
-import clsx from "clsx";
+import { clsx } from "clsx";
+
+import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
+import type { LoggedGradeRow } from "@/lib/grade-histogram";
 import type { ClimbType } from "@/lib/grades";
 import type { GradeFeel } from "@/lib/sends";
-import type { LoggedGradeRow } from "@/lib/grade-histogram";
-import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
 
 // Feel is ordinal, so the shade carries the meaning: lighter = felt soft,
 // darker = felt hard. Three fixed steps of one hue, legible on both themes.
@@ -18,13 +19,7 @@ const FEEL_LABEL: Record<GradeFeel, string> = {
  * grade order, sized by vote share — with each bar shaded soft → hard by
  * how the grade felt, and the exact feel counts revealed on hover. Read
  * against the posted grade, which is marked even when nobody voted for it. */
-export function LoggedGradeHistogram({
-  type,
-  rows,
-}: {
-  type: ClimbType;
-  rows: LoggedGradeRow[];
-}) {
+export function LoggedGradeHistogram({ type, rows }: { type: ClimbType; rows: LoggedGradeRow[] }) {
   const voted = rows.filter((row) => row.total > 0);
   if (voted.length === 0) return null;
 
@@ -67,7 +62,7 @@ export function LoggedGradeHistogram({
                 <>
                   <div className="relative flex-1">
                     <div
-                      className="motion-safe:animate-bar-grow-x flex h-3 gap-px overflow-hidden rounded-xs"
+                      className="flex h-3 gap-px overflow-hidden rounded-xs motion-safe:animate-bar-grow-x"
                       style={{
                         width: `${(row.total / maxVotes) * 100}%`,
                         animationDelay: `${i * 15}ms`,
@@ -85,11 +80,11 @@ export function LoggedGradeHistogram({
                         />
                       ))}
                     </div>
-                    <span className="border-separator bg-surface pointer-events-none absolute -top-7 left-0 z-10 hidden rounded-md border px-2 py-1 text-[11px] whitespace-nowrap shadow-sm group-hover:block">
+                    <span className="pointer-events-none absolute -top-7 left-0 z-10 hidden rounded-md border border-separator bg-surface px-2 py-1 text-[11px] whitespace-nowrap shadow-sm group-hover:block">
                       {breakdown}
                     </span>
                   </div>
-                  <span className="text-muted w-14 shrink-0 text-right">
+                  <span className="w-14 shrink-0 text-right text-muted">
                     {Math.round((row.total / totalVotes) * 100)}% · {row.total}
                   </span>
                 </>
@@ -101,7 +96,7 @@ export function LoggedGradeHistogram({
         })}
       </div>
       {hasFeelSplit && (
-        <p className="text-muted flex items-center gap-3 text-[11px]" aria-hidden>
+        <p className="flex items-center gap-3 text-[11px] text-muted" aria-hidden>
           {FEEL_ORDER.map((feel) => (
             <span key={feel} className="flex items-center gap-1.5">
               <span

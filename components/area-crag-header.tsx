@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
-import type { Area } from "@/db/queries";
-import type { AreaClimbsFilter } from "@/lib/area-climbs-filter";
-import type { GradeHistogram } from "@/lib/grade-histogram";
-import { formatCount } from "@/lib/format";
+
 import { AreaDescription } from "@/components/area-description";
 import { GradeHistogramChart } from "@/components/grade-histogram";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageTitle } from "@/components/ui/typography";
+import type { Area } from "@/db/queries";
+import type { AreaClimbsFilter } from "@/lib/area-climbs-filter";
+import { formatCount } from "@/lib/format";
+import type { GradeHistogram } from "@/lib/grade-histogram";
 
 /** The guidebook crag header: entity eyebrow, display-face name,
  * description, a mono info strip (climb count, grade spans, disciplines),
@@ -39,9 +40,9 @@ export function AreaCragHeader({
   return (
     <div className="flex flex-col gap-4">
       {/* Stacked until sm: two labelled buttons plus a menu can't share a
-        * phone's width with the title, and side-by-side they pushed the whole
-        * page wider than the viewport. min-w-0 lets the title column actually
-        * shrink rather than forcing the row wide. */}
+       * phone's width with the title, and side-by-side they pushed the whole
+       * page wider than the viewport. min-w-0 lets the title column actually
+       * shrink rather than forcing the row wide. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-2">
         <div className="flex min-w-0 flex-col gap-1">
           <Eyebrow>Area</Eyebrow>
@@ -69,23 +70,23 @@ export function AreaCragHeader({
       )}
 
       {/* Below md the discipline charts stack, and three of them push the
-        * climb list — the reason to open an area — off the first screen.
-        * Collapsed behind a trigger row costs the same one line as dropping
-        * the charts outright did, but keeps them on a phone: the bars are a
-        * filter, not just a picture, and that was the part a plain hide took
-        * away. Same treatment as the sub-area rail (see the page's
-        * CollapsibleSection), one breakpoint down — the rail tracks `lg`
-        * because that's where it becomes a side column, while this is only
-        * ever asking whether there's width for the charts.
-        *
-        * From md up the section is permanently expanded, so desktop is
-        * unchanged — hence the sr-only desktop heading rather than a visible
-        * one; the header has never titled the chart there.
-        *
-        * Guarded rather than always wrapped: the chart renders nothing when
-        * there are no groups (a largeSubtree area is handed none), and a
-        * bare wrapper would still claim a gap in this stack — now with a
-        * trigger row opening onto nothing. */}
+       * climb list — the reason to open an area — off the first screen.
+       * Collapsed behind a trigger row costs the same one line as dropping
+       * the charts outright did, but keeps them on a phone: the bars are a
+       * filter, not just a picture, and that was the part a plain hide took
+       * away. Same treatment as the sub-area rail (see the page's
+       * CollapsibleSection), one breakpoint down — the rail tracks `lg`
+       * because that's where it becomes a side column, while this is only
+       * ever asking whether there's width for the charts.
+       *
+       * From md up the section is permanently expanded, so desktop is
+       * unchanged — hence the sr-only desktop heading rather than a visible
+       * one; the header has never titled the chart there.
+       *
+       * Guarded rather than always wrapped: the chart renders nothing when
+       * there are no groups (a largeSubtree area is handed none), and a
+       * bare wrapper would still claim a gap in this stack — now with a
+       * trigger row opening onto nothing. */}
       {histogram.groups.length > 0 && (
         <CollapsibleSection title="Grade spread" breakpoint="md" showTitleOnDesktop={false}>
           <GradeHistogramChart histogram={histogram} areaId={area.id} filter={filter} />

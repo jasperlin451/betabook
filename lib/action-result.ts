@@ -7,9 +7,7 @@
  * (lib/validation.ts, lib/climbs.ts, lib/sends.ts, requireSession) keep
  * throwing, and the action boundary converts via `toActionResult`.
  */
-export type ActionResult<T = void> =
-  | { ok: true; value: T }
-  | { ok: false; error: string };
+export type ActionResult<T = void> = { ok: true; value: T } | { ok: false; error: string };
 
 /** An intentional, user-facing action failure — validation problems,
  * business rules ("Can't delete a climb with logged sends"), missing rows.
@@ -24,8 +22,7 @@ export class ActionError extends Error {
   }
 }
 
-export const SESSION_EXPIRED_MESSAGE =
-  "Your session has expired — sign in again to continue.";
+export const SESSION_EXPIRED_MESSAGE = "Your session has expired — sign in again to continue.";
 
 export const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
 

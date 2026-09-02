@@ -1,19 +1,16 @@
 "use server";
 
-import { refresh, revalidatePath } from "next/cache";
 import { and, eq, notExists } from "drizzle-orm";
-import { requireSession } from "@/lib/session";
+import { refresh, revalidatePath } from "next/cache";
+
 import { getDb } from "@/db/client";
-import { climbs, sends } from "@/db/schema";
 import { getArea, getClimb } from "@/db/queries";
-import {
-  validateClimbInput,
-  validateNewClimbInput,
-  type RawClimbInput,
-} from "@/lib/climbs";
+import { climbs, sends } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
-import { pickFormFields } from "@/lib/validation";
+import { validateClimbInput, validateNewClimbInput, type RawClimbInput } from "@/lib/climbs";
 import { parseId } from "@/lib/parse-id";
+import { requireSession } from "@/lib/session";
+import { pickFormFields } from "@/lib/validation";
 
 const CLIMB_FORM_FIELDS = ["name", "type", "grade", "description"] as const;
 
@@ -35,9 +32,7 @@ export async function updateClimb(climbId: number, formData: FormData): Promise<
         ? eq(climbs.id, climbId)
         : and(
             eq(climbs.id, climbId),
-            notExists(
-              db.select({ id: sends.id }).from(sends).where(eq(sends.climbId, climbs.id)),
-            ),
+            notExists(db.select({ id: sends.id }).from(sends).where(eq(sends.climbId, climbs.id))),
           );
     const updated = await db
       .update(climbs)
@@ -68,9 +63,7 @@ export async function deleteClimb(climbId: number): Promise<ActionResult> {
       .where(
         and(
           eq(climbs.id, climbId),
-          notExists(
-            db.select({ id: sends.id }).from(sends).where(eq(sends.climbId, climbs.id)),
-          ),
+          notExists(db.select({ id: sends.id }).from(sends).where(eq(sends.climbId, climbs.id))),
         ),
       )
       .returning({ areaId: climbs.areaId })

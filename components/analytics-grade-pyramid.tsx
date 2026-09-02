@@ -1,17 +1,11 @@
-import type { ClimbType } from "@/lib/grades";
-import type { PyramidRow } from "@/lib/user-analytics";
 import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
 import { formatCount } from "@/lib/format";
+import type { ClimbType } from "@/lib/grades";
+import type { PyramidRow } from "@/lib/user-analytics";
 
 /** The send pyramid: one bar per grade from a climber's hardest down to
  * their easiest, so the shape shows whether the peak stands on a base. */
-export function AnalyticsGradePyramid({
-  type,
-  rows,
-}: {
-  type: ClimbType;
-  rows: PyramidRow[];
-}) {
+export function AnalyticsGradePyramid({ type, rows }: { type: ClimbType; rows: PyramidRow[] }) {
   if (rows.length === 0) return null;
   const max = Math.max(...rows.map((row) => row.count), 1);
   const hue = DISCIPLINE_HUE[type];
@@ -35,7 +29,7 @@ export function AnalyticsGradePyramid({
               <>
                 <div className="relative">
                   <div
-                    className="motion-safe:animate-bar-grow-x h-3 rounded-xs"
+                    className="h-3 rounded-xs motion-safe:animate-bar-grow-x"
                     style={{
                       width: `${(row.count / max) * 100}%`,
                       backgroundColor: hue,

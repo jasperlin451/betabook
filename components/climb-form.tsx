@@ -1,13 +1,14 @@
 "use client";
 
+import { Button, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
+import { useState, useTransition } from "react";
+
+import { AreaPicker, type PickedArea } from "@/components/area-picker";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { FIELD_CLASS } from "@/components/ui/field";
-import { useState, useTransition } from "react";
-import { Button, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
-import { AreaPicker, type PickedArea } from "@/components/area-picker";
 import { createClimb, updateClimb } from "@/db/mutations";
-import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 import type { Climb } from "@/db/queries";
+import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 
 type ClimbFormProps = {
   /** The climb's area, when already known (editing, or creating from a
@@ -84,10 +85,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={SURFACE_CARD_CLASS}
-    >
+    <form onSubmit={handleSubmit} className={SURFACE_CARD_CLASS}>
       {fixedAreaId == null && (
         <TextField>
           <Label>Area</Label>
@@ -130,7 +128,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
           ))}
         </select>
         {disciplineLocked && (
-          <p className="text-muted mt-1 text-xs">
+          <p className="mt-1 text-xs text-muted">
             Discipline can&rsquo;t be changed once sends have been logged.
           </p>
         )}
@@ -151,6 +149,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
           <Select.Popover>
             <ListBox className="max-h-64 overflow-y-auto">
               {gradeOptions.map((label, i) => (
+                // oxlint-disable-next-line react/no-array-index-key -- grade index is stable option id
                 <ListBox.Item key={i} id={String(i)}>
                   {label}
                 </ListBox.Item>

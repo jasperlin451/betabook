@@ -1,9 +1,9 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
 import { Button, Menu } from "@heroui/react";
-import { MenuTrigger, Popover } from "react-aria-components";
 import { MoreHorizontal } from "lucide-react";
+import type { ComponentProps, ReactNode } from "react";
+import { MenuTrigger, Popover } from "react-aria-components";
 
 type ActionsMenuProps = {
   ariaLabel: string;

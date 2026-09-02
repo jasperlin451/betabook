@@ -1,6 +1,6 @@
+import type { Discipline, DisciplineGradeFilter } from "@/db/queries";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 import { parseDisciplines, toRange, type SearchParamsRecord } from "@/lib/search-params";
-import type { Discipline, DisciplineGradeFilter } from "@/db/queries";
 
 export const DEFAULT_BOULDER_RANGE: [number, number] = [0, BOULDER_HUECO.length - 1];
 export const DEFAULT_SPORT_RANGE: [number, number] = [0, ROPE_YDS.length - 1];
@@ -33,7 +33,10 @@ export function parseDisciplineFilter(params: SearchParamsRecord): DisciplineFil
   };
 }
 
-export function appendDisciplineFilterParams(params: URLSearchParams, filter: DisciplineFilter): void {
+export function appendDisciplineFilterParams(
+  params: URLSearchParams,
+  filter: DisciplineFilter,
+): void {
   filter.disciplines.forEach((discipline) => params.append("discipline", discipline));
   if (filter.disciplines.includes("boulder")) {
     params.append("boulderRange", String(filter.boulderRange[0]));

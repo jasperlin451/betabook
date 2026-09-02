@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { searchParamsToRecord } from "./search-params";
+
 import {
   areaClimbsFilterToSearchParams,
   DEFAULT_AREA_CLIMBS_FILTER,
@@ -8,6 +8,7 @@ import {
   parseAreaClimbsSort,
   type AreaClimbsFilter,
 } from "./area-climbs-filter";
+import { searchParamsToRecord } from "./search-params";
 
 // Same fixed-point invariant as climb-search-filter.test.ts: the area page's
 // debounced filter navigation compares built hrefs against the canonical

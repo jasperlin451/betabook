@@ -1,5 +1,9 @@
 "use client";
 
+import { Kbd, Modal, useOverlayState } from "@heroui/react";
+import { clsx } from "clsx";
+import { Search } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -11,14 +15,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
-import { Kbd, Modal, useOverlayState } from "@heroui/react";
-import { Search } from "lucide-react";
-import clsx from "clsx";
+
 import { AreaSuggestionRow } from "@/components/area-search-field";
-import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
 import { RouteSuggestionRow } from "@/components/route-search-field";
 import { useSearchScope } from "@/components/search-scope";
+import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
 import { isApplePlatform, useModifierLabels } from "@/hooks/use-platform";
 import { useTypeahead } from "@/hooks/use-typeahead";
 import {
@@ -90,7 +91,7 @@ const OpenSearchContext = createContext<(() => void) | null>(null);
 /** Opens the site-wide search palette from anywhere under the provider, so
  * every search affordance on the page is a way into the same palette rather
  * than a second search of its own. Null outside the provider. */
-export function useOpenSearch(): (() => void) | null {
+function useOpenSearch(): (() => void) | null {
   return useContext(OpenSearchContext);
 }
 
@@ -142,18 +143,18 @@ export function SearchPaletteProvider({ children }: { children: ReactNode }) {
       <Modal.Root state={state}>
         <Modal.Backdrop>
           {/* Top-anchored: a palette that opens under the pointer reads as a
-            * dropdown from the trigger, not a takeover of the page. Nearly
-            * flush to the top on phones — the input takes focus on open, so
-            * the on-screen keyboard claims the bottom half and every 10vh
-            * spent above the field is a result the thumb can't see. */}
+           * dropdown from the trigger, not a takeover of the page. Nearly
+           * flush to the top on phones — the input takes focus on open, so
+           * the on-screen keyboard claims the bottom half and every 10vh
+           * spent above the field is a result the thumb can't see. */}
           <Modal.Container placement="top" size="lg" className="pt-4 sm:pt-[10vh]">
             <Modal.Dialog aria-label="Search Betabook">
               {/* No `key` on open state: the modal keeps its children
-                * mounted through the exit animation, so remounting on close
-                * would blank the query and results mid-fade and re-fire
-                * autoFocus inside the closing dialog. The overlay already
-                * unmounts this subtree between opens, which is what gives
-                * each session its fresh empty state. */}
+               * mounted through the exit animation, so remounting on close
+               * would blank the query and results mid-fade and re-fire
+               * autoFocus inside the closing dialog. The overlay already
+               * unmounts this subtree between opens, which is what gives
+               * each session its fresh empty state. */}
               <PaletteBody
                 scopeAreaId={scope?.areaId}
                 scopeAreaName={scope?.areaName}
@@ -255,7 +256,10 @@ function PaletteBody({
     (q: string, signal: AbortSignal) => fetchRouteSuggestions(q, signal),
     [],
   );
-  const areaFetcher = useCallback((q: string, signal: AbortSignal) => fetchAreaSuggestions(q, signal), []);
+  const areaFetcher = useCallback(
+    (q: string, signal: AbortSignal) => fetchAreaSuggestions(q, signal),
+    [],
+  );
 
   const scoped = useTypeahead(query, scopedFetcher, {
     enabled: scopeAreaId != null,
@@ -372,6 +376,7 @@ function PaletteBody({
       <div className="flex items-center gap-3 border-b border-separator px-4 py-3">
         <Search className="size-4 shrink-0 text-muted" aria-hidden />
         <input
+          // oxlint-disable-next-line jsx-a11y/no-autofocus -- modal search input focuses on mount
           autoFocus
           type="text"
           role="combobox"
@@ -391,7 +396,12 @@ function PaletteBody({
         <Kbd className="hidden shrink-0 sm:inline-flex">Esc</Kbd>
       </div>
 
-      <ul id={listId} role="listbox" aria-label="Search results" className="max-h-[50vh] overflow-y-auto p-2">
+      <ul
+        id={listId}
+        role="listbox"
+        aria-label="Search results"
+        className="max-h-[50vh] overflow-y-auto p-2"
+      >
         {sections.map((section) => (
           <li
             key={section.heading || "actions"}
@@ -399,9 +409,7 @@ function PaletteBody({
             className={clsx(section.divider && "mt-2 border-t border-separator pt-2")}
           >
             {section.heading && (
-              <p className={clsx("px-2 pt-3 pb-1", EYEBROW_CLASS)}>
-                {section.heading}
-              </p>
+              <p className={clsx("px-2 pt-3 pb-1", EYEBROW_CLASS)}>{section.heading}</p>
             )}
             <ul role="presentation">
               {section.entries.map((entry) => {
@@ -435,11 +443,7 @@ function PaletteBody({
 
         {entries.length === 0 && (
           <li role="presentation" className="px-2 py-6 text-center text-sm text-muted">
-            {!trimmed
-              ? "Search routes and areas…"
-              : isPending
-                ? "Searching…"
-                : "Nothing found."}
+            {!trimmed ? "Search routes and areas…" : isPending ? "Searching…" : "Nothing found."}
           </li>
         )}
       </ul>

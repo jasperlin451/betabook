@@ -1,5 +1,5 @@
-import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // `next dev` serves /_next dev resources only to the host it started with,
@@ -23,6 +23,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-initOpenNextCloudflareForDev();
+void initOpenNextCloudflareForDev();
 
 export default nextConfig;

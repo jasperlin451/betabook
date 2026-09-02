@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import clsx from "clsx";
 import { Button, useOverlayState } from "@heroui/react";
+import { clsx } from "clsx";
 import { X } from "lucide-react";
+import { useMemo, useState } from "react";
+
 import { AreaSearchField } from "@/components/area-search-field";
 import {
   ImportClimbSearchDrawer,
@@ -15,6 +16,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Grade } from "@/components/ui/grade";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import type { ClimbCandidate } from "@/db/queries";
 import { formatCount } from "@/lib/format";
 import { formatGrade } from "@/lib/grades";
 import {
@@ -27,7 +29,6 @@ import {
   type ResolvedState,
   type ResolvedSummary,
 } from "@/lib/import-matching";
-import type { ClimbCandidate } from "@/db/queries";
 
 /** Where the climb-name lookup stands — the step renders its list only once
  * every name has been asked about. */
@@ -112,7 +113,7 @@ function nearestAncestors(climb: ClimbCandidate, depth = 3): string {
 function ClimbPlace({ climb, rowClimbName }: { climb: ClimbCandidate; rowClimbName: string }) {
   const showName = foldClimbName(climb.name) !== foldClimbName(rowClimbName);
   return (
-    <span className="min-w-0 break-words">
+    <span className="min-w-0 wrap-break-word">
       {showName && <span className="block text-sm text-foreground">{climb.name}</span>}
       <span className="block text-sm text-foreground">{climb.areaName}</span>
       {climb.ancestors.length > 0 && (
@@ -238,9 +239,7 @@ function MatchRow({
               Row {row.rowIndex + 1}
             </span>
           </p>
-          {facts.length > 0 && (
-            <p className="truncate text-xs text-muted">{facts.join(" · ")}</p>
-          )}
+          {facts.length > 0 && <p className="truncate text-xs text-muted">{facts.join(" · ")}</p>}
         </div>
         <span className={clsx("shrink-0 text-xs font-medium", STATE_CLASS[state])}>
           {stateLabel(resolved)}
@@ -290,7 +289,9 @@ function MatchRow({
             {match.conflict
               ? `${match.conflict}.`
               : `${match.total === 1 ? "1 climb has this name" : `${match.total} climbs share this name`}${
-                  match.narrowedBy ? `, narrowed by ${match.narrowedBy} to ${match.candidates.length}` : ""
+                  match.narrowedBy
+                    ? `, narrowed by ${match.narrowedBy} to ${match.candidates.length}`
+                    : ""
                 }.`}
             {match.truncated &&
               ` Only the ${match.pool.length} most climbed are listed; search if yours isn't among them.`}
@@ -317,8 +318,8 @@ function MatchRow({
 
       {state === "attention" && match.kind === "none" && (
         <p className="text-xs text-muted">
-          No climb named “{row.climbName}” in betabook. Search under a different spelling, or
-          skip the row.
+          No climb named “{row.climbName}” in betabook. Search under a different spelling, or skip
+          the row.
         </p>
       )}
 
@@ -383,7 +384,10 @@ export function ImportMatchStep({
   onChooseMany: (choices: { rowIndex: number; choice: ManualChoice | null }[]) => void;
 }) {
   const summary = useMemo(() => (resolved ? summarizeResolved(resolved) : null), [resolved]);
-  const duplicates = useMemo(() => (resolved ? duplicateClimbRows(resolved) : new Map()), [resolved]);
+  const duplicates = useMemo(
+    () => (resolved ? duplicateClimbRows(resolved) : new Map()),
+    [resolved],
+  );
   const activeFilter: Filter = filter ?? "all";
 
   // How far the list is unrolled, remembered per filter so switching tabs
@@ -426,10 +430,10 @@ export function ImportMatchStep({
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm text-muted">
-        Each row is matched to a climb by name. When several climbs share a name, your areas,
-        the file&apos;s location columns, and the grade break the tie. Rows that still
-        don&apos;t resolve are listed under “Needs attention”, where you can pick a climb,
-        search for one, or skip the row.
+        Each row is matched to a climb by name. When several climbs share a name, your areas, the
+        file&apos;s location columns, and the grade break the tie. Rows that still don&apos;t
+        resolve are listed under “Needs attention”, where you can pick a climb, search for one, or
+        skip the row.
       </p>
 
       <section className="flex flex-col gap-2">
@@ -442,9 +446,7 @@ export function ImportMatchStep({
             <button
               key={area.id}
               type="button"
-              onClick={() =>
-                onPreferredAreasChange(preferredAreas.filter((a) => a.id !== area.id))
-              }
+              onClick={() => onPreferredAreasChange(preferredAreas.filter((a) => a.id !== area.id))}
               aria-label={`Remove ${area.name}`}
               className={`${choicePillClass(true, "bg-surface text-foreground")} inline-flex items-center gap-1`}
             >
@@ -527,9 +529,7 @@ export function ImportMatchStep({
           {visible.length === 0 ? (
             <EmptyState
               message={
-                activeFilter === "attention"
-                  ? "Nothing needs attention."
-                  : "No rows in this group."
+                activeFilter === "attention" ? "Nothing needs attention." : "No rows in this group."
               }
             />
           ) : (

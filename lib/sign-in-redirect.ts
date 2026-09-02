@@ -21,12 +21,11 @@ export const DEFAULT_SIGNED_IN_PATH = "/account";
  * stripped by URL parsers, so `/\t/evil.com` would resolve to
  * `//evil.com`) — is rejected so the param can't become an open redirect.
  */
-export function safeNextPath(
-  value: string | string[] | undefined,
-): string | undefined {
+export function safeNextPath(value: string | string[] | undefined): string | undefined {
   if (typeof value !== "string") return undefined;
   if (!value.startsWith("/")) return undefined;
   if (value.startsWith("//") || value.startsWith("/\\")) return undefined;
+  // oxlint-disable-next-line eslint/no-control-regex
   if (/[\x00-\x1f]/.test(value)) return undefined;
   return value;
 }

@@ -1,18 +1,20 @@
-import { cache } from "react";
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { buttonVariants } from "@heroui/react";
 import { ChartColumnIncreasing } from "lucide-react";
-import { NavigationPendingProvider } from "@/components/navigation-pending";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { cache } from "react";
+
 import { LogSendButton } from "@/components/log-send-button";
+import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { AppLink } from "@/components/ui/app-link";
-import { UserSendList, UserSendsFilterToolbar } from "@/components/user-send-list";
-import { SectionHeading } from "@/components/ui/typography";
 import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { SidebarLayout } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
+import { SectionHeading } from "@/components/ui/typography";
 import { PageTitle } from "@/components/ui/typography";
+import { UserSendList, UserSendsFilterToolbar } from "@/components/user-send-list";
+import { getDb } from "@/db/client";
 import {
   getAreaBreadcrumbs,
   getSendsForUserPage,
@@ -20,12 +22,11 @@ import {
   getUserSentClimbIds,
   getUserSendsSummary,
 } from "@/db/queries";
-import { getDb } from "@/db/client";
-import { parseUserSendsFilter } from "@/lib/user-sends-filter";
 import { formatCount } from "@/lib/format";
 import { formatDate } from "@/lib/format-date";
-import { getSession } from "@/lib/session";
 import type { SearchParamsRecord } from "@/lib/search-params";
+import { getSession } from "@/lib/session";
+import { parseUserSendsFilter } from "@/lib/user-sends-filter";
 
 type UserPageProps = {
   params: Promise<{ id: string }>;
@@ -113,19 +114,17 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   return (
     <div className="flex flex-col gap-6">
       {/* Stacked until sm for the same reason as the area header: two
-        * labelled controls can't share a phone's width with the name. */}
+       * labelled controls can't share a phone's width with the name. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <Eyebrow>Climber</Eyebrow>
           <PageTitle>{user.name}</PageTitle>
-          <span className="mt-1 text-sm text-muted">
-            Active since {memberSinceYear}
-          </span>
+          <span className="mt-1 text-sm text-muted">Active since {memberSinceYear}</span>
         </div>
         {/* Owner only: a send is always the signed-in viewer's own, so on
-          * someone else's profile the button would write a row that doesn't
-          * belong to the page it sits on. Analytics steps back to outline
-          * where it isn't the header's only action. */}
+         * someone else's profile the button would write a row that doesn't
+         * belong to the page it sits on. Analytics steps back to outline
+         * where it isn't the header's only action. */}
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
           {isOwnProfile && <LogSendButton sentClimbIds={sentClimbIds} />}
           <AppLink

@@ -1,6 +1,7 @@
-import { PageTitle } from "@/components/ui/typography";
 import type { ReactNode } from "react";
+
 import { AppLink } from "@/components/ui/app-link";
+import { PageTitle } from "@/components/ui/typography";
 
 type NotFoundMessageProps = {
   heading: string;
