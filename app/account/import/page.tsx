@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { ImportWizard } from "@/components/import-wizard";
+import { ImportWizard } from "@/components/import";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
 

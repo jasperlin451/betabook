@@ -7,7 +7,9 @@ import {
   DEFAULT_BOULDER_RANGE,
   DEFAULT_SPORT_RANGE,
   DEFAULT_TRAD_RANGE,
+  type DisciplineGradeFilter,
 } from "@/lib/discipline-filter";
+import type { Discipline } from "@/lib/grades";
 
 import { areaNameCondition, type Area } from "./areas";
 import { PAGE_SIZE, toFtsPrefixQuery } from "./shared";
@@ -85,14 +87,8 @@ function sortTieBreak(sort: SubtreeClimbsSort): SQL {
   return SUBTREE_CLIMBS_TIE_BREAK[field];
 }
 
-export type Discipline = "boulder" | "sport" | "trad";
-
-export type DisciplineGradeFilter = {
-  disciplines: Discipline[];
-  boulderRange?: [number, number];
-  sportRange?: [number, number];
-  tradRange?: [number, number];
-};
+export type { Discipline } from "@/lib/grades";
+export type { DisciplineGradeFilter } from "@/lib/discipline-filter";
 
 /** Builds the discipline/grade OR-clause shared by `searchClimbs` and
  * `getSubtreeClimbs` — a climb matches if its own type is checked and its

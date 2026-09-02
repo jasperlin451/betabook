@@ -1,4 +1,4 @@
-import type { Discipline } from "@/db/queries";
+import type { Discipline } from "@/lib/grades";
 import { ASCENT_STYLES, type AscentStyle } from "@/lib/sends";
 
 export type SearchParamsRecord = Record<string, string | string[] | undefined>;

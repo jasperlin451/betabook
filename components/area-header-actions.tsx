@@ -5,11 +5,11 @@ import { CirclePlus, FolderPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { deleteArea } from "@/actions";
 import { AreaFormDrawer } from "@/components/area-form-drawer";
 import { ClimbFormDrawer } from "@/components/climb-form-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
-import { deleteArea } from "@/db/mutations";
 import type { Area } from "@/db/queries";
 
 type AreaHeaderActionsProps = {

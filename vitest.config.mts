@@ -27,6 +27,7 @@ export default defineConfig({
   ],
   test: {
     include: [
+      "actions/**/*.test.{ts,tsx}",
       "app/**/*.test.{ts,tsx}",
       "components/**/*.test.{ts,tsx}",
       "db/**/*.test.{ts,tsx}",

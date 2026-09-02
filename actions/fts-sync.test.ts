@@ -1,7 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createDb } from "@/db/client";
 import {
   createArea,
   createClimb,
@@ -9,7 +8,8 @@ import {
   deleteClimb,
   updateArea,
   updateClimb,
-} from "@/db/mutations";
+} from "@/actions";
+import { createDb } from "@/db/client";
 import { searchAreas, searchClimbs } from "@/db/queries";
 import { seedFixtureTree } from "@/test/fixtures";
 

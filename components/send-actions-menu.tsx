@@ -3,10 +3,10 @@
 import { Menu, useOverlayState } from "@heroui/react";
 import { useState, useTransition } from "react";
 
+import { deleteSend } from "@/actions";
 import { SendFormDrawer } from "@/components/send-form-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
-import { deleteSend } from "@/db/mutations";
 import type { EditableSend, SendableClimb } from "@/db/queries";
 
 type SendActionsMenuProps = {

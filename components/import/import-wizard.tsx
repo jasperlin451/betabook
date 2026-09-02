@@ -5,29 +5,20 @@ import { clsx } from "clsx";
 import { Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 
-import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
-import {
-  ImportMatchStep,
-  defaultFilter,
-  type Filter,
-  type LookupStatus,
-} from "@/components/import-match-step";
-import { GRADE_FEEL_LABELS } from "@/components/send-form";
-import { AppLink } from "@/components/ui/app-link";
-import { cardClass } from "@/components/ui/card";
-import { choicePillClass } from "@/components/ui/choice-pill";
-import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
-import { Eyebrow, EYEBROW_CLASS } from "@/components/ui/eyebrow";
-import { OptionSelect, type SelectOption } from "@/components/ui/option-select";
-import { ProgressBar } from "@/components/ui/progress-bar";
-import { SegmentedButtons } from "@/components/ui/segmented-buttons";
-import { PageTitle } from "@/components/ui/typography";
 import {
   importSends,
   resolveImportClimbs,
   resolveImportClimbsInAreas,
   type ImportResult,
-} from "@/db/mutations";
+} from "@/actions";
+import { AppLink } from "@/components/ui/app-link";
+import { cardClass } from "@/components/ui/card";
+import { choicePillClass } from "@/components/ui/choice-pill";
+import { Eyebrow } from "@/components/ui/eyebrow";
+import { OptionSelect, type SelectOption } from "@/components/ui/option-select";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { SegmentedButtons } from "@/components/ui/segmented-buttons";
+import { PageTitle } from "@/components/ui/typography";
 import type { ClimbCandidate } from "@/db/queries";
 import { downloadCsv } from "@/lib/download";
 import { formatCount } from "@/lib/format";
@@ -43,13 +34,7 @@ import {
   type PreferredArea,
   type ResolvedRow,
 } from "@/lib/import-matching";
-import {
-  ASCENT_STYLES,
-  GRADE_FEEL_VALUES,
-  IMPORT_BATCH_SIZE,
-  RESOLVE_BATCH_SIZE,
-  type ImportSendRow,
-} from "@/lib/sends";
+import { IMPORT_BATCH_SIZE, RESOLVE_BATCH_SIZE, type ImportSendRow } from "@/lib/sends";
 import {
   buildFailedRowsCsv,
   deriveSourceColumns,
@@ -68,7 +53,6 @@ import {
   parseCsvText,
   parseDateWithFormat,
   valueCounts,
-  CLIMB_TYPES,
   DATE_SAMPLE_SIZE,
   IMPORT_SOURCE_LABELS,
   MAX_IMPORT_FILE_BYTES,
@@ -89,60 +73,20 @@ import {
   type ParsedCsv,
 } from "@/lib/sends-import";
 
-type Step = "upload" | "columns" | "values" | "match" | "review" | "result";
-
-/** The user-visible stations of the wizard, in order — "result" renders as
- * every station done. */
-const WIZARD_STATIONS: { key: Step; label: string }[] = [
-  { key: "upload", label: "Upload" },
-  { key: "columns", label: "Columns" },
-  { key: "values", label: "Values" },
-  { key: "match", label: "Climbs" },
-  { key: "review", label: "Review" },
-];
-
-function WizardSteps({ step, onJump }: { step: Step; onJump: ((step: Step) => void) | null }) {
-  const activeIndex =
-    step === "result" ? WIZARD_STATIONS.length : WIZARD_STATIONS.findIndex((s) => s.key === step);
-
-  return (
-    <ol className="flex flex-wrap items-center gap-2 text-xs tabular-nums">
-      {WIZARD_STATIONS.map((station, i) => {
-        const state = i < activeIndex ? "done" : i === activeIndex ? "active" : "todo";
-        const label = `${i + 1} ${station.label}`;
-        return (
-          <li key={station.key} className="flex items-center gap-2">
-            {i > 0 && <span className="h-px w-4 bg-separator" aria-hidden />}
-            {state === "done" && onJump ? (
-              // A finished step is a way back — the same navigation the Back
-              // buttons offer, without walking through each step in between.
-              <button
-                type="button"
-                onClick={() => onJump(station.key)}
-                className="cursor-pointer rounded-sm px-1.5 py-0.5 text-success-soft-foreground hover:text-foreground focus-visible:status-focused"
-              >
-                {label}
-              </button>
-            ) : (
-              <span
-                aria-current={state === "active" ? "step" : undefined}
-                className={
-                  state === "active"
-                    ? "rounded-sm border border-border bg-surface px-1.5 py-0.5 font-medium text-foreground"
-                    : state === "done"
-                      ? "px-1.5 py-0.5 text-success-soft-foreground"
-                      : "px-1.5 py-0.5 text-muted"
-                }
-              >
-                {label}
-              </span>
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
+import {
+  ImportMatchStep,
+  defaultFilter,
+  type Filter,
+  type LookupStatus,
+} from "./import-match-step";
+import {
+  ASCENT_STYLE_OPTIONS,
+  CLIMB_TYPE_OPTIONS,
+  GRADE_FEEL_OPTIONS,
+  Stat,
+  ValueMappingSection,
+} from "./value-mapping-section";
+import { WizardSteps, type Step } from "./wizard-steps";
 
 const COLUMN_FIELDS: { key: FieldKey; label: string; hint: string }[] = [
   { key: "climbName", label: "Climb name", hint: "Matched against betabook's climbs by name." },
@@ -264,95 +208,6 @@ function toImportSendRow(resolved: ResolvedRow, climb: ClimbCandidate): ImportSe
     blankGradeMeans: row.blankGradeMeans,
   };
 }
-
-/** A stat the review and result steps lead with — the number, then what it
- * counts. */
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone?: "danger" | "warning";
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className={EYEBROW_CLASS}>{label}</span>
-      <span
-        className={clsx(
-          "font-display text-3xl font-semibold tabular-nums",
-          tone === "danger"
-            ? "text-danger"
-            : tone === "warning"
-              ? "text-warning"
-              : "text-foreground",
-        )}
-      >
-        {value.toLocaleString("en-US")}
-      </span>
-    </div>
-  );
-}
-
-function ValueMappingSection<V extends string>({
-  title,
-  description,
-  values,
-  mapping,
-  onChange,
-  options,
-  skipLabel,
-}: {
-  title: string;
-  description?: string;
-  values: { value: string; count: number }[];
-  mapping: Record<string, V | "skip">;
-  onChange: (mapping: Record<string, V | "skip">) => void;
-  options: readonly SelectOption<V>[];
-  skipLabel: string;
-}) {
-  if (values.length === 0) return null;
-  const choices: readonly SelectOption<V | "skip">[] = [
-    ...options,
-    { value: "skip", label: skipLabel },
-  ];
-  return (
-    <section className="flex flex-col gap-3">
-      <div>
-        <Eyebrow>{title}</Eyebrow>
-        {description && <p className="mt-1 text-xs text-muted">{description}</p>}
-      </div>
-      {/* Value and count share a row with the select from sm up; on a phone
-       * the select drops to its own full-width row underneath. */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(11rem,auto)]">
-        {values.map(({ value, count }) => (
-          <div key={value} className="contents">
-            <span className="text-sm wrap-break-word">{value}</span>
-            <span className="text-xs text-muted tabular-nums">{formatCount(count, "row")}</span>
-            <OptionSelect
-              ariaLabel={`Map “${value}”`}
-              value={mapping[value] ?? "skip"}
-              onChange={(chosen) => onChange({ ...mapping, [value]: chosen })}
-              options={choices}
-              className="col-span-2 mb-2 sm:col-span-1 sm:mb-0"
-            />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-const ASCENT_STYLE_OPTIONS = ASCENT_STYLES.map((value) => ({
-  value,
-  label: ASCENT_STYLE_LABELS[value],
-}));
-const CLIMB_TYPE_OPTIONS = CLIMB_TYPES.map((value) => ({ value, label: DISCIPLINE_LABELS[value] }));
-const GRADE_FEEL_OPTIONS = GRADE_FEEL_VALUES.map((value) => ({
-  value,
-  label: GRADE_FEEL_LABELS[value],
-}));
 
 export function ImportWizard({ profileHref }: { profileHref: string }) {
   const [step, setStep] = useState<Step>("upload");
