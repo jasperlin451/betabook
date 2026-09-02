@@ -148,6 +148,39 @@ export default defineConfig({
       },
     },
     {
+      files: ["components/ui/**"],
+      rules: {
+        "typescript/no-restricted-imports": [
+          "error",
+          {
+            patterns: [
+              {
+                group: [
+                  "@/db/client",
+                  "@/db/queries",
+                  "@/db/queries/**",
+                  "@/db/schema",
+                  "@/db/schema/**",
+                ],
+                allowTypeImports: true,
+                message:
+                  "Components must not access database clients, queries, or schemas directly at runtime. Use Server Actions (@/actions) or page loaders.",
+              },
+              {
+                group: [
+                  "@/components",
+                  "@/components/**",
+                  "!@/components/ui",
+                  "!@/components/ui/**",
+                ],
+                message: "UI components must not import from other components.",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       files: ["lib/**"],
       rules: {
         "typescript/no-restricted-imports": [
