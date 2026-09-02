@@ -63,6 +63,7 @@ Strict boundaries are codified in `oxlint.config.ts` via `typescript/no-restrict
 2. **Components (`components/`)**:
    - Client components (`"use client"`) invoke Server Actions via `@/actions`.
    - **Restriction**: Forbidden from importing `@/db/client`, `@/db/queries`, or `@/db/schema` at runtime. Data reads happen via server components / page loaders, and writes happen via Server Actions. Type-only imports (e.g. `import type { Area } from "@/db/queries"`) are permitted.
+   - **UI Primitives (`components/ui/`)**: Generic primitives and design tokens must never import from other components (`@/components/**` outside `components/ui/`).
 
 3. **Domain Logic (`lib/`)**:
    - Pure domain logic, validation, formatters, and mathematical utilities.
