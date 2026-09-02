@@ -7,6 +7,7 @@ import { PageTitle } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
   title: "Reset password",
+  robots: { index: false },
 };
 
 export default async function ResetPasswordPage({

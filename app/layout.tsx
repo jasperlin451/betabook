@@ -9,7 +9,10 @@ import { MobileNav } from "@/components/mobile-nav";
 import { SearchScopeProvider } from "@/components/search-scope";
 import { ThemeSwitch } from "@/components/theme-toggle";
 import { AppLink } from "@/components/ui/app-link";
+import { JsonLd } from "@/components/ui/json-ld";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
+import { websiteJsonLd } from "@/lib/seo";
+import { OG_IMAGE, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 import { Providers } from "./providers";
 
@@ -33,11 +36,29 @@ const barlowCondensed = localFont({
 });
 
 export const metadata: Metadata = {
+  // Absolute base for canonical/OG URLs — per-page metadata can then use
+  // site-relative paths and Next resolves them against this.
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "Betabook",
-    template: "%s · Betabook",
+    default: SITE_NAME,
+    template: `%s · ${SITE_NAME}`,
   },
-  description: "Climbing crag and route database",
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: "/",
+    images: [OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: [OG_IMAGE.url],
+  },
 };
 
 export const viewport: Viewport = {
@@ -91,6 +112,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col bg-background text-foreground">
         {/* oxlint-disable-next-line react/no-danger */}
         <script dangerouslySetInnerHTML={{ __html: SET_THEME_SCRIPT }} />
+        <JsonLd data={websiteJsonLd()} />
         <a
           href="#main"
           // oxlint-disable-next-line tailwindcss/no-conflicting-classes

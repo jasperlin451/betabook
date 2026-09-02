@@ -12,6 +12,31 @@ export async function getArea(db: Database, id: number): Promise<Area | undefine
   return db.select().from(areas).where(eq(areas.id, id)).get();
 }
 
+/** Total area rows — sizes the sitemap shard count (see app/sitemap.ts). */
+export async function countAreas(db: Database): Promise<number> {
+  const row = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(areas)
+    .get();
+  return row?.count ?? 0;
+}
+
+/** One page of area ids in id order — a sitemap shard. */
+export async function getAreaIdsPage(
+  db: Database,
+  limit: number,
+  offset: number,
+): Promise<number[]> {
+  const rows = await db
+    .select({ id: areas.id })
+    .from(areas)
+    .orderBy(areas.id)
+    .limit(limit)
+    .offset(offset)
+    .all();
+  return rows.map((row) => row.id);
+}
+
 /** The area a subarea-scoped climb list should actually query: the given
  * sub-area when it really descends from `area`, otherwise `area` itself —
  * guarding a forged or stale id from the URL, which would otherwise scope

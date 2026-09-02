@@ -8,6 +8,7 @@ import { signInUrl } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
   title: "Add area",
+  robots: { index: false },
 };
 
 export default async function NewAreaPage() {

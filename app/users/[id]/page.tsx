@@ -45,7 +45,9 @@ export async function generateMetadata({ params }: UserPageProps): Promise<Metad
   const user = await getUserById(id);
   if (!user) notFound();
 
-  return { title: user.name };
+  // Profiles carry a real name and full ascent history — kept out of search
+  // indexes; links on the page are still followed.
+  return { title: user.name, robots: { index: false } };
 }
 
 export default async function UserPage({ params, searchParams }: UserPageProps) {

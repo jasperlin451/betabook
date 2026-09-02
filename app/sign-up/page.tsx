@@ -5,6 +5,7 @@ import { safeNextPath } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
   title: "Sign up",
+  robots: { index: false },
 };
 
 export default async function SignUpPage({
