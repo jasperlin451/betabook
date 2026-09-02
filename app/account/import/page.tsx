@@ -15,5 +15,5 @@ export default async function ImportPage() {
     redirect(signInUrl("/account/import"));
   }
 
-  return <ImportWizard />;
+  return <ImportWizard profileHref={`/users/${session.user.id}`} />;
 }

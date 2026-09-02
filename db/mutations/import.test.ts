@@ -1,13 +1,17 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "cloudflare:test";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { createDb } from "@/db/client";
 import { climbs, sends } from "@/db/schema";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
-import { IMPORT_BATCH_SIZE, MAX_COMMENT_LENGTH } from "@/lib/sends";
-import type { NormalizedImportRow } from "@/lib/sends-import";
+import {
+  IMPORT_BATCH_SIZE,
+  MAX_COMMENT_LENGTH,
+  RESOLVE_BATCH_SIZE,
+  type ImportSendRow,
+} from "@/lib/sends";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyClimbs } from "@/test/fixtures";
-import { importSends } from "@/db/mutations";
+import { importSends, resolveImportClimbs, resolveImportClimbsInAreas } from "@/db/mutations";
 
 /** importSends's commit contract: each call is all-or-nothing (one db.batch
  * = one D1 transaction), duplicate rows are skipped via the user+climb key
@@ -65,15 +69,9 @@ vi.mock("@/db/client", async (importOriginal) => {
 
 const db = createDb(env.DB);
 
-function importRow(
-  climbName: string,
-  areaName: string,
-  overrides: Partial<NormalizedImportRow> = {},
-): NormalizedImportRow {
+function importRow(climbId: number, overrides: Partial<ImportSendRow> = {}): ImportSendRow {
   return {
-    climbName,
-    areaName,
-    climbTypeHint: null,
+    climbId,
     ascentStyle: "redpoint",
     dateSent: "2026-01-10",
     rating: null,
@@ -81,16 +79,13 @@ function importRow(
     gradeText: null,
     blankGradeMeans: "posted-grade",
     gradeFeel: "solid",
-    raw: {},
     ...overrides,
   };
 }
 
-/** "Bulk Climb 0" … "Bulk Climb 39" (ids 100…139) live in Test Slab Area. */
-function bulkRows(from: number, to: number): NormalizedImportRow[] {
-  return Array.from({ length: to - from + 1 }, (_, i) =>
-    importRow(`Bulk Climb ${from + i}`, "Test Slab Area"),
-  );
+/** "Bulk Climb 0" ... "Bulk Climb 59" (ids 100...159) live in Test Slab Area. */
+function bulkRows(from: number, to: number): ImportSendRow[] {
+  return Array.from({ length: to - from + 1 }, (_, i) => importRow(100 + from + i));
 }
 
 // Seeded once for the whole file (matching the other DB suites); each test
@@ -99,7 +94,7 @@ function bulkRows(from: number, to: number): NormalizedImportRow[] {
 // the already-logged case.
 beforeAll(async () => {
   await seedFixtureTree(db);
-  await seedManyClimbs(db, 5, 40, 100);
+  await seedManyClimbs(db, 5, 60, 100);
   for (const id of [
     "import-user",
     "retry-user",
@@ -109,15 +104,15 @@ beforeAll(async () => {
     "rating-user",
     "coerce-user",
     "reject-user",
+    "grade-user",
+    "overwrite-user",
   ]) {
     await seedFixtureUser(db, { id });
   }
   await seedFixtureSend(db, { userId: "noop-user", climbId: 2, dateSent: null });
 });
 
-// These suites are about the commit contract, not conflict handling, so every
-// call uses the default skip mode; the overwrite path has its own coverage in
-// mutations.test.ts.
+// Every call uses skip mode except the overwrite suite at the bottom.
 const IMPORT_OPTIONS = { gradeScale: "native", onConflict: "skip" } as const;
 
 beforeEach(() => {
@@ -128,12 +123,12 @@ beforeEach(() => {
 });
 
 describe("importSends atomic commit", () => {
-  it("commits a full 25-row batch in a single db.batch and reports the committed count", async () => {
+  it("commits a 25-row batch in a single db.batch and reports the committed count", async () => {
     const result = await importSends(bulkRows(0, 24), IMPORT_OPTIONS);
 
     expect(result).toEqual({
       ok: true,
-      value: { imported: 25, overwritten: 0, alreadyLogged: 0, notFound: [] },
+      value: { imported: 25, overwritten: 0, alreadyLogged: 0, missing: [] },
     });
     // One batch total, even though the insert is split into three <=10-row
     // statements (D1's bound-parameter cap) — the chunks ride inside the same
@@ -169,10 +164,10 @@ describe("importSends atomic commit", () => {
     const rows = bulkRows(37, 39);
 
     const first = await importSends(rows, IMPORT_OPTIONS);
-    expect(first).toEqual({ ok: true, value: { imported: 3, overwritten: 0, alreadyLogged: 0, notFound: [] } });
+    expect(first).toEqual({ ok: true, value: { imported: 3, overwritten: 0, alreadyLogged: 0, missing: [] } });
 
     const second = await importSends(rows, IMPORT_OPTIONS);
-    expect(second).toEqual({ ok: true, value: { imported: 0, overwritten: 0, alreadyLogged: 3, notFound: [] } });
+    expect(second).toEqual({ ok: true, value: { imported: 0, overwritten: 0, alreadyLogged: 3, missing: [] } });
 
     expect(await db.select().from(sends).where(eq(sends.userId, "retry-user")).all()).toHaveLength(3);
     const climb = await db.select().from(climbs).where(eq(climbs.id, 137)).get();
@@ -184,10 +179,7 @@ describe("importSends revalidation", () => {
   it("revalidates the home page, the user, and every affected climb and area", async () => {
     sessionState.userId = "reval-user";
     // Test Highball = climb 1 in area 4; Test Crimper = climb 3 in area 3.
-    const result = await importSends(
-      [importRow("Test Highball", "Test Boulders"), importRow("Test Crimper", "Test Sport Wall")],
-      IMPORT_OPTIONS,
-    );
+    const result = await importSends([importRow(1), importRow(3)], IMPORT_OPTIONS);
     expect(result.ok).toBe(true);
 
     const paths = cacheMocks.revalidatePath.mock.calls.map((call) => call[0]);
@@ -201,19 +193,16 @@ describe("importSends revalidation", () => {
     sessionState.userId = "noop-user";
     const result = await importSends(
       [
-        importRow("Test Slab", "Test Slab Area"), // already logged (seeded above)
-        importRow("Ghost Climb", "Nowhere"), // not found
+        importRow(2), // Test Slab — already logged (seeded above)
+        importRow(999_999), // no such climb: deleted since the match step
       ],
       IMPORT_OPTIONS,
     );
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.imported).toBe(0);
-      expect(result.value.alreadyLogged).toBe(1);
-      expect(result.value.notFound).toHaveLength(1);
-      expect(result.value.notFound[0].reason).toBe("climb-not-found");
-    }
+    expect(result).toEqual({
+      ok: true,
+      value: { imported: 0, overwritten: 0, alreadyLogged: 1, missing: [1] },
+    });
     expect(cacheMocks.revalidatePath).not.toHaveBeenCalled();
     expect(cacheMocks.refresh).not.toHaveBeenCalled();
   });
@@ -237,16 +226,32 @@ describe("importSends against a caller that skipped the wizard", () => {
     );
   });
 
-  it("accepts a batch of exactly IMPORT_BATCH_SIZE", async () => {
+  it("commits a batch of exactly IMPORT_BATCH_SIZE in one db.batch", async () => {
     sessionState.userId = "hostile-user";
     const result = await importSends(bulkRows(0, IMPORT_BATCH_SIZE - 1), IMPORT_OPTIONS);
-    expect(result.ok).toBe(true);
+    expect(result).toEqual({
+      ok: true,
+      value: { imported: IMPORT_BATCH_SIZE, overwritten: 0, alreadyLogged: 0, missing: [] },
+    });
+    expect(batchCalls.count).toBe(1);
   });
 
   it("rejects a non-array rows argument", async () => {
     sessionState.userId = "hostile-user";
-    const result = await importSends(null as unknown as NormalizedImportRow[], IMPORT_OPTIONS);
+    const result = await importSends(null as unknown as ImportSendRow[], IMPORT_OPTIONS);
     expect(result).toEqual({ ok: false, error: "Invalid import rows" });
+  });
+
+  it("rejects a row whose climb id isn't a positive integer", async () => {
+    sessionState.userId = "hostile-user";
+    for (const climbId of ["1", 1.5, -1, 0, null]) {
+      const result = await importSends(
+        [importRow(climbId as unknown as number)],
+        IMPORT_OPTIONS,
+      );
+      expect(result).toEqual({ ok: false, error: "Invalid import rows" });
+    }
+    expect(batchCalls.count).toBe(0);
   });
 
   // climbs.avg_rating is generated from rating_sum, which the sends triggers
@@ -256,10 +261,7 @@ describe("importSends against a caller that skipped the wizard", () => {
     sessionState.userId = "rating-user";
     const before = await db.select().from(climbs).where(eq(climbs.id, 130)).get();
 
-    const result = await importSends(
-      [importRow("Bulk Climb 30", "Test Slab Area", { rating: 1_000_000_000 })],
-      IMPORT_OPTIONS,
-    );
+    const result = await importSends([importRow(130, { rating: 1_000_000_000 })], IMPORT_OPTIONS);
 
     expect(result.ok).toBe(true);
     const send = await db.select().from(sends).where(eq(sends.userId, "rating-user")).get();
@@ -274,9 +276,9 @@ describe("importSends against a caller that skipped the wizard", () => {
     sessionState.userId = "coerce-user";
     const result = await importSends(
       [
-        importRow("Bulk Climb 31", "Test Slab Area", {
+        importRow(131, {
           comment: "x".repeat(MAX_COMMENT_LENGTH + 5000),
-          gradeFeel: "pwned" as NormalizedImportRow["gradeFeel"],
+          gradeFeel: "pwned" as ImportSendRow["gradeFeel"],
         }),
       ],
       IMPORT_OPTIONS,
@@ -291,14 +293,11 @@ describe("importSends against a caller that skipped the wizard", () => {
   // A row the wizard would have refused to produce fails the whole call
   // rather than being silently dropped — the commit contract is unchanged.
   async function expectRejected(
-    overrides: Partial<NormalizedImportRow>,
+    overrides: Partial<ImportSendRow>,
     message: string,
   ): Promise<void> {
     sessionState.userId = "reject-user";
-    const result = await importSends(
-      [importRow("Bulk Climb 32", "Test Slab Area", overrides)],
-      IMPORT_OPTIONS,
-    );
+    const result = await importSends([importRow(132, overrides)], IMPORT_OPTIONS);
 
     expect(result).toEqual({ ok: false, error: message });
     expect(await db.select().from(sends).where(eq(sends.userId, "reject-user")).all()).toHaveLength(
@@ -316,8 +315,143 @@ describe("importSends against a caller that skipped the wizard", () => {
 
   it("rejects an unknown ascent style", async () => {
     await expectRejected(
-      { ascentStyle: "sandbagged" as NormalizedImportRow["ascentStyle"] },
+      { ascentStyle: "sandbagged" as ImportSendRow["ascentStyle"] },
       "Invalid ascent style",
     );
+  });
+});
+
+describe("importSends suggested grade", () => {
+  it("parses grade text against the resolved climb's type, and falls back per blankGradeMeans", async () => {
+    sessionState.userId = "grade-user";
+    const result = await importSends(
+      [
+        importRow(133, { gradeText: "V7" }), // boulder table: V7 -> 8
+        importRow(134, { gradeText: null, blankGradeMeans: "posted-grade" }), // Bulk Climb 34 is graded 34 % 19 = 15
+        importRow(135, { gradeText: null, blankGradeMeans: "no-suggestion" }),
+        importRow(136, { gradeText: "5.12a" }), // a route grade on a boulder: no suggestion
+      ],
+      IMPORT_OPTIONS,
+    );
+    expect(result.ok).toBe(true);
+
+    const rows = await db.select().from(sends).where(eq(sends.userId, "grade-user")).all();
+    const byClimb = new Map(rows.map((row) => [row.climbId, row.suggestedGrade]));
+    expect(byClimb.get(133)).toBe(8);
+    expect(byClimb.get(134)).toBe(15);
+    expect(byClimb.get(135)).toBeNull();
+    expect(byClimb.get(136)).toBeNull();
+  });
+});
+
+describe("importSends overwrite mode", () => {
+  it("replaces an already-logged send's values wholesale, in one db.batch, without double counting", async () => {
+    sessionState.userId = "overwrite-user";
+    // 150/151: past the 100-149 range the "exactly IMPORT_BATCH_SIZE" test
+    // above already commits sends against, so this test's own aggregate
+    // assertions aren't shared with another user's writes.
+    const first = await importSends(
+      [importRow(150, { rating: 3, comment: "first go", gradeText: "V5" })],
+      IMPORT_OPTIONS,
+    );
+    expect(first.ok).toBe(true);
+    batchCalls.count = 0;
+
+    // Overwrite clears the fields the CSV leaves blank as well as replacing
+    // the ones it fills. A second row for a climb not yet logged inserts as
+    // usual in the same call.
+    const second = await importSends(
+      [importRow(150, { rating: 5, comment: null, gradeText: "V6" }), importRow(151)],
+      { ...IMPORT_OPTIONS, onConflict: "overwrite" },
+    );
+    expect(second).toEqual({
+      ok: true,
+      value: { imported: 1, overwritten: 1, alreadyLogged: 0, missing: [] },
+    });
+    expect(batchCalls.count).toBe(1);
+
+    const send = await db
+      .select()
+      .from(sends)
+      .where(and(eq(sends.userId, "overwrite-user"), eq(sends.climbId, 150)))
+      .get();
+    expect(send?.rating).toBe(5);
+    expect(send?.comment).toBeNull();
+    expect(send?.suggestedGrade).toBe(7); // V6
+    const climb = await db.select().from(climbs).where(eq(climbs.id, 150)).get();
+    expect(climb?.sendCount).toBe(1);
+    expect(climb?.ratingSum).toBe(5);
+  });
+});
+
+describe("resolveImportClimbsInAreas", () => {
+  it("returns the climbs of each name inside the paired area", async () => {
+    const result = await resolveImportClimbsInAreas([
+      { name: "Bulk Climb 0", areaName: "Test Boulders" },
+      { name: "Bulk Climb 0", areaName: "Test Sport Wall" },
+    ]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.map((c) => c.id)).toEqual([100]);
+    expect(result.value[0].ancestors.map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
+  });
+
+  it("rejects malformed pairs and requires a session", async () => {
+    expect(await resolveImportClimbsInAreas([{ name: "x" } as { name: string; areaName: string }])).toEqual({
+      ok: false,
+      error: "Invalid climb names",
+    });
+    sessionState.userId = null;
+    expect((await resolveImportClimbsInAreas([{ name: "x", areaName: "y" }])).ok).toBe(false);
+  });
+
+  it("rejects more pairs than RESOLVE_BATCH_SIZE", async () => {
+    const tooMany = Array.from({ length: RESOLVE_BATCH_SIZE + 1 }, (_, i) => ({
+      name: `Climb ${i}`,
+      areaName: `Area ${i}`,
+    }));
+    expect(await resolveImportClimbsInAreas(tooMany)).toEqual({
+      ok: false,
+      error: `A lookup can carry at most ${RESOLVE_BATCH_SIZE} climb and area pairs`,
+    });
+  });
+});
+
+describe("resolveImportClimbs", () => {
+  it("returns every climb sharing each name, grouped by key with its ancestors", async () => {
+    const result = await resolveImportClimbs(["test highball", "Bulk Climb 0", "Nobody"]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const keys = result.value.map((c) => c.key);
+    expect(new Set(keys)).toEqual(new Set(["test highball", "bulk climb 0"]));
+    const highball = result.value.find((c) => c.id === 1);
+    expect(highball).toMatchObject({
+      name: "Test Highball",
+      type: "boulder",
+      grade: 5,
+      areaId: 4,
+      areaName: "Test Highball Alcove",
+      total: 1,
+    });
+    expect(highball?.ancestors.map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
+  });
+
+  it("requires a session", async () => {
+    sessionState.userId = null;
+    const result = await resolveImportClimbs(["Test Highball"]);
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects more names than RESOLVE_BATCH_SIZE, and non-string names", async () => {
+    const tooMany = Array.from({ length: RESOLVE_BATCH_SIZE + 1 }, (_, i) => `Climb ${i}`);
+    expect(await resolveImportClimbs(tooMany)).toEqual({
+      ok: false,
+      error: `A lookup can carry at most ${RESOLVE_BATCH_SIZE} climb names`,
+    });
+    expect(await resolveImportClimbs([1 as unknown as string])).toEqual({
+      ok: false,
+      error: "Invalid climb names",
+    });
   });
 });

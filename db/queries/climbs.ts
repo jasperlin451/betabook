@@ -429,67 +429,179 @@ export async function getSubtreeGradeHistogram(
   `);
 }
 
-/** The subset of climb fields findClimbsByNameAndArea selects — everything
- * the import path needs to resolve a row, dedupe it, and revalidate the
- * affected climb/area pages. */
-export type ClimbNameAreaMatch = Pick<Climb, "id" | "areaId" | "name" | "type" | "grade">;
+/** The climb fields the import path needs to write a send against a resolved
+ * climb, dedupe it, and revalidate the affected climb/area pages. */
+export type ClimbSummary = Pick<Climb, "id" | "areaId" | "name" | "type" | "grade">;
 
-/** Exact (case-insensitive, trimmed) name match, in an area matching areaName
- * exactly or as an ancestor. Returns every match — caller decides what
- * 0/1/many means.
- *
- * Walks `parent_id` UPWARD from the candidate climbs' areas, testing each
- * ancestor's name — the opposite direction from areaNameCondition, which
- * resolves the named area's whole descendant set once. That difference is
- * deliberate, and it's about which side of the join is the small one:
- *
- * areaNameCondition drives from a broad row set (an FTS climb search, a
- * user's entire send history), so a per-row ancestor test ran thousands of
- * times and materializing the descendant set once was the win. Here the
- * driver is an EXACT climb-name match on climbs_name_lower_idx (see
- * drizzle/migrations/0006_expression_indexes.sql), which yields a handful of
- * rows — so the descendant set is the expensive side, and its cost scales
- * with the named area's subtree: a country- or continent-level areaName
- * means materializing thousands of areas to test a few climbs.
- *
- * An ancestor chain is bounded by tree depth regardless of subtree size (see
- * getAncestors), so this is O(candidate areas x depth) and doesn't scale with
- * the named area at all. That matters per CALL, not just per query:
- * importSends resolves one of these per CSV row.
- *
- * Seeding `chain` with the climb's own area is what folds "matches exactly OR
- * matches as an ancestor" into one clause. UNION ALL is safe because an
- * ancestor chain can't cycle — enforced at write time by the triggers in
- * drizzle/migrations/0017_area_cycle_guard.sql, not merely assumed from the
- * current mutations. That matters most here: this runs once per CSV row on
- * the import path, so it's the walk with the least headroom to spare. */
-export async function findClimbsByNameAndArea(
-  db: Database,
-  climbName: string,
-  areaName: string,
-): Promise<ClimbNameAreaMatch[]> {
-  // Raw-SQL db.all skips drizzle's column mapping and keeps database field
-  // names, so snake_case columns are aliased explicitly (as in searchClimbs)
-  // — `climbs.*` would come back with `area_id`, not `areaId`.
-  return db.all<ClimbNameAreaMatch>(sql`
-    WITH RECURSIVE chain(start_id, id) AS (
-      SELECT DISTINCT c.area_id, c.area_id FROM climbs c
-      WHERE LOWER(TRIM(c.name)) = LOWER(TRIM(${climbName}))
-      UNION ALL
-      SELECT chain.start_id, areas.parent_id FROM chain
-      JOIN areas ON areas.id = chain.id
-      WHERE areas.parent_id IS NOT NULL
-    )
+/** The named climbs by id, in no particular order; ids with no climb are
+ * simply absent. One statement however many ids, bound as a single JSON
+ * value (see getUserSentClimbIds for why). */
+export async function getClimbsByIds(db: Database, ids: readonly number[]): Promise<ClimbSummary[]> {
+  const distinct = [...new Set(ids)];
+  if (distinct.length === 0) return [];
+  return db.all<ClimbSummary>(sql`
     SELECT climbs.id AS id, climbs.area_id AS areaId, climbs.name AS name,
            climbs.type AS type, climbs.grade AS grade
     FROM climbs
-    WHERE LOWER(TRIM(climbs.name)) = LOWER(TRIM(${climbName}))
-    AND climbs.area_id IN (
-      SELECT chain.start_id FROM chain
-      JOIN areas ON areas.id = chain.id
-      WHERE LOWER(TRIM(areas.name)) = LOWER(TRIM(${areaName}))
-    )
+    WHERE climbs.id IN (SELECT CAST(value AS INTEGER) FROM json_each(${JSON.stringify(distinct)}))
   `);
+}
+
+/** One climb that shares a looked-up name, with enough of its surroundings
+ * for the import wizard to tell same-named climbs apart without another
+ * round trip. */
+export type ClimbCandidate = Pick<Climb, "id" | "areaId" | "name" | "type" | "grade" | "sendCount"> & {
+  /** `LOWER(TRIM(name))` as SQLite computed it — what callers group by, and
+   * what lib/import-matching's foldClimbName reproduces for the CSV side. */
+  key: string;
+  areaName: string;
+  /** The climb's area's ancestors, root-first, not including the area itself.
+   * Empty for a climb in a root area. */
+  ancestors: { id: number; name: string }[];
+  /** How many climbs share `key` in all, before CLIMB_CANDIDATES_PER_NAME
+   * trimmed the list — so the caller can say "showing 25 of 60". */
+  total: number;
+};
+
+/** Same-named climbs past this many are cut, most-ascended kept. A name that
+ * common ("Warm Up") won't be settled from a list; the wizard's search is. */
+export const CLIMB_CANDIDATES_PER_NAME = 25;
+
+type ClimbCandidateRow = Omit<ClimbCandidate, "ancestors"> & { ancestors: string };
+
+function toCandidates(rows: ClimbCandidateRow[]): ClimbCandidate[] {
+  return rows.map((row) => ({
+    ...row,
+    ancestors: JSON.parse(row.ancestors) as ClimbCandidate["ancestors"],
+  }));
+}
+
+/** Every climb named `name` whose own area or any ancestor is named
+ * `areaName` (both case-insensitive, trimmed), for each pair, with the same
+ * fields as findClimbCandidatesByNames. No per-name cap: this is how the
+ * wizard reaches a climb that a common name's cap left out when the CSV
+ * says which area it is in (see areaLookupsNeeded). `total` still counts
+ * every climb of the name, cap or no cap, so the two lookups agree. */
+export async function findClimbCandidatesInAreas(
+  db: Database,
+  pairs: readonly { name: string; areaName: string }[],
+): Promise<ClimbCandidate[]> {
+  if (pairs.length === 0) return [];
+
+  // The chain is seeded with each climb's own area at distance 0, so one walk
+  // both tests the area (any distance) and yields the ancestors (distance
+  // 1+), instead of two recursive CTEs over the same rows.
+  const rows = await db.all<ClimbCandidateRow>(sql`
+    WITH RECURSIVE wanted(key, area) AS (
+      SELECT LOWER(TRIM(json_extract(value, '$.name'))), LOWER(TRIM(json_extract(value, '$.areaName')))
+      FROM json_each(${JSON.stringify(pairs)})
+    ), named AS (
+      SELECT climbs.id, climbs.area_id, climbs.name, climbs.type, climbs.grade,
+             climbs.send_count, LOWER(TRIM(climbs.name)) AS key,
+             COUNT(*) OVER (PARTITION BY LOWER(TRIM(climbs.name))) AS total
+      FROM climbs
+      WHERE LOWER(TRIM(climbs.name)) IN (SELECT key FROM wanted)
+    ), chain(climb_id, area_id, dist) AS (
+      SELECT named.id, named.area_id, 0 FROM named
+      UNION ALL
+      SELECT chain.climb_id, areas.parent_id, chain.dist + 1
+      FROM chain
+      JOIN areas ON areas.id = chain.area_id
+      WHERE areas.parent_id IS NOT NULL
+    ), matched AS (
+      SELECT named.* FROM named
+      WHERE EXISTS (
+        SELECT 1 FROM chain
+        JOIN areas ON areas.id = chain.area_id
+        JOIN wanted ON wanted.key = named.key AND wanted.area = LOWER(TRIM(areas.name))
+        WHERE chain.climb_id = named.id
+      )
+    )
+    SELECT matched.id AS id, matched.key AS key, matched.name AS name,
+           matched.type AS type, matched.grade AS grade,
+           matched.area_id AS areaId, areas.name AS areaName,
+           matched.send_count AS sendCount, matched.total AS total, (
+      SELECT json_group_array(json_object('id', a.id, 'name', a.name)) FROM (
+        SELECT ancestor.id AS id, ancestor.name AS name
+        FROM chain
+        JOIN areas ancestor ON ancestor.id = chain.area_id
+        WHERE chain.climb_id = matched.id AND chain.dist > 0
+        ORDER BY chain.dist DESC
+      ) a
+    ) AS ancestors
+    FROM matched
+    JOIN areas ON areas.id = matched.area_id
+    ORDER BY matched.key, matched.send_count DESC, matched.id
+  `);
+
+  return toCandidates(rows);
+}
+
+/** Every climb whose name matches one of `names` exactly (case-insensitive,
+ * trimmed), grouped by that folded name and ordered most-ascended first
+ * within each, with each climb's ancestor chain attached. One statement for
+ * the whole list, for the import wizard's match step (see
+ * resolveImportClimbs).
+ *
+ * The name filter is `LOWER(TRIM(climbs.name)) IN (...)`, which SQLite
+ * satisfies from climbs_name_lower_idx (drizzle/migrations/0006); the list
+ * is one json_each binding rather than a parameter per name. The window
+ * functions rank and count within each name so the per-name cap and `total`
+ * come out of the same pass. Ancestors are walked upward per matched climb
+ * (see getAncestors) into a JSON array by an ordered subquery, as
+ * searchAreas does for its ancestorPath. */
+export async function findClimbCandidatesByNames(
+  db: Database,
+  names: readonly string[],
+): Promise<ClimbCandidate[]> {
+  if (names.length === 0) return [];
+
+  const rows = await db.all<ClimbCandidateRow>(sql`
+    WITH RECURSIVE wanted(key) AS (
+      SELECT LOWER(TRIM(value)) FROM json_each(${JSON.stringify(names)})
+    ), ranked AS (
+      SELECT climbs.id, climbs.area_id, climbs.name, climbs.type, climbs.grade,
+             climbs.send_count, LOWER(TRIM(climbs.name)) AS key,
+             ROW_NUMBER() OVER (
+               PARTITION BY LOWER(TRIM(climbs.name))
+               ORDER BY climbs.send_count DESC, climbs.id
+             ) AS rn,
+             COUNT(*) OVER (PARTITION BY LOWER(TRIM(climbs.name))) AS total
+      FROM climbs
+      WHERE LOWER(TRIM(climbs.name)) IN (SELECT key FROM wanted)
+    ), matched AS (
+      SELECT * FROM ranked WHERE rn <= ${CLIMB_CANDIDATES_PER_NAME}
+    ), chain(climb_id, ancestor_id, dist) AS (
+      SELECT matched.id, areas.parent_id, 1
+      FROM matched
+      JOIN areas ON areas.id = matched.area_id
+      WHERE areas.parent_id IS NOT NULL
+      UNION ALL
+      SELECT chain.climb_id, areas.parent_id, chain.dist + 1
+      FROM chain
+      JOIN areas ON areas.id = chain.ancestor_id
+      WHERE areas.parent_id IS NOT NULL
+    )
+    SELECT matched.id AS id, matched.key AS key, matched.name AS name,
+           matched.type AS type, matched.grade AS grade,
+           matched.area_id AS areaId, areas.name AS areaName,
+           matched.send_count AS sendCount, matched.total AS total, (
+      -- json_group_array keeps the order it receives rows in, so the ORDER
+      -- BY belongs on the subquery it consumes (see searchAreas).
+      SELECT json_group_array(json_object('id', a.id, 'name', a.name)) FROM (
+        SELECT ancestor.id AS id, ancestor.name AS name
+        FROM chain
+        JOIN areas ancestor ON ancestor.id = chain.ancestor_id
+        WHERE chain.climb_id = matched.id
+        ORDER BY chain.dist DESC
+      ) a
+    ) AS ancestors
+    FROM matched
+    JOIN areas ON areas.id = matched.area_id
+    ORDER BY matched.key, matched.rn
+  `);
+
+  return toCandidates(rows);
 }
 
 export type SearchClimbsParams = DisciplineGradeFilter &

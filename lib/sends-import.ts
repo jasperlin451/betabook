@@ -18,6 +18,11 @@ export type ParsedCsv = {
    * parser plus any duplicate-header renames. Non-fatal — the file still
    * parsed — but shown to the user before they map columns. */
   warnings: string[];
+  /** Columns computed from the file rather than read from it (see
+   * deriveSourceColumns). Present on every row and mappable like a header,
+   * but not part of `headers`, so a failed-rows export still matches the
+   * source file column for column. */
+  derived: string[];
 };
 
 export const CLIMB_TYPES = ["boulder", "sport", "trad"] as const;
@@ -34,17 +39,35 @@ export const CLIMB_TYPES = ["boulder", "sport", "trad"] as const;
 export const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 50_000;
 
+/** Each distinct trimmed non-blank value in `column`, in first-seen order,
+ * with how often it occurs. */
+function countValues(rows: Record<string, string>[], column: string | null): Map<string, number> {
+  const counts = new Map<string, number>();
+  if (!column) return counts;
+  for (const row of rows) {
+    const value = (row[column] ?? "").trim();
+    if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /** Every distinct, trimmed, non-blank value in `column` across `rows` — used
  * to build the value-mapping step's list of ascent-style/climb-type values
  * the user needs to map. */
 export function distinctValues(rows: Record<string, string>[], column: string | null): string[] {
-  if (!column) return [];
-  const seen = new Set<string>();
-  for (const row of rows) {
-    const value = (row[column] ?? "").trim();
-    if (value) seen.add(value);
-  }
-  return [...seen];
+  return [...countValues(rows, column).keys()];
+}
+
+/** distinctValues with how often each value occurs, most common first — the
+ * value-mapping step shows the count beside each value so a one-off typo and
+ * the file's main ascent style don't read as equally weighty. */
+export function valueCounts(
+  rows: Record<string, string>[],
+  column: string | null,
+): { value: string; count: number }[] {
+  return [...countValues(rows, column)]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count);
 }
 
 const MAX_PARSE_ERROR_WARNINGS = 5;
@@ -75,7 +98,7 @@ export function parseCsvText(text: string): ParsedCsv {
   }
 
   const rawRows = result.data;
-  if (rawRows.length === 0) return { headers: [], rows: [], warnings };
+  if (rawRows.length === 0) return { headers: [], rows: [], warnings, derived: [] };
 
   const lengthCounts = new Map<number, number>();
   for (const r of rawRows) {
@@ -122,14 +145,22 @@ export function parseCsvText(text: string): ParsedCsv {
     return row;
   });
 
-  return { headers, rows, warnings };
+  return { headers, rows, warnings, derived: [] };
 }
 
 export type ColumnMapping = {
   date: string | null;
   ascentStyle: string | null;
   climbName: string | null;
+  /** The area a climb is in, matched exactly against the climb's own area or
+   * any ancestor. Optional: a file without one (KAYA's, say) is matched on
+   * climb name alone and the wizard's match step settles any ties. */
   areaName: string | null;
+  /** Columns that only *hint* at where a climb is — KAYA's boulder-name
+   * "location" and its "country", a Sendage "Country". Never required to
+   * match, only used to break ties between same-named climbs; a hint that
+   * matches nothing is ignored rather than failing the row. */
+  areaHints: string[];
   climbType: string | null; // optional — tiebreaker only
   grade: string | null; // optional
   suggestedGrade: string | null; // optional — takes precedence over `grade` for the send's suggested grade
@@ -138,13 +169,10 @@ export type ColumnMapping = {
   comment: string | null; // optional
 };
 
-type FieldKey = keyof ColumnMapping;
+/** The single-column fields of a ColumnMapping — everything but areaHints. */
+export type FieldKey = Exclude<keyof ColumnMapping, "areaHints">;
 
-export const REQUIRED_COLUMN_KEYS: readonly FieldKey[] = [
-  "ascentStyle",
-  "climbName",
-  "areaName",
-];
+export const REQUIRED_COLUMN_KEYS: readonly FieldKey[] = ["ascentStyle", "climbName"];
 
 /** The required fields (per REQUIRED_COLUMN_KEYS) that aren't mapped to a
  * CSV column yet. The wizard's columns step blocks Next and names these
@@ -170,26 +198,114 @@ const FIELD_ORDER: FieldKey[] = [
   "comment",
 ];
 
+// Matched against normalizeHeader's output, so "ascent_type", "Ascent-Type"
+// and "Ascent Type" all read as "ascent type" — one spelling per alias here.
 const HEADER_ALIASES: Record<FieldKey, string[]> = {
   date: ["date sent", "send date", "ascent date", "date"],
   climbType: ["climb type", "discipline"],
-  ascentStyle: ["send type", "ascent type", "ascent style", "completion type", "style", "type"],
-  climbName: ["climb name", "climb", "route", "problem", "name"],
+  ascentStyle: [
+    "send type",
+    "ascent type",
+    "ascent style",
+    "completion type",
+    "tick type",
+    "style",
+    "type",
+  ],
+  climbName: ["climb name", "route name", "problem name", "climb", "route", "problem", "name"],
   areaName: ["area name", "area", "crag", "location", "sector"],
-  suggestedGrade: ["suggested grade", "personal grade", "my grade"],
-  grade: ["grade", "difficulty"],
-  gradeFeel: ["grade feel", "feel"],
-  rating: ["rating", "stars"],
+  // A third-party log's one grade column is the grade the climber logged,
+  // i.e. betabook's suggested grade, so the bare "grade" belongs here. The
+  // posted-grade field only claims a bare "Grade" once a more specific header
+  // has taken this one (a betabook export has both).
+  suggestedGrade: ["suggested grade", "personal grade", "my grade", "grade", "difficulty"],
+  grade: ["posted grade", "climb grade", "route grade", "guidebook grade", "grade"],
+  gradeFeel: ["grade feel", "stiffness", "feel"],
+  rating: ["rating", "your stars", "stars"],
   comment: ["comments", "comment", "notes"],
 };
 
-/** Case-insensitive/trimmed exact match against common header aliases; the wizard pre-fills the mapping UI with this, and the user can override any of it. */
-export function guessColumnMapping(headers: string[]): ColumnMapping {
-  const mapping: ColumnMapping = {
+/** Columns that place a climb only loosely — a country or state names a
+ * subtree thousands of climbs wide, so they're offered as tie-breaking hints
+ * rather than as the area itself. */
+const HINT_ALIASES = ["country", "state", "province", "region"];
+
+/** Header text reduced to the form the alias tables are written in: lower
+ * case, with underscores and hyphens read as spaces, so an export's
+ * `climb_name` finds the "climb name" alias. */
+export function normalizeHeader(header: string): string {
+  return header.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+}
+
+/** Which app produced the file, when its header row gives it away. Drives a
+ * preset column mapping and a per-source note in the wizard; "unknown" falls
+ * back to the alias tables above. */
+export type ImportSource = "betabook" | "kaya" | "sendage" | "mountainproject" | "unknown";
+
+export const IMPORT_SOURCE_LABELS: Record<ImportSource, string> = {
+  betabook: "betabook export",
+  kaya: "KAYA export",
+  sendage: "Sendage export",
+  mountainproject: "Mountain Project export",
+  unknown: "CSV",
+};
+
+/** Header sets that identify a source. Each is a few headers no other export
+ * shares, tested as a subset so an export that gains a column still matches. */
+const SOURCE_SIGNATURES: Record<Exclude<ImportSource, "unknown">, string[]> = {
+  betabook: ["date sent", "ascent style", "climb name", "area name"],
+  kaya: ["ascent type", "climb name", "stiffness"],
+  sendage: ["send type", "climb", "climb type", "area"],
+  mountainproject: ["route", "lead style", "route type", "your stars"],
+};
+
+/** Mountain Project splits the ascent style across two columns: "Lead Style"
+ * (Onsight/Flash/Redpoint/Pinkpoint/Fell/Hung) for leads, and "Style" alone
+ * for everything else (Send/Flash/Attempt for boulders, TR, Follow, Solo).
+ * This derived column takes "Lead Style" when present and "Style" otherwise,
+ * so one value-mapping covers every row. */
+export const MP_ASCENT_COLUMN = "Lead Style or Style";
+
+/** Adds the per-source derived columns (see ParsedCsv.derived) to a parsed
+ * file. Returns the input untouched for sources that need none. */
+export function deriveSourceColumns(parsed: ParsedCsv, source: ImportSource): ParsedCsv {
+  if (source !== "mountainproject") return parsed;
+  const find = (name: string) => parsed.headers.find((h) => normalizeHeader(h) === name);
+  const leadStyle = find("lead style");
+  const style = find("style");
+  if (
+    !leadStyle ||
+    !style ||
+    parsed.headers.includes(MP_ASCENT_COLUMN) ||
+    parsed.derived.includes(MP_ASCENT_COLUMN)
+  ) {
+    return parsed;
+  }
+  return {
+    ...parsed,
+    derived: [...parsed.derived, MP_ASCENT_COLUMN],
+    rows: parsed.rows.map((row) => ({
+      ...row,
+      [MP_ASCENT_COLUMN]: (row[leadStyle] ?? "").trim() || (row[style] ?? "").trim(),
+    })),
+  };
+}
+
+export function detectImportSource(headers: string[]): ImportSource {
+  const normalized = new Set(headers.map(normalizeHeader));
+  for (const [source, signature] of Object.entries(SOURCE_SIGNATURES)) {
+    if (signature.every((h) => normalized.has(h))) return source as ImportSource;
+  }
+  return "unknown";
+}
+
+function emptyMapping(): ColumnMapping {
+  return {
     date: null,
     ascentStyle: null,
     climbName: null,
     areaName: null,
+    areaHints: [],
     climbType: null,
     grade: null,
     suggestedGrade: null,
@@ -197,19 +313,65 @@ export function guessColumnMapping(headers: string[]): ColumnMapping {
     rating: null,
     comment: null,
   };
+}
+
+/** Case-insensitive/trimmed match against the header aliases, adjusted per
+ * detected source; the wizard pre-fills the mapping UI with this, and the
+ * user can override any of it. `headers` should include any derived columns
+ * (see deriveSourceColumns) so a preset can claim them.
+ *
+ * KAYA's "location" is the boulder, not an area, so as an Area column it
+ * would fail nearly every row. It becomes a hint instead, with "country".
+ *
+ * Mountain Project's "Rating" is the route's grade and "Your Stars" the star
+ * rating, the reverse of what the alias table would guess, and its
+ * "Location" is a full " > " path, which the hint matching splits. */
+export function guessColumnMapping(headers: string[]): ColumnMapping {
+  const mapping = emptyMapping();
+  const source = detectImportSource(headers);
 
   const claimed = new Set<string>();
-  const normalized = headers.map((h) => ({ raw: h, norm: h.trim().toLowerCase() }));
+  const normalized = headers.map((h) => ({ raw: h, norm: normalizeHeader(h) }));
+  const claim = (norm: string): string | null => {
+    const match = normalized.find((h) => !claimed.has(h.raw) && h.norm === norm);
+    if (!match) return null;
+    claimed.add(match.raw);
+    return match.raw;
+  };
+
+  if (source === "kaya") {
+    // Claimed up front so the generic pass below can't hand "location" to
+    // areaName. KAYA's "color", "gym" and "attempts" have no betabook field.
+    mapping.areaHints = ["location", "country"].flatMap((h) => claim(h) ?? []);
+  }
+
+  if (source === "mountainproject") {
+    mapping.ascentStyle = claim(normalizeHeader(MP_ASCENT_COLUMN));
+    mapping.climbType = claim("route type");
+    mapping.grade = claim("rating");
+    mapping.suggestedGrade = claim("your rating");
+    mapping.rating = claim("your stars");
+    const location = claim("location");
+    mapping.areaHints = location ? [location] : [];
+  }
 
   for (const field of FIELD_ORDER) {
+    // A preset's choice stands; the generic alias for "style" would
+    // otherwise take Mountain Project's raw "Style" back from the derived
+    // column above.
+    if (mapping[field]) continue;
     for (const alias of HEADER_ALIASES[field]) {
-      const match = normalized.find((h) => !claimed.has(h.raw) && h.norm === alias);
-      if (match) {
-        mapping[field] = match.raw;
-        claimed.add(match.raw);
+      const raw = claim(alias);
+      if (raw) {
+        mapping[field] = raw;
         break;
       }
     }
+  }
+
+  for (const alias of HINT_ALIASES) {
+    const raw = claim(alias);
+    if (raw) mapping.areaHints.push(raw);
   }
 
   return mapping;
@@ -368,9 +530,42 @@ export function detectDateFormat(sampleValues: string[]): DateFormat {
   return best;
 }
 
+// A time of day other than midnight inside a date value: "16:42:54" in
+// "Wed Sep 02 2026 16:42:54 GMT+0000".
+const NON_MIDNIGHT_TIME_RE = /\b(?!00:00(?::00)?\b)\d{1,2}:\d{2}(?::\d{2})?\b/;
+
+/** Date values that stand in for "no date". KAYA writes the export time on
+ * sends logged without a date, so every undated send shares one timestamp to
+ * the second. Real values are midnight (date-only logs) or unique per row.
+ * Returned with counts so the wizard can offer to import those rows undated
+ * instead of all dated today. */
+export function findPlaceholderTimestamps(
+  rows: Record<string, string>[],
+  dateColumn: string | null,
+): { value: string; count: number }[] {
+  return valueCounts(rows, dateColumn).filter(
+    ({ value, count }) => count >= 2 && NON_MIDNIGHT_TIME_RE.test(value),
+  );
+}
+
 export type AscentStyleMapping = Record<string, AscentStyle | "skip">;
 export type ClimbTypeMapping = Record<string, ClimbType | "skip">;
 export type GradeFeelMapping = Record<string, GradeFeel | "skip">;
+
+// Other apps' words for the three styles. "Pinkpoint" is a redpoint on
+// pre-placed gear; Mountain Project's "Send" is a boulder redpoint and a
+// bare "Lead" is a lead with no style given, which is a redpoint far more
+// often than not. Non-sends (TR, Follow, Attempt, Fell/Hung) stay unmapped
+// so they default to skipping the row.
+const ASCENT_STYLE_ALIASES: Record<string, AscentStyle> = {
+  "red point": "redpoint",
+  pinkpoint: "redpoint",
+  "pink point": "redpoint",
+  send: "redpoint",
+  lead: "redpoint",
+  "on sight": "onsight",
+  "on-sight": "onsight",
+};
 
 /** Pre-fills the value-mapping step's ascent-style dropdowns by matching
  * each distinct CSV value against a known ascent style; anything that
@@ -378,28 +573,88 @@ export type GradeFeelMapping = Record<string, GradeFeel | "skip">;
 export function guessAscentStyleMapping(values: string[]): AscentStyleMapping {
   const mapping: AscentStyleMapping = {};
   for (const value of values) {
-    const match = ASCENT_STYLES.find((t) => t === value.trim().toLowerCase());
+    const normalized = value.trim().toLowerCase();
+    const match =
+      ASCENT_STYLES.find((t) => t === normalized) ?? ASCENT_STYLE_ALIASES[normalized];
     mapping[value] = match ?? "skip";
   }
   return mapping;
 }
 
+const CLIMB_TYPE_ALIASES: Record<string, ClimbType> = {
+  bouldering: "boulder",
+  traditional: "trad",
+};
+
 /** Same as guessAscentStyleMapping, but for the (optional, tiebreaker-only)
- * climb-type column. */
+ * climb-type column. A value can list several types ("Trad, Sport" or
+ * "Sport, TR" on Mountain Project); the first recognized one wins. */
 export function guessClimbTypeMapping(values: string[]): ClimbTypeMapping {
   const mapping: ClimbTypeMapping = {};
   for (const value of values) {
-    const match = CLIMB_TYPES.find((t) => t === value.trim().toLowerCase());
+    let match: ClimbType | undefined;
+    for (const token of value.toLowerCase().split(/\s*[,/]\s*/)) {
+      const trimmed = token.trim();
+      match = CLIMB_TYPES.find((t) => t === trimmed) ?? CLIMB_TYPE_ALIASES[trimmed];
+      if (match) break;
+    }
     mapping[value] = match ?? "skip";
   }
   return mapping;
+}
+
+// Mountain Project appends a protection rating to some route grades
+// ("5.9 R", "5.10c PG13"); it says nothing about difficulty.
+const PROTECTION_SUFFIX_RE = /\s+(?:PG-?13|R|X)$/i;
+
+/** Grade text as the grade tables expect it. */
+function cleanGradeText(raw: string): string | null {
+  return raw.replace(PROTECTION_SUFFIX_RE, "").trim() || null;
+}
+
+export type GradeScale = "native" | "converted";
+
+/** Which notation a grade column is written in, by which set of tables reads
+ * more of its values: V-scale/YDS ("V4", "5.11a") or Font/French ("6A",
+ * "6c+"). A tie, or a column with no readable grade, stays native. */
+export function detectGradeScale(values: string[]): GradeScale {
+  let native = 0;
+  let converted = 0;
+  for (const value of values) {
+    const text = cleanGradeText(value);
+    if (!text) continue;
+    if (parseGrade("boulder", text) !== null || parseGrade("sport", text) !== null) native++;
+    if (
+      parseGrade("boulder", text, "converted") !== null ||
+      parseGrade("sport", text, "converted") !== null
+    ) {
+      converted++;
+    }
+  }
+  return converted > native ? "converted" : "native";
+}
+
+// Mountain Project writes an area as its whole path from the root
+// ("International > North America > Canada > … > Campground Wall").
+const AREA_PATH_SEPARATOR_RE = /\s+>\s+/;
+
+/** A hint cell as one or more area names, most specific first. A path splits
+ * into its segments leaf-first, so the hint matching tries the wall before
+ * the country; a plain name is itself. */
+export function splitAreaHint(value: string): string[] {
+  return value
+    .split(AREA_PATH_SEPARATOR_RE)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .reverse();
 }
 
 // Other sites rarely use betabook's own low/solid/high wording — soft/stiff
 // is the more common phrasing — so the guess covers the unambiguous
 // synonyms. Deliberately excludes terms like "sandbagged", which people use
 // to mean opposite things; those fall through to "skip" for the user to
-// decide rather than being guessed wrong.
+// decide rather than being guessed wrong. The signed numbers are KAYA's
+// "stiffness" (0 = fair; the sign follows the word, so negative is soft).
 const GRADE_FEEL_ALIASES: Record<string, GradeFeel> = {
   soft: "low",
   easy: "low",
@@ -407,6 +662,9 @@ const GRADE_FEEL_ALIASES: Record<string, GradeFeel> = {
   accurate: "solid",
   stiff: "high",
   hard: "high",
+  "-1": "low",
+  "0": "solid",
+  "1": "high",
 };
 
 /** Same as guessAscentStyleMapping, but for the optional grade-feel column.
@@ -424,17 +682,25 @@ export function guessGradeFeelMapping(values: string[]): GradeFeelMapping {
 }
 
 export type NormalizedImportRow = {
+  /** Index into ParsedCsv.rows — the wizard keys per-row decisions by it. */
+  rowIndex: number;
   climbName: string;
-  areaName: string;
+  /** Null when no Area column is mapped or the cell is blank; the match step
+   * then resolves the climb on name alone. */
+  areaName: string | null;
+  /** Non-blank values of the mapped hint columns, in column order, with a
+   * path value split into its segments leaf-first (see splitAreaHint). For
+   * the match step's tie-breaking, never a requirement. */
+  areaHints: string[];
   climbTypeHint: ClimbType | null; // from ClimbTypeMapping, tiebreaker only
   ascentStyle: AscentStyle;
   dateSent: string | null; // ISO if present; blank in the CSV -> null, not a failure
   rating: number | null;
   comment: string | null; // truncated to MAX_COMMENT_LENGTH here, not rejected
   /** The text that becomes the send's suggested grade — from the Suggested
-   * Grade column when one is mapped (it takes precedence: in a betabook
-   * export the Grade column is the climb's posted grade, a property of the
-   * climb rather than of this send), else from the Grade column. */
+   * Grade column when one is mapped (where third-party exports' lone grade
+   * column lands: it's the grade the climber logged), else from the posted
+   * Grade column, which only a betabook export carries separately. */
   gradeText: string | null;
   /** What a null gradeText means for the send's suggested grade:
    * "posted-grade" — only a Grade column was mapped, so fall back to the
@@ -444,6 +710,11 @@ export type NormalizedImportRow = {
    * a betabook export round-trip losslessly instead of silently replacing
    * every blank suggested grade with the climb's posted grade. */
   blankGradeMeans: "posted-grade" | "no-suggestion";
+  /** The climb's grade as the file states it, when a posted Grade column is
+   * mapped. Never written to the send; it stands in for a blank gradeText
+   * when matching (a Mountain Project row rarely has a grade of the
+   * climber's own, but always has the route's). */
+  postedGradeText: string | null;
   gradeFeel: GradeFeel; // optional CSV column; defaults to "solid" if absent/unrecognized
   raw: Record<string, string>; // the original CSV row, kept for a failed-rows export identical to the source
 };
@@ -493,12 +764,20 @@ function gradeTextParses(
   );
 }
 
+export type NormalizeOptions = {
+  today?: string;
+  gradeScalePreference?: "native" | "converted";
+  /** Raw date values to read as "no date" — see findPlaceholderTimestamps. */
+  undatedValues?: Iterable<string>;
+};
+
 /**
  * Applies column mapping + value mappings + date format to every parsed CSV
- * row. Never touches the database — climb resolution happens server-side.
- * Returns both buckets so the wizard can show "N rows ready, M rows can't be
- * imported" before the user ever clicks Finalize, plus per-field coercion
- * warnings for the value adjustments made to rows in the valid bucket.
+ * row. Never touches the database — climb resolution happens in the match
+ * step. Returns both buckets so the wizard can show "N rows ready, M rows
+ * can't be imported" before the user ever clicks Finalize, plus per-field
+ * coercion warnings for the value adjustments made to rows in the valid
+ * bucket.
  */
 export function normalizeImportRows(
   parsed: ParsedCsv,
@@ -507,12 +786,14 @@ export function normalizeImportRows(
   climbTypeMapping: ClimbTypeMapping,
   gradeFeelMapping: GradeFeelMapping,
   dateFormat: DateFormat,
-  options: { today?: string; gradeScalePreference?: "native" | "converted" } = {},
+  options: NormalizeOptions = {},
 ): { valid: NormalizedImportRow[]; invalid: InvalidImportRow[]; warnings: CoercionWarning[] } {
   const {
     today = new Date().toISOString().slice(0, 10),
     gradeScalePreference = "native",
+    undatedValues = [],
   } = options;
+  const undated = new Set(undatedValues);
   const valid: NormalizedImportRow[] = [];
   const invalid: InvalidImportRow[] = [];
   // One day past UTC today, since a client's local today can be ahead of
@@ -531,16 +812,15 @@ export function normalizeImportRows(
 
   parsed.rows.forEach((row, rowIndex) => {
     const fail = (reason: string) => invalid.push({ rowIndex, raw: row, reason });
+    const cell = (column: string | null) => (column ? (row[column] ?? "").trim() : "");
 
-    const climbName = mapping.climbName ? (row[mapping.climbName] ?? "").trim() : "";
+    const climbName = cell(mapping.climbName);
     if (!climbName) return fail("Missing climb name");
 
-    const areaName = mapping.areaName ? (row[mapping.areaName] ?? "").trim() : "";
-    if (!areaName) return fail("Missing area name");
+    const areaName = cell(mapping.areaName) || null;
+    const areaHints = mapping.areaHints.flatMap((column) => splitAreaHint(cell(column)));
 
-    const rawAscentStyle = mapping.ascentStyle
-      ? (row[mapping.ascentStyle] ?? "").trim()
-      : "";
+    const rawAscentStyle = cell(mapping.ascentStyle);
     const mappedAscentStyle = rawAscentStyle
       ? ascentStyleMapping[rawAscentStyle]
       : undefined;
@@ -552,28 +832,32 @@ export function normalizeImportRows(
       );
     }
 
-    const rawDate = mapping.date ? (row[mapping.date] ?? "").trim() : "";
+    const rawDate = cell(mapping.date);
     let dateSent: string | null = null;
-    if (rawDate) {
+    if (rawDate && !undated.has(rawDate)) {
       dateSent = parseDateWithFormat(rawDate, dateFormat);
       if (dateSent === null) return fail(`Unparseable date "${rawDate}"`);
       if (dateSent > latestDateSent) return fail(`Date "${rawDate}" is in the future`);
     }
 
-    const rawClimbType = mapping.climbType ? (row[mapping.climbType] ?? "").trim() : "";
+    const rawClimbType = cell(mapping.climbType);
     const mappedClimbType = rawClimbType ? climbTypeMapping[rawClimbType] : undefined;
     const climbTypeHint: ClimbType | null =
       mappedClimbType && mappedClimbType !== "skip" ? mappedClimbType : null;
 
-    const rawRating = mapping.rating ? (row[mapping.rating] ?? "").trim() : "";
+    const rawRating = cell(mapping.rating);
     const ratingNum = rawRating ? Number(rawRating) : null;
     const rating =
       ratingNum !== null && Number.isInteger(ratingNum) && ratingNum >= 1 && ratingNum <= 5
         ? ratingNum
         : null;
-    if (rawRating && rating === null) warn("rating", rowIndex, `"${rawRating}"`);
+    // Zero or negative is an app's "not rated" (Mountain Project exports -1),
+    // not a rating that failed to parse, so it drops silently.
+    if (rawRating && rating === null && !(ratingNum !== null && ratingNum <= 0)) {
+      warn("rating", rowIndex, `"${rawRating}"`);
+    }
 
-    const rawComment = mapping.comment ? (row[mapping.comment] ?? "").trim() : "";
+    const rawComment = cell(mapping.comment);
     if (rawComment.length > MAX_COMMENT_LENGTH) {
       warn("comment", rowIndex, `${rawComment.length} characters`);
     }
@@ -588,12 +872,13 @@ export function normalizeImportRows(
     // Suggested Grade column exists (see NormalizedImportRow.blankGradeMeans).
     const gradeColumn = mapping.suggestedGrade ?? mapping.grade;
     const blankGradeMeans = mapping.suggestedGrade ? ("no-suggestion" as const) : ("posted-grade" as const);
-    const gradeText = gradeColumn ? (row[gradeColumn] ?? "").trim() || null : null;
+    const gradeText = cleanGradeText(cell(gradeColumn));
     if (gradeText && !gradeTextParses(gradeText, climbTypeHint, gradeScalePreference)) {
       warn("suggestedGrade", rowIndex, `"${gradeText}"`);
     }
+    const postedGradeText = cleanGradeText(cell(mapping.grade));
 
-    const rawGradeFeel = mapping.gradeFeel ? (row[mapping.gradeFeel] ?? "").trim() : "";
+    const rawGradeFeel = cell(mapping.gradeFeel);
     const mappedGradeFeel = rawGradeFeel ? gradeFeelMapping[rawGradeFeel] : undefined;
     // Unmapped or explicitly ignored grade feel falls back to the "solid"
     // default — unlike ascent style, it never invalidates a row. It does
@@ -604,8 +889,10 @@ export function normalizeImportRows(
     if (rawGradeFeel && feelDropped) warn("gradeFeel", rowIndex, `"${rawGradeFeel}"`);
 
     valid.push({
+      rowIndex,
       climbName,
       areaName,
+      areaHints,
       climbTypeHint,
       ascentStyle: mappedAscentStyle,
       dateSent,
@@ -613,6 +900,7 @@ export function normalizeImportRows(
       comment,
       gradeText,
       blankGradeMeans,
+      postedGradeText,
       gradeFeel,
       raw: row,
     });
@@ -628,57 +916,23 @@ export function normalizeImportRows(
   return { valid, invalid, warnings };
 }
 
-export type NotFoundRow = {
-  climbName: string;
-  areaName: string;
-  dateSent: string | null;
-  reason: "climb-not-found" | "climb-ambiguous";
-  raw: Record<string, string>; // the original CSV row, for a failed-rows export identical to the source
+/** One row that didn't import, with why — whatever stage stopped it. */
+export type FailedImportRow = {
+  raw: Record<string, string>;
+  reason: string;
 };
-
-export type BatchErrorRow = { rows: NormalizedImportRow[]; message: string };
 
 const REASON_COLUMN = "Import Failure Reason";
 
 /**
- * Builds a CSV of every row that couldn't be imported — the client-side
- * `invalid` bucket (normalization failures), the server-reported `notFound`
- * bucket (climb resolution failures), and any `batchErrors` (rows whose
- * batch request itself failed) — so the user can review and fix them
- * outside the wizard. Every row's original CSV columns/values are carried
- * through unchanged (via each row's own `raw`), with one column appended
- * explaining why it failed — the export otherwise matches the source file
- * exactly, so it can be edited and re-uploaded as-is.
+ * Builds a CSV of every row that couldn't be imported so the user can review
+ * and fix them outside the wizard. Every row's original CSV columns/values
+ * are carried through unchanged (via each row's own `raw`), with one column
+ * appended explaining why it failed — the export otherwise matches the
+ * source file exactly, so it can be edited and re-uploaded as-is.
  */
-export function buildFailedRowsCsv(
-  headers: string[],
-  invalid: InvalidImportRow[],
-  notFound: NotFoundRow[],
-  batchErrors: BatchErrorRow[],
-): string {
+export function buildFailedRowsCsv(headers: string[], failures: FailedImportRow[]): string {
   const fields = [...headers, REASON_COLUMN];
-  const toRow = (raw: Record<string, string>, reason: string) => [
-    ...headers.map((h) => raw[h] ?? ""),
-    reason,
-  ];
-
-  const data: string[][] = [];
-
-  for (const r of invalid) {
-    data.push(toRow(r.raw, r.reason));
-  }
-
-  for (const r of notFound) {
-    data.push(
-      toRow(r.raw, r.reason === "climb-not-found" ? "Climb not found" : "Ambiguous climb match"),
-    );
-  }
-
-  for (const batch of batchErrors) {
-    for (const r of batch.rows) {
-      data.push(toRow(r.raw, `Not imported: ${batch.message}`));
-    }
-  }
-
+  const data = failures.map(({ raw, reason }) => [...headers.map((h) => raw[h] ?? ""), reason]);
   return Papa.unparse({ fields, data }, CSV_UNPARSE_CONFIG);
 }

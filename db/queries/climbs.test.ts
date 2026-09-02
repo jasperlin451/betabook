@@ -6,8 +6,11 @@ import { areas, climbs } from "@/db/schema";
 import { getArea } from "./areas";
 import {
   countSearchClimbs,
-  findClimbsByNameAndArea,
+  findClimbCandidatesByNames,
+  findClimbCandidatesInAreas,
   getAreaWithSubtreeSize,
+  getClimbsByIds,
+  CLIMB_CANDIDATES_PER_NAME,
   getClimb,
   getSubtreeClimbs,
   getSubtreeGradeHistogram,
@@ -663,38 +666,46 @@ describe("searchClimbs pagination", () => {
   });
 });
 
-describe("findClimbsByNameAndArea", () => {
-  it("matches a climb by its own direct area", async () => {
-    const results = await findClimbsByNameAndArea(db, "Test Crimper", "Test Sport Wall");
-    expect(results.map((c) => c.name)).toEqual(["Test Crimper"]);
+describe("findClimbCandidatesByNames", () => {
+  it("returns each climb matching a name, keyed by its folded name, with its area and ancestors", async () => {
+    const results = await findClimbCandidatesByNames(db, ["Test Crimper"]);
+    expect(results).toHaveLength(1);
+    // sendCount comes from the shared fixture climb, which other suites in
+    // this file log sends against — a number, not a particular one.
+    expect(results[0]).toEqual({
+      id: 3,
+      key: "test crimper",
+      name: "Test Crimper",
+      type: "sport",
+      grade: 10,
+      areaId: 3,
+      areaName: "Test Sport Wall",
+      sendCount: expect.any(Number),
+      total: 1,
+      ancestors: [{ id: 1, name: "Test Crag" }],
+    });
   });
 
-  it("matches a climb via an ancestor area name", async () => {
-    // Test Highball lives in Test Highball Alcove, whose ancestor is Test Boulders.
-    const results = await findClimbsByNameAndArea(db, "Test Highball", "Test Boulders");
-    expect(results.map((c) => c.name)).toEqual(["Test Highball"]);
+  it("looks up several names in one call, case-insensitively and trimmed", async () => {
+    const results = await findClimbCandidatesByNames(db, ["  test crimper  ", "TEST HIGHBALL"]);
+    expect(results.map((c) => [c.key, c.id])).toEqual([
+      ["test crimper", 3],
+      ["test highball", 1],
+    ]);
+    // Ancestors read root-first, the way every breadcrumb does.
+    expect(results[1].ancestors.map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
   });
 
-  it("is case-insensitive and trims whitespace on both name and area", async () => {
-    const results = await findClimbsByNameAndArea(db, "  test crimper  ", "  TEST SPORT WALL  ");
-    expect(results.map((c) => c.name)).toEqual(["Test Crimper"]);
+  it("returns nothing for names no climb has, and nothing at all for an empty list", async () => {
+    expect(await findClimbCandidatesByNames(db, ["No Such Climb"])).toEqual([]);
+    expect(await findClimbCandidatesByNames(db, [])).toEqual([]);
   });
 
-  it("returns an empty array when the climb name doesn't match", async () => {
-    const results = await findClimbsByNameAndArea(db, "No Such Climb", "Test Sport Wall");
-    expect(results).toEqual([]);
-  });
-
-  it("returns an empty array when the area doesn't match (even if the climb name does)", async () => {
-    const results = await findClimbsByNameAndArea(db, "Test Crimper", "No Such Area");
-    expect(results).toEqual([]);
-  });
-
-  // The lookup walks parent_id upward from the climb's own area (see
-  // findClimbsByNameAndArea), so depth is the dimension its cost scales with
-  // — and the shared fixture tree is only two levels deep. This chain is its
-  // own root so it can't perturb the fixture tree's subtree assertions.
-  it("matches a climb four levels below the named area", async () => {
+  // Ancestors are walked upward from each climb's own area, so depth is the
+  // dimension the cost scales with — and the shared fixture tree is only two
+  // levels deep. This chain is its own root so it can't perturb the fixture
+  // tree's subtree assertions.
+  it("walks the whole ancestor chain of a deeply nested climb", async () => {
     await db.insert(areas).values([
       { id: 8000, parentId: null, name: "Test Deep Range" },
       { id: 8001, parentId: 8000, name: "Test Deep Massif" },
@@ -709,27 +720,100 @@ describe("findClimbsByNameAndArea", () => {
       grade: 7,
     });
 
-    const results = await findClimbsByNameAndArea(db, "Test Deep Route", "Test Deep Range");
-    expect(results.map((c) => c.id)).toEqual([8100]);
+    const [result] = await findClimbCandidatesByNames(db, ["Test Deep Route"]);
+    expect(result.areaName).toBe("Test Deep Buttress");
+    expect(result.ancestors.map((a) => a.name)).toEqual([
+      "Test Deep Range",
+      "Test Deep Massif",
+      "Test Deep Valley",
+    ]);
+  });
 
-    // A sibling branch of the same chain must not match — the walk goes up
-    // one parent chain, not across the tree.
-    const unrelated = await findClimbsByNameAndArea(db, "Test Deep Route", "Test Crag");
+  it("returns every same-named climb under one key, most-ascended first", async () => {
+    // Twins in different areas; only the higher-id one has been climbed.
+    await db.insert(climbs).values([
+      { id: 997, areaId: 5, name: "Test Twin", type: "boulder", grade: 3 },
+      { id: 998, areaId: 3, name: "Test Twin", type: "sport", grade: 3 },
+    ]);
+    await seedFixtureUser(db, { id: "candidate-user" });
+    await seedFixtureSend(db, { userId: "candidate-user", climbId: 998, dateSent: null });
+
+    const results = await findClimbCandidatesByNames(db, ["Test Twin"]);
+    expect(results.map((c) => c.id)).toEqual([998, 997]);
+    expect(results.map((c) => c.total)).toEqual([2, 2]);
+    expect(results.map((c) => c.key)).toEqual(["test twin", "test twin"]);
+  });
+
+  it("caps each name at CLIMB_CANDIDATES_PER_NAME while reporting the true total", async () => {
+    const count = CLIMB_CANDIDATES_PER_NAME + 5;
+    const rows = Array.from({ length: count }, (_, i) => ({
+      id: 8200 + i,
+      areaId: 5,
+      name: "Test Common Name",
+      type: "boulder" as const,
+      grade: i % 5,
+    }));
+    // Chunked for D1's bound-parameter cap, as seedManyClimbs does.
+    for (let i = 0; i < rows.length; i += 10) {
+      await db.insert(climbs).values(rows.slice(i, i + 10));
+    }
+
+    const results = await findClimbCandidatesByNames(db, ["Test Common Name"]);
+    expect(results).toHaveLength(CLIMB_CANDIDATES_PER_NAME);
+    expect(results.every((c) => c.total === count)).toBe(true);
+    // Ties on ascent count fall back to id, so the cut is deterministic.
+    expect(results.map((c) => c.id)).toEqual(
+      Array.from({ length: CLIMB_CANDIDATES_PER_NAME }, (_, i) => 8200 + i),
+    );
+  });
+});
+
+describe("findClimbCandidatesInAreas", () => {
+  it("matches a climb by its own area or any ancestor, never an unrelated area", async () => {
+    // Test Highball is climb 1 in Test Highball Alcove (4) under Test Boulders (2) under Test Crag (1).
+    const own = await findClimbCandidatesInAreas(db, [{ name: "test highball", areaName: " TEST HIGHBALL ALCOVE " }]);
+    expect(own.map((c) => c.id)).toEqual([1]);
+
+    const [byAncestor] = await findClimbCandidatesInAreas(db, [{ name: "Test Highball", areaName: "Test Crag" }]);
+    expect(byAncestor.id).toBe(1);
+    expect(byAncestor.key).toBe("test highball");
+    expect(byAncestor.areaName).toBe("Test Highball Alcove");
+    expect(byAncestor.ancestors.map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
+
+    const unrelated = await findClimbCandidatesInAreas(db, [{ name: "Test Highball", areaName: "Test Sport Wall" }]);
     expect(unrelated).toEqual([]);
   });
 
-  it("returns every match when the (name, area) pair is ambiguous", async () => {
-    // A second "Test Highball" under a different area, both under Test Crag.
-    await db.insert(climbs).values({
-      id: 999,
-      areaId: 3, // Test Sport Wall
-      name: "Test Highball",
-      type: "sport",
-      grade: 3,
-    });
+  it("returns only the paired area's twin while counting every climb of the name", async () => {
+    // Test Twin: 997 in Test Slab Area, 998 in Test Sport Wall (seeded above).
+    const results = await findClimbCandidatesInAreas(db, [
+      { name: "Test Twin", areaName: "Test Slab Area" },
+      { name: "No Such Climb", areaName: "Test Crag" },
+    ]);
+    expect(results.map((c) => c.id)).toEqual([997]);
+    expect(results[0].total).toBe(2);
+  });
 
-    const results = await findClimbsByNameAndArea(db, "Test Highball", "Test Crag");
-    expect(results.map((c) => c.id).sort()).toEqual([1, 999]);
+  it("returns nothing for an empty list", async () => {
+    expect(await findClimbCandidatesInAreas(db, [])).toEqual([]);
+  });
+});
+
+describe("getClimbsByIds", () => {
+  it("returns the requested climbs and silently drops unknown ids", async () => {
+    const results = await getClimbsByIds(db, [3, 1, 424242, 3]);
+    expect(results.map((c) => c.id).sort()).toEqual([1, 3]);
+    expect(results.find((c) => c.id === 3)).toEqual({
+      id: 3,
+      areaId: 3,
+      name: "Test Crimper",
+      type: "sport",
+      grade: 10,
+    });
+  });
+
+  it("returns nothing for an empty list without querying", async () => {
+    expect(await getClimbsByIds(db, [])).toEqual([]);
   });
 });
 
