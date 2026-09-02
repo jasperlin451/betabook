@@ -56,7 +56,9 @@ export function userSendsFilterToSearchParams(filter: UserSendsFilter): URLSearc
   if (filter.name) params.set("name", filter.name);
   if (filter.areaName) params.set("areaName", filter.areaName);
   params.set("sort", filter.sort ?? "date_desc");
-  filter.ascentStyles.forEach((style) => params.append("ascentStyle", style));
+  for (const style of filter.ascentStyles) {
+    params.append("ascentStyle", style);
+  }
   if (filter.minRating) params.set("minRating", String(filter.minRating));
   return params;
 }

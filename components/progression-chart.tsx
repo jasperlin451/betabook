@@ -51,7 +51,7 @@ export function ProgressionChart({
   // Year ticks: every January inside the span; a span within one calendar
   // year gets its single year under the middle instead.
   const yearTicks: { x: number; label: string }[] = [];
-  for (let m = m0; m <= m1; m++) {
+  for (let m = m0; m <= m1; m += 1) {
     if (m % 12 === 0) {
       yearTicks.push({
         x: singleMonth ? MARGIN.left + PLOT_W / 2 : MARGIN.left + ((m - m0) / (m1 - m0)) * PLOT_W,
@@ -68,7 +68,7 @@ export function ProgressionChart({
   // Personal-best step path: horizontal to each active month, vertical when
   // the ceiling rises there, then a run-out to the right edge.
   const pathParts = [`M ${x(points[0].month)} ${y(points[0].best)}`];
-  for (let i = 1; i < points.length; i++) {
+  for (let i = 1; i < points.length; i += 1) {
     pathParts.push(`H ${x(points[i].month)}`);
     if (points[i].best !== points[i - 1].best) pathParts.push(`V ${y(points[i].best)}`);
   }

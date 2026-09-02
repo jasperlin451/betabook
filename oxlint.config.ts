@@ -20,6 +20,7 @@ export default defineConfig({
     correctness: "error",
     perf: "error",
     suspicious: "error",
+    restriction: "error",
   },
   options: {
     // Run high-performance type-aware linting via oxlint-tsgolint
@@ -44,6 +45,7 @@ export default defineConfig({
     "build/**",
     "next-env.d.ts",
     "worker-configuration.d.ts",
+    "cloudflare-env.d.ts",
     ".open-next/**",
     ".wrangler/**",
     "climbs_data/**",
@@ -54,24 +56,24 @@ export default defineConfig({
     // Enforce strict equality (=== / !==) while permitting standard nullish (== null) comparisons.
     eqeqeq: ["error", "always", { null: "ignore" }],
 
-    // Comprehensive import plugin rule suite:
     // Allow CSS side-effect imports (e.g. globals.css) while forbidding unassigned JS imports.
     "import/no-unassigned-import": ["error", { allow: ["**/*.css"] }],
-    "import/no-cycle": "error",
-    "import/no-self-import": "error",
-    "import/no-duplicates": "error",
-    "import/no-mutable-exports": "error",
-    "import/no-named-as-default": "error",
-    "import/no-named-as-default-member": "error",
-    "import/default": "error",
-    "import/named": "error",
-    "import/namespace": "error",
-    "import/export": "error",
-    "import/extensions": "error",
-    "import/first": "error",
-    "import/no-relative-parent-imports": "error",
-    "import/no-dynamic-require": "error",
-    "import/no-anonymous-default-export": "error",
+
+    // Disallow void expressions except as statement to handle floating promises.
+    "no-void": ["error", { allowAsStatement: true }],
+
+    // Helper functions are routinely declared below their first use (hoisted
+    // `function` declarations, bottom-of-file helpers); only const/let/class
+    // references in the temporal dead zone are real hazards.
+    "no-use-before-define": ["error", { functions: false, classes: false, variables: true }],
+
+    // No-op default context setters (createContext(() => {})) and inert test
+    // stubs are legitimately empty; a bare {} is the clearest way to say so.
+    "no-empty-function": ["error", { allow: ["arrowFunctions"] }],
+
+    // console.warn / console.error are the Workers logging channel
+    // (wrangler.jsonc has observability on); console.log is still noise.
+    "no-console": ["error", { allow: ["warn", "error"] }],
 
     // Ensure tests have assertions while recognizing custom assertion helpers (e.g. expectCycleRejection).
     "vitest/expect-expect": ["error", { assertFunctionNames: ["expect", "expect*"] }],
@@ -121,8 +123,89 @@ export default defineConfig({
 
     // Immutable object spreading in .map() transformations is idiomatic and clean.
     "oxc/no-map-spread": "off",
+
+    // --- Framework compatibility & syntax allowances ---
+
+    // Next.js App Router requires default exports for pages, layouts, templates, and error boundaries.
+    "import/no-default-export": "off",
+
+    // Permitted by project eqeqeq configuration ({ null: "ignore" }) for standard nullish comparisons.
+    "eslint/no-eq-null": "off",
+
+    // Standard JavaScript/TypeScript usage of undefined identifier is idiomatic.
+    "eslint/no-undefined": "off",
+
+    // Allow JSX in .tsx files.
+    "react/jsx-filename-extension": "off",
+
+    // Modern ES object rest/spread properties ({ ...props }) are standard and idiomatic.
+    "oxc/no-rest-spread-properties": "off",
+
+    // Explicit return types on every function/boundary are redundant with TypeScript's type inference.
+    "typescript/explicit-function-return-type": "off",
+    "typescript/explicit-module-boundary-types": "off",
+
+    // Tailwind CSS and HeroUI rely heavily on className prop on custom components.
+    "react/forbid-component-props": "off",
+
+    // Optional chaining (?.) is standard modern ECMAScript.
+    "oxc/no-optional-chaining": "off",
+
+    // Allow literal text inside JSX without forced i18n translation wrapping.
+    "react/jsx-no-literals": "off",
+
+    // Modern async/await is fundamental to React Server Components, Server Actions, and D1 database calls.
+    "oxc/no-async-await": "off",
+
+    // Test timeout is managed globally via Vitest config rather than requiring explicit timeouts on all tests.
+    "vitest/require-test-timeout": "off",
+
+    // Architectural barrel re-exports (actions/index.ts, db/queries/index.ts, db/schema.ts).
+    "oxc/no-barrel-file": "off",
+
+    // Experimental React Compiler diagnostics.
+    "react/todo": "off",
+
+    // --- restriction rules that fight the framework or the house style ---
+
+    // React 19 types `ReactNode` to include `Promise<...>` (async Server
+    // Components), so every component that returns a node trips this; the
+    // remaining hits are one-line callbacks that forward a promise.
+    "typescript/promise-function-async": "off",
+
+    // Next.js pages/layouts export `metadata` / `generateMetadata` / route
+    // config next to the default component, and context modules co-locate
+    // their provider with the hook — both are load-bearing, not fast-refresh
+    // slips.
+    "react/only-export-components": "off",
+
+    // Small presentational subcomponents and toolbars are deliberately
+    // co-located with the feature they belong to rather than scattered into
+    // one-off files.
+    "react/no-multi-comp": "off",
   },
   overrides: [
+    {
+      files: ["**/*.test.ts", "**/*.test.tsx", "test/**"],
+      rules: {
+        "typescript/no-non-null-assertion": "off",
+      },
+    },
+    {
+      // CLI scripts talk to the operator over stdout/stderr — that's their UI.
+      files: ["scripts/**"],
+      rules: {
+        "no-console": "off",
+      },
+    },
+    {
+      // Dev fallback when no RESEND_API_KEY is bound: print the verification /
+      // reset link to the console so local auth flows stay completable.
+      files: ["lib/email.ts"],
+      rules: {
+        "no-console": "off",
+      },
+    },
     {
       files: ["components/**"],
       rules: {

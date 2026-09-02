@@ -11,8 +11,10 @@ import {
 
 let nextClimbId = 1;
 function send(over: Partial<AnalyticsSendRow>): AnalyticsSendRow {
+  const climbId = nextClimbId;
+  nextClimbId += 1;
   return {
-    climbId: nextClimbId++,
+    climbId,
     climbName: "Some Climb",
     climbType: "boulder",
     suggestedGrade: 3,

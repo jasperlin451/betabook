@@ -786,7 +786,7 @@ describe("getSendsForClimb tie-breaking across pages", () => {
     });
     // Three sends sharing the same dateSent — under the newest-first order,
     // only the sends.id tie-breaker gives them a defined relative order.
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 3; i += 1) {
       await seedFixtureUser(db, { id: `test-user-climb-ties-${i}`, name: `Climb Ties ${i}` });
       await seedFixtureSend(db, {
         userId: `test-user-climb-ties-${i}`,

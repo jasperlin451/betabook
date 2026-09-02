@@ -76,6 +76,8 @@ function stateLabel(resolved: ResolvedRow): string {
       return "Picked";
     case "skipped":
       return "Skipped";
+    default:
+      return "";
   }
 }
 
@@ -196,6 +198,7 @@ function ClimbLine({ climb, rowClimbName }: { climb: ClimbCandidate; rowClimbNam
   );
 }
 
+// oxlint-disable-next-line complexity -- one branch per resolution state / badge, not decomposable
 function MatchRow({
   resolved,
   duplicateOf,

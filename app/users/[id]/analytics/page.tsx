@@ -56,6 +56,7 @@ function analyticsHref(userId: string, scope: ClimbType): string {
   return `/users/${userId}/analytics?discipline=${scope}`;
 }
 
+// oxlint-disable-next-line complexity -- assembles many independent page sections from search params
 export default async function UserAnalyticsPage({ params, searchParams }: UserAnalyticsPageProps) {
   const [{ id }, search] = await Promise.all([params, searchParams]);
 
@@ -90,13 +91,15 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
   const analytics = buildUserAnalytics(rows, scope);
   const hue = DISCIPLINE_HUE[scope];
 
-  const requestedYear = Number(typeof search.year === "string" ? search.year : NaN);
+  const requestedYear = Number(typeof search.year === "string" ? search.year : Number.NaN);
   const year = analytics.years.includes(requestedYear)
     ? requestedYear
     : (analytics.years.at(-1) ?? null);
 
   // The pyramid has its own year selector — null means all time.
-  const requestedPyramidYear = Number(typeof search.pyramid === "string" ? search.pyramid : NaN);
+  const requestedPyramidYear = Number(
+    typeof search.pyramid === "string" ? search.pyramid : Number.NaN,
+  );
   const pyramidYear = analytics.years.includes(requestedPyramidYear) ? requestedPyramidYear : null;
   const pyramidRows =
     pyramidYear == null

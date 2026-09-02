@@ -58,7 +58,7 @@ vi.mock("@/db/client", async (importOriginal) => {
       ) => Promise<unknown>;
       Object.assign(db, {
         batch: (statements: readonly unknown[]) => {
-          batchCalls.count++;
+          batchCalls.count += 1;
           return originalBatch(statements);
         },
       });

@@ -89,6 +89,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
+        {/* oxlint-disable-next-line react/no-danger */}
         <script dangerouslySetInnerHTML={{ __html: SET_THEME_SCRIPT }} />
         <a
           href="#main"
@@ -142,6 +143,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <div
                   className={`mx-auto flex w-full ${PAGE_MAX_WIDTH_CLASS} flex-wrap items-center justify-between gap-2`}
                 >
+                  {/* oxlint-disable-next-line node/no-process-env */}
                   <span>&copy; {process.env.NEXT_PUBLIC_BUILD_YEAR} Betabook</span>
                   <div className="flex items-center gap-4">
                     <AppLink href="/about">About</AppLink>

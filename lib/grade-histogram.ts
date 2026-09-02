@@ -96,12 +96,12 @@ function collapseRopeLabel(label: string): string {
 function ropeLabelSpan(label: string): [number, number] {
   let first = -1;
   let last = -1;
-  ROPE_YDS.forEach((grade, i) => {
+  for (const [i, grade] of ROPE_YDS.entries()) {
     if (collapseRopeLabel(grade) === label) {
       if (first === -1) first = i;
       last = i;
     }
-  });
+  }
   return [first, last];
 }
 
@@ -114,7 +114,7 @@ function bucketize(type: ClimbType, counts: Map<number, number>): GradeBucket[] 
   const max = Math.max(...indices);
   const scale = type === "boulder" ? BOULDER_HUECO : ROPE_YDS;
   const buckets: GradeBucket[] = [];
-  for (let i = min; i <= max; i++) {
+  for (let i = min; i <= max; i += 1) {
     const raw = scale[i];
     const label = type === "boulder" ? raw : collapseRopeLabel(raw);
     const count = counts.get(i) ?? 0;

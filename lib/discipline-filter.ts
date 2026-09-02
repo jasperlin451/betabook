@@ -43,7 +43,9 @@ export function appendDisciplineFilterParams(
   params: URLSearchParams,
   filter: DisciplineFilter,
 ): void {
-  filter.disciplines.forEach((discipline) => params.append("discipline", discipline));
+  for (const discipline of filter.disciplines) {
+    params.append("discipline", discipline);
+  }
   if (filter.disciplines.includes("boulder")) {
     params.append("boulderRange", String(filter.boulderRange[0]));
     params.append("boulderRange", String(filter.boulderRange[1]));

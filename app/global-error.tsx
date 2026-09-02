@@ -24,6 +24,7 @@ export default function GlobalError({ retry }: { error: Error; retry: () => void
         <h1 style={{ margin: 0, fontSize: "1.5rem" }}>Something went wrong</h1>
         <p style={{ margin: 0 }}>An unexpected error kept Betabook from loading.</p>
         <button
+          type="button"
           onClick={() => retry()}
           style={{
             padding: "0.5rem 1rem",

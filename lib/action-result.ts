@@ -16,7 +16,7 @@ export type ActionResult<T = void> = { ok: true; value: T } | { ok: false; error
  * failure and replaced with GENERIC_ERROR_MESSAGE so raw internals (D1/
  * driver errors, bugs) never leak to the client. */
 export class ActionError extends Error {
-  constructor(message: string) {
+  public constructor(message: string) {
     super(message);
     this.name = "ActionError";
   }
@@ -30,7 +30,7 @@ export const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
  * here rather than in lib/session.ts so this module stays dependency-free
  * (lib/session.ts pulls in next/headers and the whole auth stack). */
 export class NotSignedInError extends Error {
-  constructor() {
+  public constructor() {
     super("Not signed in");
     this.name = "NotSignedInError";
   }

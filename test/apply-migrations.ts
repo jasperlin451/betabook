@@ -1,3 +1,6 @@
 import { applyD1Migrations, env } from "cloudflare:test";
+import { beforeAll } from "vitest";
 
-await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
+beforeAll(async () => {
+  await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
+});

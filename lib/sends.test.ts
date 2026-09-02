@@ -106,7 +106,7 @@ describe("validateSendInput", () => {
   });
 
   it("accepts ratings 1 through 5", () => {
-    for (let rating = 1; rating <= 5; rating++) {
+    for (let rating = 1; rating <= 5; rating += 1) {
       expect(validateSendInput("boulder", raw({ rating: String(rating) }), TODAY).rating).toBe(
         rating,
       );
@@ -204,7 +204,7 @@ describe("validateImportSendValues", () => {
   // The aggregate triggers sum rating into climbs.rating_sum and
   // climbs.avg_rating is generated from it, so an unchecked rating here moves
   // a shared climb's public average for everyone.
-  it.each([0, 6, 1000000000, 2.5, -3, "4", null, undefined, NaN])(
+  it.each([0, 6, 1000000000, 2.5, -3, "4", null, undefined, Number.NaN])(
     "coerces the out-of-range rating %s to null",
     (rating) => {
       expect(validateImportSendValues(importRow({ rating }), TODAY).rating).toBeNull();

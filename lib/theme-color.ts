@@ -11,9 +11,9 @@ const THEME_COLORS: Record<"light" | "dark", string> = {
 
 export function syncThemeColorMeta(theme: string): void {
   if (typeof document === "undefined") return;
-  document
-    .querySelectorAll('meta[name="theme-color"][data-explicit-theme]')
-    .forEach((m) => m.remove());
+  for (const m of document.querySelectorAll('meta[name="theme-color"][data-explicit-theme]')) {
+    m.remove();
+  }
   if (theme === "light" || theme === "dark") {
     const m = document.createElement("meta");
     m.name = "theme-color";
