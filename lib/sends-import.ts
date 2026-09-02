@@ -273,7 +273,14 @@ export function deriveSourceColumns(parsed: ParsedCsv, source: ImportSource): Pa
   const find = (name: string) => parsed.headers.find((h) => normalizeHeader(h) === name);
   const leadStyle = find("lead style");
   const style = find("style");
-  if (!leadStyle || !style || parsed.headers.includes(MP_ASCENT_COLUMN)) return parsed;
+  if (
+    !leadStyle ||
+    !style ||
+    parsed.headers.includes(MP_ASCENT_COLUMN) ||
+    parsed.derived.includes(MP_ASCENT_COLUMN)
+  ) {
+    return parsed;
+  }
   return {
     ...parsed,
     derived: [...parsed.derived, MP_ASCENT_COLUMN],

@@ -94,7 +94,7 @@ export async function resolveImportClimbsInAreas(
       throw new ActionError("Invalid climb names");
     }
     if (pairs.length > RESOLVE_BATCH_SIZE) {
-      throw new ActionError(`A lookup can carry at most ${RESOLVE_BATCH_SIZE} climb names`);
+      throw new ActionError(`A lookup can carry at most ${RESOLVE_BATCH_SIZE} climb and area pairs`);
     }
 
     const db = await getDb();

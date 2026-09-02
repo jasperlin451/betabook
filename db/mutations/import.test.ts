@@ -404,6 +404,17 @@ describe("resolveImportClimbsInAreas", () => {
     sessionState.userId = null;
     expect((await resolveImportClimbsInAreas([{ name: "x", areaName: "y" }])).ok).toBe(false);
   });
+
+  it("rejects more pairs than RESOLVE_BATCH_SIZE", async () => {
+    const tooMany = Array.from({ length: RESOLVE_BATCH_SIZE + 1 }, (_, i) => ({
+      name: `Climb ${i}`,
+      areaName: `Area ${i}`,
+    }));
+    expect(await resolveImportClimbsInAreas(tooMany)).toEqual({
+      ok: false,
+      error: `A lookup can carry at most ${RESOLVE_BATCH_SIZE} climb and area pairs`,
+    });
+  });
 });
 
 describe("resolveImportClimbs", () => {

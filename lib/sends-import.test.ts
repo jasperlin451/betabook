@@ -376,6 +376,13 @@ describe("deriveSourceColumns", () => {
     const parsed = { headers: SAMPLE_HEADERS, rows: [row()], warnings: [], derived: [] };
     expect(deriveSourceColumns(parsed, "sendage")).toBe(parsed);
   });
+
+  it("is idempotent when called repeatedly on an already-derived result", () => {
+    const parsed = mpCsv([mpRow({ Style: "Lead", "Lead Style": "Onsight" })]);
+    const second = deriveSourceColumns(parsed, "mountainproject");
+    expect(second).toBe(parsed);
+    expect(second.derived).toEqual([MP_ASCENT_COLUMN]);
+  });
 });
 
 describe("splitAreaHint", () => {

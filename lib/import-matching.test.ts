@@ -337,6 +337,21 @@ describe("areaLookupsNeeded", () => {
     ]);
     expect(areaLookupsNeeded(rows, index)).toEqual([]);
   });
+
+  it("does not collide (name, area) pairs when space-separated names could overlap", () => {
+    const truncated = indexCandidates([
+      candidate({ id: 1, name: "The Wave", key: "the wave", total: 40 }),
+      candidate({ id: 2, name: "The", key: "the", total: 40 }),
+    ]);
+    const rows = [
+      row({ rowIndex: 0, climbName: "The Wave", areaName: "Left" }),
+      row({ rowIndex: 1, climbName: "The", areaName: "Wave Left" }),
+    ];
+    expect(areaLookupsNeeded(rows, truncated)).toEqual([
+      { name: "The Wave", areaName: "Left" },
+      { name: "The", areaName: "Wave Left" },
+    ]);
+  });
 });
 
 describe("mergeCandidates", () => {

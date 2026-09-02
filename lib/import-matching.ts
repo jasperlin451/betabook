@@ -69,7 +69,7 @@ export function areaLookupsNeeded(
     if (!row.areaName) continue;
     const candidates = index.get(foldClimbName(row.climbName));
     if (!candidates || !isTruncated(candidates)) continue;
-    const pairKey = `${foldClimbName(row.climbName)} ${foldClimbName(row.areaName)}`;
+    const pairKey = `${foldClimbName(row.climbName)}\0${foldClimbName(row.areaName)}`;
     if (seen.has(pairKey)) continue;
     seen.add(pairKey);
     pairs.push({ name: row.climbName, areaName: row.areaName });
