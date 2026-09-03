@@ -61,9 +61,9 @@ pnpm check         # lint, format:check, deadcode, typecheck, vitest
 ```
 
 The test pool uses `test/worker.ts`, so tests run on a fresh checkout without
-first generating the production `.open-next` worker bundle. Pull requests and pushes
-to `main` run this full verification suite and the production build automatically via
-`.github/workflows/ci.yml`.
+first generating the production `.open-next` worker bundle. Pull requests run
+this full verification suite and the production build automatically via
+`.github/workflows/deploy.yml`.
 
 ## Learn More
 
