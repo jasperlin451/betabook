@@ -49,8 +49,8 @@ printf '%s\n' "$input" > "${parent}/${name}.input.json"
 
 [ -d .husky/_ ] || echo "warning: no .husky/_ in $source_path, worktree will not self-bootstrap" >&2
 
-# The bootstrap's own output (pnpm install, migrations, seed) would corrupt the
-# JSON Claude parses, so the whole checkout goes to the log.
+# Claude reads the worktree path off the last line of stdout, so the bootstrap's
+# own output (pnpm install, migrations, seed) goes to the log instead.
 if git rev-parse --verify "$branch" >/dev/null 2>&1; then
   git worktree add "$worktree_path" "$branch" >"$log" 2>&1 || fail "git worktree add failed for existing branch $branch — see $log"
 else
