@@ -1,0 +1,27 @@
+version: 2
+updates:
+  # Maintain GitHub Actions workflows weekly
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    assignees:
+      - "smwoo"
+      - "jasperlin451"
+    open-pull-requests-limit: 10
+
+  # Maintain npm dependencies weekly, grouping dev dependencies together
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    assignees:
+      - "smwoo"
+      - "jasperlin451"
+    groups:
+      dev-dependencies:
+        applies-to: "version-updates"
+        dependency-type: "development"
+    open-pull-requests-limit: 10
