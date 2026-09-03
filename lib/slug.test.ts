@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { areaHref, climbHref, slugify } from "./slug";
+import { areaHref, climbHref, slugify, withQuery } from "./slug";
 
 describe("slugify", () => {
   it("lowercases, hyphenates words, and trims", () => {
@@ -43,5 +43,24 @@ describe("climbHref / areaHref", () => {
   it("omits the slug segment when the name yields nothing", () => {
     expect(climbHref(42, "上")).toBe("/climbs/42");
     expect(areaHref(7, "???")).toBe("/areas/7");
+  });
+});
+
+describe("withQuery", () => {
+  it("returns the path unchanged when there are no params", () => {
+    expect(withQuery("/areas/3/squamish", {})).toBe("/areas/3/squamish");
+    expect(withQuery("/areas/3/squamish", { a: undefined })).toBe("/areas/3/squamish");
+  });
+
+  it("appends scalar and repeated params, encoding values", () => {
+    expect(withQuery("/areas/3/squamish", { mode: "climb", sort: "grade_desc" })).toBe(
+      "/areas/3/squamish?mode=climb&sort=grade_desc",
+    );
+    expect(withQuery("/areas/3", { discipline: ["boulder", "sport"] })).toBe(
+      "/areas/3?discipline=boulder&discipline=sport",
+    );
+    expect(withQuery("/areas/3", { name: "Château d'Ax" })).toBe(
+      "/areas/3?name=Ch%C3%A2teau+d%27Ax",
+    );
   });
 });
