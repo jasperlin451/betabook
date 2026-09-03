@@ -4,12 +4,24 @@ export type MobileBrowser = "chrome" | "safari" | "other";
 const MOBILE_HELPER_DISMISS_KEY = "betabook:hide-mobile-app-helper";
 
 /**
+ * Whether the primary pointer is touch-like. This is what actually separates a
+ * touch-first device from a desktop browser sending the same desktop-class
+ * user agent: macOS stays `pointer: fine` however many touch points it claims,
+ * while iPadOS reports coarse even with a trackpad attached.
+ */
+function hasCoarsePointer(): boolean {
+  if (typeof window === "undefined" || window.matchMedia == null) return false;
+  return window.matchMedia("(pointer: coarse)").matches;
+}
+
+/**
  * Detects if the platform is iOS, Android, or other based on user agent and navigator details.
  */
 export function detectMobilePlatform(
   userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "",
   platform = typeof navigator !== "undefined" ? (navigator.platform ?? "") : "",
   maxTouchPoints = typeof navigator !== "undefined" ? (navigator.maxTouchPoints ?? 0) : 0,
+  coarsePointer = hasCoarsePointer(),
 ): MobilePlatform {
   if (/iPhone|iPad|iPod/i.test(userAgent) || /iPhone|iPad|iPod/i.test(platform)) {
     return "ios";
@@ -17,7 +29,8 @@ export function detectMobilePlatform(
   // iPad on iOS 13+ reports user agent as MacIntel/Macintosh with touch points
   if (
     (/Macintosh|MacIntel/i.test(platform) || /Macintosh|MacIntel/i.test(userAgent)) &&
-    maxTouchPoints > 1
+    maxTouchPoints > 1 &&
+    coarsePointer
   ) {
     return "ios";
   }
@@ -73,6 +86,7 @@ export function isMobileDevice(
   userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "",
   platform = typeof navigator !== "undefined" ? (navigator.platform ?? "") : "",
   maxTouchPoints = typeof navigator !== "undefined" ? (navigator.maxTouchPoints ?? 0) : 0,
+  coarsePointer = hasCoarsePointer(),
 ): boolean {
   if (
     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) ||
@@ -80,9 +94,14 @@ export function isMobileDevice(
   ) {
     return true;
   }
+  // Desktop-class iPad (see detectMobilePlatform). Touch points alone can't
+  // carry this branch: a Mac reports them for an attached touchscreen, tablet,
+  // or screen-sharing display, and would then be offered a home screen it
+  // hasn't got. Only a coarse primary pointer settles it.
   if (
     (/Macintosh|MacIntel/i.test(userAgent) || /Macintosh|MacIntel/i.test(platform)) &&
-    maxTouchPoints > 1
+    maxTouchPoints > 1 &&
+    coarsePointer
   ) {
     return true;
   }

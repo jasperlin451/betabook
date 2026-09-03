@@ -18,11 +18,11 @@ describe("detectMobilePlatform", () => {
       "Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
     expect(detectMobilePlatform(iPadUA, "iPad")).toBe("ios");
 
-    // Modern iPad Pro with MacIntel platform and touch points
+    // Modern iPad Pro with MacIntel platform, touch points, coarse pointer
     const iPadProUA =
       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15";
-    expect(detectMobilePlatform(iPadProUA, "MacIntel", 5)).toBe("ios");
-    expect(detectMobilePlatform(iPadProUA, "", 5)).toBe("ios");
+    expect(detectMobilePlatform(iPadProUA, "MacIntel", 5, true)).toBe("ios");
+    expect(detectMobilePlatform(iPadProUA, "", 5, true)).toBe("ios");
   });
 
   it("detects Android phones and tablets correctly", () => {
@@ -45,6 +45,12 @@ describe("detectMobilePlatform", () => {
     const winUA =
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
     expect(detectMobilePlatform(winUA, "Win32", 0)).toBe("other");
+  });
+
+  it("does not read a Mac with touch points but a fine pointer as an iPad", () => {
+    const macUA =
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+    expect(detectMobilePlatform(macUA, "MacIntel", 5, false)).toBe("other");
   });
 });
 
@@ -84,8 +90,29 @@ describe("isMobileDevice", () => {
     expect(isMobileDevice("", "iPhone")).toBe(true);
     expect(isMobileDevice("Mozilla/5.0 (Linux; Android 14...)")).toBe(true);
     expect(isMobileDevice("Mozilla/5.0 (Macintosh; Intel Mac OS X...)", "MacIntel", 0)).toBe(false);
-    expect(isMobileDevice("Mozilla/5.0 (Macintosh; Intel Mac OS X...)", "MacIntel", 5)).toBe(true);
-    expect(isMobileDevice("", "MacIntel", 5)).toBe(true);
+    expect(isMobileDevice("Mozilla/5.0 (Macintosh; Intel Mac OS X...)", "MacIntel", 5, true)).toBe(
+      true,
+    );
+    expect(isMobileDevice("", "MacIntel", 5, true)).toBe(true);
+  });
+
+  it("keeps a desktop Mac desktop even when it claims touch points", () => {
+    // A Mac picks up touch points from an attached touchscreen or tablet; its
+    // primary pointer stays fine, so the home screen callout must stay away.
+    expect(isMobileDevice("Mozilla/5.0 (Macintosh; Intel Mac OS X...)", "MacIntel", 5, false)).toBe(
+      false,
+    );
+    expect(isMobileDevice("", "MacIntel", 5, false)).toBe(false);
+  });
+
+  it("still trusts an explicit mobile user agent without a coarse pointer", () => {
+    // Desktop-mode request on a phone: the user agent is decisive on its own.
+    expect(isMobileDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0...)", "iPhone", 5, false)).toBe(
+      true,
+    );
+    expect(isMobileDevice("Mozilla/5.0 (Linux; Android 14...)", "Linux armv8l", 5, false)).toBe(
+      true,
+    );
   });
 });
 
