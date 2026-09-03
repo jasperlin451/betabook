@@ -1,5 +1,6 @@
 import { clsx } from "clsx";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { HomeSearchEntry } from "@/components/command-palette";
 import {
@@ -48,7 +49,6 @@ export async function generateMetadata({ searchParams }: SearchPageProps): Promi
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
-  const db = await getDb();
 
   // Bare `/` is the home feed — the latest sends across the whole book. The
   // way in to search is the header's ⌘K palette, which reaches both routes
@@ -56,6 +56,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   // Any search param at all (a query, a mode, a filter) switches to the full
   // search view below.
   if (Object.keys(params).length === 0) {
+    const session = await getSession();
+    if (session) {
+      redirect(`/users/${session.user.id}`);
+    }
+
+    const db = await getDb();
     const feed = await getRecentSends(db, 1);
     const areaBreadcrumbs = await getAreaBreadcrumbs(
       db,
@@ -87,6 +93,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     );
   }
 
+  const db = await getDb();
   const mode = params.mode === "area" ? "area" : "climb";
 
   if (mode === "area") {
