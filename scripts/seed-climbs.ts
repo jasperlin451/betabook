@@ -3,7 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 /**
  * Fills the local database with synthetic areas, climbs, climbers and ticks.
  *
- *   pnpm seed:climbs                        # 400 areas, 5000 climbs, 8 climbers
+ *   pnpm seed:climbs                        # 400 areas, 5000 climbs, 50 climbers
  *   pnpm seed:climbs --areas 50 --climbs 500 --users 3
  *   pnpm seed:climbs --seed 7               # a different, still repeatable set
  *   pnpm seed:climbs --force                # replace what is already there
@@ -58,7 +58,7 @@ function bellGrade(max: number): number {
 async function main() {
   const areaCount = flag("areas", 400);
   const climbCount = flag("climbs", 5000);
-  const userCount = flag("users", 8);
+  const userCount = flag("users", 50);
   faker.seed(flag("seed", 1));
 
   // scrypt is deliberately slow, so hash the shared password once rather than
@@ -208,12 +208,16 @@ function insertSends(db: DatabaseSync, userIds: string[], climbs: Climb[]): numb
   let total = 0;
 
   for (const userId of userIds) {
+    // Long-tailed on purpose: most climbers log a season, a few log years, and
+    // a flat distribution gives every profile the same shape to look at.
+    const wanted = faker.helpers.weightedArrayElement([
+      { weight: 6, value: () => faker.number.int({ min: 20, max: 200 }) },
+      { weight: 3, value: () => faker.number.int({ min: 200, max: 600 }) },
+      { weight: 1, value: () => faker.number.int({ min: 600, max: 1200 }) },
+    ])();
     // arrayElements samples without replacement, which is what keeps this
     // inside the (user_id, climb_id) unique index.
-    const ticked = faker.helpers.arrayElements(
-      climbs,
-      Math.min(climbs.length, faker.number.int({ min: 15, max: 140 })),
-    );
+    const ticked = faker.helpers.arrayElements(climbs, Math.min(climbs.length, wanted));
     for (const climb of ticked) {
       insert.run(
         userId,
