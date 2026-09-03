@@ -95,10 +95,11 @@ Site identity constants (canonical origin, name, OG image) live in `@/lib/site`.
 Before committing, run the full validation suite:
 
 ```bash
-pnpm check      # Runs lint, format:check, deadcode, typecheck, and vitest
-pnpm lint       # Oxlint with type-aware analysis and import boundaries
-pnpm format     # Oxfmt code and import auto-formatter
-pnpm deadcode   # Knip dead code and unused export detection
-pnpm typecheck  # Next.js route typegen + tsc --noEmit
-pnpm test       # Vitest test suite via Cloudflare Workers pool
+pnpm check         # Runs lint, format:check, deadcode, typecheck, and vitest
+pnpm lint          # Oxlint with type-aware analysis and import boundaries
+pnpm format        # Oxfmt code and import auto-formatter
+pnpm deadcode      # Knip dead code and unused export detection
+pnpm deadcode:prod # Knip minus dev entrypoints: exports kept alive only by tests
+pnpm typecheck     # Next.js route typegen + tsc --noEmit
+pnpm test          # Vitest test suite via Cloudflare Workers pool
 ```
