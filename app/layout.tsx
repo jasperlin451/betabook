@@ -5,6 +5,7 @@ import localFont from "next/font/local";
 
 import { AuthNav } from "@/components/auth-nav";
 import { SearchPaletteProvider, SearchTrigger } from "@/components/command-palette";
+import { MobileAppHelper } from "@/components/mobile-app-helper";
 import { MobileNav } from "@/components/mobile-nav";
 import { SearchScopeProvider } from "@/components/search-scope";
 import { ThemeSwitch } from "@/components/theme-toggle";
@@ -173,6 +174,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   </div>
                 </div>
               </footer>
+              <MobileAppHelper />
             </SearchPaletteProvider>
           </SearchScopeProvider>
         </Providers>

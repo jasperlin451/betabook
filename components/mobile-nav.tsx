@@ -1,13 +1,18 @@
 "use client";
 
 import { Button, Drawer, useOverlayState } from "@heroui/react";
-import { Menu as MenuIcon } from "lucide-react";
+import { Menu as MenuIcon, Smartphone } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 import { AuthNav } from "@/components/auth-nav";
+import { openMobileAppHelper } from "@/components/mobile-app-helper";
+import { useMounted } from "@/hooks/use-mounted";
+import { isStandaloneDisplay } from "@/lib/mobile-detection";
 
 export function MobileNav() {
+  const mounted = useMounted();
+  const isStandalone = mounted && isStandaloneDisplay();
   const state = useOverlayState();
   const { close, open } = state;
   const pathname = usePathname();
@@ -51,6 +56,22 @@ export function MobileNav() {
                  * just duplicates it one tap deeper. */}
                 <nav aria-label="Primary" className="flex flex-col items-start gap-4 text-sm">
                   <AuthNav direction="col" onNavigate={close} />
+                  {!isStandalone && (
+                    <div className="mt-2 w-full border-t border-separator pt-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start gap-2.5 text-muted hover:text-foreground"
+                        onPress={() => {
+                          close();
+                          openMobileAppHelper();
+                        }}
+                      >
+                        <Smartphone className="size-4" />
+                        <span>Add to Home Screen</span>
+                      </Button>
+                    </div>
+                  )}
                 </nav>
               </Drawer.Body>
             </Drawer.Dialog>
