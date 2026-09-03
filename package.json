@@ -45,11 +45,11 @@
     "resend": "^6.22.0"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.21.3",
-    "@cloudflare/workers-types": "^5.20260817.1",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20260831.1",
     "@faker-js/faker": "^10.6.0",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^24.13.3",
+    "@types/node": "^24",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -62,9 +62,9 @@
     "oxlint-tailwindcss": "^1.10.2",
     "oxlint-tsgolint": "^7.0.2001",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "vitest": "^4.1.10",
-    "wrangler": "^4.123.0"
+    "typescript": "^7",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.127.1"
   },
   "browserslist": [
     "chrome 111",
