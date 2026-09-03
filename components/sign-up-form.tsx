@@ -3,13 +3,20 @@
 import { Button, Input, Label, TextField } from "@heroui/react";
 import { useState } from "react";
 
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { AppLink } from "@/components/ui/app-link";
 import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { PageTitle } from "@/components/ui/typography";
 import { authClient } from "@/lib/auth-client";
 import { safeNextPath, signInUrl } from "@/lib/sign-in-redirect";
 
-export function SignUpForm({ next }: { next?: string }) {
+export function SignUpForm({
+  next,
+  googleEnabled = false,
+}: {
+  next?: string;
+  googleEnabled?: boolean;
+}) {
   // The page already validates the param, but re-validate the prop here so
   // the form can never be handed an off-origin destination.
   const nextPath = safeNextPath(next);
@@ -81,6 +88,16 @@ export function SignUpForm({ next }: { next?: string }) {
   return (
     <form onSubmit={handleSubmit} className={FORM_CARD_CLASS}>
       <PageTitle className="text-2xl">Sign up</PageTitle>
+      {googleEnabled && (
+        <>
+          <GoogleSignInButton nextPath={nextPath} onError={setError} disabled={pending} />
+          <div className="relative flex items-center py-1">
+            <div className="grow border-t border-separator" />
+            <span className="mx-3 shrink text-xs text-muted uppercase">or</span>
+            <div className="grow border-t border-separator" />
+          </div>
+        </>
+      )}
       <TextField value={name} onChange={setName} isRequired>
         <Label>Name</Label>
         <Input placeholder="Your name" />
@@ -97,8 +114,16 @@ export function SignUpForm({ next }: { next?: string }) {
         <Label>Confirm password</Label>
         <Input />
       </TextField>
-      {passwordMismatch && <p className="text-sm text-danger">Passwords do not match.</p>}
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {passwordMismatch && (
+        <p role="alert" className="text-sm text-danger">
+          Passwords do not match.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
       <Button type="submit" fullWidth isDisabled={pending}>
         Sign up
       </Button>

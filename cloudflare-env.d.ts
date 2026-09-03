@@ -7,6 +7,8 @@ interface CloudflareEnv {
   BETTER_AUTH_URL: string;
   BETTER_AUTH_SECRET: string;
   RESEND_API_KEY: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
 }
 
 declare namespace Cloudflare {
@@ -16,5 +18,7 @@ declare namespace Cloudflare {
     BETTER_AUTH_URL: CloudflareEnv["BETTER_AUTH_URL"];
     BETTER_AUTH_SECRET: CloudflareEnv["BETTER_AUTH_SECRET"];
     RESEND_API_KEY: CloudflareEnv["RESEND_API_KEY"];
+    GOOGLE_CLIENT_ID?: CloudflareEnv["GOOGLE_CLIENT_ID"];
+    GOOGLE_CLIENT_SECRET?: CloudflareEnv["GOOGLE_CLIENT_SECRET"];
   }
 }

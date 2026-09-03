@@ -4,13 +4,22 @@ import { Button, Input, Label, TextField } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { AppLink } from "@/components/ui/app-link";
 import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { PageTitle } from "@/components/ui/typography";
 import { authClient } from "@/lib/auth-client";
 import { DEFAULT_SIGNED_IN_PATH, safeNextPath, signInUrl, signUpUrl } from "@/lib/sign-in-redirect";
 
-export function SignInForm({ next }: { next?: string }) {
+export function SignInForm({
+  next,
+  googleEnabled = false,
+  initialError,
+}: {
+  next?: string;
+  googleEnabled?: boolean;
+  initialError?: string | null;
+}) {
   const router = useRouter();
   // The page already validates the param, but re-validate the prop here so
   // the form can never be handed an off-origin destination.
@@ -18,7 +27,7 @@ export function SignInForm({ next }: { next?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
   // The address a 403 unverified-login error came back for. The resend
   // affordance is bound to this, not to whatever is currently typed in the
   // email field.
@@ -89,6 +98,16 @@ export function SignInForm({ next }: { next?: string }) {
   return (
     <form onSubmit={handleSubmit} className={FORM_CARD_CLASS}>
       <PageTitle className="text-2xl">Sign in</PageTitle>
+      {googleEnabled && (
+        <>
+          <GoogleSignInButton nextPath={nextPath} onError={setError} disabled={pending} />
+          <div className="relative flex items-center py-1">
+            <div className="grow border-t border-separator" />
+            <span className="mx-3 shrink text-xs text-muted uppercase">or</span>
+            <div className="grow border-t border-separator" />
+          </div>
+        </>
+      )}
       <TextField value={email} onChange={handleEmailChange} type="email" isRequired>
         <Label>Email</Label>
         <Input placeholder="you@example.com" />
@@ -100,7 +119,11 @@ export function SignInForm({ next }: { next?: string }) {
       <AppLink href="/forgot-password" className="text-sm text-muted">
         Forgot password?
       </AppLink>
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
       {unverifiedEmail !== null && (
         <div className="flex flex-col gap-2 text-sm text-danger">
           <p>Please verify your email address before signing in.</p>

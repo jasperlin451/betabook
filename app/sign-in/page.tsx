@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { SignInForm } from "@/components/sign-in-form";
+import { isGoogleOAuthEnabled } from "@/lib/auth";
 import { getSession } from "@/lib/session";
-import { safeNextPath } from "@/lib/sign-in-redirect";
+import { formatAuthErrorMessage, safeNextPath } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -13,13 +14,15 @@ export const metadata: Metadata = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string | string[] }>;
+  searchParams: Promise<{ next?: string | string[]; error?: string | string[] }>;
 }) {
   const session = await getSession();
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
   const nextPath = safeNextPath(next);
   if (session) {
     redirect(nextPath ?? `/users/${session.user.id}`);
   }
-  return <SignInForm next={nextPath} />;
+  const googleEnabled = await isGoogleOAuthEnabled();
+  const initialError = formatAuthErrorMessage(error);
+  return <SignInForm next={nextPath} googleEnabled={googleEnabled} initialError={initialError} />;
 }
