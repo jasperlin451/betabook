@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "target": "ESNext",
+    // Deliberately not "esnext": one tsconfig covers server and client code, so
+    // the floor here is what the browsers in package.json#browserslist support.
+    // Nothing polyfills built-ins, so an ES2024 method (Object.groupBy,
+    // Promise.withResolvers) would ship as-is and throw on Safari 16.4.
+    "lib": ["dom", "dom.iterable", "ES2023"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -9,8 +13,15 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    "moduleDetection": "force",
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    // `pnpm seed:user` runs scripts/*.ts through node's type stripping, which
+    // can only erase syntax (no enums, namespaces, parameter properties).
+    "erasableSyntaxOnly": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "jsx": "react-jsx",
     "incremental": true,
     "types": ["@cloudflare/workers-types"],
