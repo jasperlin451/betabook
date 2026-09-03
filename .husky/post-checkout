@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+# Bootstraps a new worktree or clone. $1 is all-zero only when there was no
+# previous HEAD, which is what separates that from a branch switch.
+[ "$3" = "1" ] || exit 0
+[ "$1" = "0000000000000000000000000000000000000000" ] || exit 0
+[ -n "$CI" ] && exit 0
+[ -n "$BETABOOK_SKIP_BOOTSTRAP" ] && exit 0
+
+# git points these at the checkout it is working in; the nested pnpm, husky and
+# wrangler calls would otherwise use the main checkout's index, not this one.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+
+echo
+echo "New worktree — bootstrapping. Set BETABOOK_SKIP_BOOTSTRAP=1 to skip."
+
+# git ignores this hook's exit status, so failures have to name their own fix.
+if ! pnpm install --frozen-lockfile; then
+  echo "Stopped: \`pnpm install\` failed. Re-run it here, then \`pnpm setup\`."
+  exit 0
+fi
+
+if ! pnpm setup; then
+  echo "Stopped: \`pnpm setup\` failed. Re-run it here."
+  exit 0
+fi

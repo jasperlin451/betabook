@@ -10,6 +10,9 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // scripts/ run under `node scripts/x.ts` (type stripping), which resolves
+    // only explicit .ts specifiers.
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -17,7 +20,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    // `pnpm seed:user` runs scripts/*.ts through node's type stripping, which
+    // `pnpm seed` runs scripts/*.ts through node's type stripping, which
     // can only erase syntax (no enums, namespaces, parameter properties).
     "erasableSyntaxOnly": true,
     "noImplicitOverride": true,

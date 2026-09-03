@@ -2,13 +2,18 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-Install dependencies, set up local secrets, and create the local database:
-
 ```bash
 pnpm install
+pnpm setup             # .dev.vars, local database, dev user — idempotent
+```
+
+`pnpm setup` is idempotent and equivalent to:
+
+```bash
 cp .dev.vars.example .dev.vars
-pnpm cf-typegen        # optional: audit the full generated Workers type surface
 pnpm db:migrate:local
+pnpm seed
+pnpm cf-typegen        # optional: audit the full generated Workers type surface
 ```
 
 Keep the small, checked-in `cloudflare-env.d.ts` binding contract in sync when
@@ -36,8 +41,8 @@ Anonymous browsing needs no setup. To exercise the signed-in surfaces
 (`/account`, logging sends, imports), seed a pre-verified user:
 
 ```bash
-pnpm seed:user                                  # dev@example.com / password
-pnpm seed:user me@example.com hunter2 Jasper    # or pick your own
+pnpm seed                                              # dev@example.com / password
+pnpm seed --email me@example.com --password hunter2x   # or pick your own
 ```
 
 Then sign in at [/sign-in](http://localhost:3000/sign-in). Re-running against
@@ -52,6 +57,46 @@ won't see rows written by a separate `wrangler` process.
 Signing up at [/sign-up](http://localhost:3000/sign-up) works too, but
 `lib/auth.ts` sets `requireEmailVerification: true`, so you then have to open
 the verification link that `lib/email.ts` logs to the `next dev` console.
+
+### New worktrees
+
+`.husky/post-checkout` runs `pnpm install` and `pnpm setup` in a new worktree,
+so this alone leaves you ready to work, in about ten seconds:
+
+```bash
+git worktree add ../betabook-my-branch -b my-branch
+```
+
+It fires only for a checkout with no previous HEAD, so branch switches cost
+nothing. `CI` and `BETABOOK_SKIP_BOOTSTRAP=1` opt out. The hook is found even
+before the worktree installs anything, because git resolves `core.hooksPath`
+against the main checkout.
+
+### Sample data
+
+`pnpm seed` fills an empty database with a sign-in account plus synthetic areas, climbs,
+climbers and ticks — 400 areas, 5,000 climbs, 50 climbers and ~16,000 ticks by
+default, in about a second, and deterministic for a given `--seed`, so two
+checkouts asked for the same numbers hold the same rows:
+
+```bash
+pnpm seed --areas 50 --climbs 500 --users 3
+pnpm seed --force                   # regenerate climbs that already exist
+```
+
+Synthetic climbers are `climber1@example.com` upward, verified, and sign in
+with the password `password`, and tick counts are long-tailed so profiles
+differ. The account it upserts gets ticks too. Ticks land through the real aggregate triggers, so send counts
+and ratings are populated the way the app populates them.
+
+Scale it up when you need realistic volume — 141,000 climbs takes about ten
+seconds:
+
+```bash
+pnpm seed --areas 10237 --climbs 141187 --force
+```
+
+Restart `pnpm dev` afterwards; it holds its D1 handle open.
 
 ## Tests
 

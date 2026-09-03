@@ -22,7 +22,8 @@
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
     "test": "vitest run",
-    "seed:user": "node scripts/seed-dev-user.ts",
+    "seed": "node --disable-warning=ExperimentalWarning scripts/seed.ts",
+    "setup": "node scripts/setup.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -46,8 +47,9 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.21.3",
     "@cloudflare/workers-types": "^5.20260817.1",
+    "@faker-js/faker": "^10.6.0",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24.13.3",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -70,5 +72,5 @@
     "firefox 115",
     "safari 16.4"
   ],
-  "packageManager": "pnpm@11.22.0"
+  "packageManager": "pnpm@11.25.0"
 }

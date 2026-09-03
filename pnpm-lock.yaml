@@ -19,10 +19,10 @@ importers:
         version: 3.2.4(tailwind-merge@3.4.0)(tailwindcss@4.3.3)
       '@opennextjs/cloudflare':
         specifier: ^1.20.2
-        version: 1.20.2(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)(wrangler@4.123.0(@cloudflare/workers-types@5.20260817.1))
+        version: 1.20.2(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)(wrangler@4.123.0(@cloudflare/workers-types@5.20260817.1))
       better-auth:
         specifier: ^1.6.30
-        version: 1.6.30(@cloudflare/workers-types@5.20260817.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260817.1)(kysely@0.29.5))(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(vitest@4.1.10(@types/node@20.19.43)(vite@8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)))
+        version: 1.6.30(@cloudflare/workers-types@5.20260817.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260817.1)(kysely@0.29.5))(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(vitest@4.1.10(@types/node@24.13.3)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)))
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -34,13 +34,13 @@ importers:
         version: 0.45.2(@cloudflare/workers-types@5.20260817.1)(kysely@0.29.5)
       geist:
         specifier: ^1.7.2
-        version: 1.7.2(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))
+        version: 1.7.2(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))
       lucide-react:
         specifier: ^1.31.0
         version: 1.31.0(react@19.2.8)
       next:
         specifier: 16.3.1
-        version: 16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       papaparse:
         specifier: ^5.6.0
         version: 5.6.0
@@ -59,16 +59,19 @@ importers:
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: ^0.21.3
-        version: 0.21.3(@cloudflare/workers-types@5.20260817.1)(@vitest/runner@4.1.10)(@vitest/snapshot@4.1.10)(vitest@4.1.10(@types/node@20.19.43)(vite@8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)))
+        version: 0.21.3(@cloudflare/workers-types@5.20260817.1)(@vitest/runner@4.1.10)(@vitest/snapshot@4.1.10)(vitest@4.1.10(@types/node@24.13.3)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)))
       '@cloudflare/workers-types':
         specifier: ^5.20260817.1
         version: 5.20260817.1
+      '@faker-js/faker':
+        specifier: ^10.6.0
+        version: 10.6.0
       '@tailwindcss/postcss':
         specifier: ^4
         version: 4.3.3
       '@types/node':
-        specifier: ^20
-        version: 20.19.43
+        specifier: ^24.13.3
+        version: 24.13.3
       '@types/papaparse':
         specifier: ^5.5.2
         version: 5.5.2
@@ -110,7 +113,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@20.19.43)(vite@8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))
+        version: 4.1.10(@types/node@24.13.3)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))
       wrangler:
         specifier: ^4.123.0
         version: 4.123.0(@cloudflare/workers-types@5.20260817.1)
@@ -1060,6 +1063,10 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@faker-js/faker@10.6.0':
+    resolution: {integrity: sha512-3RQHgEtvL1Frl/d1cSreo7qhJ3Gk1OdNUai/CtZ8G+wYeRQnJih3s9xJ9/kgYekPQRdwgh0HXRPqMlzWGwivIQ==}
+    engines: {node: ^20.19.0 || ^22.13.0 || ^23.5.0 || >=24.0.0, npm: '>=10'}
 
   '@formatjs/ecma402-abstract@2.3.6':
     resolution: {integrity: sha512-HJnTFeRM2kVFVr5gr5kH1XP6K0JcJtE7Lzvtr3FS/so5f1kpsqqqxy5JF+FRaO6H2qmcMfAUIox7AJteieRtVw==}
@@ -2609,8 +2616,8 @@ packages:
   '@types/node@18.19.130':
     resolution: {integrity: sha512-GRaXQx6jGfL8sKfaIDD6OupbIHBr9jv7Jnaml9tB7l4v068PAOXqfcujMMo5PhbIs6ggR1XODELqahT2R8v0fg==}
 
-  '@types/node@20.19.43':
-    resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
+  '@types/node@24.13.3':
+    resolution: {integrity: sha512-Dh8vAsV36ig5wa9OX4pXvMc9D3Veibfw2wix0CUwYODLD8nkj9UsLjASr49nPg+2eKzxhBV+v7L8pXvT4e639Q==}
 
   '@types/papaparse@5.5.2':
     resolution: {integrity: sha512-gFnFp/JMzLHCwRf7tQHrNnfhN4eYBVYYI897CGX4MY1tzY9l2aLkVyx2IlKZ/SAqDbB3I1AOZW5gTMGGsqWliA==}
@@ -4090,8 +4097,8 @@ packages:
   undici-types@5.26.5:
     resolution: {integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==}
 
-  undici-types@6.21.0:
-    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+  undici-types@7.18.2:
+    resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
   undici@7.29.0:
     resolution: {integrity: sha512-IDxfleLmmbSskfWSUATiN1nfn2rDuvnMOqb5CWR92iIfojA0Ud+ulOAAEQ57LPr9rWmsreUyf5lwyao+7GNNVw==}
@@ -5085,14 +5092,14 @@ snapshots:
     optionalDependencies:
       workerd: 1.20260811.1
 
-  '@cloudflare/vitest-pool-workers@0.21.3(@cloudflare/workers-types@5.20260817.1)(@vitest/runner@4.1.10)(@vitest/snapshot@4.1.10)(vitest@4.1.10(@types/node@20.19.43)(vite@8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)))':
+  '@cloudflare/vitest-pool-workers@0.21.3(@cloudflare/workers-types@5.20260817.1)(@vitest/runner@4.1.10)(@vitest/snapshot@4.1.10)(vitest@4.1.10(@types/node@24.13.3)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)))':
     dependencies:
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
       cjs-module-lexer: 1.2.3
       esbuild: 0.28.1
       miniflare: 5.20260811.1-alpha
-      vitest: 4.1.10(@types/node@20.19.43)(vite@8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))
+      vitest: 4.1.10(@types/node@24.13.3)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))
       wrangler: 4.123.0(@cloudflare/workers-types@5.20260817.1)
       zod: 4.4.3
     transitivePeerDependencies:
@@ -5388,6 +5395,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.1':
     optional: true
+
+  '@faker-js/faker@10.6.0': {}
 
   '@formatjs/ecma402-abstract@2.3.6':
     dependencies:
@@ -5764,7 +5773,7 @@ snapshots:
     dependencies:
       gzip-size: 6.0.0
 
-  '@opennextjs/aws@4.1.0(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)':
+  '@opennextjs/aws@4.1.0(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)':
     dependencies:
       '@ast-grep/napi': 0.40.5
       '@aws-sdk/client-cloudfront': 3.984.0
@@ -5780,24 +5789,24 @@ snapshots:
       cookie: 1.1.1
       esbuild: 0.25.4
       express: 5.2.1(supports-color@10.2.2)
-      next: 16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       path-to-regexp: 6.3.0
       urlpattern-polyfill: 10.1.0
       yaml: 2.9.0
     transitivePeerDependencies:
       - supports-color
 
-  '@opennextjs/cloudflare@1.20.2(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)(wrangler@4.123.0(@cloudflare/workers-types@5.20260817.1))':
+  '@opennextjs/cloudflare@1.20.2(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)(wrangler@4.123.0(@cloudflare/workers-types@5.20260817.1))':
     dependencies:
       '@ast-grep/napi': 0.40.5
       '@dotenvx/dotenvx': 1.31.0
-      '@opennextjs/aws': 4.1.0(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)
+      '@opennextjs/aws': 4.1.0(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(supports-color@10.2.2)
       ci-info: 4.4.0
       cloudflare: 4.5.0
       comment-json: 4.6.2
       enquirer: 2.4.1
       glob: 12.0.0
-      next: 16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       ts-tqdm: 0.8.6
       wrangler: 4.123.0(@cloudflare/workers-types@5.20260817.1)
       yargs: 18.1.0
@@ -6560,20 +6569,20 @@ snapshots:
 
   '@types/node-fetch@2.6.13':
     dependencies:
-      '@types/node': 20.19.43
+      '@types/node': 24.13.3
       form-data: 4.0.6
 
   '@types/node@18.19.130':
     dependencies:
       undici-types: 5.26.5
 
-  '@types/node@20.19.43':
+  '@types/node@24.13.3':
     dependencies:
-      undici-types: 6.21.0
+      undici-types: 7.18.2
 
   '@types/papaparse@5.5.2':
     dependencies:
-      '@types/node': 20.19.43
+      '@types/node': 24.13.3
 
   '@types/react-dom@19.2.4(@types/react@19.2.18)':
     dependencies:
@@ -6592,13 +6601,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.1
 
-  '@vitest/mocker@4.1.10(vite@8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))':
+  '@vitest/mocker@4.1.10(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)
+      vite: 8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)
 
   '@vitest/pretty-format@4.1.10':
     dependencies:
@@ -6665,7 +6674,7 @@ snapshots:
 
   baseline-browser-mapping@2.11.14: {}
 
-  better-auth@1.6.30(@cloudflare/workers-types@5.20260817.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260817.1)(kysely@0.29.5))(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(vitest@4.1.10(@types/node@20.19.43)(vite@8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))):
+  better-auth@1.6.30(@cloudflare/workers-types@5.20260817.1)(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260817.1)(kysely@0.29.5))(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(vitest@4.1.10(@types/node@24.13.3)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))):
     dependencies:
       '@better-auth/core': 1.6.30(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@cloudflare/workers-types@5.20260817.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.9)(kysely@0.29.5)(nanostores@1.5.1)
       '@better-auth/drizzle-adapter': 1.6.30(@better-auth/core@1.6.30(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.1)(@cloudflare/workers-types@5.20260817.1)(better-call@1.4.0(zod@4.4.3))(jose@6.2.9)(kysely@0.29.5)(nanostores@1.5.1))(@better-auth/utils@0.4.2)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260817.1)(kysely@0.29.5))
@@ -6687,10 +6696,10 @@ snapshots:
     optionalDependencies:
       drizzle-kit: 0.31.10
       drizzle-orm: 0.45.2(@cloudflare/workers-types@5.20260817.1)(kysely@0.29.5)
-      next: 16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
-      vitest: 4.1.10(@types/node@20.19.43)(vite@8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))
+      vitest: 4.1.10(@types/node@24.13.3)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))
     transitivePeerDependencies:
       - '@cloudflare/workers-types'
       - '@opentelemetry/api'
@@ -7114,9 +7123,9 @@ snapshots:
 
   function-bind@1.1.2: {}
 
-  geist@1.7.2(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)):
+  geist@1.7.2(next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)):
     dependencies:
-      next: 16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      next: 16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
 
   gensync@1.0.0-beta.2:
     optional: true
@@ -7456,7 +7465,7 @@ snapshots:
 
   negotiator@1.0.0: {}
 
-  next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@20.19.43)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  next@16.3.1(@babel/core@7.29.7(supports-color@10.2.2))(@types/node@24.13.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@next/env': 16.3.1
       '@swc/helpers': 0.5.23
@@ -7475,7 +7484,7 @@ snapshots:
       '@next/swc-linux-x64-musl': 16.3.1
       '@next/swc-win32-arm64-msvc': 16.3.1
       '@next/swc-win32-x64-msvc': 16.3.1
-      sharp: 0.35.3(@types/node@20.19.43)
+      sharp: 0.35.3(@types/node@24.13.3)
     transitivePeerDependencies:
       - '@babel/core'
       - '@types/node'
@@ -7857,7 +7866,7 @@ snapshots:
       '@img/sharp-win32-ia32': 0.35.2
       '@img/sharp-win32-x64': 0.35.2
 
-  sharp@0.35.3(@types/node@20.19.43):
+  sharp@0.35.3(@types/node@24.13.3):
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
@@ -7888,7 +7897,7 @@ snapshots:
       '@img/sharp-win32-arm64': 0.35.3
       '@img/sharp-win32-ia32': 0.35.3
       '@img/sharp-win32-x64': 0.35.3
-      '@types/node': 20.19.43
+      '@types/node': 24.13.3
     optional: true
 
   shebang-command@2.0.0:
@@ -8046,7 +8055,7 @@ snapshots:
 
   undici-types@5.26.5: {}
 
-  undici-types@6.21.0: {}
+  undici-types@7.18.2: {}
 
   undici@7.29.0: {}
 
@@ -8071,7 +8080,7 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0):
+  vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.7
@@ -8079,7 +8088,7 @@ snapshots:
       rolldown: 1.2.4
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 20.19.43
+      '@types/node': 24.13.3
       esbuild: 0.28.1
       fsevents: 2.3.3
       jiti: 2.7.0
@@ -8087,10 +8096,10 @@ snapshots:
       tsx: 4.23.12
       yaml: 2.9.0
 
-  vitest@4.1.10(@types/node@20.19.43)(vite@8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)):
+  vitest@4.1.10(@types/node@24.13.3)(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))
+      '@vitest/mocker': 4.1.10(vite@8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
@@ -8107,10 +8116,10 @@ snapshots:
       tinyexec: 1.3.0
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.1
-      vite: 8.2.1(@types/node@20.19.43)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)
+      vite: 8.2.1(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.16.9)(tsx@4.23.12)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 20.19.43
+      '@types/node': 24.13.3
     transitivePeerDependencies:
       - msw
 
