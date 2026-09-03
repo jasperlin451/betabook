@@ -6,33 +6,46 @@
 # post-checkout, so agent-made worktrees arrive without node_modules or a seeded
 # D1. Defining this hook replaces that built-in path entirely.
 #
-# Contract: only the result JSON may reach stdout, and any non-zero exit aborts
-# worktree creation.
+# Contract, as the runtime actually implements it: the last line of stdout must
+# be the directory the hook created, and any non-zero exit aborts creation. The
+# published docs describe a JSON result and source_path/worktree_path/is_git
+# fields on stdin — this build sends none of them and parses no JSON, so both
+# ends are read defensively.
 set -eu
 
 input=$(cat)
-source_path=$(printf '%s' "$input" | jq -r '.source_path')
-worktree_path=$(printf '%s' "$input" | jq -r '.worktree_path')
-is_git=$(printf '%s' "$input" | jq -r '.is_git')
+field() { printf '%s' "$input" | jq -r "$1 // empty" 2>/dev/null || true; }
 
 fail() {
   echo "$1" >&2
   exit 1
 }
 
-[ "$is_git" = "true" ] || fail "betabook needs a git checkout to make a worktree; source_path is not a repo."
+source_path=$(field '.source_path')
+[ -n "$source_path" ] || source_path=$(field '.cwd')
+[ -n "$source_path" ] || source_path=${CLAUDE_PROJECT_DIR:-$(pwd)}
 
 # husky resolves its relative core.hooksPath (.husky/_) against the cwd of the
 # invoking git process, so post-checkout only fires when git runs from a
 # checkout that has it — the main one.
 cd "$source_path" || fail "cannot enter $source_path"
-[ -d .husky/_ ] || echo "warning: no .husky/_ in $source_path, worktree will not self-bootstrap" >&2
+git rev-parse --is-inside-work-tree >/dev/null 2>&1 || fail "$source_path is not a git checkout"
+
+worktree_path=$(field '.worktree_path')
+if [ -z "$worktree_path" ]; then
+  name=$(field '.name')
+  [ -n "$name" ] || name="session-$(date +%s)"
+  worktree_path="${source_path}/.claude/worktrees/${name}"
+fi
 
 name=$(basename "$worktree_path")
 branch="worktree-${name}"
 parent=$(dirname "$worktree_path")
 log="${parent}/${name}.create.log"
 mkdir -p "$parent"
+printf '%s\n' "$input" > "${parent}/${name}.input.json"
+
+[ -d .husky/_ ] || echo "warning: no .husky/_ in $source_path, worktree will not self-bootstrap" >&2
 
 # The bootstrap's own output (pnpm install, migrations, seed) would corrupt the
 # JSON Claude parses, so the whole checkout goes to the log.
@@ -47,4 +60,5 @@ fi
 # abort — aborting would throw away a worktree that only needs `pnpm install`.
 [ -d "${worktree_path}/node_modules" ] || echo "worktree created but not bootstrapped — run 'pnpm install && pnpm setup' in ${worktree_path} (log: ${log})" >&2
 
-jq -n --arg p "$worktree_path" '{hookSpecificOutput: {hookEventName: "WorktreeCreate", success: true, worktreePath: $p}}'
+# Claude reads this as the worktree it should switch into.
+echo "$worktree_path"
