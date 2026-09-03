@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { ExportSendsButton } from "@/components/export-sends-button";
 import { ResetPasswordButton } from "@/components/reset-password-button";
 import { SignOutButton } from "@/components/sign-out-button";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeSelect } from "@/components/theme-select";
 import { AppLink } from "@/components/ui/app-link";
 import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
@@ -46,7 +46,7 @@ export default async function AccountPage() {
         <AppLink href={`/users/${session.user.id}`}>View my profile</AppLink>
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm text-muted">Theme</span>
-          <ThemeToggle />
+          <ThemeSelect />
         </div>
       </AccountSection>
 
