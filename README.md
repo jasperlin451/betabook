@@ -57,10 +57,13 @@ the verification link that `lib/email.ts` logs to the `next dev` console.
 
 ```bash
 pnpm test
+pnpm check         # lint, format:check, deadcode, typecheck, vitest
 ```
 
 The test pool uses `test/worker.ts`, so tests run on a fresh checkout without
-first generating the production `.open-next` worker bundle.
+first generating the production `.open-next` worker bundle. Pull requests run
+this full verification suite and the production build automatically via
+`.github/workflows/deploy.yml`.
 
 ## Learn More
 

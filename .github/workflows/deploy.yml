@@ -3,27 +3,23 @@ name: Deploy
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
-# Serialize deploys so two quick merges can't land out of order. Not cancelling
-# in progress: a half-finished deploy is worse than a redundant one.
+# Serialize deploys on main so two quick merges can't land out of order, but
+# cancel in-progress runs on PR branches when new commits are pushed.
 concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
 
 jobs:
   deploy:
-    # Forks inherit the workflow but not the secrets, so every push to their
-    # main would fail the wrangler steps.
-    if: github.repository == 'smwoo/betabook'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v7
 
@@ -44,8 +40,17 @@ jobs:
           cp .dev.vars.example .dev.vars
           pnpm cf-typegen
 
-      - run: pnpm lint
-      - run: pnpm format:check
+      - name: Lint
+        run: pnpm lint
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Dead code check
+        run: pnpm deadcode
+
+      - name: Type check
+        run: pnpm typecheck
 
       # The Vitest worker applies every D1 migration to a fresh database, so
       # this catches migration and query regressions before production changes.
@@ -59,9 +64,18 @@ jobs:
 
       # Ahead of the worker deploy so new code never meets an old schema. The
       # running worker does see the new schema for the seconds in between, so
-      # each migration has to stay backward-compatible.
+      # each migration has to stay backward-compatible. Only run on pushes to
+      # main in the upstream repository.
       - name: Apply D1 migrations
+        if: github.ref == 'refs/heads/main' && github.repository == 'smwoo/betabook'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: pnpm exec wrangler d1 migrations apply DB --remote
 
       - name: Deploy
+        if: github.ref == 'refs/heads/main' && github.repository == 'smwoo/betabook'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: pnpm exec opennextjs-cloudflare deploy
