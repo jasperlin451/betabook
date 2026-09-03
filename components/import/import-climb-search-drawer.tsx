@@ -27,36 +27,32 @@ export function ImportClimbSearchDrawer({
   onPick: (rowIndex: number, climb: ClimbCandidate) => void;
 }) {
   return (
-    <Drawer.Root state={state}>
-      <Drawer.Backdrop>
-        <Drawer.Content>
-          <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
-            <Drawer.Header>
-              <Drawer.Heading>
-                {target ? `Find “${target.climbName}”` : "Find climb"}
-              </Drawer.Heading>
-              <Drawer.CloseTrigger />
-            </Drawer.Header>
-            <Drawer.Body>
-              {/* Keyed by row so the picker's seeded fields reset per target
-               * even if the drawer is reopened before its exit animation
-               * has unmounted the previous one. */}
-              {target && (
-                <ClimbPicker
-                  key={target.rowIndex}
-                  initialName={target.climbName}
-                  initialAreaName={target.areaName ?? ""}
-                  onPick={(climb, context) => {
-                    onPick(target.rowIndex, toCandidate(climb, context));
-                    state.close();
-                  }}
-                />
-              )}
-            </Drawer.Body>
-          </Drawer.Dialog>
-        </Drawer.Content>
-      </Drawer.Backdrop>
-    </Drawer.Root>
+    <Drawer.Backdrop isOpen={state.isOpen} onOpenChange={state.setOpen}>
+      <Drawer.Content>
+        <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
+          <Drawer.Header>
+            <Drawer.Heading>{target ? `Find “${target.climbName}”` : "Find climb"}</Drawer.Heading>
+            <Drawer.CloseTrigger />
+          </Drawer.Header>
+          <Drawer.Body>
+            {/* Keyed by row so the picker's seeded fields reset per target
+             * even if the drawer is reopened before its exit animation
+             * has unmounted the previous one. */}
+            {target && (
+              <ClimbPicker
+                key={target.rowIndex}
+                initialName={target.climbName}
+                initialAreaName={target.areaName ?? ""}
+                onPick={(climb, context) => {
+                  onPick(target.rowIndex, toCandidate(climb, context));
+                  state.close();
+                }}
+              />
+            )}
+          </Drawer.Body>
+        </Drawer.Dialog>
+      </Drawer.Content>
+    </Drawer.Backdrop>
   );
 }
 

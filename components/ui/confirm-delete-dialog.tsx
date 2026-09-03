@@ -28,28 +28,26 @@ export function ConfirmDeleteDialog({
   error,
 }: ConfirmDeleteDialogProps) {
   return (
-    <AlertDialog.Root isOpen={state.isOpen} onOpenChange={state.setOpen}>
-      <AlertDialog.Backdrop>
-        <AlertDialog.Container placement="center" size="sm">
-          <AlertDialog.Dialog>
-            <AlertDialog.Header>
-              <AlertDialog.Heading>Delete this {noun}?</AlertDialog.Heading>
-            </AlertDialog.Header>
-            <AlertDialog.Body>
-              <p className="text-sm text-muted">This can&apos;t be undone.</p>
-              {error && <p className="text-sm text-danger">{error}</p>}
-            </AlertDialog.Body>
-            <AlertDialog.Footer className="flex justify-end gap-2">
-              <Button variant="ghost" onPress={state.close} isDisabled={isPending}>
-                Cancel
-              </Button>
-              <Button variant="danger" onPress={onConfirm} isDisabled={isPending}>
-                Delete
-              </Button>
-            </AlertDialog.Footer>
-          </AlertDialog.Dialog>
-        </AlertDialog.Container>
-      </AlertDialog.Backdrop>
-    </AlertDialog.Root>
+    <AlertDialog.Backdrop isOpen={state.isOpen} onOpenChange={state.setOpen}>
+      <AlertDialog.Container placement="center" size="sm">
+        <AlertDialog.Dialog>
+          <AlertDialog.Header>
+            <AlertDialog.Heading>Delete this {noun}?</AlertDialog.Heading>
+          </AlertDialog.Header>
+          <AlertDialog.Body>
+            <p className="text-sm text-muted">This can&apos;t be undone.</p>
+            {error && <p className="text-sm text-danger">{error}</p>}
+          </AlertDialog.Body>
+          <AlertDialog.Footer className="flex justify-end gap-2">
+            <Button variant="ghost" onPress={state.close} isDisabled={isPending}>
+              Cancel
+            </Button>
+            <Button variant="danger" onPress={onConfirm} isDisabled={isPending}>
+              Delete
+            </Button>
+          </AlertDialog.Footer>
+        </AlertDialog.Dialog>
+      </AlertDialog.Container>
+    </AlertDialog.Backdrop>
   );
 }

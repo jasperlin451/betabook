@@ -26,20 +26,18 @@ export function AreaFormDrawer({ parentId, area, state }: AreaFormDrawerProps) {
   }
 
   return (
-    <Drawer.Root state={state}>
-      <Drawer.Backdrop>
-        <Drawer.Content>
-          <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
-            <Drawer.Header>
-              <Drawer.Heading>{area ? "Edit area" : "Add area"}</Drawer.Heading>
-              <Drawer.CloseTrigger />
-            </Drawer.Header>
-            <Drawer.Body>
-              <AreaForm parentId={parentId ?? null} area={area} onDone={handleDone} />
-            </Drawer.Body>
-          </Drawer.Dialog>
-        </Drawer.Content>
-      </Drawer.Backdrop>
-    </Drawer.Root>
+    <Drawer.Backdrop isOpen={state.isOpen} onOpenChange={state.setOpen}>
+      <Drawer.Content>
+        <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
+          <Drawer.Header>
+            <Drawer.Heading>{area ? "Edit area" : "Add area"}</Drawer.Heading>
+            <Drawer.CloseTrigger />
+          </Drawer.Header>
+          <Drawer.Body>
+            <AreaForm parentId={parentId ?? null} area={area} onDone={handleDone} />
+          </Drawer.Body>
+        </Drawer.Dialog>
+      </Drawer.Content>
+    </Drawer.Backdrop>
   );
 }
