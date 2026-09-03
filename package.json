@@ -12,6 +12,7 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "deadcode": "knip",
+    "deadcode:prod": "knip --production",
     "typecheck": "next typegen && tsc --noEmit",
     "check": "pnpm lint && pnpm format:check && pnpm deadcode && pnpm typecheck && pnpm test",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+
+  // Only entrypoints no plugin can see: the Next.js, Vitest, Drizzle and
+  // package.json-scripts plugins already claim app/**, **/*.test.*, setupFiles,
+  // drizzle/schema/index.ts and scripts/*.ts.
+  // Trailing "!" = production; unsuffixed = dev-only and dropped by
+  // `pnpm deadcode:prod`, which is what surfaces test-only exports.
+  "entry": [
+    // Read by `opennextjs-cloudflare build`; nothing imports it.
+    "open-next.config.ts!",
+
+    // Miniflare `main`, set inside the Cloudflare pool's async options callback
+    // in vitest.config.mts — the Vitest plugin never evaluates that.
+    "test/worker.ts",
+  ],
+
+  // Overriding `project` drops the extensions knip adds per registered
+  // compiler; ".css" has to come back or app/globals.css falls out of the graph
+  // and everything it @imports reads as unused.
+  // "!dir/**!" negates on the production side only, so the default run still
+  // reports dead test helpers and orphaned scripts.
+  "project": ["**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts,css}!", "!test/**!", "!scripts/**!"],
+
+  // `cloudflare:test` is a virtual module from @cloudflare/vitest-pool-workers,
+  // and knip truncates specifiers at the colon, so the bare name is what needs
+  // resolving. Unlike ignoreDependencies, this breaks loudly rather than
+  // silently if the pool is ever swapped out.
+  "paths": {
+    "cloudflare": ["./node_modules/@cloudflare/vitest-pool-workers/types/cloudflare-test.d.ts"],
+  },
+}
