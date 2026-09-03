@@ -2,9 +2,11 @@
 # Claude Code WorktreeCreate hook: create the worktree with a real
 # `git worktree add` so .husky/post-checkout bootstraps it.
 #
-# Claude's built-in creation populates the tree with `git reset`, which fires no
-# post-checkout, so agent-made worktrees arrive without node_modules or a seeded
-# D1. Defining this hook replaces that built-in path entirely.
+# Claude's built-in creation does not run .husky/post-checkout, so agent-made
+# worktrees arrive without node_modules or a seeded D1. Why is unverified — the
+# new worktree's reflog is identical to the one a plain `git worktree add`
+# leaves, so it does not say. Defining this hook replaces that built-in path,
+# and the `git worktree add` below does fire post-checkout.
 #
 # Contract, as the runtime actually implements it: the last line of stdout must
 # be the directory the hook created, and any non-zero exit aborts creation. The
