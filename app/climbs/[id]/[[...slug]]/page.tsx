@@ -34,17 +34,19 @@ import {
 import { missingDescriptionMessage } from "@/lib/descriptions";
 import { buildLoggedGradeRows } from "@/lib/grade-histogram";
 import { formatGrade } from "@/lib/grades";
+import type { SearchParamsRecord } from "@/lib/search-params";
 import type { AscentStyle as AscentStyleType } from "@/lib/sends";
 import { climbDescription, climbJsonLd, climbTitle, locationTrail, pageMetadata } from "@/lib/seo";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
-import { areaHref, climbHref, slugify } from "@/lib/slug";
+import { areaHref, climbHref, slugify, withQuery } from "@/lib/slug";
 
 type ClimbPageProps = {
   // Optional catch-all: `slug` is undefined for /climbs/:id and a segment
   // array for /climbs/:id/anything. The id is authoritative; the slug is
   // decorative and normalized by the redirect below.
   params: Promise<{ id: string; slug?: string[] }>;
+  searchParams: Promise<SearchParamsRecord>;
 };
 
 // Shared between generateMetadata and the page — see the identical pattern in
@@ -61,8 +63,11 @@ const getAreaById = cache(async (id: number) => getArea(await getDb(), id));
 
 const getAreaAncestors = cache(async (area: Area) => getAncestors(await getDb(), area));
 
-export async function generateMetadata({ params }: ClimbPageProps): Promise<Metadata> {
-  const { id, slug } = await params;
+export async function generateMetadata({
+  params,
+  searchParams,
+}: ClimbPageProps): Promise<Metadata> {
+  const [{ id, slug }, search] = await Promise.all([params, searchParams]);
   const climbId = Number(id);
   if (!Number.isInteger(climbId)) notFound();
 
@@ -70,16 +75,12 @@ export async function generateMetadata({ params }: ClimbPageProps): Promise<Meta
   if (!climb) notFound();
 
   // Normalize any other spelling of the URL (no slug, stale slug, extra
-  // segments) to the canonical id + slug. Done in generateMetadata, not the
-  // page body, so it runs before the page's own data fetches. On this
-  // streamed Workers deployment it emits a `<meta http-equiv="refresh"
-  // content="0;url=...">` rather than a 308 — Google treats a 0-second
-  // refresh as a permanent redirect, and the rendered page's rel=canonical
-  // points at the same URL. Internal links and the sitemap already use the
-  // canonical form, so this only catches stale external links. A real 308
-  // would have to move into middleware.ts with an id -> name lookup.
+  // segments) to the canonical id + slug. On this streamed Workers deployment
+  // it emits a `<meta http-equiv="refresh" content="0;url=...">` rather than a
+  // 308 — Google treats a 0-second refresh as a permanent redirect, and the
+  // rendered page's rel=canonical points at the same URL.
   if ((slug?.join("/") ?? "") !== slugify(climb.name)) {
-    permanentRedirect(climbHref(climb.id, climb.name));
+    permanentRedirect(withQuery(climbHref(climb.id, climb.name), search));
   }
 
   const area = await getAreaById(climb.areaId);
@@ -95,8 +96,8 @@ export async function generateMetadata({ params }: ClimbPageProps): Promise<Meta
   });
 }
 
-export default async function ClimbPage({ params }: ClimbPageProps) {
-  const { id } = await params;
+export default async function ClimbPage({ params, searchParams }: ClimbPageProps) {
+  const [{ id, slug }, search] = await Promise.all([params, searchParams]);
   const climbId = Number(id);
 
   if (!Number.isInteger(climbId)) notFound();
@@ -104,10 +105,13 @@ export default async function ClimbPage({ params }: ClimbPageProps) {
   // Grouped by dependency tier so independent fetches overlap instead of
   // waterfalling: the db handle, the climb row, and the session don't depend
   // on each other; the sends queries need only the climb; and the ancestor
-  // chain needs the area row's parentId. A stale/absent slug has already
-  // 308'd in generateMetadata.
+  // chain needs the area row's parentId.
   const [db, climb, session] = await Promise.all([getDb(), getClimbById(climbId), getSession()]);
   if (!climb) notFound();
+
+  if ((slug?.join("/") ?? "") !== slugify(climb.name)) {
+    permanentRedirect(withQuery(climbHref(climb.id, climb.name), search));
+  }
 
   // Stats come from whole-history aggregates and the list from a paginated
   // query — a popular climb's full send history never ships in the RSC

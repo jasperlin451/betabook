@@ -91,17 +91,20 @@ export async function generateMetadata({ params, searchParams }: AreaPageProps):
 }
 
 export default async function AreaPage({ params, searchParams }: AreaPageProps) {
-  const [{ id }, search] = await Promise.all([params, searchParams]);
+  const [{ id, slug }, search] = await Promise.all([params, searchParams]);
   const areaId = Number(id);
 
   if (!Number.isInteger(areaId)) notFound();
 
   // Grouped by dependency tier so independent fetches overlap instead of
   // waterfalling — the area row and the session don't depend on each other.
-  // A stale/absent slug has already 308'd in generateMetadata.
   const db = await getDb();
   const [area, session] = await Promise.all([getAreaById(areaId), getSession()]);
   if (!area) notFound();
+
+  if ((slug?.join("/") ?? "") !== slugify(area.name)) {
+    permanentRedirect(withQuery(areaHref(area.id, area.name), search));
+  }
 
   const sort = parseAreaClimbsSort(search);
   const filter = parseAreaClimbsFilter(search);

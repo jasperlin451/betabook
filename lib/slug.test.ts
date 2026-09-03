@@ -18,6 +18,14 @@ describe("slugify", () => {
     expect(slugify("Böhmischer Traum")).toBe("bohmischer-traum");
   });
 
+  it("transliterates European ligatures and stroke letters", () => {
+    expect(slugify("Großglockner")).toBe("grossglockner");
+    expect(slugify("Blåbæret")).toBe("blabaeret");
+    expect(slugify("Sørlandet")).toBe("sorlandet");
+    expect(slugify("Łódź")).toBe("lodz");
+    expect(slugify("L’Œil")).toBe("loeil");
+  });
+
   it("collapses punctuation and symbols to single hyphens", () => {
     expect(slugify("5.12a / V8 — project!")).toBe("5-12a-v8-project");
   });

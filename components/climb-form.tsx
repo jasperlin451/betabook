@@ -20,7 +20,7 @@ type ClimbFormProps = {
    * to find it (see ClimbPicker's empty state) so nothing is retyped. Ignored
    * when `climb` is given — an edit starts from the climb itself. */
   initial?: { name?: string; type?: ClimbType; areaName?: string };
-  onDone?: (climbId: number) => void;
+  onDone?: (climbId: number, climbName?: string) => void;
 };
 
 const CLIMB_TYPE_LABELS: Record<ClimbType, string> = {
@@ -74,14 +74,14 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
           setError(result.error);
           return;
         }
-        onDone?.(climb.id);
+        onDone?.(climb.id, trimmedName);
       } else if (targetAreaId != null) {
         const result = await createClimb(targetAreaId, formData);
         if (!result.ok) {
           setError(result.error);
           return;
         }
-        onDone?.(result.value);
+        onDone?.(result.value, trimmedName);
       }
     });
   }

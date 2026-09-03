@@ -1,15 +1,27 @@
 import type { SearchParamsRecord } from "@/lib/search-params";
 
+const LIGATURE_MAP: Record<string, string> = {
+  æ: "ae",
+  ø: "o",
+  ß: "ss",
+  ł: "l",
+  œ: "oe",
+  ð: "d",
+  þ: "th",
+  đ: "d",
+};
+
 /** Turns a name into a URL slug: lowercased, ASCII, hyphen-separated, accents
- * flattened, apostrophes dropped so "Don't" becomes "dont". Capped at 80
- * chars with no trailing hyphen. Returns "" when nothing slug-able survives
- * (a CJK-only name, pure punctuation) — the href builders read that as "no
- * slug segment". */
+ * flattened, apostrophes dropped so "Don't" becomes "dont", European ligatures
+ * transliterated. Capped at 80 chars with no trailing hyphen. Returns "" when
+ * nothing slug-able survives (a CJK-only name, pure punctuation) — the href
+ * builders read that as "no slug segment". */
 export function slugify(name: string): string {
   return name
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "") // strip the combining marks NFKD split off
+    .replace(/[\u0300-\u036f]/g, "") // strip combining diacritical marks
     .toLowerCase()
+    .replace(/[æøßłœðþđ]/g, (c) => LIGATURE_MAP[c] ?? c)
     .replace(/['’]+/g, "") // drop apostrophes so the word stays whole
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+/, "")

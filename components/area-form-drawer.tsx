@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { AreaForm } from "@/components/area-form";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import type { Area } from "@/db/queries";
+import { areaHref } from "@/lib/slug";
 
 type AreaFormDrawerProps = {
   /** Fixed parent for creating a subarea (no area picker shown). Ignored
@@ -19,9 +20,9 @@ type AreaFormDrawerProps = {
 export function AreaFormDrawer({ parentId, area, state }: AreaFormDrawerProps) {
   const router = useRouter();
 
-  function handleDone(areaId: number) {
+  function handleDone(areaId: number, areaName?: string) {
     state.close();
-    if (!area) router.push(`/areas/${areaId}`);
+    if (!area) router.push(areaName ? areaHref(areaId, areaName) : `/areas/${areaId}`);
   }
 
   return (

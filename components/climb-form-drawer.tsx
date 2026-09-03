@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ClimbForm } from "@/components/climb-form";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import type { Climb } from "@/db/queries";
+import { climbHref } from "@/lib/slug";
 
 type ClimbFormDrawerProps = {
   areaId: number;
@@ -17,11 +18,11 @@ type ClimbFormDrawerProps = {
 export function ClimbFormDrawer({ areaId, climb, state }: ClimbFormDrawerProps) {
   const router = useRouter();
 
-  function handleDone(climbId: number) {
+  function handleDone(climbId: number, climbName?: string) {
     state.close();
     // Editing an existing climb just closes the drawer in place; creating a
     // new one lands the viewer on it, same as the standalone /climbs/new page.
-    if (!climb) router.push(`/climbs/${climbId}`);
+    if (!climb) router.push(climbName ? climbHref(climbId, climbName) : `/climbs/${climbId}`);
   }
 
   return (

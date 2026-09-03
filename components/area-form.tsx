@@ -19,7 +19,7 @@ type AreaFormProps = {
    * area's parent isn't editable here. */
   parentId: number | null;
   area?: Area;
-  onDone?: (areaId: number) => void;
+  onDone?: (areaId: number, areaName?: string) => void;
 };
 
 export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProps) {
@@ -52,7 +52,7 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
           setError(result.error);
           return;
         }
-        onDone?.(area.id);
+        onDone?.(area.id, trimmedName);
       });
       return;
     }
@@ -67,7 +67,7 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
         setError(result.error);
         return;
       }
-      onDone?.(result.value);
+      onDone?.(result.value, trimmedName);
     });
   }
 
