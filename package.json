@@ -21,8 +21,11 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "db:snapshot": "node --disable-warning=ExperimentalWarning scripts/db-snapshot.ts save",
+    "db:restore": "node --disable-warning=ExperimentalWarning scripts/db-snapshot.ts restore",
     "test": "vitest run",
     "seed:user": "node scripts/seed-dev-user.ts",
+    "setup": "node scripts/setup.ts",
     "prepare": "husky"
   },
   "dependencies": {
@@ -47,7 +50,7 @@
     "@cloudflare/vitest-pool-workers": "^0.21.3",
     "@cloudflare/workers-types": "^5.20260817.1",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^24.13.3",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -70,5 +73,5 @@
     "firefox 115",
     "safari 16.4"
   ],
-  "packageManager": "pnpm@11.22.0"
+  "packageManager": "pnpm@11.25.0"
 }

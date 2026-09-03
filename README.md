@@ -2,13 +2,18 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-Install dependencies, set up local secrets, and create the local database:
-
 ```bash
 pnpm install
+pnpm setup             # .dev.vars, local database, dev user — idempotent
+```
+
+`pnpm setup` is idempotent and equivalent to:
+
+```bash
 cp .dev.vars.example .dev.vars
+pnpm db:restore        # or pnpm db:migrate:local for an empty schema
+pnpm seed:user
 pnpm cf-typegen        # optional: audit the full generated Workers type surface
-pnpm db:migrate:local
 ```
 
 Keep the small, checked-in `cloudflare-env.d.ts` binding contract in sync when
@@ -52,6 +57,37 @@ won't see rows written by a separate `wrangler` process.
 Signing up at [/sign-up](http://localhost:3000/sign-up) works too, but
 `lib/auth.ts` sets `requireEmailVerification: true`, so you then have to open
 the verification link that `lib/email.ts` logs to the `next dev` console.
+
+### New worktrees
+
+`.husky/post-checkout` runs `pnpm install` and `pnpm setup` in a new worktree,
+so this alone leaves you ready to work (~11s against a warm snapshot):
+
+```bash
+git worktree add ../betabook-my-branch -b my-branch
+```
+
+It fires only for a checkout with no previous HEAD, so branch switches cost
+nothing. `CI` and `BETABOOK_SKIP_BOOTSTRAP=1` opt out. The hook is found even
+before the worktree installs anything, because git resolves `core.hooksPath`
+against the main checkout.
+
+### Database snapshots
+
+Migrations are fast; the seed data is the slow part. Move it as a file:
+
+```bash
+pnpm db:snapshot       # save this database to ~/.cache/betabook
+pnpm db:restore        # clone it into this checkout
+```
+
+On APFS the copy is a clonefile, so 37 MB lands in milliseconds and shares
+blocks — N worktrees cost one database on disk. `db:restore` needs `--force` to
+replace a database that already holds rows, and applies any migrations the
+branch adds on top, so a snapshot does not go stale as the schema moves.
+
+Stop `pnpm dev` before snapshotting and restart it after restoring; it holds
+its D1 handle open. `BETABOOK_SNAPSHOT_DIR` overrides the location.
 
 ## Tests
 
