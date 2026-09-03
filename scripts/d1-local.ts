@@ -3,7 +3,7 @@ import path from "node:path";
 
 // Miniflare hashes the wrangler.jsonc binding for this name, so it is the same
 // in every checkout — which is what lets a plain file copy stand in for wrangler.
-export const D1_DIR = path.join(".wrangler", "state", "v3", "d1", "miniflare-D1DatabaseObject");
+const D1_DIR = path.join(".wrangler", "state", "v3", "d1", "miniflare-D1DatabaseObject");
 
 /** The data file, as opposed to miniflare's own `metadata.sqlite`. */
 export function findLocalDb(): string | undefined {

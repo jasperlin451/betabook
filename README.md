@@ -11,8 +11,9 @@ pnpm setup             # .dev.vars, local database, dev user — idempotent
 
 ```bash
 cp .dev.vars.example .dev.vars
-pnpm db:restore        # or pnpm db:migrate:local for an empty schema
+pnpm db:migrate:local
 pnpm seed:user
+pnpm seed:climbs
 pnpm cf-typegen        # optional: audit the full generated Workers type surface
 ```
 
@@ -61,7 +62,7 @@ the verification link that `lib/email.ts` logs to the `next dev` console.
 ### New worktrees
 
 `.husky/post-checkout` runs `pnpm install` and `pnpm setup` in a new worktree,
-so this alone leaves you ready to work (~11s against a warm snapshot):
+so this alone leaves you ready to work, in about ten seconds:
 
 ```bash
 git worktree add ../betabook-my-branch -b my-branch
@@ -72,7 +73,7 @@ nothing. `CI` and `BETABOOK_SKIP_BOOTSTRAP=1` opt out. The hook is found even
 before the worktree installs anything, because git resolves `core.hooksPath`
 against the main checkout.
 
-### Database snapshots
+### Sample data
 
 `pnpm seed:climbs` fills an empty database with synthetic areas, climbs,
 climbers and ticks — 400 areas, 5,000 climbs, 50 climbers and ~16,000 ticks by
@@ -85,26 +86,19 @@ pnpm seed:climbs --force            # replace what is already there
 ```
 
 Synthetic climbers are `climber1@example.com` upward, verified, and sign in
-with the password `password`. Tick counts are long-tailed, so profiles differ. Any user already in the database — the one
-`pnpm seed:user` makes — gets ticks too, so no profile is empty. Ticks land
-through the real aggregate triggers, so send counts and ratings on climbs are
-populated the same way the app populates them.
+with the password `password`, and tick counts are long-tailed so profiles
+differ. Any user already in the database — the one `pnpm seed:user` makes —
+gets ticks too. Ticks land through the real aggregate triggers, so send counts
+and ratings are populated the way the app populates them.
 
-That is what `pnpm setup` falls back to when no snapshot exists. If you do have
-a database worth keeping, moving it as a file is faster than regenerating:
+Scale it up when you need realistic volume — 141,000 climbs takes about ten
+seconds:
 
 ```bash
-pnpm db:snapshot       # save this database to ~/.cache/betabook
-pnpm db:restore        # clone it into this checkout
+pnpm seed:climbs --areas 10237 --climbs 141187 --force
 ```
 
-On APFS the copy is a clonefile, so 37 MB lands in milliseconds and shares
-blocks — N worktrees cost one database on disk. `db:restore` needs `--force` to
-replace a database that already holds rows, and applies any migrations the
-branch adds on top, so a snapshot does not go stale as the schema moves.
-
-Stop `pnpm dev` before snapshotting and restart it after restoring; it holds
-its D1 handle open. `BETABOOK_SNAPSHOT_DIR` overrides the location.
+Restart `pnpm dev` afterwards; it holds its D1 handle open.
 
 ## Tests
 

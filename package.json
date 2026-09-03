@@ -21,8 +21,6 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
-    "db:snapshot": "node --disable-warning=ExperimentalWarning scripts/db-snapshot.ts save",
-    "db:restore": "node --disable-warning=ExperimentalWarning scripts/db-snapshot.ts restore",
     "test": "vitest run",
     "seed:climbs": "node --disable-warning=ExperimentalWarning scripts/seed-climbs.ts",
     "seed:user": "node scripts/seed-dev-user.ts",

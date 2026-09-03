@@ -40,14 +40,7 @@ const steps: [name: string, body: () => boolean][] = [
     "database",
     () => {
       if (hasLocalDb()) return false;
-      try {
-        run("db:restore");
-      } catch {
-        // Usually just no snapshot yet. db:restore has already printed the real
-        // reason, so don't restate it as one.
-        console.log("\n`pnpm db:restore` failed (above) — starting from an empty schema.");
-        run("db:migrate:local");
-      }
+      run("db:migrate:local");
       return true;
     },
   ],
