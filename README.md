@@ -74,14 +74,21 @@ against the main checkout.
 
 ### Database snapshots
 
-`pnpm seed:climbs` fills an empty database with synthetic areas and climbs —
-400 and 5,000 by default, in under a second, and deterministic for a given
-`--seed`, so two checkouts asked for the same numbers hold the same rows:
+`pnpm seed:climbs` fills an empty database with synthetic areas, climbs,
+climbers and ticks — 400 areas, 5,000 climbs and 8 climbers by default, in
+under a second, and deterministic for a given `--seed`, so two checkouts asked
+for the same numbers hold the same rows:
 
 ```bash
-pnpm seed:climbs --areas 50 --climbs 500
+pnpm seed:climbs --areas 50 --climbs 500 --users 3
 pnpm seed:climbs --force            # replace what is already there
 ```
+
+Synthetic climbers are `climber1@example.com` upward, verified, and sign in
+with the password `password`. Any user already in the database — the one
+`pnpm seed:user` makes — gets ticks too, so no profile is empty. Ticks land
+through the real aggregate triggers, so send counts and ratings on climbs are
+populated the same way the app populates them.
 
 That is what `pnpm setup` falls back to when no snapshot exists. If you do have
 a database worth keeping, moving it as a file is faster than regenerating:

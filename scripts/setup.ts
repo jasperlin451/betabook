@@ -6,13 +6,23 @@
  */
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 
-import { findLocalDb } from "./d1-local.ts";
+import { findLocalDb, requireLocalDb } from "./d1-local.ts";
 
 const run = (script: string, args: string[] = []) =>
   execFileSync("pnpm", ["run", script, ...args], { stdio: "inherit" });
 
 const hasLocalDb = () => findLocalDb() !== undefined;
+
+function climbCount(): number {
+  const db = new DatabaseSync(requireLocalDb(), { readOnly: true });
+  try {
+    return (db.prepare("select count(*) c from climbs").get() as { c: number }).c;
+  } finally {
+    db.close();
+  }
+}
 
 /** Each returns false when there was nothing to do. */
 const steps: [name: string, body: () => boolean][] = [
@@ -35,9 +45,8 @@ const steps: [name: string, body: () => boolean][] = [
       } catch {
         // Usually just no snapshot yet. db:restore has already printed the real
         // reason, so don't restate it as one.
-        console.log("\n`pnpm db:restore` failed (above) — generating synthetic data instead.");
+        console.log("\n`pnpm db:restore` failed (above) — starting from an empty schema.");
         run("db:migrate:local");
-        run("seed:climbs");
       }
       return true;
     },
@@ -47,6 +56,15 @@ const steps: [name: string, body: () => boolean][] = [
     "dev user",
     () => {
       run("seed:user");
+      return true;
+    },
+  ],
+  // After the dev user, so the ticks it generates cover that account too.
+  [
+    "sample data",
+    () => {
+      if (climbCount() > 0) return false;
+      run("seed:climbs");
       return true;
     },
   ],
