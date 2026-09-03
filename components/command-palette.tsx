@@ -141,33 +141,31 @@ export function SearchPaletteProvider({ children }: { children: ReactNode }) {
   return (
     <OpenSearchContext.Provider value={open}>
       {children}
-      <Modal.Root state={state}>
-        <Modal.Backdrop>
-          {/* Top-anchored: a palette that opens under the pointer reads as a
-           * dropdown from the trigger, not a takeover of the page. Nearly
-           * flush to the top on phones — the input takes focus on open, so
-           * the on-screen keyboard claims the bottom half and every 10vh
-           * spent above the field is a result the thumb can't see. */}
-          <Modal.Container placement="top" size="lg" className="pt-4 sm:pt-[10vh]">
-            <Modal.Dialog aria-label="Search Betabook">
-              {/* No `key` on open state: the modal keeps its children
-               * mounted through the exit animation, so remounting on close
-               * would blank the query and results mid-fade and re-fire
-               * autoFocus inside the closing dialog. The overlay already
-               * unmounts this subtree between opens, which is what gives
-               * each session its fresh empty state. */}
-              <PaletteBody
-                scopeAreaId={scope?.areaId}
-                scopeAreaName={scope?.areaName}
-                onNavigate={(href) => {
-                  state.close();
-                  router.push(href);
-                }}
-              />
-            </Modal.Dialog>
-          </Modal.Container>
-        </Modal.Backdrop>
-      </Modal.Root>
+      <Modal.Backdrop isOpen={state.isOpen} onOpenChange={state.setOpen}>
+        {/* Top-anchored: a palette that opens under the pointer reads as a
+         * dropdown from the trigger, not a takeover of the page. Nearly
+         * flush to the top on phones — the input takes focus on open, so
+         * the on-screen keyboard claims the bottom half and every 10vh
+         * spent above the field is a result the thumb can't see. */}
+        <Modal.Container placement="top" size="lg" className="pt-4 sm:pt-[10vh]">
+          <Modal.Dialog aria-label="Search Betabook">
+            {/* No `key` on open state: the modal keeps its children
+             * mounted through the exit animation, so remounting on close
+             * would blank the query and results mid-fade and re-fire
+             * autoFocus inside the closing dialog. The overlay already
+             * unmounts this subtree between opens, which is what gives
+             * each session its fresh empty state. */}
+            <PaletteBody
+              scopeAreaId={scope?.areaId}
+              scopeAreaName={scope?.areaName}
+              onNavigate={(href) => {
+                state.close();
+                router.push(href);
+              }}
+            />
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </OpenSearchContext.Provider>
   );
 }

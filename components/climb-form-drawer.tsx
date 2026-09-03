@@ -26,20 +26,18 @@ export function ClimbFormDrawer({ areaId, climb, state }: ClimbFormDrawerProps) 
   }
 
   return (
-    <Drawer.Root state={state}>
-      <Drawer.Backdrop>
-        <Drawer.Content>
-          <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
-            <Drawer.Header>
-              <Drawer.Heading>{climb ? "Edit climb" : "Add climb"}</Drawer.Heading>
-              <Drawer.CloseTrigger />
-            </Drawer.Header>
-            <Drawer.Body>
-              <ClimbForm areaId={areaId} climb={climb} onDone={handleDone} />
-            </Drawer.Body>
-          </Drawer.Dialog>
-        </Drawer.Content>
-      </Drawer.Backdrop>
-    </Drawer.Root>
+    <Drawer.Backdrop isOpen={state.isOpen} onOpenChange={state.setOpen}>
+      <Drawer.Content>
+        <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
+          <Drawer.Header>
+            <Drawer.Heading>{climb ? "Edit climb" : "Add climb"}</Drawer.Heading>
+            <Drawer.CloseTrigger />
+          </Drawer.Header>
+          <Drawer.Body>
+            <ClimbForm areaId={areaId} climb={climb} onDone={handleDone} />
+          </Drawer.Body>
+        </Drawer.Dialog>
+      </Drawer.Content>
+    </Drawer.Backdrop>
   );
 }

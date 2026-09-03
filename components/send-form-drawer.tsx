@@ -28,28 +28,26 @@ type SendFormDrawerProps = {
  * existingSend is passed. Without a `climb`, a search step comes first. */
 export function SendFormDrawer({ climb, existingSend, sentClimbIds, state }: SendFormDrawerProps) {
   return (
-    <Drawer.Root state={state}>
-      <Drawer.Backdrop>
-        <Drawer.Content>
-          <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
-            <Drawer.Header>
-              <Drawer.Heading>{existingSend ? "Edit send" : "Log send"}</Drawer.Heading>
-              <Drawer.CloseTrigger />
-            </Drawer.Header>
-            <Drawer.Body>
-              {climb ? (
-                <SendForm climb={climb} existingSend={existingSend} onDone={state.close} />
-              ) : (
-                // No key needed to reset the picked climb between openings:
-                // Drawer.Backdrop is a react-aria ModalOverlay, which renders
-                // nothing while closed, so everything below unmounts with it.
-                <PickThenLogSend sentClimbIds={sentClimbIds} onDone={state.close} />
-              )}
-            </Drawer.Body>
-          </Drawer.Dialog>
-        </Drawer.Content>
-      </Drawer.Backdrop>
-    </Drawer.Root>
+    <Drawer.Backdrop isOpen={state.isOpen} onOpenChange={state.setOpen}>
+      <Drawer.Content>
+        <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
+          <Drawer.Header>
+            <Drawer.Heading>{existingSend ? "Edit send" : "Log send"}</Drawer.Heading>
+            <Drawer.CloseTrigger />
+          </Drawer.Header>
+          <Drawer.Body>
+            {climb ? (
+              <SendForm climb={climb} existingSend={existingSend} onDone={state.close} />
+            ) : (
+              // No key needed to reset the picked climb between openings:
+              // Drawer.Backdrop is a react-aria ModalOverlay, which renders
+              // nothing while closed, so everything below unmounts with it.
+              <PickThenLogSend sentClimbIds={sentClimbIds} onDone={state.close} />
+            )}
+          </Drawer.Body>
+        </Drawer.Dialog>
+      </Drawer.Content>
+    </Drawer.Backdrop>
   );
 }
 
