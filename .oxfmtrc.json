@@ -25,6 +25,7 @@
     ".claude/**",
     "drizzle/migrations/**",
     "worker-configuration.d.ts",
-    "next-env.d.ts"
+    "next-env.d.ts",
+    "pnpm-lock.yaml"
   ]
 }
