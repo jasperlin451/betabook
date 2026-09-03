@@ -24,6 +24,7 @@
     "db:snapshot": "node --disable-warning=ExperimentalWarning scripts/db-snapshot.ts save",
     "db:restore": "node --disable-warning=ExperimentalWarning scripts/db-snapshot.ts restore",
     "test": "vitest run",
+    "seed:climbs": "node --disable-warning=ExperimentalWarning scripts/seed-climbs.ts",
     "seed:user": "node scripts/seed-dev-user.ts",
     "setup": "node scripts/setup.ts",
     "prepare": "husky"
@@ -49,6 +50,7 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.21.3",
     "@cloudflare/workers-types": "^5.20260817.1",
+    "@faker-js/faker": "^10.6.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.3",
     "@types/papaparse": "^5.5.2",

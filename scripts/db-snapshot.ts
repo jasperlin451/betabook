@@ -6,23 +6,13 @@
  *   pnpm db:restore --force    # overwrite a DB that already has rows
  */
 import { execFileSync } from "node:child_process";
-import {
-  constants,
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  rmSync,
-  statSync,
-} from "node:fs";
+import { constants, copyFileSync, existsSync, mkdirSync, rmSync, statSync } from "node:fs";
 import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-// Miniflare hashes the wrangler.jsonc binding for this name, so it is the same
-// in every checkout — which is what lets a plain file copy stand in for wrangler.
-const D1_DIR = path.join(".wrangler", "state", "v3", "d1", "miniflare-D1DatabaseObject");
+import { D1_DIR, findLocalDb } from "./d1-local.ts";
 
 const SNAPSHOT_DIR =
   // oxlint-disable-next-line node/no-process-env
@@ -54,14 +44,6 @@ try {
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
-}
-
-/** The data file, as opposed to miniflare's own `metadata.sqlite`. */
-function findLocalDb(): string | undefined {
-  if (!existsSync(D1_DIR)) return undefined;
-  return readdirSync(D1_DIR).find(
-    (name) => name.endsWith(".sqlite") && !name.startsWith("metadata"),
-  );
 }
 
 /**

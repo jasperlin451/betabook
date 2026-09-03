@@ -74,7 +74,17 @@ against the main checkout.
 
 ### Database snapshots
 
-Migrations are fast; the seed data is the slow part. Move it as a file:
+`pnpm seed:climbs` fills an empty database with synthetic areas and climbs —
+400 and 5,000 by default, in under a second, and deterministic for a given
+`--seed`, so two checkouts asked for the same numbers hold the same rows:
+
+```bash
+pnpm seed:climbs --areas 50 --climbs 500
+pnpm seed:climbs --force            # replace what is already there
+```
+
+That is what `pnpm setup` falls back to when no snapshot exists. If you do have
+a database worth keeping, moving it as a file is faster than regenerating:
 
 ```bash
 pnpm db:snapshot       # save this database to ~/.cache/betabook
