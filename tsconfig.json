@@ -20,7 +20,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    // `pnpm seed:user` runs scripts/*.ts through node's type stripping, which
+    // `pnpm seed` runs scripts/*.ts through node's type stripping, which
     // can only erase syntax (no enums, namespaces, parameter properties).
     "erasableSyntaxOnly": true,
     "noImplicitOverride": true,

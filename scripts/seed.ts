@@ -1,15 +1,21 @@
+import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
 /**
- * Fills the local database with synthetic areas, climbs, climbers and ticks.
+ * Fills the local database with a sign-in account and synthetic areas, climbs,
+ * climbers and ticks.
  *
- *   pnpm seed:climbs                        # 400 areas, 5000 climbs, 50 climbers
- *   pnpm seed:climbs --areas 50 --climbs 500 --users 3
- *   pnpm seed:climbs --seed 7               # a different, still repeatable set
- *   pnpm seed:climbs --force                # replace what is already there
+ *   pnpm seed                               # dev@example.com + 400 areas, 5000 climbs, 50 climbers
+ *   pnpm seed --areas 50 --climbs 500 --users 3
+ *   pnpm seed --email me@example.com --password hunter2 --name Jasper
+ *   pnpm seed --seed 7                      # a different, still repeatable set
+ *   pnpm seed --force                       # regenerate climbs that already exist
  *
- * Synthetic climbers sign in with the password `password`, and any user already
- * in the database (the one `pnpm seed:user` makes) gets ticks too.
+ * Everyone signs in with `password` unless --password says otherwise.
+ *
+ * The account is upserted on every run, keeping its id — and so its ticks — so
+ * this doubles as a password reset. Climbs are only generated when there are
+ * none, or with --force, so re-running is safe.
  *
  * Deterministic for a given --seed, so two checkouts asked for the same numbers
  * hold the same rows and a bug reproduces off the same ids.
@@ -24,12 +30,16 @@ import { requireLocalDb } from "./d1-local.ts";
 // bare `node scripts/…` does not resolve.
 const MAX_GRADE = { boulder: 18, sport: 33, trad: 33 } as const;
 const TYPES = ["boulder", "sport", "trad"] as const;
-const SYNTHETIC_PASSWORD = "password";
+const DEFAULT_PASSWORD = "password";
 
 type ClimbType = (typeof TYPES)[number];
 type Climb = { id: number; type: ClimbType; grade: number | null };
 
 const args = process.argv.slice(2);
+const text = (name: string, fallback: string) => {
+  const at = args.indexOf(`--${name}`);
+  return at === -1 ? fallback : (args[at + 1] ?? fallback);
+};
 const flag = (name: string, fallback: number) => {
   const at = args.indexOf(`--${name}`);
   if (at === -1) return fallback;
@@ -61,35 +71,57 @@ async function main() {
   const userCount = flag("users", 50);
   faker.seed(flag("seed", 1));
 
-  // scrypt is deliberately slow, so hash the shared password once rather than
-  // once per synthetic climber.
-  const passwordHash = await hashPassword(SYNTHETIC_PASSWORD);
+  // better-auth lowercases the email before looking it up, but `user.email` is
+  // unique under SQLite's default case-sensitive collation, so a row stored
+  // with capitals could never be signed into.
+  const email = text("email", "dev@example.com").trim().toLowerCase();
+  const password = text("password", DEFAULT_PASSWORD);
+  const name = text("name", "Dev User");
+
+  // Both are enforced at sign-in, where failing them is an opaque 401 rather
+  // than an error pointing back here. `dev@localhost` is the easy mistake:
+  // better-auth's validator wants a TLD.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error(`Not a valid email address: ${email}`);
+  }
+  if (password.length < 8) {
+    throw new Error("--password must be at least 8 characters (better-auth's minimum).");
+  }
+
+  // scrypt is deliberately slow, so hash once and share it across every account.
+  const passwordHash = await hashPassword(password);
 
   const db = new DatabaseSync(requireLocalDb());
   let open = false;
   try {
     db.exec("pragma foreign_keys = on");
 
-    const existing = db.prepare("select count(*) c from climbs").get() as { c: number };
-    if (existing.c > 0 && !args.includes("--force")) {
-      throw new Error(`Database already holds ${existing.c} climbs. Pass --force to replace them.`);
-    }
+    const existing = (db.prepare("select count(*) c from climbs").get() as { c: number }).c;
+    const regenerate = existing === 0 || args.includes("--force");
 
     db.exec("begin");
     open = true;
-    if (existing.c > 0) clear(db);
-    const areaIds = insertAreas(db, areaCount);
-    const climbs = insertClimbs(db, climbCount, areaIds);
-    const userIds = insertUsers(db, userCount, passwordHash);
-    const sendCount = insertSends(db, userIds, climbs);
+
+    upsertAccount(db, { email, name, passwordHash });
+
+    if (regenerate) {
+      if (existing > 0) clear(db);
+      const areaIds = insertAreas(db, areaCount);
+      const climbs = insertClimbs(db, climbCount, areaIds);
+      const userIds = insertUsers(db, userCount, passwordHash);
+      const sendCount = insertSends(db, userIds, climbs);
+      console.log(
+        `Seeded ${areaCount.toLocaleString()} areas, ${climbCount.toLocaleString()} climbs, ` +
+          `${userIds.length} climbers and ${sendCount.toLocaleString()} ticks.`,
+      );
+    } else {
+      console.log(`Left ${existing.toLocaleString()} existing climbs alone (--force regenerates).`);
+    }
+
     db.exec("commit");
     open = false;
 
-    console.log(
-      `Seeded ${areaCount.toLocaleString()} areas, ${climbCount.toLocaleString()} climbs, ` +
-        `${userIds.length} climbers and ${sendCount.toLocaleString()} ticks.`,
-    );
-    console.log(`Synthetic climbers sign in with the password \`${SYNTHETIC_PASSWORD}\`.`);
+    console.log(`Sign in as ${email} with \`${password}\` at http://localhost:3000/sign-in`);
     console.log("Restart `pnpm dev`: it holds its D1 handle open.");
   } catch (error) {
     // Rolling back when nothing began throws over the error worth reading.
@@ -98,6 +130,41 @@ async function main() {
   } finally {
     db.close();
   }
+}
+
+/**
+ * Derived from the email, not faker: faker is seeded, so it hands out the same
+ * uuid on every run and a second account would collide on user.id.
+ */
+function idFor(value: string): string {
+  const h = createHash("sha256").update(value).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+}
+
+/**
+ * Idempotent on email: a re-run rotates the password and name but keeps the
+ * user id, and so their ticks.
+ */
+function upsertAccount(
+  db: DatabaseSync,
+  { email, name, passwordHash }: { email: string; name: string; passwordHash: string },
+) {
+  db.prepare(
+    "insert into user (id, name, email, email_verified) values (?, ?, ?, 1)" +
+      " on conflict (email) do update set name = excluded.name, email_verified = 1," +
+      " updated_at = cast(unixepoch('subsecond') * 1000 as integer)",
+  ).run(idFor(email), name, email);
+
+  const id = (db.prepare("select id from user where email = ?").get(email) as { id: string }).id;
+  db.prepare(
+    "insert into account (id, account_id, provider_id, user_id, password, updated_at)" +
+      " select ?, ?, 'credential', ?, ?, cast(unixepoch('subsecond') * 1000 as integer)" +
+      " where not exists (select 1 from account where user_id = ? and provider_id = 'credential')",
+  ).run(idFor(`${email}:credential`), id, id, passwordHash, id);
+  db.prepare(
+    "update account set password = ?, updated_at = cast(unixepoch('subsecond') * 1000 as integer)" +
+      " where provider_id = 'credential' and user_id = ?",
+  ).run(passwordHash, id);
 }
 
 /**
@@ -185,8 +252,8 @@ function insertUsers(db: DatabaseSync, count: number, passwordHash: string): str
       " values (?, ?, 'credential', ?, ?, cast(unixepoch('subsecond') * 1000 as integer))",
   );
 
-  // Anyone already here — `pnpm seed:user`'s dev@example.com — should get ticks
-  // too, so their profile is not the one empty page in the app.
+  // Anyone already here — the account upserted above — should get ticks too, so
+  // their profile is not the one empty page in the app.
   const existing = (db.prepare("select id from user").all() as { id: string }[]).map((r) => r.id);
 
   for (let i = 0; i < count; i += 1) {

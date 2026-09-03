@@ -12,8 +12,7 @@ pnpm setup             # .dev.vars, local database, dev user — idempotent
 ```bash
 cp .dev.vars.example .dev.vars
 pnpm db:migrate:local
-pnpm seed:user
-pnpm seed:climbs
+pnpm seed
 pnpm cf-typegen        # optional: audit the full generated Workers type surface
 ```
 
@@ -42,8 +41,8 @@ Anonymous browsing needs no setup. To exercise the signed-in surfaces
 (`/account`, logging sends, imports), seed a pre-verified user:
 
 ```bash
-pnpm seed:user                                  # dev@example.com / password
-pnpm seed:user me@example.com hunter2 Jasper    # or pick your own
+pnpm seed                                              # dev@example.com / password
+pnpm seed --email me@example.com --password hunter2x   # or pick your own
 ```
 
 Then sign in at [/sign-in](http://localhost:3000/sign-in). Re-running against
@@ -75,27 +74,26 @@ against the main checkout.
 
 ### Sample data
 
-`pnpm seed:climbs` fills an empty database with synthetic areas, climbs,
+`pnpm seed` fills an empty database with a sign-in account plus synthetic areas, climbs,
 climbers and ticks — 400 areas, 5,000 climbs, 50 climbers and ~16,000 ticks by
 default, in about a second, and deterministic for a given `--seed`, so two
 checkouts asked for the same numbers hold the same rows:
 
 ```bash
-pnpm seed:climbs --areas 50 --climbs 500 --users 3
-pnpm seed:climbs --force            # replace what is already there
+pnpm seed --areas 50 --climbs 500 --users 3
+pnpm seed --force                   # regenerate climbs that already exist
 ```
 
 Synthetic climbers are `climber1@example.com` upward, verified, and sign in
 with the password `password`, and tick counts are long-tailed so profiles
-differ. Any user already in the database — the one `pnpm seed:user` makes —
-gets ticks too. Ticks land through the real aggregate triggers, so send counts
+differ. The account it upserts gets ticks too. Ticks land through the real aggregate triggers, so send counts
 and ratings are populated the way the app populates them.
 
 Scale it up when you need realistic volume — 141,000 climbs takes about ten
 seconds:
 
 ```bash
-pnpm seed:climbs --areas 10237 --climbs 141187 --force
+pnpm seed --areas 10237 --climbs 141187 --force
 ```
 
 Restart `pnpm dev` afterwards; it holds its D1 handle open.

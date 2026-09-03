@@ -6,23 +6,13 @@
  */
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
 
-import { findLocalDb, requireLocalDb } from "./d1-local.ts";
+import { findLocalDb } from "./d1-local.ts";
 
 const run = (script: string, args: string[] = []) =>
   execFileSync("pnpm", ["run", script, ...args], { stdio: "inherit" });
 
 const hasLocalDb = () => findLocalDb() !== undefined;
-
-function climbCount(): number {
-  const db = new DatabaseSync(requireLocalDb(), { readOnly: true });
-  try {
-    return (db.prepare("select count(*) c from climbs").get() as { c: number }).c;
-  } finally {
-    db.close();
-  }
-}
 
 /** Each returns false when there was nothing to do. */
 const steps: [name: string, body: () => boolean][] = [
@@ -44,20 +34,11 @@ const steps: [name: string, body: () => boolean][] = [
       return true;
     },
   ],
-  // Always runs: re-seeding rotates the password but keeps the user id.
-  [
-    "dev user",
-    () => {
-      run("seed:user");
-      return true;
-    },
-  ],
-  // After the dev user, so the ticks it generates cover that account too.
+  // Always runs: it upserts the account and leaves existing climbs alone.
   [
     "sample data",
     () => {
-      if (climbCount() > 0) return false;
-      run("seed:climbs");
+      run("seed");
       return true;
     },
   ],
