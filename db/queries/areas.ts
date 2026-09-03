@@ -21,20 +21,20 @@ export async function countAreas(db: Database): Promise<number> {
   return row?.count ?? 0;
 }
 
-/** One page of area ids in id order — a sitemap shard. */
-export async function getAreaIdsPage(
+/** One page of area id + name rows in id order — a sitemap shard. The name
+ * builds the URL slug. */
+export async function getAreaSitemapRows(
   db: Database,
   limit: number,
   offset: number,
-): Promise<number[]> {
-  const rows = await db
-    .select({ id: areas.id })
+): Promise<{ id: number; name: string }[]> {
+  return db
+    .select({ id: areas.id, name: areas.name })
     .from(areas)
     .orderBy(areas.id)
     .limit(limit)
     .offset(offset)
     .all();
-  return rows.map((row) => row.id);
 }
 
 /** The area a subarea-scoped climb list should actually query: the given

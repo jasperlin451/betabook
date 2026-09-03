@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
 
 import { AreaClimbsSection } from "@/components/area-climbs-section";
@@ -37,9 +37,13 @@ import { buildGradeHistogram } from "@/lib/grade-histogram";
 import type { SearchParamsRecord } from "@/lib/search-params";
 import { areaDescription, areaJsonLd, areaTitle, locationTrail, pageMetadata } from "@/lib/seo";
 import { getSession } from "@/lib/session";
+import { areaHref, slugify, withQuery } from "@/lib/slug";
 
 type AreaPageProps = {
-  params: Promise<{ id: string }>;
+  // Optional catch-all: `slug` is undefined for /areas/:id and a segment
+  // array otherwise. The id is authoritative; the redirect normalizes the
+  // slug (query string preserved).
+  params: Promise<{ id: string; slug?: string[] }>;
   searchParams: Promise<SearchParamsRecord>;
 };
 
@@ -57,25 +61,37 @@ const getAreaById = cache(async (id: number) => {
 // walk it once between them.
 const getAreaAncestors = cache(async (area: Area) => getAncestors(await getDb(), area));
 
-export async function generateMetadata({ params }: AreaPageProps): Promise<Metadata> {
-  const { id } = await params;
+export async function generateMetadata({ params, searchParams }: AreaPageProps): Promise<Metadata> {
+  const [{ id, slug }, search] = await Promise.all([params, searchParams]);
   const areaId = Number(id);
   if (!Number.isInteger(areaId)) notFound();
 
   const area = await getAreaById(areaId);
   if (!area) notFound();
+
+  // Normalize any other spelling of the URL to the canonical id + slug,
+  // keeping the query string so a shared "?grade=..." link still lands
+  // filtered. Done in generateMetadata so it runs before the page's data
+  // fetches. On this streamed Workers deployment this is a
+  // `<meta http-equiv="refresh" content="0;url=...">`, which Google treats
+  // as a permanent redirect (and rel=canonical agrees); see the climb page
+  // for why a real 308 would need middleware.
+  if ((slug?.join("/") ?? "") !== slugify(area.name)) {
+    permanentRedirect(withQuery(areaHref(area.id, area.name), search));
+  }
+
   const ancestors = await getAreaAncestors(area);
 
   const trail = locationTrail(ancestors.map((a) => a.name));
   return pageMetadata({
     title: areaTitle(area.name, ancestors.at(-1)?.name ?? null),
     description: areaDescription(area.name, trail),
-    path: `/areas/${area.id}`,
+    path: areaHref(area.id, area.name),
   });
 }
 
 export default async function AreaPage({ params, searchParams }: AreaPageProps) {
-  const [{ id }, search] = await Promise.all([params, searchParams]);
+  const [{ id, slug }, search] = await Promise.all([params, searchParams]);
   const areaId = Number(id);
 
   if (!Number.isInteger(areaId)) notFound();
@@ -85,6 +101,10 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   const db = await getDb();
   const [area, session] = await Promise.all([getAreaById(areaId), getSession()]);
   if (!area) notFound();
+
+  if ((slug?.join("/") ?? "") !== slugify(area.name)) {
+    permanentRedirect(withQuery(areaHref(area.id, area.name), search));
+  }
 
   const sort = parseAreaClimbsSort(search);
   const filter = parseAreaClimbsFilter(search);
@@ -111,11 +131,11 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   const canDeleteArea = subareas.length === 0 && !hasClimbs;
   const histogram = buildGradeHistogram(histogramRows);
 
-  const areaPath = `/areas/${area.id}`;
+  const areaPath = areaHref(area.id, area.name);
   const ancestorNames = ancestors.map((a) => a.name);
   const areaCrumbs = [
     { name: "Home", path: "/" },
-    ...ancestors.map((a) => ({ name: a.name, path: `/areas/${a.id}` })),
+    ...ancestors.map((a) => ({ name: a.name, path: areaHref(a.id, a.name) })),
     { name: area.name, path: areaPath },
   ];
 
@@ -154,6 +174,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
 
       <AreaCragHeader
         area={area}
+        areaPath={areaPath}
         histogram={histogram}
         isEditor={session != null}
         filter={filter}
@@ -167,7 +188,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
           const climbsBlock = (
             <div className="flex flex-col gap-3">
               <SectionHeading>Climbs</SectionHeading>
-              <AreaClimbsToolbar areaId={area.id} sort={sort} filter={filter} />
+              <AreaClimbsToolbar areaId={area.id} areaPath={areaPath} sort={sort} filter={filter} />
               <AreaClimbsSection
                 // Remounts with fresh initial* state on a sort/filter change,
                 // rather than syncing local "load more" state to changed props

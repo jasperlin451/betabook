@@ -28,6 +28,7 @@ import {
   type AreaSuggestion,
   type RouteSuggestion,
 } from "@/lib/search-suggestions";
+import { areaHref, climbHref } from "@/lib/slug";
 
 type PaletteEntry = {
   key: string;
@@ -71,7 +72,7 @@ function SearchAllRow({
 function routeEntry(route: RouteSuggestion): PaletteEntry {
   return {
     key: `route-${route.id}`,
-    href: `/climbs/${route.id}`,
+    href: climbHref(route.id, route.name),
     text: route.name,
     content: <RouteSuggestionRow route={route} />,
   };
@@ -80,7 +81,7 @@ function routeEntry(route: RouteSuggestion): PaletteEntry {
 function areaEntry(area: AreaSuggestion): PaletteEntry {
   return {
     key: `area-${area.id}`,
-    href: `/areas/${area.id}`,
+    href: areaHref(area.id, area.name),
     text: area.name,
     content: <AreaSuggestionRow area={area} />,
   };

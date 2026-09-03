@@ -3,9 +3,17 @@
 import { useRouter } from "next/navigation";
 
 import { AreaForm } from "@/components/area-form";
+import { areaHref } from "@/lib/slug";
 
 export function NewAreaForm() {
   const router = useRouter();
 
-  return <AreaForm parentId={null} onDone={(areaId) => router.push(`/areas/${areaId}`)} />;
+  return (
+    <AreaForm
+      parentId={null}
+      onDone={(areaId, areaName) =>
+        router.push(areaName ? areaHref(areaId, areaName) : `/areas/${areaId}`)
+      }
+    />
+  );
 }

@@ -10,6 +10,7 @@ import { LoadMoreButton } from "@/components/ui/load-more-button";
 import type { AreaBreadcrumbs, RecentSendRow } from "@/db/queries";
 import { usePagedList } from "@/hooks/use-paged-list";
 import { formatDate } from "@/lib/format-date";
+import { climbHref } from "@/lib/slug";
 
 type FeedPageResponse = {
   sends: RecentSendRow[];
@@ -65,7 +66,7 @@ export function RecentSendsFeed({
           <ListRow
             key={send.id}
             title={send.climbName}
-            href={`/climbs/${send.climbId}`}
+            href={climbHref(send.climbId, send.climbName)}
             subtitle={
               <AreaBreadcrumb
                 areaId={send.areaId}

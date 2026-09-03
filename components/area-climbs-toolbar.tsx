@@ -16,22 +16,26 @@ import {
 } from "@/lib/area-climbs-filter";
 
 function buildClimbsHref(
-  areaId: number,
+  areaPath: string,
   sort: SubtreeClimbsSort,
   filter: AreaClimbsFilter,
 ): string {
-  return `/areas/${areaId}?${areaClimbsFilterToSearchParams(sort, filter).toString()}`;
+  return `${areaPath}?${areaClimbsFilterToSearchParams(sort, filter).toString()}`;
 }
 
 /** The area page's climb-table filters, in the shared one-row toolbar. No
  * area field: the page already scopes to a crag, and route suggestions are
- * scoped to its subtree for the same reason. */
+ * scoped to its subtree for the same reason. `areaPath` is the canonical
+ * id + slug URL so filter navigation never bounces through a redirect;
+ * `areaId` scopes the route-name suggestions to this subtree. */
 export function AreaClimbsToolbar({
   areaId,
+  areaPath,
   sort,
   filter,
 }: {
   areaId: number;
+  areaPath: string;
   sort: SubtreeClimbsSort;
   filter: AreaClimbsFilter;
 }) {
@@ -57,7 +61,7 @@ export function AreaClimbsToolbar({
     sort,
     defaultSort: DEFAULT_AREA_CLIMBS_SORT,
     buildHref: (value, name, _areaName, effectiveSort = sort) =>
-      buildClimbsHref(areaId, effectiveSort, { ...value, name }),
+      buildClimbsHref(areaPath, effectiveSort, { ...value, name }),
   });
 
   return (
@@ -79,7 +83,7 @@ export function AreaClimbsToolbar({
         <ClimbListSortControl
           sort={sort}
           onNavigate={(nextSort) =>
-            router.replace(buildClimbsHref(areaId, nextSort, filter), { scroll: false })
+            router.replace(buildClimbsHref(areaPath, nextSort, filter), { scroll: false })
           }
         />
       }

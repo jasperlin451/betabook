@@ -14,7 +14,7 @@ import { OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/site";
 export function pageMetadata(opts: {
   title: string;
   description: string;
-  /** Site-relative, e.g. `/climbs/42` — resolved against `metadataBase`. */
+  /** Site-relative, e.g. `/climbs/42/the-name` — resolved against `metadataBase`. */
   path: string;
   ogType?: "website" | "article";
 }): Metadata {

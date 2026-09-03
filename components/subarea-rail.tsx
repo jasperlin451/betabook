@@ -1,4 +1,5 @@
 import { AppLink } from "@/components/ui/app-link";
+import { areaHref } from "@/lib/slug";
 
 /** The sub-area index beside the climb table: a plain navigation rail —
  * each row opens that sub-area's page. Sticky with its own scroll on
@@ -13,7 +14,7 @@ export function SubareaRail({ subareas }: { subareas: { id: number; name: string
         {subareas.map((subarea) => (
           <li key={subarea.id}>
             <AppLink
-              href={`/areas/${subarea.id}`}
+              href={areaHref(subarea.id, subarea.name)}
               className="block min-w-0 truncate rounded-md px-2 py-1.5 text-sm text-foreground no-underline transition-colors hover:bg-surface-secondary/60"
             >
               {subarea.name}

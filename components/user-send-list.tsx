@@ -24,6 +24,7 @@ import { usePagedList } from "@/hooks/use-paged-list";
 import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
 import { formatDate } from "@/lib/format-date";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
+import { climbHref } from "@/lib/slug";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 
 /** Ascent-style checkboxes for the user sends filter — same structure as
@@ -311,7 +312,7 @@ export function UserSendList({
           renderRow={(send) => (
             <ListRow
               title={send.climbName}
-              href={`/climbs/${send.climbId}`}
+              href={climbHref(send.climbId, send.climbName)}
               subtitle={
                 <AreaBreadcrumb
                   areaId={send.areaId}

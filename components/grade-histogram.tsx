@@ -97,12 +97,12 @@ function BucketColumn({
 }
 
 function DisciplineChart({
-  areaId,
+  areaPath,
   group,
   delayBase,
   currentFilterQuery,
 }: {
-  areaId: number;
+  areaPath: string;
   group: DisciplineHistogram;
   delayBase: number;
   /** Canonical serialization of the page's active filter (sort pinned) —
@@ -145,7 +145,7 @@ function DisciplineChart({
           return bucket.count > 0 ? (
             <AppLink
               key={bucket.label}
-              href={active ? `/areas/${areaId}` : `/areas/${areaId}?${query}`}
+              href={active ? areaPath : `${areaPath}?${query}`}
               aria-label={
                 active
                   ? `Clear the ${bucket.label} ${DISCIPLINE_LABELS[group.type]} filter`
@@ -179,11 +179,11 @@ function DisciplineChart({
  * Server-rendered; no chart library. */
 export function GradeHistogramChart({
   histogram,
-  areaId,
+  areaPath,
   filter = DEFAULT_AREA_CLIMBS_FILTER,
 }: {
   histogram: GradeHistogram;
-  areaId: number;
+  areaPath: string;
   /** The page's currently applied climb filter, so an already-applied
    * bucket renders selected and its click clears the filter. */
   filter?: AreaClimbsFilter;
@@ -206,7 +206,7 @@ export function GradeHistogramChart({
       {histogram.groups.map((group, i) => (
         <DisciplineChart
           key={group.type}
-          areaId={areaId}
+          areaPath={areaPath}
           group={group}
           delayBase={delayBases[i]}
           currentFilterQuery={currentFilterQuery}
