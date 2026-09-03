@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { SignUpForm } from "@/components/sign-up-form";
+import { isGoogleOAuthEnabled } from "@/lib/auth";
 import { getSession } from "@/lib/session";
 import { safeNextPath } from "@/lib/sign-in-redirect";
 
@@ -21,5 +22,6 @@ export default async function SignUpPage({
   if (session) {
     redirect(nextPath ?? `/users/${session.user.id}`);
   }
-  return <SignUpForm next={nextPath} />;
+  const googleEnabled = await isGoogleOAuthEnabled();
+  return <SignUpForm next={nextPath} googleEnabled={googleEnabled} />;
 }

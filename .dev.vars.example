@@ -13,3 +13,10 @@ BETTER_AUTH_SECRET=local-development-only-secret-not-for-production
 # Empty means "no Resend" to lib/email.ts, which then logs verification and
 # reset links to the console. Keep this key aligned with cloudflare-env.d.ts.
 RESEND_API_KEY=
+
+# Google OAuth (optional for local dev, https://console.cloud.google.com/apis/credentials)
+# Authorized redirect URIs:
+#   http://localhost:3000/api/auth/callback/google (dev)
+#   https://betabook.ca/api/auth/callback/google   (production)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=

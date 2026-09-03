@@ -85,4 +85,21 @@ describe("sendWelcomeEmailOnce", () => {
 
     expect(await stampFor(account.id)).toBeInstanceOf(Date);
   });
+
+  it("welcomes an OAuth user registered with a profile image and verified email", async () => {
+    const account = await seedFixtureUser(db, {
+      id: "welcome-oauth",
+      name: "Google Climber",
+      image: "https://lh3.googleusercontent.com/a/avatar",
+      emailVerified: true,
+    });
+
+    const userRow = await db.select().from(user).where(eq(user.id, account.id)).get();
+    expect(userRow?.image).toBe("https://lh3.googleusercontent.com/a/avatar");
+
+    await sendWelcomeEmailOnce(db, account);
+
+    expect(sendWelcomeEmail).toHaveBeenCalledExactlyOnceWith(account.email, "Google Climber");
+    expect(await stampFor(account.id)).toBeInstanceOf(Date);
+  });
 });

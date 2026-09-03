@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { safeNextPath, signInUrl, signUpUrl } from "./sign-in-redirect";
+import { formatAuthErrorMessage, safeNextPath, signInUrl, signUpUrl } from "./sign-in-redirect";
 
 describe("safeNextPath", () => {
   it("accepts same-origin relative paths", () => {
@@ -51,5 +51,36 @@ describe("signInUrl / signUpUrl", () => {
     expect(signInUrl("/areas/12?sort=grade&dir=desc")).toBe(
       "/sign-in?next=%2Fareas%2F12%3Fsort%3Dgrade%26dir%3Ddesc",
     );
+  });
+});
+
+describe("formatAuthErrorMessage", () => {
+  it("formats access_denied to a user cancellation message", () => {
+    expect(formatAuthErrorMessage("access_denied")).toBe("Google sign-in was cancelled.");
+    expect(formatAuthErrorMessage("ACCESS_DENIED")).toBe("Google sign-in was cancelled.");
+  });
+
+  it("formats account linking errors", () => {
+    expect(formatAuthErrorMessage("account_not_linked")).toBe(
+      "Unable to link your Google account. An unverified account with this email already exists. Please verify your email first or sign in with your password.",
+    );
+    expect(formatAuthErrorMessage("unable_to_link_account")).toBe(
+      "Unable to link your Google account. An unverified account with this email already exists. Please verify your email first or sign in with your password.",
+    );
+    expect(formatAuthErrorMessage("email_doesn't_match")).toBe(
+      "The Google account email does not match your existing account email.",
+    );
+  });
+
+  it("falls back to generic message for unknown errors", () => {
+    expect(formatAuthErrorMessage("unknown_error")).toBe(
+      "Sign in with Google failed. Please try again or use your password.",
+    );
+  });
+
+  it("returns undefined for nullish or invalid values", () => {
+    expect(formatAuthErrorMessage(undefined)).toBeUndefined();
+    expect(formatAuthErrorMessage("")).toBeUndefined();
+    expect(formatAuthErrorMessage(["error1", "error2"])).toBeUndefined();
   });
 });

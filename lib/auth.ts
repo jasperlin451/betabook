@@ -54,6 +54,43 @@ async function authBuilder() {
         }
       },
     },
+    socialProviders:
+      env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+        ? {
+            google: {
+              clientId: env.GOOGLE_CLIENT_ID,
+              clientSecret: env.GOOGLE_CLIENT_SECRET,
+            },
+          }
+        : {},
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google"],
+      },
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (createdUser) => {
+            // OAuth users register with emailVerified: true immediately,
+            // bypassing emailVerification.afterEmailVerification. Send the welcome
+            // email once here; sendWelcomeEmailOnce guards idempotently via
+            // `welcome_email_sent_at IS NULL`.
+            if (createdUser.emailVerified) {
+              try {
+                await sendWelcomeEmailOnce(db, createdUser);
+              } catch (err) {
+                console.error("welcome email failed", err);
+              }
+            }
+          },
+        },
+      },
+    },
+    onAPIError: {
+      errorURL: "/sign-in",
+    },
     session: {
       // A month-long sliding window: every time the session is used and
       // updateAge is reached, expiresIn resets from that point. In practice
@@ -72,4 +109,9 @@ let authInstance: Awaited<ReturnType<typeof authBuilder>> | null = null;
 export async function initAuth() {
   if (!authInstance) authInstance = await authBuilder();
   return authInstance;
+}
+
+export async function isGoogleOAuthEnabled(): Promise<boolean> {
+  const { env } = await getCloudflareContext({ async: true });
+  return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
 }
