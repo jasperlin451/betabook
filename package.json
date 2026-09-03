@@ -27,7 +27,7 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "^1.6.30",
+    "@better-auth/drizzle-adapter": "^1.7.2",
     "@heroui/react": "3.2.4",
     "@heroui/styles": "3.2.4",
     "@opennextjs/cloudflare": "^1.20.2",
