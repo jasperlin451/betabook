@@ -38,7 +38,13 @@ export function SignInForm({ next }: { next?: string }) {
     void authClient.signIn.email(
       { email: attemptedEmail, password },
       {
-        onSuccess: () => router.push(nextPath ?? DEFAULT_SIGNED_IN_PATH),
+        onSuccess: (ctx) => {
+          const userDestination =
+            ctx.data && typeof ctx.data === "object" && "user" in ctx.data && ctx.data.user
+              ? `/users/${(ctx.data.user as { id: string }).id}`
+              : DEFAULT_SIGNED_IN_PATH;
+          router.push(nextPath ?? userDestination);
+        },
         onError: (ctx) => {
           if (ctx.error.status === 403) {
             setUnverifiedEmail(attemptedEmail);
