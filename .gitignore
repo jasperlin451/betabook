@@ -54,5 +54,5 @@ worker-configuration.d.ts
 # seed data
 climbs_data
 
-# local Claude Code session/config data
-.claude
+# Claude Code worktrees; the rest of .claude is shared config
+.claude/worktrees/
