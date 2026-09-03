@@ -1,0 +1,225 @@
+"use client";
+
+import { Button } from "@heroui/react";
+import { Download, MoreVertical, Mountain, Share, X } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { useMounted } from "@/hooks/use-mounted";
+import {
+  detectMobileBrowser,
+  detectMobilePlatform,
+  isMobileDevice,
+  isMobileHelperDismissed,
+  isStandaloneDisplay,
+  setMobileHelperDismissed,
+} from "@/lib/mobile-detection";
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+export const OPEN_MOBILE_HELPER_EVENT = "betabook:open-mobile-app-helper";
+
+/** Dispatches a global event to open the mobile app shortcut helper drawer/callout. */
+export function openMobileAppHelper(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(OPEN_MOBILE_HELPER_EVENT));
+}
+
+/**
+ * A floating helper callout rendered on mobile screens explaining how to create
+ * a Chrome (or Safari) app shortcut tailored directly to the detected OS (iOS or Android).
+ */
+export function MobileAppHelper() {
+  const mounted = useMounted();
+  const [isOpen, setIsOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    if (!mounted) return;
+
+    // Check if running already as a standalone shortcut or if user previously dismissed
+    const isStandalone = isStandaloneDisplay();
+    const isMobile = isMobileDevice();
+    const isDismissed = isMobileHelperDismissed();
+
+    // Show after a brief delay so the initial page paint settles
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    if (isMobile && !isStandalone && !isDismissed) {
+      timer = setTimeout(() => {
+        setIsOpen(true);
+      }, 1000);
+    }
+
+    // Capture Chrome's beforeinstallprompt for one-tap install
+    function handleBeforeInstallPrompt(event: Event) {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    }
+
+    // Allow opening via custom event (e.g. from MobileNav menu)
+    function handleOpenEvent() {
+      setIsOpen(true);
+    }
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener(OPEN_MOBILE_HELPER_EVENT, handleOpenEvent);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener(OPEN_MOBILE_HELPER_EVENT, handleOpenEvent);
+    };
+  }, [mounted]);
+
+  if (!mounted || !isOpen) {
+    return null;
+  }
+
+  const platform = detectMobilePlatform();
+  const detectedBrowser = detectMobileBrowser();
+  const isIOS = platform === "ios";
+
+  function handleDismiss() {
+    setMobileHelperDismissed(true);
+    setIsOpen(false);
+  }
+
+  async function handleNativeInstall() {
+    if (!installPrompt) return;
+    const promptEvent = installPrompt;
+    setInstallPrompt(null);
+    try {
+      await promptEvent.prompt();
+      const choice = await promptEvent.userChoice;
+      if (choice.outcome === "accepted") {
+        setMobileHelperDismissed(true);
+        setIsOpen(false);
+      }
+    } catch {
+      // Chrome prompt error fallback
+    }
+  }
+
+  return (
+    <aside
+      aria-label="Add Betabook to Home Screen"
+      className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-md rounded-2xl border border-border bg-surface-secondary p-4 shadow-2xl ring-1 ring-border/50 backdrop-blur-md sm:inset-x-auto sm:right-6 sm:bottom-6 sm:max-w-sm"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/15 text-accent">
+            <Mountain className="size-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Add to Home Screen</h3>
+            <p className="text-xs text-foreground/80">
+              {isIOS ? "Create an iOS app shortcut" : "Create an Android app shortcut"}
+            </p>
+          </div>
+        </div>
+        <Button
+          isIconOnly
+          variant="ghost"
+          size="sm"
+          aria-label="Dismiss shortcut helper"
+          className="size-7 shrink-0 text-muted hover:text-foreground"
+          onPress={handleDismiss}
+        >
+          <X className="size-4" />
+        </Button>
+      </div>
+
+      <div className="mt-3 rounded-xl border border-border/70 bg-surface-tertiary/70 p-3.5 text-xs leading-relaxed text-foreground">
+        {isIOS ? (
+          <div className="flex flex-col gap-2">
+            <p className="font-semibold text-foreground">
+              {detectedBrowser === "chrome"
+                ? "Add shortcut in Chrome for iOS:"
+                : "Add shortcut in Safari or Chrome for iOS:"}
+            </p>
+            <ol className="flex flex-col gap-2 pl-4 text-foreground/90">
+              <li className="list-decimal marker:font-semibold marker:text-accent">
+                Tap the <span className="font-semibold text-foreground">Share</span> button (
+                <Share className="inline size-3.5 align-text-bottom text-accent" />) in the address
+                bar or menu.
+              </li>
+              <li className="list-decimal marker:font-semibold marker:text-accent">
+                Scroll down and tap{" "}
+                <span className="font-semibold text-foreground">
+                  &quot;Add to Home Screen&quot;
+                </span>
+                .
+              </li>
+              <li className="list-decimal marker:font-semibold marker:text-accent">
+                Tap <span className="font-semibold text-foreground">Add</span> in the top-right
+                corner.
+              </li>
+            </ol>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="font-semibold text-foreground">Add shortcut in Chrome for Android:</p>
+            <ol className="flex flex-col gap-2 pl-4 text-foreground/90">
+              <li className="list-decimal marker:font-semibold marker:text-accent">
+                Tap the <span className="font-semibold text-foreground">menu</span> (
+                <MoreVertical className="inline size-3.5 align-text-bottom text-accent" />) in the
+                top-right corner of Chrome.
+              </li>
+              <li className="list-decimal marker:font-semibold marker:text-accent">
+                Tap{" "}
+                <span className="font-semibold text-foreground">
+                  &quot;Install and create shortcut&quot;
+                </span>{" "}
+                (or{" "}
+                <span className="font-semibold text-foreground">
+                  &quot;Add to Home screen&quot;
+                </span>
+                ).
+              </li>
+              <li className="list-decimal marker:font-semibold marker:text-accent">
+                Tap <span className="font-semibold text-foreground">Install</span> or{" "}
+                <span className="font-semibold text-foreground">Add</span> to place it on your home
+                screen.
+              </li>
+            </ol>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-end gap-2">
+        {installPrompt && !isIOS ? (
+          <>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="px-3.5 text-xs font-medium"
+              onPress={handleDismiss}
+            >
+              Dismiss
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              className="gap-1.5 px-4 text-xs font-semibold"
+              onPress={handleNativeInstall}
+            >
+              <Download className="size-4" />
+              Install and create shortcut
+            </Button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            variant="primary"
+            className="px-5 text-xs font-semibold"
+            onPress={handleDismiss}
+          >
+            Got it
+          </Button>
+        )}
+      </div>
+    </aside>
+  );
+}
