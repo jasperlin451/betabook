@@ -1,10 +1,12 @@
 import { ActionError } from "@/lib/action-result";
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
+import { MAX_LOG_NOTE_LENGTH } from "@/lib/log-note";
 import { parseGradeIndex, trimOrNull } from "@/lib/validation";
+
+export { MAX_LOG_NOTE_LENGTH as MAX_COMMENT_LENGTH } from "@/lib/log-note";
 
 export const ASCENT_STYLES = ["redpoint", "flash", "onsight"] as const;
 export type AscentStyle = (typeof ASCENT_STYLES)[number];
-export const MAX_COMMENT_LENGTH = 1000;
 
 export const IMPORT_BATCH_SIZE = 50;
 
@@ -129,8 +131,8 @@ export function validateSendInput(
   const dateSent = parseDateSent(raw.dateSent, today);
 
   const comment = trimOrNull(raw.comment);
-  if (comment && comment.length > MAX_COMMENT_LENGTH) {
-    throw new ActionError(`Comment must be ${MAX_COMMENT_LENGTH} characters or fewer`);
+  if (comment && comment.length > MAX_LOG_NOTE_LENGTH) {
+    throw new ActionError(`Comment must be ${MAX_LOG_NOTE_LENGTH} characters or fewer`);
   }
 
   // A form field arrives as a string, so coerce before the shared rule.
@@ -196,7 +198,7 @@ export function validateImportSendValues(
   return {
     ascentStyle: parseAscentStyle(row.ascentStyle),
     dateSent: parseDateSent(row.dateSent, today),
-    comment: comment ? comment.slice(0, MAX_COMMENT_LENGTH) : null,
+    comment: comment ? comment.slice(0, MAX_LOG_NOTE_LENGTH) : null,
     rating: isRating(row.rating) ? row.rating : null,
     gradeFeel: parseGradeFeel(row.gradeFeel),
   };

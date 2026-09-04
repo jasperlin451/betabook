@@ -1,6 +1,9 @@
 import { ActionError } from "@/lib/action-result";
+import { MAX_LOG_NOTE_LENGTH } from "@/lib/log-note";
 import { isRealIsoDate, latestAcceptableSendDate } from "@/lib/sends";
 import { trimOrNull } from "@/lib/validation";
+
+export { MAX_LOG_NOTE_LENGTH as MAX_JOURNAL_BODY_LENGTH } from "@/lib/log-note";
 
 export const JOURNAL_KINDS = ["session", "training"] as const;
 export type JournalKind = (typeof JOURNAL_KINDS)[number];
@@ -8,7 +11,6 @@ export type JournalKind = (typeof JOURNAL_KINDS)[number];
 export const JOURNAL_VISIBILITIES = ["private", "public"] as const;
 export type JournalVisibility = (typeof JOURNAL_VISIBILITIES)[number];
 
-export const MAX_JOURNAL_BODY_LENGTH = 1000;
 export const MAX_JOURNAL_TAGS = 8;
 export const MAX_JOURNAL_TAG_LENGTH = 24;
 
@@ -114,9 +116,9 @@ export function validateJournalInput(
     if (climbId === null) throw new ActionError("Pick a climb for an outdoor session");
   }
 
-  if (body && body.length > MAX_JOURNAL_BODY_LENGTH) {
+  if (body && body.length > MAX_LOG_NOTE_LENGTH) {
     throw new ActionError(
-      `Note is ${body.length} characters — the limit is ${MAX_JOURNAL_BODY_LENGTH.toLocaleString("en-US")}`,
+      `Note is ${body.length} characters — the limit is ${MAX_LOG_NOTE_LENGTH.toLocaleString("en-US")}`,
     );
   }
 
