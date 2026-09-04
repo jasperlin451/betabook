@@ -1,26 +1,20 @@
 "use client";
 
-import { Button, Checkbox, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
-import { clsx } from "clsx";
-import { Star } from "lucide-react";
-import { useState, useTransition, type ReactNode } from "react";
+import { Button, Checkbox, Label, TextArea, TextField } from "@heroui/react";
+import { useState, useTransition } from "react";
 
 import { createSend, updateSend } from "@/actions";
-import { ASCENT_STYLE_CHIP_CLASSNAME, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
-import { SURFACE_CARD_CLASS } from "@/components/ui/card";
-import { choicePillClass } from "@/components/ui/choice-pill";
-import { Eyebrow } from "@/components/ui/eyebrow";
-import { FIELD_CLASS } from "@/components/ui/field";
-import { SegmentedButtons } from "@/components/ui/segmented-buttons";
-import type { EditableSend, SendableClimb } from "@/db/queries";
-import { nativeGradeArray } from "@/lib/grades";
 import {
-  ASCENT_STYLES,
-  GRADE_FEEL_VALUES,
-  MAX_COMMENT_LENGTH,
-  type AscentStyle,
-  type GradeFeel,
-} from "@/lib/sends";
+  AscentStylePicker,
+  FormSection,
+  GradeFeelField,
+  RatingField,
+  SuggestedGradeField,
+} from "@/components/send-fields";
+import { SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { FIELD_CLASS } from "@/components/ui/field";
+import type { EditableSend, SendableClimb } from "@/db/queries";
+import { MAX_COMMENT_LENGTH, type AscentStyle, type GradeFeel } from "@/lib/sends";
 
 type SendFormProps = {
   climb: SendableClimb;
@@ -28,124 +22,10 @@ type SendFormProps = {
   onDone?: () => void;
 };
 
-/** Shared with the import wizard's grade-feel value mapping. */
-export const GRADE_FEEL_LABELS: Record<GradeFeel, string> = {
-  low: "Low end",
-  solid: "Solid",
-  high: "High end",
-};
-
-const GRADE_FEEL_OPTIONS = GRADE_FEEL_VALUES.map((value) => ({
-  value,
-  label: GRADE_FEEL_LABELS[value],
-}));
-
-/** The form's three parts, named the way the climb page names its own
- * regions (see Eyebrow): what happened, what you thought of it, anything
- * else. Grouping is the content's own shape, not decoration — the ascent is
- * fact, the rest is opinion, and they get read back differently. */
-function FormSection({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-3">
-      <Eyebrow>{label}</Eyebrow>
-      {children}
-    </section>
-  );
-}
-
-/** Ascent style as the same pills the filter toolbars use, with the chosen
- * one wearing the chip color the logged send will carry in every feed row
- * after — so the control shows the tag it is about to write. Three options
- * is few enough to show at once.
- *
- * Radio semantics rather than the multi-select of the filters: those pick a
- * set, this picks exactly one. */
-function AscentStylePicker({
-  value,
-  onChange,
-}: {
-  value: AscentStyle;
-  onChange: (value: AscentStyle) => void;
-}) {
-  return (
-    <div role="radiogroup" aria-label="Ascent style" className="flex flex-wrap gap-1.5">
-      {ASCENT_STYLES.map((style) => {
-        const selected = value === style;
-        return (
-          <button
-            key={style}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(style)}
-            className={choicePillClass(selected, ASCENT_STYLE_CHIP_CLASSNAME[style])}
-          >
-            {ASCENT_STYLE_LABELS[style]}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-const RATING_VALUES = [1, 2, 3, 4, 5];
-
-/** The rating people already picture: five stars, click the one you mean and
- * everything up to it fills. A dropdown of "★★★" strings made you open a menu
- * to say something a row of stars says at a glance — and it read nothing like
- * the RatingStars the send wears afterwards.
- *
- * Radio semantics, same as AscentStylePicker: one value out of five. Hovering
- * previews the fill so the click is never a guess. */
-function RatingPicker({
-  value,
-  onChange,
-}: {
-  value: number | null;
-  onChange: (value: number) => void;
-}) {
-  const [hovered, setHovered] = useState<number | null>(null);
-  const shown = hovered ?? value ?? 0;
-
-  // -ml-1 pulls the first star's hit-area padding back to the column edge, so
-  // the row of stars lines up with the fields around it.
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Rating"
-      className="-ml-1 flex items-center"
-      onMouseLeave={() => setHovered(null)}
-    >
-      {RATING_VALUES.map((n) => (
-        <button
-          key={n}
-          type="button"
-          role="radio"
-          aria-checked={value === n}
-          aria-label={`${n} ${n === 1 ? "star" : "stars"}`}
-          onClick={() => onChange(n)}
-          onMouseEnter={() => setHovered(n)}
-          onFocus={() => setHovered(n)}
-          onBlur={() => setHovered(null)}
-          className="cursor-pointer rounded-md p-1 transition-colors focus-visible:status-focused"
-        >
-          <Star
-            className={clsx(
-              "size-7 transition-colors",
-              n <= shown ? "fill-current text-warning" : "text-muted",
-            )}
-          />
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   // The user's local calendar date ("en-CA" formats as YYYY-MM-DD) — a UTC
   // date (toISOString) can be a day off from the user's local today.
   const today = new Intl.DateTimeFormat("en-CA").format(new Date());
-  const gradeOptions = nativeGradeArray(climb.type);
 
   const [ascentStyle, setAscentStyle] = useState<AscentStyle>(
     existingSend?.ascentStyle ?? "redpoint",
@@ -158,9 +38,6 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   );
   const [comment, setComment] = useState(existingSend?.comment ?? "");
   const [rating, setRating] = useState<number | null>(existingSend?.rating ?? null);
-  // Opens checked for anything without a rating — a new send, or an existing
-  // one saved unrated. Unchecking it only clears the intent to skip; the stars
-  // stay empty until you pick one, and an unrated send still saves as null.
   const [skipRating, setSkipRating] = useState(existingSend?.rating == null);
   const [suggestedGrade, setSuggestedGrade] = useState(
     String(existingSend?.suggestedGrade ?? climb.grade ?? 0),
@@ -226,66 +103,20 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
 
       <FormSection label="Your opinion">
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField>
-            <Label>Rating</Label>
-            <RatingPicker
-              value={rating}
-              onChange={(value) => {
-                setRating(value);
-                setSkipRating(false);
-              }}
-            />
-            <Checkbox
-              className="mt-2"
-              isSelected={skipRating}
-              onChange={(selected) => {
-                setSkipRating(selected);
-                if (selected) setRating(null);
-              }}
-            >
-              <Checkbox.Content>
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
-                Skip rating
-              </Checkbox.Content>
-            </Checkbox>
-          </TextField>
-
-          <TextField>
-            <Label>Suggested grade</Label>
-            <Select
-              aria-label="Suggested grade"
-              fullWidth
-              selectedKey={suggestedGrade}
-              onSelectionChange={(key) => setSuggestedGrade(String(key))}
-            >
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox className="max-h-64 overflow-y-auto">
-                  {gradeOptions.map((label, i) => (
-                    // oxlint-disable-next-line react/no-array-index-key -- grade index is stable option id
-                    <ListBox.Item key={i} id={String(i)}>
-                      {label}
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-          </TextField>
+          <RatingField
+            value={rating}
+            skipped={skipRating}
+            onValueChange={setRating}
+            onSkippedChange={setSkipRating}
+          />
+          <SuggestedGradeField
+            climbType={climb.type}
+            value={suggestedGrade}
+            onChange={setSuggestedGrade}
+          />
         </div>
 
-        <TextField>
-          <Label>Grade feel</Label>
-          <SegmentedButtons
-            value={gradeFeel}
-            onChange={setGradeFeel}
-            options={GRADE_FEEL_OPTIONS}
-          />
-        </TextField>
+        <GradeFeelField value={gradeFeel} onChange={setGradeFeel} />
       </FormSection>
 
       <FormSection label="Notes">

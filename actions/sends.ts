@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 
 import { getDb } from "@/db/client";
@@ -12,6 +12,7 @@ import { requireSession } from "@/lib/session";
 import { pickFormFields } from "@/lib/validation";
 
 import { revalidateSendSurfaces } from "./revalidation";
+import { buildSendInsert, isSendClimbGuardFailure } from "./send-statements";
 
 const SEND_FORM_FIELDS = [
   "ascentStyle",
@@ -40,23 +41,18 @@ export async function createSend(climbId: number, formData: FormData): Promise<A
     }
 
     const input = validateSendInput(climb.type, readSendFormData(formData));
-    // climbs.sendCount/ratingSum/ratingCount (denormalized for
-    // getSubtreeClimbs's sort — see drizzle/schema/climbs.ts) are maintained
-    // by triggers on sends, so this is a plain single-statement write.
-    const inserted = await db.all<{ id: number }>(sql`
-      INSERT INTO sends (
-        user_id, climb_id, ascent_style, date_sent, comment, rating,
-        suggested_grade, grade_feel
-      )
-      SELECT ${session.user.id}, climbs.id, ${input.ascentStyle},
-             ${input.dateSent}, ${input.comment}, ${input.rating},
-             ${input.suggestedGrade}, ${input.gradeFeel}
-      FROM climbs
-      WHERE climbs.id = ${climbId} AND climbs.type = ${climb.type}
-      RETURNING id
-    `);
-    if (inserted.length === 0) {
-      throw new ActionError("Climb changed while this send was being saved — try again");
+    try {
+      await buildSendInsert(db, {
+        userId: session.user.id,
+        climbId,
+        climbType: climb.type,
+        input,
+      });
+    } catch (error) {
+      if (isSendClimbGuardFailure(error)) {
+        throw new ActionError("Climb changed while this send was being saved — try again.");
+      }
+      throw error;
     }
 
     revalidateSendSurfaces({
