@@ -33,7 +33,11 @@ export type RawJournalEntryInput = {
 };
 
 export function normalizeTag(value: string): string {
-  return value.toLowerCase().trim().replace(/\s+/g, " ");
+  return value.toLowerCase().trim();
+}
+
+export function isValidJournalTag(value: string): boolean {
+  return /^[a-z0-9-]+$/.test(value);
 }
 
 export function normalizeTags(raw: unknown): string[] {
@@ -50,8 +54,8 @@ export function normalizeTags(raw: unknown): string[] {
         `Tag "${tag}" is ${tag.length} characters — the limit is ${MAX_JOURNAL_TAG_LENGTH}`,
       );
     }
-    if (!/^[a-z0-9 -]+$/.test(tag)) {
-      throw new ActionError(`Tag "${tag}" can only contain letters, numbers, spaces and hyphens`);
+    if (!isValidJournalTag(tag)) {
+      throw new ActionError(`Tag "${tag}" can only contain letters, numbers and hyphens`);
     }
     seen.add(tag);
   }

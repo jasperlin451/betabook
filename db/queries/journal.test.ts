@@ -66,7 +66,7 @@ beforeAll(async () => {
     entryDate: "2025-04-01",
     kind: "training",
     body: "Hangboard.",
-    tags: ["hangboard", "happy boulders"],
+    tags: ["hangboard", "happy-boulders"],
   });
   await seedFixtureJournalEntry(db, {
     userId: OWNER.id,
@@ -134,15 +134,15 @@ describe("getJournalPage", () => {
     const page = await getJournalPage(db, OWNER, OWNER.id, filter({ view: "training" }));
     expect(page.entries.find((entry) => entry.entryDate === "2025-04-01")?.tags).toEqual([
       "hangboard",
-      "happy boulders",
+      "happy-boulders",
     ]);
 
     const sessions = await getJournalPage(db, OWNER, OWNER.id, filter({ view: "sessions" }));
     expect(sessions.entries[0]?.tags).toEqual([]);
   });
 
-  it("filters by tag, including one with a space in it", async () => {
-    const page = await getJournalPage(db, OWNER, OWNER.id, filter({ tag: "happy boulders" }));
+  it("filters by a hyphenated tag", async () => {
+    const page = await getJournalPage(db, OWNER, OWNER.id, filter({ tag: "happy-boulders" }));
     expect(page.entries.map((e) => e.entryDate)).toEqual(["2025-04-01"]);
   });
 
