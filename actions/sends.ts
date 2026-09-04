@@ -13,11 +13,17 @@ import { pickFormFields } from "@/lib/validation";
 
 import {
   assertAscentDateChange,
+  buildSentJournalInsert,
   getSentJournalEntries,
   journalEntryFromSend,
+  rethrowJournalSendInvariant,
 } from "./journal-sync";
 import { revalidateJournalSurfaces, revalidateSendSurfaces } from "./revalidation";
-import { buildSendInsert, isSendClimbGuardFailure } from "./send-statements";
+import {
+  buildMirroredSendUpdate,
+  buildSendInsert,
+  isSendClimbGuardFailure,
+} from "./send-statements";
 
 const SEND_FORM_FIELDS = [
   "ascentStyle",
@@ -56,9 +62,10 @@ export async function createSend(climbId: number, formData: FormData): Promise<A
       if (input.dateSent) {
         await db.batch([
           sendStatement,
-          db
-            .insert(journalEntries)
-            .values(journalEntryFromSend(session.user.id, climbId, input.dateSent, input.comment)),
+          buildSentJournalInsert(
+            db,
+            journalEntryFromSend(session.user.id, climbId, input.dateSent, input.comment),
+          ),
         ]);
         revalidateJournalSurfaces({ userId: session.user.id, climbIds: [climbId] });
       } else {
@@ -68,7 +75,10 @@ export async function createSend(climbId: number, formData: FormData): Promise<A
       if (isSendClimbGuardFailure(error)) {
         throw new ActionError("Climb changed while this send was being saved — try again.");
       }
-      throw error;
+      rethrowJournalSendInvariant(
+        error,
+        "The journal changed while this send was being saved — try again",
+      );
     }
 
     revalidateSendSurfaces({
@@ -94,7 +104,13 @@ export async function updateSend(sendId: number, formData: FormData): Promise<Ac
     const input = validateSendInput(climb.type, readSendFormData(formData));
     const sentEntries = await getSentJournalEntries(db, session.user.id, [existing.climbId]);
     const ascent = sentEntries[0];
-    const sendStatement = db.update(sends).set(input).where(eq(sends.id, sendId));
+    const sendStatement = buildMirroredSendUpdate(db, {
+      userId: session.user.id,
+      climbId: existing.climbId,
+      sendId,
+      values: input,
+      ascentEntryId: ascent?.id ?? null,
+    });
 
     if (ascent && !input.dateSent) {
       throw new ActionError("A send with journal history must keep its date");
@@ -107,17 +123,20 @@ export async function updateSend(sendId: number, formData: FormData): Promise<Ac
             .update(journalEntries)
             .set({ entryDate: input.dateSent, body: input.comment })
             .where(eq(journalEntries.id, ascent.id))
-        : db
-            .insert(journalEntries)
-            .values(
-              journalEntryFromSend(
-                session.user.id,
-                existing.climbId,
-                input.dateSent,
-                input.comment,
-              ),
-            );
-      await db.batch([sendStatement, journalStatement]);
+        : buildSentJournalInsert(
+            db,
+            journalEntryFromSend(session.user.id, existing.climbId, input.dateSent, input.comment),
+          );
+      try {
+        await db.batch(
+          ascent ? [journalStatement, sendStatement] : [sendStatement, journalStatement],
+        );
+      } catch (error) {
+        rethrowJournalSendInvariant(
+          error,
+          "The journal changed while this send was being saved — try again",
+        );
+      }
       revalidateJournalSurfaces({ userId: session.user.id, climbIds: [existing.climbId] });
     } else {
       await sendStatement;

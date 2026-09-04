@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 
 import { getDb } from "@/db/client";
@@ -24,11 +24,14 @@ import { requireSession } from "@/lib/session";
 
 import {
   assertAscentDateChange,
+  buildSentJournalInsert,
   getSentJournalEntries,
   groupSentJournalEntries,
   journalEntryFromSend,
+  rethrowJournalSendInvariant,
 } from "./journal-sync";
 import { revalidateJournalSurfaces, revalidateSendSurfaces } from "./revalidation";
+import { buildMirroredSendUpdate } from "./send-statements";
 
 export type ImportResult = {
   imported: number;
@@ -50,8 +53,8 @@ export type ImportOptions = {
  * and the timestamps. Shared by the insert and overwrite paths. */
 type SendValues = Omit<
   typeof sends.$inferInsert,
-  "id" | "userId" | "climbId" | "createdAt" | "updatedAt"
-> & { comment: string | null };
+  "id" | "userId" | "climbId" | "dateSent" | "comment" | "createdAt" | "updatedAt"
+> & { dateSent: string | null; comment: string | null };
 
 // How many rows each insert statement carries. D1 caps a statement at 100
 // bound parameters, and each inserted sends row binds 8 values (userId,
@@ -221,12 +224,19 @@ export async function importSends(
         toUpdate.map(({ climbId }) => climbId),
       ),
     );
-    const journalInserts = toInsert.flatMap((row) =>
+    const newSendJournalInserts = toInsert.flatMap((row) =>
       row.dateSent
         ? [journalEntryFromSend(session.user.id, row.climbId, row.dateSent, row.comment)]
         : [],
     );
-    const journalUpdates: Array<{ id: number; entryDate: string; body: string | null }> = [];
+    const existingSendJournalInserts: ReturnType<typeof journalEntryFromSend>[] = [];
+    const journalUpdates: Array<{
+      id: number;
+      climbId: number;
+      entryDate: string;
+      body: string | null;
+    }> = [];
+    const mirroredEntryIdsByClimb = new Map<number, number>();
 
     for (const { climbId, values } of toUpdate) {
       const climbEntries = existingEntries.get(climbId) ?? [];
@@ -237,40 +247,60 @@ export async function importSends(
       }
       if (ascent) {
         assertAscentDateChange(climbEntries, values.dateSent);
+        mirroredEntryIdsByClimb.set(climbId, ascent.id);
         journalUpdates.push({
           id: ascent.id,
+          climbId,
           entryDate: values.dateSent,
           body: values.comment,
         });
       } else {
-        journalInserts.push(
+        existingSendJournalInserts.push(
           journalEntryFromSend(session.user.id, climbId, values.dateSent, values.comment),
         );
       }
     }
 
+    const sendUpdates = (withMirror: boolean) =>
+      toUpdate
+        .filter(({ climbId }) => mirroredEntryIdsByClimb.has(climbId) === withMirror)
+        .map(({ climbId, values }) =>
+          buildMirroredSendUpdate(db, {
+            userId: session.user.id,
+            climbId,
+            values,
+            ascentEntryId: mirroredEntryIdsByClimb.get(climbId) ?? null,
+          }),
+        );
+    const journalInsertStatements = (entries: ReturnType<typeof journalEntryFromSend>[]) =>
+      Array.from({ length: Math.ceil(entries.length / INSERT_CHUNK_SIZE) }, (_, i) =>
+        buildSentJournalInsert(
+          db,
+          entries.slice(i * INSERT_CHUNK_SIZE, (i + 1) * INSERT_CHUNK_SIZE),
+        ),
+      );
     const statements = [
       ...Array.from({ length: Math.ceil(toInsert.length / INSERT_CHUNK_SIZE) }, (_, i) =>
         db.insert(sends).values(toInsert.slice(i * INSERT_CHUNK_SIZE, (i + 1) * INSERT_CHUNK_SIZE)),
       ),
-      ...toUpdate.map(({ climbId, values }) =>
-        db
-          .update(sends)
-          .set(values)
-          .where(and(eq(sends.userId, session.user.id), eq(sends.climbId, climbId))),
-      ),
-      ...Array.from({ length: Math.ceil(journalInserts.length / INSERT_CHUNK_SIZE) }, (_, i) =>
-        db
-          .insert(journalEntries)
-          .values(journalInserts.slice(i * INSERT_CHUNK_SIZE, (i + 1) * INSERT_CHUNK_SIZE)),
-      ),
+      ...journalInsertStatements(newSendJournalInserts),
       ...journalUpdates.map(({ id, entryDate, body }) =>
         db.update(journalEntries).set({ entryDate, body }).where(eq(journalEntries.id, id)),
       ),
+      ...sendUpdates(true),
+      ...sendUpdates(false),
+      ...journalInsertStatements(existingSendJournalInserts),
     ];
 
     if (statements.length > 0) {
-      await db.batch(statements as [(typeof statements)[number], ...typeof statements]);
+      try {
+        await db.batch(statements as [(typeof statements)[number], ...typeof statements]);
+      } catch (error) {
+        rethrowJournalSendInvariant(
+          error,
+          "The journal changed while these sends were being imported — try again",
+        );
+      }
 
       const affectedClimbIds = [
         ...toInsert.map((row) => row.climbId),
@@ -281,7 +311,9 @@ export async function importSends(
         climbIds: affectedClimbIds,
         areaIds: affectedAreaIds,
       });
-      if (journalInserts.length > 0 || journalUpdates.length > 0) {
+      const journalWriteCount =
+        newSendJournalInserts.length + existingSendJournalInserts.length + journalUpdates.length;
+      if (journalWriteCount > 0) {
         revalidateJournalSurfaces({ userId: session.user.id, climbIds: affectedClimbIds });
       }
       refresh();

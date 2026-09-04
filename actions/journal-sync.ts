@@ -1,8 +1,55 @@
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
 import { journalEntries } from "@/db/schema";
 import { ActionError } from "@/lib/action-result";
+
+const JOURNAL_SEND_INVARIANT_ERRORS = [
+  "journal/send invariant:",
+  "NOT NULL constraint failed: journal_entries.user_id",
+  "NOT NULL constraint failed: sends.user_id",
+] as const;
+
+export function isJournalSendInvariantFailure(error: unknown): boolean {
+  for (let current = error; current instanceof Error; current = current.cause) {
+    if (JOURNAL_SEND_INVARIANT_ERRORS.some((message) => current.message.includes(message))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function rethrowJournalSendInvariant(error: unknown, message: string): never {
+  if (isJournalSendInvariantFailure(error)) throw new ActionError(message);
+  throw error;
+}
+
+type SentJournalInsert = Omit<typeof journalEntries.$inferInsert, "userId" | "sent"> & {
+  userId: string;
+  climbId: number;
+  entryDate: string;
+};
+
+export function buildSentJournalInsert(
+  db: Database,
+  values: SentJournalInsert | SentJournalInsert[],
+) {
+  const rows = Array.isArray(values) ? values : [values];
+  return db.insert(journalEntries).values(
+    rows.map((row) => ({
+      ...row,
+      sent: true,
+      userId: sql`(
+        SELECT s.user_id
+        FROM sends s
+        WHERE s.user_id = ${row.userId}
+          AND s.climb_id = ${row.climbId}
+          AND s.date_sent IS NOT NULL
+          AND ${row.entryDate} >= s.date_sent
+      )`,
+    })),
+  );
+}
 
 export type SentJournalEntry = Pick<
   typeof journalEntries.$inferSelect,

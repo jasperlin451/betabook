@@ -1,12 +1,26 @@
 import { env } from "cloudflare:test";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { buildSendInsert, isSendClimbGuardFailure } from "@/actions/send-statements";
+import {
+  buildSentJournalInsert,
+  isJournalSendInvariantFailure,
+  journalEntryFromSend,
+} from "@/actions/journal-sync";
+import {
+  buildMirroredSendUpdate,
+  buildSendInsert,
+  isSendClimbGuardFailure,
+} from "@/actions/send-statements";
 import { createDb, type Database } from "@/db/client";
 import { climbs, journalEntries, sends } from "@/db/schema";
 import type { SendInput } from "@/lib/sends";
-import { seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
+import {
+  seedFixtureJournalEntry,
+  seedFixtureSend,
+  seedFixtureTree,
+  seedFixtureUser,
+} from "@/test/fixtures";
 
 let db: Database;
 
@@ -26,6 +40,15 @@ beforeAll(async () => {
   db = createDb(env.DB);
   await seedFixtureTree(db);
   await seedFixtureUser(db, { id: "stmt-user", name: "Statement User" });
+  await seedFixtureUser(db, { id: "guard-user", name: "Guard User" });
+  for (const trigger of [
+    "journal_sent_insert_guard",
+    "journal_sent_update_guard",
+    "send_journal_update_guard",
+    "send_journal_delete_sync",
+  ]) {
+    await db.run(sql.raw(`DROP TRIGGER IF EXISTS ${trigger}`));
+  }
 });
 
 describe("buildSendInsert", () => {
@@ -115,5 +138,82 @@ describe("buildSendInsert", () => {
       ratingSum: (before?.ratingSum ?? 0) + 4,
       ratingCount: (before?.ratingCount ?? 0) + 1,
     });
+  });
+});
+
+describe("journal synchronization statements", () => {
+  it("rejects a sent entry if its send was concurrently deleted", async () => {
+    await seedFixtureSend(db, {
+      userId: "guard-user",
+      climbId: HIGHBALL,
+      dateSent: "2026-03-01",
+    });
+    await db.delete(sends).where(and(eq(sends.userId, "guard-user"), eq(sends.climbId, HIGHBALL)));
+
+    let caught: unknown;
+    try {
+      await buildSentJournalInsert(
+        db,
+        journalEntryFromSend("guard-user", HIGHBALL, "2026-04-01", null),
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(isJournalSendInvariantFailure(caught)).toBe(true);
+    expect(
+      await db
+        .select()
+        .from(journalEntries)
+        .where(and(eq(journalEntries.userId, "guard-user"), eq(journalEntries.climbId, HIGHBALL))),
+    ).toEqual([]);
+  });
+
+  it("rejects an ascent move based on a stale repeat read", async () => {
+    await seedFixtureSend(db, {
+      userId: "guard-user",
+      climbId: CRIMPER,
+      dateSent: "2026-03-01",
+      comment: "Ascent",
+    });
+    await seedFixtureJournalEntry(db, {
+      userId: "guard-user",
+      climbId: CRIMPER,
+      entryDate: "2026-03-01",
+      body: "Ascent",
+      sent: true,
+    });
+    const ascent = await db
+      .select({ id: journalEntries.id })
+      .from(journalEntries)
+      .where(and(eq(journalEntries.userId, "guard-user"), eq(journalEntries.climbId, CRIMPER)))
+      .get();
+    await seedFixtureJournalEntry(db, {
+      userId: "guard-user",
+      climbId: CRIMPER,
+      entryDate: "2026-04-01",
+      sent: true,
+    });
+
+    let caught: unknown;
+    try {
+      await buildMirroredSendUpdate(db, {
+        userId: "guard-user",
+        climbId: CRIMPER,
+        values: { dateSent: "2026-05-01", comment: "Moved" },
+        ascentEntryId: ascent!.id,
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(isJournalSendInvariantFailure(caught)).toBe(true);
+    expect(
+      await db
+        .select({ dateSent: sends.dateSent })
+        .from(sends)
+        .where(and(eq(sends.userId, "guard-user"), eq(sends.climbId, CRIMPER)))
+        .get(),
+    ).toEqual({ dateSent: "2026-03-01" });
   });
 });

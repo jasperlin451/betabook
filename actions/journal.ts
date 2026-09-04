@@ -14,9 +14,14 @@ import { validateSendInput, type RawSendInput } from "@/lib/sends";
 import { requireSession } from "@/lib/session";
 import { pickFormFields } from "@/lib/validation";
 
-import { assertRepeatDate, getSentJournalEntries } from "./journal-sync";
+import {
+  assertRepeatDate,
+  buildSentJournalInsert,
+  getSentJournalEntries,
+  rethrowJournalSendInvariant,
+} from "./journal-sync";
 import { revalidateJournalSurfaces, revalidateSendSurfaces } from "./revalidation";
-import { buildSendInsert } from "./send-statements";
+import { buildMirroredSendUpdate, buildSendInsert } from "./send-statements";
 
 const JOURNAL_FORM_FIELDS = ["kind", "climbId", "sent", "entryDate", "body"] as const;
 
@@ -80,8 +85,8 @@ async function writeAscent(
   );
 
   await db.batch([
-    db.insert(journalEntries).values(entryValues(userId, input)),
     buildSendInsert(db, { userId, climbId: climb.id, climbType: climb.type, input: sendInput }),
+    buildSentJournalInsert(db, { ...entryValues(userId, input), climbId: climb.id }),
   ]);
 
   revalidateJournalSurfaces({ userId, climbIds: [climb.id] });
@@ -109,13 +114,26 @@ export async function createJournalEntry(formData: FormData): Promise<ActionResu
 
       const sentEntries = await getSentJournalEntries(db, session.user.id, [climb.id]);
       if (sentEntries.length === 0) {
-        await db.batch([
-          db.insert(journalEntries).values(entryValues(session.user.id, input)),
-          db
-            .update(sends)
-            .set({ dateSent: input.entryDate, comment: input.body })
-            .where(eq(sends.id, existingSend.id)),
-        ]);
+        try {
+          await db.batch([
+            buildMirroredSendUpdate(db, {
+              userId: session.user.id,
+              climbId: climb.id,
+              sendId: existingSend.id,
+              values: { dateSent: input.entryDate, comment: input.body },
+              ascentEntryId: null,
+            }),
+            buildSentJournalInsert(db, {
+              ...entryValues(session.user.id, input),
+              climbId: climb.id,
+            }),
+          ]);
+        } catch (error) {
+          rethrowJournalSendInvariant(
+            error,
+            "The send changed while this entry was being saved — try again",
+          );
+        }
         revalidateJournalSurfaces({ userId: session.user.id, climbIds: [climb.id] });
         revalidateSendSurfaces({
           userIds: [session.user.id],
@@ -128,7 +146,19 @@ export async function createJournalEntry(formData: FormData): Promise<ActionResu
       assertRepeatDate(sentEntries, input.entryDate);
     }
 
-    await db.insert(journalEntries).values(entryValues(session.user.id, input));
+    try {
+      await (input.sent && climb
+        ? buildSentJournalInsert(db, {
+            ...entryValues(session.user.id, input),
+            climbId: climb.id,
+          })
+        : db.insert(journalEntries).values(entryValues(session.user.id, input)));
+    } catch (error) {
+      rethrowJournalSendInvariant(
+        error,
+        "The send changed while this entry was being saved — try again",
+      );
+    }
     revalidateJournalSurfaces({
       userId: session.user.id,
       climbIds: climb ? [climb.id] : [],
@@ -180,13 +210,20 @@ export async function updateJournalEntry(
       (await getAscentEntryId(db, session.user.id, existing.climbId)) === entryId;
 
     if (carriesAscent && existing.climbId !== null) {
-      await db.batch([
-        journalStatement,
-        db
-          .update(sends)
-          .set({ comment: input.body })
-          .where(and(eq(sends.userId, session.user.id), eq(sends.climbId, existing.climbId))),
-      ]);
+      try {
+        await db.batch([
+          journalStatement,
+          db
+            .update(sends)
+            .set({ comment: input.body })
+            .where(and(eq(sends.userId, session.user.id), eq(sends.climbId, existing.climbId))),
+        ]);
+      } catch (error) {
+        rethrowJournalSendInvariant(
+          error,
+          "The send changed while this entry was being saved — try again",
+        );
+      }
       const climb = await getClimb(db, existing.climbId);
       revalidateSendSurfaces({
         userIds: [session.user.id],
