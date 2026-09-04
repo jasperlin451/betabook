@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@heroui/react";
+import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -28,7 +29,14 @@ export function SignOutButton() {
 
   return (
     <div className="flex flex-col gap-2">
-      <Button onPress={handleSignOut} isDisabled={pending}>
+      <Button
+        variant="outline"
+        fullWidth
+        className="gap-2"
+        onPress={handleSignOut}
+        isDisabled={pending}
+      >
+        <LogOut className="size-4" />
         Sign out
       </Button>
       {error && <p className="text-sm text-danger">{error}</p>}
