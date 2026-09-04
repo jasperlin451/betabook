@@ -7,7 +7,7 @@ import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { AreaSearchField } from "@/components/area-search-field";
 import { AscentStyle, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { FilterToolbar } from "@/components/filter-toolbar";
-import { LogSendButton } from "@/components/log-send-button";
+import { LogEntryButton } from "@/components/journal";
 import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { RouteSearchField } from "@/components/route-search-field";
 import { SendActionsMenu } from "@/components/send-actions-menu";
@@ -285,7 +285,7 @@ export function UserSendList({
           cta={
             currentUserId === userId ? (
               <div className="flex flex-col items-center gap-3">
-                <LogSendButton />
+                <LogEntryButton />
                 <AppLink href="/account/import" className="text-sm">
                   Import your sends
                 </AppLink>

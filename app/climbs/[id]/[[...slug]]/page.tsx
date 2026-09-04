@@ -8,7 +8,7 @@ import { ClimbDescription } from "@/components/climb-description";
 import { GradeWithTrend } from "@/components/climb-list";
 import { ClimbSendList } from "@/components/climb-send-list";
 import { EditSendButton } from "@/components/edit-send-button";
-import { LogSendButton } from "@/components/log-send-button";
+import { LogEntryButton } from "@/components/journal";
 import { LoggedGradeHistogram } from "@/components/logged-grade-histogram";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass } from "@/components/ui/card";
@@ -219,7 +219,7 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
               userSend ? (
                 <EditSendButton climb={climb} send={userSend} />
               ) : (
-                <LogSendButton climb={climb} fullWidth />
+                <LogEntryButton climb={climb} fullWidth />
               )
             ) : (
               // Quiet stand-in for Log Send: signed-out visitors otherwise
@@ -248,7 +248,7 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
                 cta={
                   session ? (
                     userSend ? undefined : (
-                      <LogSendButton climb={climb} fullWidth />
+                      <LogEntryButton climb={climb} fullWidth />
                     )
                   ) : (
                     <AppLink href={signInUrl(climbHref(climb.id, climb.name))} className="text-sm">

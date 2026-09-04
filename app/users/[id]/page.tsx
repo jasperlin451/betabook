@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 
-import { LogSendButton } from "@/components/log-send-button";
+import { LogEntryButton } from "@/components/journal";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { AppLink } from "@/components/ui/app-link";
 import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
@@ -131,7 +131,7 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
          * belong to the page it sits on. Analytics steps back to outline
          * where it isn't the header's only action. */}
         <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-          {isOwnProfile && <LogSendButton sentClimbIds={sentClimbIds} />}
+          {isOwnProfile && <LogEntryButton sentClimbIds={sentClimbIds} />}
           <AppLink
             href={`/users/${id}/analytics`}
             className={`${buttonVariants({ variant: isOwnProfile ? "outline" : undefined })} gap-2`}

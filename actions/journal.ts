@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { refresh } from "next/cache";
 
 import { getDb, type Database } from "@/db/client";
@@ -268,18 +268,18 @@ export async function deleteJournalEntry(entryId: number): Promise<ActionResult>
 
     if (carriesAscent && climbId !== null) {
       await db.batch([
-        db.delete(journalEntries).where(eq(journalEntries.id, entryId)),
-        db.delete(sends).where(and(eq(sends.userId, session.user.id), eq(sends.climbId, climbId))),
-        db
-          .update(journalEntries)
-          .set({ sent: false })
-          .where(
-            and(
-              eq(journalEntries.userId, session.user.id),
-              eq(journalEntries.climbId, climbId),
-              eq(journalEntries.sent, true),
-            ),
+        // Recheck the ascent inside the write: another request may have
+        // deleted this send and logged a replacement since the read above.
+        db.delete(sends).where(
+          and(
+            eq(sends.userId, session.user.id),
+            eq(sends.climbId, climbId),
+            sql`(SELECT j.id FROM journal_entries j
+            WHERE j.user_id = ${session.user.id} AND j.climb_id = ${climbId} AND j.sent = 1
+            ORDER BY j.entry_date, j.id LIMIT 1) = ${entryId}`,
           ),
+        ),
+        db.delete(journalEntries).where(eq(journalEntries.id, entryId)),
       ]);
       const climb = await getClimb(db, climbId);
       revalidateSendSurfaces({

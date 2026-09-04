@@ -2,10 +2,9 @@ import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createClimb, createSend, deleteSend, updateClimb, updateSend } from "@/actions";
+import { createClimb, deleteSend, updateClimb, updateSend } from "@/actions";
 import { createDb } from "@/db/client";
 import { climbs, journalEntries, sends } from "@/db/schema";
-import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
 /** The action boundary must never throw — Next.js redacts uncaught
@@ -77,47 +76,6 @@ beforeAll(async () => {
 
 beforeEach(() => {
   sessionState.userId = "test-user";
-});
-
-describe("createSend action boundary", () => {
-  it("returns ok:false with the validation message instead of throwing", async () => {
-    const result = await createSend(2, sendFormData({ ascentStyle: "yolo" }));
-    expect(result).toEqual({ ok: false, error: "Invalid ascent style" });
-    expect(await db.select().from(sends).where(eq(sends.climbId, 2)).all()).toHaveLength(0);
-  });
-
-  it("returns ok:false with the duplicate-send message", async () => {
-    const result = await createSend(1, sendFormData());
-    expect(result).toEqual({
-      ok: false,
-      error: "You've already sent this climb — edit your existing send instead.",
-    });
-  });
-
-  it("returns ok:false with the friendly session message when signed out", async () => {
-    sessionState.userId = null;
-    const result = await createSend(2, sendFormData());
-    expect(result).toEqual({ ok: false, error: SESSION_EXPIRED_MESSAGE });
-  });
-
-  it("returns ok:true and writes the send on valid input", async () => {
-    const result = await createSend(3, sendFormData({ rating: "4", comment: "Matched note." }));
-    expect(result).toEqual({ ok: true, value: undefined });
-
-    const row = await db.select().from(sends).where(eq(sends.climbId, 3)).get();
-    expect(row).toMatchObject({ userId: "test-user", comment: "Matched note." });
-    const entry = await db.select().from(journalEntries).where(eq(journalEntries.climbId, 3)).get();
-    expect(entry).toMatchObject({
-      userId: "test-user",
-      kind: "session",
-      sent: true,
-      entryDate: "2026-01-15",
-      body: "Matched note.",
-    });
-    const climb = await db.select().from(climbs).where(eq(climbs.id, 3)).get();
-    expect(climb?.sendCount).toBe(1);
-    expect(climb?.ratingSum).toBe(4);
-  });
 });
 
 describe("updateSend action boundary", () => {

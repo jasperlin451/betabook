@@ -29,6 +29,7 @@ function ClimbRow({
   path,
   sendCount,
   sent,
+  allowSentClimbs,
   pickable,
   onPick,
 }: {
@@ -36,6 +37,7 @@ function ClimbRow({
   path: string;
   sendCount: number;
   sent: boolean;
+  allowSentClimbs: boolean;
   /** False while these rows answer a superseded query — see ClimbPicker. */
   pickable: boolean;
   onPick: () => void;
@@ -56,10 +58,7 @@ function ClimbRow({
     </>
   );
 
-  // Listed but not pickable: createSend refuses a second send for the same
-  // climb, and a filtered-out row reads as a failed search rather than an
-  // answer to "did I log this one?".
-  if (sent) {
+  if (sent && !allowSentClimbs) {
     return (
       <div
         aria-disabled
@@ -88,6 +87,9 @@ function ClimbRow({
       className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-surface-secondary/60 focus-visible:status-focused"
     >
       {detail}
+      {sent && (
+        <span className="shrink-0 text-xs font-medium text-success-soft-foreground">Logged</span>
+      )}
     </button>
   );
 }
@@ -121,6 +123,7 @@ function resultSummary(matchCount: number, loaded: number): string {
 export function ClimbPicker({
   onPick,
   sentClimbIds,
+  allowSentClimbs = false,
   initialName = "",
   initialAreaName = "",
 }: {
@@ -130,11 +133,12 @@ export function ClimbPicker({
    * than moving straight on to a form. */
   onPick: (
     climb: ClimbWithAreaName,
-    context: { ancestors: { id: number; name: string }[]; sendCount: number },
+    context: { ancestors: { id: number; name: string }[]; sendCount: number; sent: boolean },
   ) => void;
   /** Every climb id the viewer has already logged, when known — those rows
    * are marked and inert instead of failing on submit. */
   sentClimbIds?: Set<number>;
+  allowSentClimbs?: boolean;
   /** Seeds for the search fields, where the caller already knows roughly
    * what's being looked for (a CSV row's climb and area names). */
   initialName?: string;
@@ -241,14 +245,22 @@ export function ClimbPicker({
                   climb={climb}
                   path={areaPath(climb, pages.areaBreadcrumbs)}
                   sendCount={pages.sendStats[climb.id]?.sendCount ?? 0}
-                  sent={sentClimbIds?.has(climb.id) ?? false}
+                  sent={
+                    (pages.sentClimbIds?.has(climb.id) ?? false) ||
+                    (sentClimbIds?.has(climb.id) ?? false)
+                  }
+                  allowSentClimbs={allowSentClimbs}
                   pickable={current}
-                  onPick={() =>
+                  onPick={() => {
+                    const sent =
+                      (pages.sentClimbIds?.has(climb.id) ?? false) ||
+                      (sentClimbIds?.has(climb.id) ?? false);
                     onPick(climb, {
                       ancestors: pages.areaBreadcrumbs[climb.areaId] ?? [],
                       sendCount: pages.sendStats[climb.id]?.sendCount ?? 0,
-                    })
-                  }
+                      sent,
+                    });
+                  }}
                 />
               ))}
             </div>
