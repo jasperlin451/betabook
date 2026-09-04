@@ -197,6 +197,13 @@
       "when": 1788538026538,
       "tag": "0027_backfill_journal_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1788538086538,
+      "tag": "0028_enforce_journal_send_sync",
+      "breakpoints": true
     }
   ]
 }

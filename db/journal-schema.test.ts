@@ -38,6 +38,11 @@ async function expectCheckViolation(query: Promise<unknown>, constraint: string)
 describe("journal_entries CHECK constraints", () => {
   it("accepts the three legal shapes", async () => {
     await insert({ entryDate: "2026-03-03", climbId: CLIMB }); // session, working a climb
+    await seedFixtureSend(db, {
+      userId: "journal-user",
+      climbId: CLIMB,
+      dateSent: "2026-03-04",
+    });
     await insert({ entryDate: "2026-03-04", climbId: CLIMB, sent: true }); // sent
     await insert({ entryDate: "2026-03-05", kind: "training", body: "Hangboard" });
 
