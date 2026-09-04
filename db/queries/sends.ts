@@ -60,13 +60,25 @@ export type ClimbSendsPage = { sends: ClimbSendRow[]; hasMore: boolean };
  * sends sharing a date have no defined order without it, so OFFSET
  * pagination could duplicate or skip them across pages. A popular climb can
  * have hundreds of sends, so this is never fetched in full: the first page
- * is server-rendered and /api/climbs/[id]/sends backs "load more". */
+ * is server-rendered and /api/climbs/[id]/sends backs "load more".
+ *
+ * `viewerId` excludes rows belonging to a private user other than the viewer
+ * themselves (see lib/user-visibility.ts) — this is the one query in the
+ * module that lists sends across many authors, so it's the one place a
+ * per-row visibility check is needed. The climb's send_count/rating/suggested
+ * grade are unaffected: those come from getClimbSendStats/the aggregate
+ * triggers, neither of which joins `user`. */
 export async function getSendsForClimb(
   db: Database,
   climbId: number,
   offset = 0,
   pageSize: number = CLIMB_SENDS_PAGE_SIZE,
+  viewerId: string | null = null,
 ): Promise<ClimbSendsPage> {
+  const visibilityCondition = viewerId
+    ? sql`(user.is_private = 0 OR sends.user_id = ${viewerId})`
+    : sql`user.is_private = 0`;
+
   // Fetch one extra row to detect a next page without a separate COUNT query.
   const rows = await db
     .select({
@@ -82,7 +94,7 @@ export async function getSendsForClimb(
     })
     .from(sends)
     .innerJoin(user, eq(sends.userId, user.id))
-    .where(eq(sends.climbId, climbId))
+    .where(and(eq(sends.climbId, climbId), visibilityCondition))
     .orderBy(desc(sends.dateSent), asc(sends.id))
     .limit(pageSize + 1)
     .offset(offset);

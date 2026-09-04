@@ -966,3 +966,54 @@ describe("getSendsForUserExportPage", () => {
     expect(undatedDetail).not.toContain("TEMP B-TREE");
   });
 });
+
+// A dedicated climb (seedManyClimbs, id 1000+) and fresh users, isolated from
+// every describe block above — those assert exact cumulative counts/averages
+// "by this point" in the file's shared fixture history, so a private-user
+// send landing on climbs 1-4 would silently change those numbers.
+describe("getSendsForClimb private-user filtering", () => {
+  const PRIVATE_CLIMB_ID = 1000;
+
+  beforeAll(async () => {
+    await seedManyClimbs(db, 3, 1, PRIVATE_CLIMB_ID);
+    await seedFixtureUser(db, { id: "private-user", name: "Private Climber", isPrivate: true });
+    await seedFixtureUser(db, { id: "public-user", name: "Public Climber" });
+    await seedFixtureSend(db, {
+      userId: "private-user",
+      climbId: PRIVATE_CLIMB_ID,
+      dateSent: "2026-05-02",
+      rating: 5,
+      suggestedGrade: 3,
+    });
+    await seedFixtureSend(db, {
+      userId: "public-user",
+      climbId: PRIVATE_CLIMB_ID,
+      dateSent: "2026-05-01",
+      rating: 3,
+    });
+  });
+
+  it("excludes a private user's send when there's no viewer", async () => {
+    const { sends: rows } = await getSendsForClimb(db, PRIVATE_CLIMB_ID);
+    expect(rows.map((s) => s.userName)).toEqual(["Public Climber"]);
+  });
+
+  it("excludes a private user's send from a different signed-in viewer", async () => {
+    const { sends: rows } = await getSendsForClimb(db, PRIVATE_CLIMB_ID, 0, 10, "public-user");
+    expect(rows.map((s) => s.userName)).toEqual(["Public Climber"]);
+  });
+
+  it("includes a private user's own send when they are the viewer", async () => {
+    const { sends: rows } = await getSendsForClimb(db, PRIVATE_CLIMB_ID, 0, 10, "private-user");
+    // Newest dateSent first: the private user's send (05-02) sorts ahead of
+    // the public user's (05-01).
+    expect(rows.map((s) => s.userName)).toEqual(["Private Climber", "Public Climber"]);
+  });
+
+  it("still counts the private user's send toward the climb's rating and suggested grade", async () => {
+    // getClimbSendStats never joins `user`, so the private flag can't reach
+    // it — this is the regression guard for that invariant.
+    const stats = await getClimbSendStats(db, [PRIVATE_CLIMB_ID]);
+    expect(stats[PRIVATE_CLIMB_ID]).toEqual({ avgRating: 4, sendCount: 2, avgSuggestedGrade: 3 });
+  });
+});

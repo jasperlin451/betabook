@@ -4,6 +4,7 @@ import { getDb } from "@/db/client";
 import { CLIMB_SENDS_PAGE_SIZE, getClimb, getSendsForClimb } from "@/db/queries";
 import { parseId } from "@/lib/parse-id";
 import { offsetReachesPaginationLimit, parseOffset } from "@/lib/search-params";
+import { getSession } from "@/lib/session";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -18,7 +19,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
   const safeOffset = parseOffset(url.searchParams);
 
-  const db = await getDb();
+  const [db, session] = await Promise.all([getDb(), getSession()]);
   // A real error shape, not a valid-looking empty page — the client checks
   // res.ok, and an empty 200 would read as "end of list".
   const climb = climbId === null ? undefined : await getClimb(db, climbId);
@@ -30,7 +31,13 @@ export async function GET(request: Request, { params }: RouteParams) {
     return NextResponse.json({ sends: [], hasMore: false });
   }
 
-  const page = await getSendsForClimb(db, climb.id, safeOffset);
+  const page = await getSendsForClimb(
+    db,
+    climb.id,
+    safeOffset,
+    CLIMB_SENDS_PAGE_SIZE,
+    session?.user.id ?? null,
+  );
   return NextResponse.json({
     ...page,
     hasMore: page.hasMore && !offsetReachesPaginationLimit(safeOffset, CLIMB_SENDS_PAGE_SIZE),

@@ -26,6 +26,7 @@ import { formatDate } from "@/lib/format-date";
 import type { SearchParamsRecord } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 import { parseUserSendsFilter } from "@/lib/user-sends-filter";
+import { canViewUser } from "@/lib/user-visibility";
 
 type UserPageProps = {
   params: Promise<{ id: string }>;
@@ -42,8 +43,8 @@ const getUserById = cache(async (id: string) => {
 
 export async function generateMetadata({ params }: UserPageProps): Promise<Metadata> {
   const { id } = await params;
-  const user = await getUserById(id);
-  if (!user) notFound();
+  const [user, session] = await Promise.all([getUserById(id), getSession()]);
+  if (!user || !canViewUser(user, session?.user.id ?? null)) notFound();
 
   // Profiles carry a real name and full ascent history — kept out of search
   // indexes; links on the page are still followed.
@@ -62,6 +63,9 @@ export default async function UserPage({ params, searchParams }: UserPageProps) 
   if (!user) notFound();
 
   const isOwnProfile = session?.user.id === id;
+  // A private profile 404s for anyone but its owner — same response as a
+  // nonexistent user, so a private profile's existence isn't leaked either.
+  if (!canViewUser(user, session?.user.id ?? null)) notFound();
 
   const [summary, firstPage, sentClimbIds] = await Promise.all([
     // The stats card reflects the user's whole history — computed via small

@@ -13,6 +13,14 @@ export const user = sqliteTable("user", {
   // user would get a second "Welcome to Betabook" without this. Claimed by a
   // conditional UPDATE in lib/welcome-email.ts, which is the whole guard.
   welcomeEmailSentAt: integer("welcome_email_sent_at", { mode: "timestamp_ms" }),
+  // Hides this user's profile and sends from every page and API route other
+  // than their own — see lib/user-visibility.ts's canViewUser, the one
+  // predicate every read path branches on. Deliberately NOT read by
+  // drizzle/migrations/0014_sends_aggregate_triggers.sql or
+  // getClimbSendStats/getClimbSendSummary (db/queries/sends.ts): those touch
+  // `sends` only, with no join to `user`, so a private user's ascents keep
+  // counting toward a climb's rating and suggested grade exactly as before.
+  isPrivate: integer("is_private", { mode: "boolean" }).default(false).notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),

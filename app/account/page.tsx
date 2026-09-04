@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { ExportSendsButton } from "@/components/export-sends-button";
+import { PrivateProfileToggle } from "@/components/private-profile-toggle";
 import { ResetPasswordButton } from "@/components/reset-password-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeSelect } from "@/components/theme-select";
@@ -10,6 +11,8 @@ import { AppLink } from "@/components/ui/app-link";
 import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageTitle } from "@/components/ui/typography";
+import { getDb } from "@/db/client";
+import { getUser } from "@/db/queries";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
 
@@ -36,6 +39,9 @@ export default async function AccountPage() {
     redirect(signInUrl("/account"));
   }
 
+  const db = await getDb();
+  const user = await getUser(db, session.user.id);
+
   return (
     <div className={FORM_CARD_CLASS}>
       <div className="flex flex-col gap-1">
@@ -49,6 +55,7 @@ export default async function AccountPage() {
           <span className="text-sm text-muted">Theme</span>
           <ThemeSelect />
         </div>
+        <PrivateProfileToggle initialIsPrivate={user?.isPrivate ?? false} />
       </AccountSection>
 
       <AccountSection title="Send data">
