@@ -25,7 +25,6 @@ import {
   getSubtreeClimbs,
   getSubtreeGradeHistogram,
   getUserSentClimbIds,
-  hasClimbsInArea,
   resolveSubareaScope,
 } from "@/db/queries";
 import {
@@ -121,14 +120,12 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   // header, histogram, and rail always describe the whole area.
   const listScope = await resolveSubareaScope(db, area, filter.subareaId);
 
-  const [ancestors, subareas, subtreeClimbs, hasClimbs, histogramRows] = await Promise.all([
+  const [ancestors, subareas, subtreeClimbs, histogramRows] = await Promise.all([
     getAreaAncestors(area),
     getSubareas(db, area.id),
     getSubtreeClimbs(db, listScope, 1, sort, toSubtreeQueryFilter(filter)),
-    hasClimbsInArea(db, area.id),
     histogramEligible ? getSubtreeGradeHistogram(db, area) : [],
   ]);
-  const canDeleteArea = subareas.length === 0 && !hasClimbs;
   const histogram = buildGradeHistogram(histogramRows);
 
   const areaPath = areaHref(area.id, area.name);
@@ -178,7 +175,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
         histogram={histogram}
         isEditor={session != null}
         filter={filter}
-        actions={session && <AreaHeaderActions area={area} canDelete={canDeleteArea} />}
+        actions={session && <AreaHeaderActions area={area} />}
       />
 
       {/* The provider links the toolbar's in-flight navigation to the climb

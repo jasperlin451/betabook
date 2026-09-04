@@ -4,15 +4,16 @@ import { eq } from "drizzle-orm";
 import { refresh, revalidatePath } from "next/cache";
 
 import { getDb } from "@/db/client";
-import { getArea, getSubareas, hasClimbsInArea } from "@/db/queries";
+import { getArea } from "@/db/queries";
 import { areas } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
-import { validateAreaInput, type RawAreaInput } from "@/lib/areas";
+import { validateAreaDescriptionInput, validateAreaInput, type RawAreaInput } from "@/lib/areas";
 import { parseId } from "@/lib/parse-id";
 import { requireSession } from "@/lib/session";
 import { pickFormFields } from "@/lib/validation";
 
 const AREA_FORM_FIELDS = ["name", "description"] as const;
+const AREA_UPDATE_FORM_FIELDS = ["description"] as const;
 
 function readAreaFormData(formData: FormData): RawAreaInput {
   return pickFormFields(formData, AREA_FORM_FIELDS);
@@ -26,7 +27,7 @@ export async function updateArea(areaId: number, formData: FormData): Promise<Ac
     const existing = parseId(areaId) === null ? undefined : await getArea(db, areaId);
     if (!existing) throw new ActionError("Area not found");
 
-    const input = validateAreaInput(readAreaFormData(formData));
+    const input = validateAreaDescriptionInput(pickFormFields(formData, AREA_UPDATE_FORM_FIELDS));
     await db.update(areas).set(input).where(eq(areas.id, areaId));
 
     revalidatePath(`/areas/${areaId}`);
@@ -70,34 +71,5 @@ export async function createArea(
     revalidatePath("/");
     refresh();
     return id;
-  });
-}
-
-/** Deletes a leaf area — no sub-areas, no climbs directly in it. Nothing
- * else in the tree needs touching: no other area's `parentId` refers to a
- * leaf, so removing one can't leave a dangling reference or a stale
- * position. The areas.parentId/climbs.areaId foreign keys (onDelete:
- * "restrict") would reject this delete anyway if it weren't actually a leaf
- * — the checks below exist for a friendly error message and to let the UI
- * disable the action proactively, not because the FK can't be trusted. */
-export async function deleteArea(areaId: number): Promise<ActionResult> {
-  return toActionResult(async () => {
-    await requireSession();
-    const db = await getDb();
-
-    const existing = parseId(areaId) === null ? undefined : await getArea(db, areaId);
-    if (!existing) throw new ActionError("Area not found");
-
-    const subareas = await getSubareas(db, areaId);
-    if (subareas.length > 0) throw new ActionError("Can't delete an area with sub-areas");
-    if (await hasClimbsInArea(db, areaId))
-      throw new ActionError("Can't delete an area with climbs");
-
-    await db.delete(areas).where(eq(areas.id, areaId));
-
-    revalidatePath(`/areas/${areaId}`);
-    if (existing.parentId != null) revalidatePath(`/areas/${existing.parentId}`);
-    revalidatePath("/");
-    refresh();
   });
 }

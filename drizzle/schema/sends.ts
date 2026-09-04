@@ -14,8 +14,7 @@ export const sends = sqliteTable(
     climbId: integer("climb_id")
       .notNull()
       // A climb with logged sends is historical data, not an aggregate that
-      // should disappear with its parent. RESTRICT is also the database-level
-      // backstop for deleteClimb's conditional delete under concurrent writes.
+      // should disappear with its parent.
       .references(() => climbs.id, { onDelete: "restrict" }),
     ascentStyle: text("ascent_style", {
       enum: ["redpoint", "flash", "onsight"],

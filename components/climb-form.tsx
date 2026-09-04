@@ -31,8 +31,6 @@ const CLIMB_TYPE_LABELS: Record<ClimbType, string> = {
 
 // oxlint-disable-next-line complexity -- create/edit form with many conditionally-rendered fields
 export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: ClimbFormProps) {
-  const disciplineLocked = (climb?.sendCount ?? 0) > 0;
-
   const [name, setName] = useState(climb?.name ?? initial?.name ?? "");
   const [type, setType] = useState<ClimbType>(climb?.type ?? initial?.type ?? "boulder");
   const [grade, setGrade] = useState(String(climb?.grade ?? 0));
@@ -58,8 +56,22 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
     setError(null);
     setSubmitAttempted(true);
 
+    if (climb) {
+      const formData = new FormData();
+      formData.set("description", description);
+      startTransition(async () => {
+        const result = await updateClimb(climb.id, formData);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        onDone?.(climb.id, climb.name);
+      });
+      return;
+    }
+
     const targetAreaId = areaId;
-    if (!trimmedName || (!climb && targetAreaId == null)) return;
+    if (!trimmedName || targetAreaId == null) return;
 
     const formData = new FormData();
     formData.set("name", trimmedName);
@@ -68,22 +80,30 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
     formData.set("description", description);
 
     startTransition(async () => {
-      if (climb) {
-        const result = await updateClimb(climb.id, formData);
-        if (!result.ok) {
-          setError(result.error);
-          return;
-        }
-        onDone?.(climb.id, trimmedName);
-      } else if (targetAreaId != null) {
-        const result = await createClimb(targetAreaId, formData);
-        if (!result.ok) {
-          setError(result.error);
-          return;
-        }
-        onDone?.(result.value, trimmedName);
+      const result = await createClimb(targetAreaId, formData);
+      if (!result.ok) {
+        setError(result.error);
+        return;
       }
+      onDone?.(result.value, trimmedName);
     });
+  }
+
+  if (climb) {
+    return (
+      <form onSubmit={handleSubmit} className={SURFACE_CARD_CLASS}>
+        <TextField value={description} onChange={setDescription}>
+          <Label>Description</Label>
+          <TextArea placeholder="Describe the climb…" />
+        </TextField>
+
+        {error && <p className="text-sm text-danger">{error}</p>}
+
+        <Button type="submit" isDisabled={pending} fullWidth>
+          Save changes
+        </Button>
+      </form>
+    );
   }
 
   return (
@@ -95,7 +115,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
             selected={pickedArea}
             onSelectedChange={setPickedArea}
             isInvalid={areaInvalid}
-            defaultQuery={climb ? undefined : initial?.areaName}
+            defaultQuery={initial?.areaName}
           />
           {areaInvalid && <p className="text-sm text-danger">Select an area.</p>}
         </TextField>
@@ -119,7 +139,6 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
         <Label>Discipline</Label>
         <select
           value={type}
-          disabled={disciplineLocked}
           onChange={(e) => handleTypeChange(e.target.value as ClimbType)}
           className={FIELD_CLASS}
         >
@@ -129,11 +148,6 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
             </option>
           ))}
         </select>
-        {disciplineLocked && (
-          <p className="mt-1 text-xs text-muted">
-            Discipline can&rsquo;t be changed once sends have been logged.
-          </p>
-        )}
       </TextField>
 
       <TextField>
@@ -169,7 +183,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
       {error && <p className="text-sm text-danger">{error}</p>}
 
       <Button type="submit" isDisabled={pending} fullWidth>
-        {climb ? "Save changes" : "Add climb"}
+        Add climb
       </Button>
     </form>
   );

@@ -16,8 +16,7 @@ export async function sendWelcomeEmailOnce(
 ) {
   // Claim first, send second, and let the database decide who won. Two
   // concurrent verify-email requests both reach this line; the IS NULL
-  // predicate means exactly one of them gets a row back. Same conditional-write
-  // shape as deleteClimb in db/mutations/climbs.ts.
+  // predicate means exactly one of them gets a row back.
   const claimed = await db
     .update(user)
     .set({ welcomeEmailSentAt: new Date() })

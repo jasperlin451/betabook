@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createClimb, createSend, deleteClimb, updateClimb, updateSend } from "@/actions";
+import { createClimb, createSend, updateClimb, updateSend } from "@/actions";
 import { createDb } from "@/db/client";
 import { climbs, sends } from "@/db/schema";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
@@ -171,44 +171,43 @@ describe("updateSend action boundary", () => {
   });
 });
 
-describe("deleteClimb action boundary", () => {
-  it("returns ok:false when the climb has logged sends", async () => {
-    const result = await deleteClimb(1);
-    expect(result).toEqual({ ok: false, error: "Can't delete a climb with logged sends" });
-    expect(await db.select().from(climbs).where(eq(climbs.id, 1)).get()).toBeDefined();
-  });
-
+describe("updateClimb action boundary", () => {
   it("returns ok:false when the climb doesn't exist", async () => {
-    expect(await deleteClimb(999)).toEqual({ ok: false, error: "Climb not found" });
+    const formData = new FormData();
+    formData.set("description", "New description");
+    expect(await updateClimb(999, formData)).toEqual({ ok: false, error: "Climb not found" });
   });
 
-  it("returns ok:true and deletes on success", async () => {
-    expect(await deleteClimb(2)).toEqual({ ok: true, value: undefined });
-    expect(await db.select().from(climbs).where(eq(climbs.id, 2)).get()).toBeUndefined();
+  it("updates the description, ignoring any other submitted fields", async () => {
+    const formData = new FormData();
+    formData.set("name", "Hacked Name");
+    formData.set("type", "sport");
+    formData.set("grade", "99");
+    formData.set("description", "New description");
+
+    expect(await updateClimb(2, formData)).toEqual({ ok: true, value: undefined });
+
+    const row = await db.select().from(climbs).where(eq(climbs.id, 2)).get();
+    expect(row?.name).toBe("Test Slab");
+    expect(row?.type).toBe("boulder");
+    expect(row?.grade).toBe(2);
+    expect(row?.description).toBe("New description");
   });
 
-  it("keeps sends safe even when a raw delete bypasses the action", async () => {
-    await expect(db.delete(climbs).where(eq(climbs.id, 1))).rejects.toThrow(/Failed query/i);
-    expect(await db.select().from(climbs).where(eq(climbs.id, 1)).get()).toBeDefined();
-    expect(await db.select().from(sends).where(eq(sends.climbId, 1)).get()).toBeDefined();
+  it("works on a climb with logged sends, since discipline is never touched", async () => {
+    const formData = new FormData();
+    formData.set("description", "Highball beta");
+
+    expect(await updateClimb(1, formData)).toEqual({ ok: true, value: undefined });
+
+    const row = await db.select().from(climbs).where(eq(climbs.id, 1)).get();
+    expect(row?.type).toBe("boulder");
+    expect(row?.description).toBe("Highball beta");
   });
 });
 
-describe("updateClimb discipline invariant", () => {
-  it("rejects changing the discipline after a send exists", async () => {
-    const formData = new FormData();
-    formData.set("name", "Test Highball");
-    formData.set("type", "sport");
-    formData.set("grade", "5");
-    formData.set("description", "");
-
-    expect(await updateClimb(1, formData)).toEqual({
-      ok: false,
-      error: "Can't change discipline once a climb has logged sends",
-    });
-  });
-
-  it("enforces the same rule for writes that bypass the action", async () => {
+describe("climb type immutability (DB trigger)", () => {
+  it("rejects a raw write that changes the type of a climb with logged sends", async () => {
     await expect(db.update(climbs).set({ type: "sport" }).where(eq(climbs.id, 1))).rejects.toThrow(
       /Failed query/i,
     );
