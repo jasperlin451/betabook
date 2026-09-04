@@ -3,8 +3,13 @@ name: Deploy
 on:
   push:
     branches: [main]
+  # Deliberately unfiltered. A `branches:` filter here matches the pull
+  # request's *base*, and in a stack only the bottom branch is based on main —
+  # every branch above it is based on its parent, so `branches: [main]` skips
+  # CI on all of them silently. The deploy job below is guarded on
+  # `github.ref` independently, so a stacked PR still runs `test` and nothing
+  # else.
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 # Serialize deploys on main so two quick merges can't land out of order, but
