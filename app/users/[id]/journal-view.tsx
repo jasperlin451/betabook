@@ -36,10 +36,8 @@ export async function JournalView({
     firstPage.entries.flatMap((entry) => (entry.areaId == null ? [] : [entry.areaId])),
   );
 
-  const hasActivityThisMonth =
-    counts.daysThisMonth > 0 || counts.entriesThisMonth > 0 || counts.sentThisMonth > 0;
   const statCards = [
-    ...(hasActivityThisMonth
+    ...(counts.entriesThisMonth > 0
       ? [
           {
             key: "month",

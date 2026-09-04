@@ -255,7 +255,6 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
               userId={session.user.id}
               climbId={climb.id}
               entries={journalEntries}
-              hasSend={userSend != null}
             />
           )}
           <div className="flex flex-col gap-3">

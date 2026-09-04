@@ -10,16 +10,13 @@ export function ClimbJournalCard({
   userId,
   climbId,
   entries,
-  hasSend,
 }: {
   userId: string;
   climbId: number;
   entries: JournalEntry[];
-  hasSend: boolean;
 }) {
   const recentEntries = entries.slice(0, 3);
   const sessionCount = entries.length > 3 ? "4+ sessions" : formatCount(entries.length, "session");
-  const sentWithoutSend = !hasSend && entries.some((entry) => entry.sent);
 
   return (
     <div className={cardClass("sm")}>
@@ -36,10 +33,7 @@ export function ClimbJournalCard({
         <p className="text-sm text-muted">No sessions logged on this climb yet.</p>
       ) : (
         <>
-          <p className="mb-3 text-sm text-muted">
-            {sessionCount} logged
-            {sentWithoutSend && " — sent, but no ascent recorded"}
-          </p>
+          <p className="mb-3 text-sm text-muted">{sessionCount} logged</p>
 
           <ul className="flex flex-col gap-3">
             {recentEntries.map((entry) => (

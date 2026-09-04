@@ -122,6 +122,7 @@ export function JournalEntryForm({
             type="date"
             value={entryDate}
             max={today}
+            readOnly={existingEntry?.sent}
             onChange={(e) => setEntryDate(e.target.value)}
           />
         </TextField>
@@ -130,7 +131,9 @@ export function JournalEntryForm({
           (existingEntry ? (
             sent && (
               <p className="text-sm text-muted">
-                Logged as a send. Delete the entry to take it back — editing can&apos;t un-send it.
+                {existingEntry.isAscent
+                  ? "To change the ascent date, use Edit send on the climb page."
+                  : "To change this repeat’s date, delete the entry and log it again."}
               </p>
             )
           ) : (
@@ -176,6 +179,11 @@ export function JournalEntryForm({
           </p>
         </TextField>
 
+        {(isAscent || existingEntry?.isAscent) && (
+          <p className="text-xs text-muted">
+            This note also appears on your send and follows your profile privacy settings.
+          </p>
+        )}
         <TagInput value={tags} onChange={setTags} />
       </FormSection>
 

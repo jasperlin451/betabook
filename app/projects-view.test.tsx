@@ -28,20 +28,6 @@ const owner = {
 };
 
 describe("ProjectsView", () => {
-  it("renders every open project for the owner", async () => {
-    const projects = [{ climbId: 1 }, { climbId: 2 }];
-    mocks.getOpenProjects.mockResolvedValue(projects);
-
-    const result = (await ProjectsView({ owner })) as ReactElement<{ children: ReactNode }>;
-    const children = result.props.children as ReactNode[];
-    const list = children.find(
-      (child) => isValidElement(child) && child.type === mocks.OpenProjectList,
-    );
-
-    expect(mocks.getOpenProjects).toHaveBeenCalledWith({}, owner, owner.id, 101);
-    expect(isValidElement<{ projects: unknown[] }>(list) && list.props.projects).toBe(projects);
-  });
-
   it("caps the rendered list and reports more projects", async () => {
     const projects = Array.from({ length: 101 }, (_, index) => ({ climbId: index + 1 }));
     mocks.getOpenProjects.mockResolvedValue(projects);

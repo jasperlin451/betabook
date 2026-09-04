@@ -77,6 +77,16 @@ export function JournalFilterToolbar({
         </AppLink>
       ))}
 
+      {filter.year !== null && (
+        <AppLink
+          href={href(base, { ...filter, year: null })}
+          aria-label={`Clear ${filter.year} year filter`}
+          className={`${choicePillClass(true, "bg-surface-secondary text-foreground")} inline-flex items-center gap-1`}
+        >
+          {filter.year}
+          <X className="size-3.5" aria-hidden />
+        </AppLink>
+      )}
       {filter.tag && (
         <AppLink
           href={href(base, { ...filter, tag: null })}

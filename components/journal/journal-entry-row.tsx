@@ -13,15 +13,6 @@ import { formatDate } from "@/lib/format-date";
 import { formatGrade } from "@/lib/grades";
 import { journalFilterToSearchParams, type JournalFilter } from "@/lib/journal-filter";
 
-function entryLabel(entry: JournalEntry): { text: string; className: string } | null {
-  if (entry.isAscent) return null;
-  if (entry.kind === "training") {
-    return { text: "Training", className: "border-border text-muted" };
-  }
-  if (!entry.sent) return { text: "Session", className: "border-border text-muted" };
-  return { text: "Repeat", className: "border-border text-muted" };
-}
-
 function tagHref(userId: string, filter: JournalFilter, tag: string): string {
   const params = journalFilterToSearchParams({
     ...filter,
@@ -45,20 +36,16 @@ export function JournalEntryRow({
   filter: JournalFilter;
   areaBreadcrumbs: AreaBreadcrumbs;
 }) {
-  const label = entryLabel(entry);
+  const label = entry.kind === "training" ? "Training" : entry.sent ? "Repeat" : "Session";
   const status = entry.isAscent ? (
     <span className="inline-flex items-center gap-1 font-semibold text-success-soft-foreground">
       <CircleCheckBig aria-hidden className="size-4" />
       <span>Sent</span>
     </span>
   ) : (
-    label && (
-      <span
-        className={clsx("rounded-full border px-2 py-0.5 text-xs font-medium", label.className)}
-      >
-        {label.text}
-      </span>
-    )
+    <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium text-muted">
+      {label}
+    </span>
   );
   const tags =
     entry.tags.length > 0 ? (
