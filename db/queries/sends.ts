@@ -335,7 +335,7 @@ export async function getSendsForUserPage(
     JOIN climbs ON climbs.id = sends.climb_id
     JOIN areas ON areas.id = climbs.area_id
     WHERE ${where}
-    ORDER BY ${USER_SENDS_ORDER_BY[filter.sort ?? "date_desc"]}, sends.id
+    ORDER BY ${USER_SENDS_ORDER_BY[filter.sort ?? "date_desc"]}, sends.id DESC
     LIMIT ${pageSize + 1}
     OFFSET ${offset}
   `);
