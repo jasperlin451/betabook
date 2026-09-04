@@ -3,10 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_JOURNAL_FILTER,
   JOURNAL_VIEWS,
-  isDefaultJournalFilter,
+  type JournalView,
   journalFilterToSearchParams,
   parseJournalFilter,
-  type JournalView,
 } from "@/lib/journal-filter";
 
 describe("parseJournalFilter", () => {
@@ -14,15 +13,8 @@ describe("parseJournalFilter", () => {
     expect(parseJournalFilter({})).toEqual(DEFAULT_JOURNAL_FILTER);
   });
 
-  it("reads every chip the toolbar can render", () => {
-    for (const view of JOURNAL_VIEWS) {
-      expect(parseJournalFilter({ view }).view).toBe(view);
-    }
-  });
-
-  it("offers three views", () => {
-    const views: readonly JournalView[] = JOURNAL_VIEWS;
-    expect(views).toEqual(["all", "sessions", "training"]);
+  it.each(JOURNAL_VIEWS)("parses the %s view", (view: JournalView) => {
+    expect(parseJournalFilter({ view }).view).toBe(view);
   });
 
   it("falls back to the default view on an unknown chip", () => {
@@ -78,14 +70,5 @@ describe("journalFilterToSearchParams", () => {
     };
     const params = journalFilterToSearchParams(filter);
     expect(parseJournalFilter(Object.fromEntries(params))).toEqual(filter);
-  });
-});
-
-describe("isDefaultJournalFilter", () => {
-  it("is true only when nothing is set", () => {
-    expect(isDefaultJournalFilter(DEFAULT_JOURNAL_FILTER)).toBe(true);
-    expect(isDefaultJournalFilter({ ...DEFAULT_JOURNAL_FILTER, query: "slab" })).toBe(false);
-    expect(isDefaultJournalFilter({ ...DEFAULT_JOURNAL_FILTER, tag: "core" })).toBe(false);
-    expect(isDefaultJournalFilter({ ...DEFAULT_JOURNAL_FILTER, view: "training" })).toBe(false);
   });
 });

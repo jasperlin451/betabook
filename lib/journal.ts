@@ -5,10 +5,10 @@ import { trimOrNull } from "@/lib/validation";
 
 export { MAX_LOG_NOTE_LENGTH as MAX_JOURNAL_BODY_LENGTH } from "@/lib/log-note";
 
-export const JOURNAL_KINDS = ["session", "training"] as const;
+const JOURNAL_KINDS = ["session", "training"] as const;
 export type JournalKind = (typeof JOURNAL_KINDS)[number];
 
-export const JOURNAL_VISIBILITIES = ["private", "public"] as const;
+const JOURNAL_VISIBILITIES = ["private", "public"] as const;
 export type JournalVisibility = (typeof JOURNAL_VISIBILITIES)[number];
 
 export const MAX_JOURNAL_TAGS = 8;
@@ -123,34 +123,4 @@ export function validateJournalInput(
   }
 
   return { kind, climbId, sent, entryDate, body, tags: tags.length > 0 ? tags : null };
-}
-
-export function describePendingEntry(input: {
-  kind: JournalKind;
-  climbName?: string | null;
-  sent: boolean;
-  hasPriorSend: boolean;
-}): { headline: string; consequence: string | null } {
-  if (input.kind === "training") {
-    return { headline: "Logging training.", consequence: null };
-  }
-
-  const climb = input.climbName?.trim();
-  if (!climb) return { headline: "Logging an outdoor session.", consequence: null };
-
-  if (!input.sent) {
-    return { headline: `Logging an outdoor session on ${climb}.`, consequence: null };
-  }
-
-  if (input.hasPriorSend) {
-    return {
-      headline: `Logging a repeat of ${climb}.`,
-      consequence: `Your ascent of ${climb} is already recorded — a repeat doesn't change it.`,
-    };
-  }
-
-  return {
-    headline: `Logging an ascent of ${climb}.`,
-    consequence: `Records a send on ${climb}, counting toward its send total and grade consensus.`,
-  };
 }

@@ -2,17 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import { ActionError } from "@/lib/action-result";
 import {
-  JOURNAL_KINDS,
-  JOURNAL_VISIBILITIES,
   MAX_JOURNAL_BODY_LENGTH,
   MAX_JOURNAL_TAGS,
   MAX_JOURNAL_TAG_LENGTH,
-  describePendingEntry,
   normalizeTag,
   normalizeTags,
   parseJournalVisibility,
   validateJournalInput,
   type RawJournalEntryInput,
+  type JournalKind,
+  type JournalVisibility,
 } from "@/lib/journal";
 
 const TODAY = "2026-03-15";
@@ -144,7 +143,7 @@ describe("validateJournalInput", () => {
   });
 
   it("accepts every stored kind", () => {
-    for (const kind of JOURNAL_KINDS) {
+    for (const kind of ["session", "training"] satisfies JournalKind[]) {
       const climbId = kind === "session" ? "7" : null;
       expect(validateJournalInput(raw({ kind, climbId, body: "Notes." }), TODAY).kind).toBe(kind);
     }
@@ -195,7 +194,7 @@ describe("validateJournalInput", () => {
 
 describe("parseJournalVisibility", () => {
   it("accepts every stored value", () => {
-    for (const visibility of JOURNAL_VISIBILITIES) {
+    for (const visibility of ["private", "public"] satisfies JournalVisibility[]) {
       expect(parseJournalVisibility(visibility)).toBe(visibility);
     }
   });
@@ -203,67 +202,5 @@ describe("parseJournalVisibility", () => {
   it("rejects anything else", () => {
     expect(() => parseJournalVisibility("friends")).toThrow(ActionError);
     expect(() => parseJournalVisibility(null)).toThrow(ActionError);
-  });
-});
-
-describe("describePendingEntry", () => {
-  it("names training and promises nothing else", () => {
-    expect(describePendingEntry({ kind: "training", sent: false, hasPriorSend: false })).toEqual({
-      headline: "Logging training.",
-      consequence: null,
-    });
-  });
-
-  it("names a climb-less session as outdoors", () => {
-    expect(describePendingEntry({ kind: "session", sent: false, hasPriorSend: false })).toEqual({
-      headline: "Logging an outdoor session.",
-      consequence: null,
-    });
-  });
-
-  it("names the climb on an unsent outdoor session, with no consequence", () => {
-    expect(
-      describePendingEntry({
-        kind: "session",
-        climbName: "Evilution",
-        sent: false,
-        hasPriorSend: false,
-      }),
-    ).toEqual({ headline: "Logging an outdoor session on Evilution.", consequence: null });
-  });
-
-  it("warns that an ascent reaches past the journal", () => {
-    const { headline, consequence } = describePendingEntry({
-      kind: "session",
-      climbName: "Evilution",
-      sent: true,
-      hasPriorSend: false,
-    });
-    expect(headline).toBe("Logging an ascent of Evilution.");
-    expect(consequence).toContain("send total and grade consensus");
-  });
-
-  it("says a repeat changes nothing public", () => {
-    const { headline, consequence } = describePendingEntry({
-      kind: "session",
-      climbName: "Evilution",
-      sent: true,
-      hasPriorSend: true,
-    });
-    expect(headline).toBe("Logging a repeat of Evilution.");
-    expect(consequence).toContain("already recorded");
-  });
-
-  it("never says first ascent", () => {
-    const states = [true, false].flatMap((sent) =>
-      [true, false].map((hasPriorSend) =>
-        describePendingEntry({ kind: "session", climbName: "Evilution", sent, hasPriorSend }),
-      ),
-    );
-    for (const state of states) {
-      expect(`${state.headline} ${state.consequence ?? ""}`.toLowerCase()).not.toContain(
-        "first ascent",
-      );
-    }
   });
 });

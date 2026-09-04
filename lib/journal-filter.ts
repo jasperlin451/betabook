@@ -59,13 +59,3 @@ export function journalFilterToSearchParams(filter: JournalFilter): URLSearchPar
   if (filter.year) params.set("year", String(filter.year));
   return params;
 }
-
-export function isDefaultJournalFilter(filter: JournalFilter): boolean {
-  return (
-    filter.view === DEFAULT_JOURNAL_FILTER.view &&
-    !filter.query &&
-    !filter.tag &&
-    filter.climbId === null &&
-    filter.year === null
-  );
-}
