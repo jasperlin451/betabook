@@ -117,11 +117,22 @@ describe("createJournalEntry", () => {
     const formData = entryFormData({ kind: "training", body: "Hangboard." });
     formData.append("tag", " Hangboard ");
     formData.append("tag", "HANGBOARD");
-    formData.append("tag", "Max Hangs");
+    formData.append("tag", "Max-Hangs");
 
     await createJournalEntry(formData);
     const entries = await entriesFor("j-user");
-    expect(entries[0]?.tags).toEqual(["hangboard", "max hangs"]);
+    expect(entries[0]?.tags).toEqual(["hangboard", "max-hangs"]);
+  });
+
+  it("rejects tags containing spaces", async () => {
+    const formData = entryFormData({ kind: "training", body: "Hangboard." });
+    formData.append("tag", "max hangs");
+
+    expect(await createJournalEntry(formData)).toEqual({
+      ok: false,
+      error: 'Tag "max hangs" can only contain letters, numbers and hyphens',
+    });
+    expect(await entriesFor("j-user")).toEqual([]);
   });
 
   it("returns a validation message rather than throwing", async () => {

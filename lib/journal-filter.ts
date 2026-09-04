@@ -1,4 +1,4 @@
-import { normalizeTag } from "@/lib/journal";
+import { isValidJournalTag, normalizeTag } from "@/lib/journal";
 import { toArray, type SearchParamsRecord } from "@/lib/search-params";
 
 export const JOURNAL_VIEWS = ["all", "sessions", "training"] as const;
@@ -20,7 +20,7 @@ export const DEFAULT_JOURNAL_FILTER: JournalFilter = {
   year: null,
 };
 
-const MAX_JOURNAL_QUERY_LENGTH = 100;
+export const MAX_JOURNAL_QUERY_LENGTH = 100;
 const MIN_JOURNAL_YEAR = 1900;
 const MAX_JOURNAL_YEAR = 2200;
 
@@ -35,7 +35,8 @@ export function parseJournalFilter(params: SearchParamsRecord): JournalFilter {
     : DEFAULT_JOURNAL_FILTER.view;
 
   const query = normalizeQuery(toArray(params.q)[0] ?? "");
-  const tag = normalizeTag(toArray(params.tag)[0] ?? "");
+  const normalizedTag = normalizeTag(toArray(params.tag)[0] ?? "");
+  const tag = isValidJournalTag(normalizedTag) ? normalizedTag : "";
 
   const climbId = Number(toArray(params.climbId)[0]);
   const year = Number(toArray(params.year)[0]);

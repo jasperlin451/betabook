@@ -34,6 +34,19 @@ const DEFAULT_PASSWORD = "password";
 
 type ClimbType = (typeof TYPES)[number];
 type Climb = { id: number; type: ClimbType; grade: number | null };
+type DatedSend = { userId: string; climbId: number; dateSent: string; comment: string | null };
+
+const JOURNAL_END_DATE = "2026-09-01";
+const TRAINING_TAGS = [
+  "indoor",
+  "gym",
+  "technique",
+  "hangboard",
+  "strength",
+  "mobility",
+  "conditioning",
+  "endurance",
+];
 
 const args = process.argv.slice(2);
 const text = (name: string, fallback: string) => {
@@ -110,9 +123,11 @@ async function main() {
       const climbs = insertClimbs(db, climbCount, areaIds);
       const userIds = insertUsers(db, userCount, passwordHash);
       const sendCount = insertSends(db, userIds, climbs);
+      const journalCount = insertJournalEntries(db, userIds, climbs);
       console.log(
         `Seeded ${areaCount.toLocaleString()} areas, ${climbCount.toLocaleString()} climbs, ` +
-          `${userIds.length} climbers and ${sendCount.toLocaleString()} ticks.`,
+          `${userIds.length} climbers, ${sendCount.toLocaleString()} ticks and ` +
+          `${journalCount.toLocaleString()} journal entries.`,
       );
     } else {
       console.log(`Left ${existing.toLocaleString()} existing climbs alone (--force regenerates).`);
@@ -172,6 +187,7 @@ function upsertAccount(
  * the first parent. Deleting deepest-first is what makes it terminate.
  */
 function clear(db: DatabaseSync) {
+  db.exec("delete from journal_entries");
   db.exec("delete from sends");
   db.exec("delete from climbs");
   // Their emails are unique, so a re-seed would collide. Sends and accounts
@@ -245,7 +261,8 @@ function insertClimbs(db: DatabaseSync, count: number, areaIds: number[]): Climb
 /** Verified so they can sign in without walking the email flow. */
 function insertUsers(db: DatabaseSync, count: number, passwordHash: string): string[] {
   const insertUser = db.prepare(
-    "insert into user (id, name, email, email_verified) values (?, ?, ?, 1)",
+    "insert into user (id, name, email, email_verified, journal_visibility)" +
+      " values (?, ?, ?, 1, 'public')",
   );
   const insertAccount = db.prepare(
     "insert into account (id, account_id, provider_id, user_id, password, updated_at)" +
@@ -284,7 +301,10 @@ function insertSends(db: DatabaseSync, userIds: string[], climbs: Climb[]): numb
     ])();
     // arrayElements samples without replacement, which is what keeps this
     // inside the (user_id, climb_id) unique index.
-    const ticked = faker.helpers.arrayElements(climbs, Math.min(climbs.length, wanted));
+    const ticked = faker.helpers.arrayElements(
+      climbs,
+      Math.min(Math.max(climbs.length - 2, 0), wanted),
+    );
     for (const climb of ticked) {
       insert.run(
         userId,
@@ -313,6 +333,156 @@ function insertSends(db: DatabaseSync, userIds: string[], climbs: Climb[]): numb
     }
   }
   return total;
+}
+
+function insertJournalEntries(db: DatabaseSync, userIds: string[], climbs: Climb[]): number {
+  const insert = db.prepare(
+    "insert into journal_entries (user_id, climb_id, kind, sent, entry_date, body, tags)" +
+      " values (?, ?, ?, ?, ?, ?, ?)",
+  );
+  const datedSends = db
+    .prepare(
+      "select user_id userId, climb_id climbId, date_sent dateSent, comment" +
+        " from sends where date_sent is not null",
+    )
+    .all() as DatedSend[];
+  const climbsById = new Map(climbs.map((climb) => [climb.id, climb]));
+  const sendsByUser = new Map<string, DatedSend[]>();
+  for (const send of datedSends) {
+    const userSends = sendsByUser.get(send.userId) ?? [];
+    userSends.push(send);
+    sendsByUser.set(send.userId, userSends);
+  }
+  let total = 0;
+
+  const add = ({
+    userId,
+    climbId = null,
+    kind = "session",
+    sent = false,
+    entryDate,
+    body = null,
+    tags = null,
+  }: {
+    userId: string;
+    climbId?: number | null;
+    kind?: "session" | "training";
+    sent?: boolean;
+    entryDate: string;
+    body?: string | null;
+    tags?: string[] | null;
+  }) => {
+    insert.run(userId, climbId, kind, Number(sent), entryDate, body, tags && JSON.stringify(tags));
+    total += 1;
+  };
+
+  for (const send of datedSends) {
+    const climb = climbsById.get(send.climbId);
+
+    for (const entryDate of randomDates(
+      faker.number.int({ min: 1, max: 3 }),
+      shiftDate(send.dateSent, -180),
+      shiftDate(send.dateSent, -1),
+    )) {
+      add({
+        userId: send.userId,
+        climbId: send.climbId,
+        entryDate,
+        body: maybeJournalBody(),
+        tags: climb ? journalTags(tagsForClimb(climb)) : null,
+      });
+    }
+
+    add({
+      userId: send.userId,
+      climbId: send.climbId,
+      sent: true,
+      entryDate: send.dateSent,
+      body: send.comment,
+      tags: climb ? journalTags(tagsForClimb(climb)) : null,
+    });
+  }
+
+  for (const userId of userIds) {
+    const userSends = sendsByUser.get(userId) ?? [];
+    const sentClimbIds = new Set(userSends.map((send) => send.climbId));
+    const repeatCandidates = userSends.filter((send) => send.dateSent <= JOURNAL_END_DATE);
+
+    for (const send of faker.helpers.arrayElements(
+      repeatCandidates,
+      Math.min(3, repeatCandidates.length),
+    )) {
+      const climb = climbsById.get(send.climbId);
+      add({
+        userId,
+        climbId: send.climbId,
+        sent: true,
+        entryDate: randomDate(send.dateSent, JOURNAL_END_DATE),
+        body: maybeJournalBody(),
+        tags: journalTags(["repeat", ...(climb ? tagsForClimb(climb) : [])]),
+      });
+    }
+
+    const projectCandidates = climbs.filter((climb) => !sentClimbIds.has(climb.id));
+    const projects = faker.helpers.arrayElements(
+      projectCandidates,
+      Math.min(2, projectCandidates.length),
+    );
+    for (const [projectIndex, climb] of projects.entries()) {
+      const sessionDates = randomDates(projectIndex === 0 ? 5 : 3, "2026-03-01", JOURNAL_END_DATE);
+      for (const entryDate of sessionDates) {
+        add({
+          userId,
+          climbId: climb.id,
+          entryDate,
+          body: faker.lorem.sentences({ min: 1, max: 2 }),
+          tags: journalTags(["project", ...tagsForClimb(climb)]),
+        });
+      }
+    }
+
+    for (const entryDate of randomDates(4, "2026-05-01", JOURNAL_END_DATE)) {
+      add({
+        userId,
+        kind: "training",
+        entryDate,
+        body: faker.lorem.sentences({ min: 1, max: 2 }),
+        tags: journalTags(TRAINING_TAGS),
+      });
+    }
+  }
+
+  return total;
+}
+
+function tagsForClimb(climb: Climb): string[] {
+  if (climb.type === "boulder") return ["power", "technical", "compression"];
+  if (climb.type === "sport") return ["endurance", "technical", "pumpy"];
+  return ["crack", "technical", "gear"];
+}
+
+function journalTags(values: string[]): string[] | null {
+  if (!faker.datatype.boolean(0.7)) return null;
+  return faker.helpers.arrayElements(values, { min: 1, max: Math.min(3, values.length) });
+}
+
+function maybeJournalBody(): string | null {
+  return faker.datatype.boolean(0.65) ? faker.lorem.sentences({ min: 1, max: 3 }) : null;
+}
+
+function randomDate(from: string, to: string): string {
+  return faker.date.between({ from, to }).toISOString().slice(0, 10);
+}
+
+function shiftDate(value: string, days: number): string {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function randomDates(count: number, from: string, to: string): string[] {
+  const dates = new Set<string>();
+  while (dates.size < count) dates.add(randomDate(from, to));
+  return [...dates].sort();
 }
 
 function title(value: string): string {

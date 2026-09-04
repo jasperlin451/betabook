@@ -66,7 +66,7 @@ beforeAll(async () => {
     entryDate: "2025-04-01",
     kind: "training",
     body: "Hangboard.",
-    tags: ["hangboard", "happy boulders"],
+    tags: ["hangboard", "happy-boulders"],
   });
   await seedFixtureJournalEntry(db, {
     userId: OWNER.id,
@@ -134,15 +134,15 @@ describe("getJournalPage", () => {
     const page = await getJournalPage(db, OWNER, OWNER.id, filter({ view: "training" }));
     expect(page.entries.find((entry) => entry.entryDate === "2025-04-01")?.tags).toEqual([
       "hangboard",
-      "happy boulders",
+      "happy-boulders",
     ]);
 
     const sessions = await getJournalPage(db, OWNER, OWNER.id, filter({ view: "sessions" }));
     expect(sessions.entries[0]?.tags).toEqual([]);
   });
 
-  it("filters by tag, including one with a space in it", async () => {
-    const page = await getJournalPage(db, OWNER, OWNER.id, filter({ tag: "happy boulders" }));
+  it("filters by a hyphenated tag", async () => {
+    const page = await getJournalPage(db, OWNER, OWNER.id, filter({ tag: "happy-boulders" }));
     expect(page.entries.map((e) => e.entryDate)).toEqual(["2025-04-01"]);
   });
 
@@ -171,6 +171,11 @@ describe("getJournalPage", () => {
     const page = await getJournalPage(db, OWNER, OWNER.id, filter({ query }));
     expect(page.entries).toHaveLength(1);
     expect(page.entries[0]).toMatchObject({ entryDate: "2025-01-10" });
+  });
+
+  it("accepts a multibyte query without creating an oversized LIKE pattern", async () => {
+    const page = await getJournalPage(db, OWNER, OWNER.id, filter({ query: "é".repeat(100) }));
+    expect(page.entries).toEqual([]);
   });
 
   it("filters by year", async () => {
@@ -258,7 +263,6 @@ describe("getJournalCounts", () => {
       entries: 7,
       sessions: 5,
       training: 2,
-      sent: 2,
       days: 4,
       entriesThisMonth: 1,
       daysThisMonth: 0,
@@ -281,7 +285,9 @@ describe("getJournalSessionsForAnalytics", () => {
   it("returns only outdoor sessions associated with climbs", async () => {
     const sessions = await getJournalSessionsForAnalytics(db, OWNER, OWNER.id);
 
-    expect(sessions).toHaveLength(5);
+    expect(sessions).toHaveLength(4);
+    expect(sessions.reduce((total, session) => total + session.count, 0)).toBe(5);
+    expect(sessions.find((session) => session.entryDate === "2025-02-02")?.count).toBe(2);
     expect(sessions.every((session) => session.climbType !== null)).toBe(true);
     expect(sessions.some((session) => session.entryDate === "2026-01-15")).toBe(false);
     expect(sessions.some((session) => session.entryDate === "2025-04-01")).toBe(false);
@@ -327,6 +333,29 @@ describe("getOpenProjects", () => {
 
     const projects = await getOpenProjects(db, owner, owner.id);
     expect(projects.map(({ climbId }) => climbId)).toEqual([SLAB, 4]);
+  });
+
+  it("bounds the number of projects returned", async () => {
+    const owner = {
+      id: "tl-project-limit",
+      isPrivate: false,
+      journalVisibility: "private" as const,
+    };
+    await seedFixtureUser(db, { id: owner.id });
+    await seedFixtureJournalEntry(db, {
+      userId: owner.id,
+      climbId: SLAB,
+      entryDate: "2025-06-01",
+    });
+    await seedFixtureJournalEntry(db, {
+      userId: owner.id,
+      climbId: 4,
+      entryDate: "2025-06-02",
+    });
+
+    const projects = await getOpenProjects(db, owner, owner.id, 1);
+    expect(projects).toHaveLength(1);
+    expect(projects[0]?.climbId).toBe(4);
   });
 });
 

@@ -29,11 +29,11 @@ function raw(overrides: Partial<RawJournalEntryInput> = {}): RawJournalEntryInpu
 }
 
 describe("normalizeTags", () => {
-  it("lowercases, trims and collapses interior whitespace", () => {
-    expect(normalizeTags([" Hangboard ", "Max   Hangs"])).toEqual(["hangboard", "max hangs"]);
+  it("lowercases and trims tags", () => {
+    expect(normalizeTags([" Hangboard ", "Max-Hangs"])).toEqual(["hangboard", "max-hangs"]);
   });
 
-  it("treats case and whitespace variants as one tag, keeping typed order", () => {
+  it("treats case and surrounding-whitespace variants as one tag, keeping typed order", () => {
     expect(normalizeTags(["Power", "endurance", "POWER ", " power"])).toEqual([
       "power",
       "endurance",
@@ -67,8 +67,9 @@ describe("normalizeTags", () => {
     );
   });
 
-  it("rejects characters outside letters, numbers, spaces and hyphens", () => {
-    expect(() => normalizeTags(["power!"])).toThrow("letters, numbers, spaces and hyphens");
+  it("rejects characters outside letters, numbers and hyphens", () => {
+    expect(() => normalizeTags(["power!"])).toThrow("letters, numbers and hyphens");
+    expect(() => normalizeTags(["power endurance"])).toThrow("letters, numbers and hyphens");
   });
 
   it("rejects a non-array and non-string members", () => {
@@ -76,9 +77,9 @@ describe("normalizeTags", () => {
     expect(() => normalizeTags([42])).toThrow(ActionError);
   });
 
-  it("admits spaces, which is what makes normalizeTag load-bearing on the read side", () => {
-    expect(normalizeTags(["Happy Boulders"])).toEqual(["happy boulders"]);
-    expect(normalizeTag("Happy  Boulders ")).toBe("happy boulders");
+  it("normalizes case and surrounding whitespace without admitting internal spaces", () => {
+    expect(normalizeTags([" Happy-Boulders "])).toEqual(["happy-boulders"]);
+    expect(normalizeTag(" Happy-Boulders ")).toBe("happy-boulders");
   });
 });
 

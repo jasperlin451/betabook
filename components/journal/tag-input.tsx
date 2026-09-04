@@ -5,7 +5,12 @@ import { X } from "lucide-react";
 import { useState } from "react";
 
 import { FIELD_CLASS } from "@/components/ui/field";
-import { MAX_JOURNAL_TAGS, MAX_JOURNAL_TAG_LENGTH, normalizeTag } from "@/lib/journal";
+import {
+  isValidJournalTag,
+  MAX_JOURNAL_TAGS,
+  MAX_JOURNAL_TAG_LENGTH,
+  normalizeTag,
+} from "@/lib/journal";
 
 export function TagInput({
   value,
@@ -15,13 +20,23 @@ export function TagInput({
   onChange: (value: string[]) => void;
 }) {
   const [draft, setDraft] = useState("");
+  const [tagError, setTagError] = useState<string | null>(null);
   const full = value.length >= MAX_JOURNAL_TAGS;
 
   function commit() {
     const tag = normalizeTag(draft);
+    if (!tag || full || value.includes(tag)) {
+      setDraft("");
+      setTagError(null);
+      return;
+    }
+    if (!isValidJournalTag(tag)) {
+      setTagError("Tags can only contain letters, numbers and hyphens.");
+      return;
+    }
     setDraft("");
-    if (!tag || full || value.includes(tag)) return;
-    onChange([...value, tag.slice(0, MAX_JOURNAL_TAG_LENGTH)]);
+    setTagError(null);
+    onChange([...value, tag]);
   }
 
   return (
@@ -49,7 +64,16 @@ export function TagInput({
         value={draft}
         disabled={full}
         maxLength={MAX_JOURNAL_TAG_LENGTH}
-        onChange={(e) => setDraft(e.target.value)}
+        aria-invalid={tagError ? true : undefined}
+        onChange={(e) => {
+          const nextDraft = e.target.value;
+          if (/\s/.test(nextDraft)) {
+            setTagError("Tags can't contain spaces.");
+            return;
+          }
+          setDraft(nextDraft);
+          setTagError(null);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === ",") {
             e.preventDefault();
@@ -59,13 +83,14 @@ export function TagInput({
           }
         }}
         onBlur={commit}
-        placeholder={full ? "" : "hangboard, power endurance…"}
+        placeholder={full ? "" : "hangboard, power-endurance…"}
         className={`${FIELD_CLASS} w-full`}
       />
-      <p className="mt-1 text-xs text-muted">
-        {full
-          ? `That's all ${MAX_JOURNAL_TAGS} tags — remove one to add another.`
-          : `Up to ${MAX_JOURNAL_TAGS} tags, ${MAX_JOURNAL_TAG_LENGTH} characters each. Enter or comma to add.`}
+      <p className={`mt-1 text-xs ${tagError ? "text-danger" : "text-muted"}`}>
+        {tagError ??
+          (full
+            ? `That's all ${MAX_JOURNAL_TAGS} tags — remove one to add another.`
+            : `Up to ${MAX_JOURNAL_TAGS} tags, ${MAX_JOURNAL_TAG_LENGTH} characters each. Letters, numbers and hyphens only.`)}
       </p>
     </TextField>
   );
