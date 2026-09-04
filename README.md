@@ -75,9 +75,10 @@ against the main checkout.
 ### Sample data
 
 `pnpm seed` fills an empty database with a sign-in account plus synthetic areas, climbs,
-climbers and ticks — 400 areas, 5,000 climbs, 50 climbers and ~16,000 ticks by
-default, in about a second, and deterministic for a given `--seed`, so two
-checkouts asked for the same numbers hold the same rows:
+climbers, ticks, and journal entries — 400 areas, 5,000 climbs, 50 synthetic climbers and
+~16,000 ticks by default. Journal history includes ascents, repeats, open projects,
+outdoor sessions, training, notes, and tags. The result is deterministic for a given
+`--seed`, so two checkouts asked for the same numbers hold the same rows:
 
 ```bash
 pnpm seed --areas 50 --climbs 500 --users 3

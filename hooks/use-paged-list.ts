@@ -13,10 +13,11 @@ type Options<T, Meta> = {
   initialHasMore: boolean;
   initialMeta: Meta;
   itemKey: (item: T) => string | number;
-  /** Receives both the number of unique rows currently rendered and the
-   * one-based page number to request. Offset-backed callers use the first;
-   * page-backed callers use the second. */
-  fetchPage: (offset: number, page: number) => Promise<PagedListPage<T, Meta>>;
+  fetchPage: (
+    offset: number,
+    page: number,
+    lastItem: T | undefined,
+  ) => Promise<PagedListPage<T, Meta>>;
   mergeMeta: (current: Meta, incoming: Meta) => Meta;
 };
 
@@ -68,7 +69,7 @@ export function usePagedList<T, Meta>({
     );
 
     try {
-      const page = await fetchPage(state.items.length, state.pagesLoaded + 1);
+      const page = await fetchPage(state.items.length, state.pagesLoaded + 1, state.items.at(-1));
 
       const existingKeys = new Set(state.items.map(itemKey));
       const nextItems = page.items.filter((item) => !existingKeys.has(itemKey(item)));

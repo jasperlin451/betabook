@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { ExportSendsButton } from "@/components/export-sends-button";
-import { PrivateProfileToggle } from "@/components/private-profile-toggle";
+import { PrivacyControls } from "@/components/privacy-controls";
 import { ResetPasswordButton } from "@/components/reset-password-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeSelect } from "@/components/theme-select";
@@ -88,7 +88,10 @@ export default async function AccountPage() {
         </AccountSection>
 
         <AccountSection title="Privacy" description="Control who can see your climbing log.">
-          <PrivateProfileToggle initialIsPrivate={user?.isPrivate ?? false} />
+          <PrivacyControls
+            initialIsPrivate={user?.isPrivate ?? false}
+            initialJournalVisibility={user?.journalVisibility ?? "private"}
+          />
         </AccountSection>
 
         <AccountSection

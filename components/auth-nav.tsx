@@ -24,7 +24,7 @@ const PLACEHOLDER_WIDTHS = [
   { key: "search", width: "w-14" },
   { key: "add-climb", width: "w-21" },
   { key: "add-area", width: "w-20" },
-  { key: "my-sends", width: "w-16" },
+  { key: "my-journal", width: "w-20" },
   { key: "account", width: "w-14" },
 ] as const;
 
@@ -75,8 +75,8 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
         <NavLink href="/areas/new" onClick={onNavigate}>
           Add area
         </NavLink>
-        <NavLink href={`/users/${session.user.id}`} onClick={onNavigate}>
-          My sends
+        <NavLink href={`/users/${session.user.id}`} hideWithin onClick={onNavigate}>
+          My Journal
         </NavLink>
         {direction === "row" ? (
           <NavLink

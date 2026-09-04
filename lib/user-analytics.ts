@@ -70,14 +70,19 @@ export type UserAnalytics = {
   pyramid: DisciplinePyramid[];
   /** Every send that raised a ceiling, newest first. */
   breakthroughs: Breakthrough[];
-  /** Dated sends per YYYY-MM-DD, for the calendar. */
-  sendsByDay: Record<string, number>;
+  calendarCounts: Record<string, number>;
+  calendarYears: number[];
   /** Years with dated sends, ascending. */
   years: number[];
   longestStreak: { days: number; end: string } | null;
   longestLayoff: { days: number; from: string; to: string } | null;
   busiestMonth: { month: string; count: number } | null;
   favoriteWeekday: { weekday: string; count: number } | null;
+};
+
+export type AnalyticsJournalSession = {
+  entryDate: string;
+  climbType: ClimbType | null;
 };
 
 const MS_PER_DAY = 86_400_000;
@@ -172,6 +177,7 @@ export function buildPyramid(sends: AnalyticsSendRow[], type: ClimbType): Pyrami
 export function buildUserAnalytics(
   allSends: AnalyticsSendRow[],
   scope: DisciplineScope,
+  journalSessions?: readonly AnalyticsJournalSession[],
 ): UserAnalytics {
   const sends = scope === "all" ? allSends : allSends.filter((s) => s.climbType === scope);
   const dated = sends
@@ -230,19 +236,30 @@ export function buildUserAnalytics(
     }
   }
 
-  // Calendar + consistency, all from dated sends.
   const sendsByDay: Record<string, number> = {};
   for (const s of dated) sendsByDay[s.dateSent] = (sendsByDay[s.dateSent] ?? 0) + 1;
-  const days = Object.keys(sendsByDay).sort();
-  const years = [...new Set(days.map((d) => Number(d.slice(0, 4))))].sort((a, b) => a - b);
+  const sendDays = Object.keys(sendsByDay).sort();
+  const sessionCounts: Record<string, number> = {};
+  if (journalSessions !== undefined) {
+    for (const session of journalSessions) {
+      if (scope !== "all" && session.climbType !== scope) continue;
+      sessionCounts[session.entryDate] = (sessionCounts[session.entryDate] ?? 0) + 1;
+    }
+  }
+  const calendarCounts = journalSessions === undefined ? sendsByDay : sessionCounts;
+  const days = Object.keys(calendarCounts).sort();
+  const calendarYears = [...new Set(days.map((day) => Number(day.slice(0, 4))))].sort(
+    (a, b) => a - b,
+  );
+  const years = [...new Set(sendDays.map((d) => Number(d.slice(0, 4))))].sort((a, b) => a - b);
 
   const dateSpan: [string, string] | null =
-    days.length > 0 ? [days[0], days[days.length - 1]] : null;
+    sendDays.length > 0 ? [sendDays[0], sendDays[sendDays.length - 1]] : null;
 
   let daysPerMonth: number | null = null;
-  if (dateSpan) {
-    const [fy, fm] = dateSpan[0].split("-").map(Number);
-    const [ly, lm] = dateSpan[1].split("-").map(Number);
+  if (days.length > 0) {
+    const [fy, fm] = days[0].split("-").map(Number);
+    const [ly, lm] = days[days.length - 1].split("-").map(Number);
     const monthSpan = (ly - fy) * 12 + (lm - fm) + 1;
     daysPerMonth = days.length / monthSpan;
   }
@@ -366,7 +383,8 @@ export function buildUserAnalytics(
     progression,
     pyramid,
     breakthroughs,
-    sendsByDay,
+    calendarCounts,
+    calendarYears,
     years,
     longestStreak,
     longestLayoff,
