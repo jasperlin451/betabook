@@ -56,6 +56,7 @@ const HAND_WRITTEN_OBJECTS = [
   "sends|trigger|sends_aggregates_ad",
   "sends|trigger|sends_aggregates_ai",
   "sends|trigger|sends_aggregates_au",
+  "journal_entries|index|journal_user_date_idx",
 ];
 
 describe("schema objects drizzle-kit cannot model", () => {
@@ -63,7 +64,7 @@ describe("schema objects drizzle-kit cannot model", () => {
     const rows = await db.all<{ type: string; name: string; tbl: string }>(sql`
       SELECT type, name, tbl_name AS tbl FROM sqlite_master
       WHERE type IN ('index', 'trigger')
-        AND tbl_name IN ('areas', 'climbs', 'sends')
+        AND tbl_name IN ('areas', 'climbs', 'sends', 'journal_entries')
         AND name NOT LIKE 'sqlite_%'
       ORDER BY tbl_name, type, name
     `);
@@ -74,16 +75,16 @@ describe("schema objects drizzle-kit cannot model", () => {
   // Direction is the whole point of this index and the only part of it a
   // rebuild can get subtly wrong: SQLite drops the sort only when an index
   // matches the ORDER BY exactly, and silently sorts when it doesn't.
-  it.each([["sends_user_date_idx", ["user_id ASC", "date_sent DESC", "id DESC"]]])(
-    "%s keeps its column directions",
-    async (index, expected) => {
-      const columns = await db.all<{ name: string | null; desc: number; key: number }>(
-        sql`SELECT name, desc, key FROM pragma_index_xinfo(${index})`,
-      );
-      const keyColumns = columns
-        .filter((column) => column.key === 1)
-        .map((column) => `${column.name} ${column.desc ? "DESC" : "ASC"}`);
-      expect(keyColumns).toEqual(expected);
-    },
-  );
+  it.each([
+    ["sends_user_date_idx", ["user_id ASC", "date_sent DESC", "id DESC"]],
+    ["journal_user_date_idx", ["user_id ASC", "entry_date DESC", "id DESC"]],
+  ])("%s keeps its column directions", async (index, expected) => {
+    const columns = await db.all<{ name: string | null; desc: number; key: number }>(
+      sql`SELECT name, desc, key FROM pragma_index_xinfo(${index})`,
+    );
+    const keyColumns = columns
+      .filter((column) => column.key === 1)
+      .map((column) => `${column.name} ${column.desc ? "DESC" : "ASC"}`);
+    expect(keyColumns).toEqual(expected);
+  });
 });
