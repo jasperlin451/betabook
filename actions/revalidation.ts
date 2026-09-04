@@ -17,3 +17,16 @@ export function revalidateSendSurfaces({
   for (const climbId of new Set(climbIds)) revalidatePath(`/climbs/${climbId}`);
   for (const areaId of new Set(areaIds)) revalidatePath(`/areas/${areaId}`);
 }
+
+export function revalidateJournalSurfaces({
+  userId,
+  climbIds,
+}: {
+  userId: string;
+  climbIds: Iterable<number>;
+}) {
+  revalidatePath(`/users/${userId}`);
+  revalidatePath(`/users/${userId}/journal`);
+  revalidatePath(`/users/${userId}/analytics`);
+  for (const climbId of new Set(climbIds)) revalidatePath(`/climbs/${climbId}`);
+}

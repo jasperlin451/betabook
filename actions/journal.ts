@@ -1,0 +1,253 @@
+"use server";
+
+import { and, eq } from "drizzle-orm";
+import { refresh } from "next/cache";
+
+import { getDb, type Database } from "@/db/client";
+import { getAscentEntryId, getClimb, getJournalEntry, getUserSendForClimb } from "@/db/queries";
+import { journalEntries, sends } from "@/db/schema";
+import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
+import type { ClimbType } from "@/lib/grades";
+import { validateJournalInput, type JournalEntryInput } from "@/lib/journal";
+import { allowJournalWrite } from "@/lib/rate-limit";
+import { validateSendInput, type RawSendInput } from "@/lib/sends";
+import { requireSession } from "@/lib/session";
+import { pickFormFields } from "@/lib/validation";
+
+import { assertRepeatDate, getSentJournalEntries } from "./journal-sync";
+import { revalidateJournalSurfaces, revalidateSendSurfaces } from "./revalidation";
+import { buildSendInsert } from "./send-statements";
+
+const JOURNAL_FORM_FIELDS = ["kind", "climbId", "sent", "entryDate", "body"] as const;
+
+const SEND_FORM_FIELDS = ["ascentStyle", "rating", "suggestedGrade", "gradeFeel"] as const;
+
+function readJournalFormData(formData: FormData) {
+  return { ...pickFormFields(formData, JOURNAL_FORM_FIELDS), tags: formData.getAll("tag") };
+}
+
+function readSendFormData(
+  formData: FormData,
+  entryDate: string,
+  comment: string | null,
+): RawSendInput {
+  return { ...pickFormFields(formData, SEND_FORM_FIELDS), dateSent: entryDate, comment };
+}
+
+function carriesSendFields(formData: FormData): boolean {
+  return SEND_FORM_FIELDS.some((field) => {
+    const value = formData.get(field);
+    return value !== null && value !== "";
+  });
+}
+
+async function requireJournalSession() {
+  const session = await requireSession();
+  if (!(await allowJournalWrite(session.user.id))) {
+    throw new ActionError("You're logging entries faster than we can save them — give it a minute");
+  }
+  return session;
+}
+
+async function requireClimb(db: Database, climbId: number) {
+  const climb = await getClimb(db, climbId);
+  if (!climb) throw new ActionError("Climb not found");
+  return climb;
+}
+
+function entryValues(userId: string, input: JournalEntryInput) {
+  return {
+    userId,
+    kind: input.kind,
+    climbId: input.climbId,
+    sent: input.sent,
+    entryDate: input.entryDate,
+    body: input.body,
+    tags: input.tags,
+  };
+}
+
+async function writeAscent(
+  db: Database,
+  userId: string,
+  input: JournalEntryInput,
+  climb: { id: number; areaId: number; type: ClimbType },
+  formData: FormData,
+) {
+  const sendInput = validateSendInput(
+    climb.type,
+    readSendFormData(formData, input.entryDate, input.body),
+  );
+
+  await db.batch([
+    db.insert(journalEntries).values(entryValues(userId, input)),
+    buildSendInsert(db, { userId, climbId: climb.id, climbType: climb.type, input: sendInput }),
+  ]);
+
+  revalidateJournalSurfaces({ userId, climbIds: [climb.id] });
+  revalidateSendSurfaces({ userIds: [userId], climbIds: [climb.id], areaIds: [climb.areaId] });
+}
+
+export async function createJournalEntry(formData: FormData): Promise<ActionResult> {
+  return toActionResult(async () => {
+    const session = await requireJournalSession();
+    const db = await getDb();
+
+    const input = validateJournalInput(readJournalFormData(formData));
+    const climb = input.climbId === null ? null : await requireClimb(db, input.climbId);
+
+    if (input.sent && climb) {
+      const existingSend = await getUserSendForClimb(db, session.user.id, climb.id);
+      if (!existingSend) {
+        await writeAscent(db, session.user.id, input, climb, formData);
+        refresh();
+        return;
+      }
+      if (carriesSendFields(formData)) {
+        throw new ActionError("A repeat doesn't carry a rating or a grade");
+      }
+
+      const sentEntries = await getSentJournalEntries(db, session.user.id, [climb.id]);
+      if (sentEntries.length === 0) {
+        await db.batch([
+          db.insert(journalEntries).values(entryValues(session.user.id, input)),
+          db
+            .update(sends)
+            .set({ dateSent: input.entryDate, comment: input.body })
+            .where(eq(sends.id, existingSend.id)),
+        ]);
+        revalidateJournalSurfaces({ userId: session.user.id, climbIds: [climb.id] });
+        revalidateSendSurfaces({
+          userIds: [session.user.id],
+          climbIds: [climb.id],
+          areaIds: [climb.areaId],
+        });
+        refresh();
+        return;
+      }
+      assertRepeatDate(sentEntries, input.entryDate);
+    }
+
+    await db.insert(journalEntries).values(entryValues(session.user.id, input));
+    revalidateJournalSurfaces({
+      userId: session.user.id,
+      climbIds: climb ? [climb.id] : [],
+    });
+    refresh();
+  });
+}
+
+export async function updateJournalEntry(
+  entryId: number,
+  formData: FormData,
+): Promise<ActionResult> {
+  return toActionResult(async () => {
+    const session = await requireJournalSession();
+    const db = await getDb();
+
+    const existing = await getJournalEntry(db, entryId, session.user.id);
+    if (!existing) throw new ActionError("Entry not found");
+
+    const input = validateJournalInput(readJournalFormData(formData));
+
+    if (input.sent !== existing.sent) {
+      throw new ActionError(
+        input.sent
+          ? "Log the ascent from the climb page — an existing entry can't be turned into a send"
+          : "Delete the entry instead — an ascent can't be un-sent by editing it",
+      );
+    }
+    if (input.climbId !== existing.climbId) {
+      throw new ActionError("Delete this entry and log a new one against the other climb");
+    }
+    if (existing.sent && input.entryDate !== existing.entryDate) {
+      throw new ActionError("A sent session's date can't be changed after it is logged");
+    }
+
+    const journalStatement = db
+      .update(journalEntries)
+      .set({
+        kind: input.kind,
+        entryDate: input.entryDate,
+        body: input.body,
+        tags: input.tags,
+      })
+      .where(eq(journalEntries.id, entryId));
+
+    const carriesAscent =
+      existing.sent &&
+      existing.climbId !== null &&
+      (await getAscentEntryId(db, session.user.id, existing.climbId)) === entryId;
+
+    if (carriesAscent && existing.climbId !== null) {
+      await db.batch([
+        journalStatement,
+        db
+          .update(sends)
+          .set({ comment: input.body })
+          .where(and(eq(sends.userId, session.user.id), eq(sends.climbId, existing.climbId))),
+      ]);
+      const climb = await getClimb(db, existing.climbId);
+      revalidateSendSurfaces({
+        userIds: [session.user.id],
+        climbIds: [existing.climbId],
+        areaIds: climb ? [climb.areaId] : [],
+      });
+    } else {
+      await journalStatement;
+    }
+
+    revalidateJournalSurfaces({
+      userId: session.user.id,
+      climbIds: existing.climbId === null ? [] : [existing.climbId],
+    });
+    refresh();
+  });
+}
+
+export async function deleteJournalEntry(entryId: number): Promise<ActionResult> {
+  return toActionResult(async () => {
+    const session = await requireJournalSession();
+    const db = await getDb();
+
+    const existing = await getJournalEntry(db, entryId, session.user.id);
+    if (!existing) throw new ActionError("Entry not found");
+
+    const climbId = existing.climbId;
+    const carriesAscent =
+      existing.sent &&
+      climbId !== null &&
+      (await getAscentEntryId(db, session.user.id, climbId)) === entryId;
+
+    if (carriesAscent && climbId !== null) {
+      await db.batch([
+        db.delete(journalEntries).where(eq(journalEntries.id, entryId)),
+        db.delete(sends).where(and(eq(sends.userId, session.user.id), eq(sends.climbId, climbId))),
+        db
+          .update(journalEntries)
+          .set({ sent: false })
+          .where(
+            and(
+              eq(journalEntries.userId, session.user.id),
+              eq(journalEntries.climbId, climbId),
+              eq(journalEntries.sent, true),
+            ),
+          ),
+      ]);
+      const climb = await getClimb(db, climbId);
+      revalidateSendSurfaces({
+        userIds: [session.user.id],
+        climbIds: [climbId],
+        areaIds: climb ? [climb.areaId] : [],
+      });
+    } else {
+      await db.delete(journalEntries).where(eq(journalEntries.id, entryId));
+    }
+
+    revalidateJournalSurfaces({
+      userId: session.user.id,
+      climbIds: climbId === null ? [] : [climbId],
+    });
+    refresh();
+  });
+}

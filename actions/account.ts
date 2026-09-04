@@ -6,7 +6,16 @@ import { refresh, revalidatePath } from "next/cache";
 import { getDb } from "@/db/client";
 import { user } from "@/db/schema";
 import { toActionResult, type ActionResult } from "@/lib/action-result";
+import { parseJournalVisibility } from "@/lib/journal";
 import { requireSession } from "@/lib/session";
+
+function revalidateProfileSurfaces(userId: string) {
+  revalidatePath(`/users/${userId}`);
+  revalidatePath(`/users/${userId}/journal`);
+  revalidatePath(`/users/${userId}/sends`);
+  revalidatePath(`/users/${userId}/projects`);
+  revalidatePath(`/users/${userId}/analytics`);
+}
 
 /** Toggles whether the signed-in user's profile and sends are hidden from
  * everyone but themselves (see lib/user-visibility.ts). Only the two profile
@@ -21,8 +30,20 @@ export async function setUserPrivate(isPrivate: boolean): Promise<ActionResult> 
 
     await db.update(user).set({ isPrivate }).where(eq(user.id, session.user.id));
 
-    revalidatePath(`/users/${session.user.id}`);
-    revalidatePath(`/users/${session.user.id}/analytics`);
+    revalidateProfileSurfaces(session.user.id);
+    refresh();
+  });
+}
+
+export async function setJournalVisibility(visibility: string): Promise<ActionResult> {
+  return toActionResult(async () => {
+    const session = await requireSession();
+    const db = await getDb();
+    const journalVisibility = parseJournalVisibility(visibility);
+
+    await db.update(user).set({ journalVisibility }).where(eq(user.id, session.user.id));
+
+    revalidateProfileSurfaces(session.user.id);
     refresh();
   });
 }

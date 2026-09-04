@@ -2,9 +2,9 @@ import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createClimb, createSend, updateClimb, updateSend } from "@/actions";
+import { createClimb, createSend, deleteSend, updateClimb, updateSend } from "@/actions";
 import { createDb } from "@/db/client";
-import { climbs, sends } from "@/db/schema";
+import { climbs, journalEntries, sends } from "@/db/schema";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
@@ -101,11 +101,19 @@ describe("createSend action boundary", () => {
   });
 
   it("returns ok:true and writes the send on valid input", async () => {
-    const result = await createSend(3, sendFormData({ rating: "4" }));
+    const result = await createSend(3, sendFormData({ rating: "4", comment: "Matched note." }));
     expect(result).toEqual({ ok: true, value: undefined });
 
     const row = await db.select().from(sends).where(eq(sends.climbId, 3)).get();
-    expect(row?.userId).toBe("test-user");
+    expect(row).toMatchObject({ userId: "test-user", comment: "Matched note." });
+    const entry = await db.select().from(journalEntries).where(eq(journalEntries.climbId, 3)).get();
+    expect(entry).toMatchObject({
+      userId: "test-user",
+      kind: "session",
+      sent: true,
+      entryDate: "2026-01-15",
+      body: "Matched note.",
+    });
     const climb = await db.select().from(climbs).where(eq(climbs.id, 3)).get();
     expect(climb?.sendCount).toBe(1);
     expect(climb?.ratingSum).toBe(4);
@@ -117,6 +125,7 @@ describe("updateSend action boundary", () => {
   // one-test-one-row convention above.
   async function seedSend(dateSent: string | null): Promise<number> {
     await db.delete(sends).where(eq(sends.climbId, 4));
+    await db.delete(journalEntries).where(eq(journalEntries.climbId, 4));
     await seedFixtureSend(db, { userId: "test-user", climbId: 4, dateSent });
     const row = await db.select().from(sends).where(eq(sends.climbId, 4)).get();
     return row!.id;
@@ -142,6 +151,54 @@ describe("updateSend action boundary", () => {
 
     const row = await db.select().from(sends).where(eq(sends.id, sendId)).get();
     expect(row?.dateSent).toBe("2026-02-20");
+    const entry = await db.select().from(journalEntries).where(eq(journalEntries.climbId, 4)).get();
+    expect(entry).toMatchObject({ sent: true, entryDate: "2026-02-20" });
+  });
+
+  it("updates a journal-backed send date atomically", async () => {
+    const sendId = await seedSend("2026-01-15");
+    await db.insert(journalEntries).values({
+      userId: "test-user",
+      climbId: 4,
+      kind: "session",
+      sent: true,
+      entryDate: "2026-01-15",
+    });
+
+    const result = await updateSend(
+      sendId,
+      sendFormData({ dateSent: "2026-02-20", comment: "Updated note." }),
+    );
+    expect(result).toEqual({ ok: true, value: undefined });
+
+    expect((await db.select().from(sends).where(eq(sends.id, sendId)).get())?.dateSent).toBe(
+      "2026-02-20",
+    );
+    expect(
+      await db.select().from(journalEntries).where(eq(journalEntries.climbId, 4)).get(),
+    ).toMatchObject({
+      entryDate: "2026-02-20",
+      body: "Updated note.",
+    });
+  });
+
+  it("won't clear the date on a journal-backed send", async () => {
+    const sendId = await seedSend("2026-01-15");
+    await db.insert(journalEntries).values({
+      userId: "test-user",
+      climbId: 4,
+      kind: "session",
+      sent: true,
+      entryDate: "2026-01-15",
+    });
+
+    expect(await updateSend(sendId, sendFormData({ dateSent: "" }))).toEqual({
+      ok: false,
+      error: "A send with journal history must keep its date",
+    });
+    expect((await db.select().from(sends).where(eq(sends.id, sendId)).get())?.dateSent).toBe(
+      "2026-01-15",
+    );
   });
 
   it("leaves the rest of the send intact when only the date is cleared", async () => {
@@ -168,6 +225,43 @@ describe("updateSend action boundary", () => {
 
     const row = await db.select().from(sends).where(eq(sends.id, sendId)).get();
     expect(row?.dateSent).toBe("2026-01-15");
+  });
+});
+
+describe("deleteSend action boundary", () => {
+  it("keeps journal sessions but clears their sent state", async () => {
+    await db.delete(journalEntries).where(eq(journalEntries.climbId, 2));
+    await db.delete(sends).where(eq(sends.climbId, 2));
+    await seedFixtureSend(db, {
+      userId: "test-user",
+      climbId: 2,
+      dateSent: "2026-01-15",
+    });
+    await db.insert(journalEntries).values([
+      {
+        userId: "test-user",
+        climbId: 2,
+        kind: "session",
+        sent: true,
+        entryDate: "2026-01-15",
+      },
+      {
+        userId: "test-user",
+        climbId: 2,
+        kind: "session",
+        sent: true,
+        entryDate: "2026-02-15",
+      },
+    ]);
+    const send = await db.select().from(sends).where(eq(sends.climbId, 2)).get();
+
+    expect((await deleteSend(send!.id)).ok).toBe(true);
+    expect(await db.select().from(sends).where(eq(sends.climbId, 2)).get()).toBeUndefined();
+    expect(
+      (await db.select().from(journalEntries).where(eq(journalEntries.climbId, 2))).map(
+        (entry) => entry.sent,
+      ),
+    ).toEqual([false, false]);
   });
 });
 

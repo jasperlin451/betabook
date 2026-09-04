@@ -1,17 +1,22 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 
 import { getDb } from "@/db/client";
 import { getClimb, getUserSendForClimb } from "@/db/queries";
-import { sends } from "@/db/schema";
+import { journalEntries, sends } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { validateSendInput, type RawSendInput } from "@/lib/sends";
 import { requireSession } from "@/lib/session";
 import { pickFormFields } from "@/lib/validation";
 
-import { revalidateSendSurfaces } from "./revalidation";
+import {
+  assertAscentDateChange,
+  getSentJournalEntries,
+  journalEntryFromSend,
+} from "./journal-sync";
+import { revalidateJournalSurfaces, revalidateSendSurfaces } from "./revalidation";
 import { buildSendInsert, isSendClimbGuardFailure } from "./send-statements";
 
 const SEND_FORM_FIELDS = [
@@ -41,13 +46,24 @@ export async function createSend(climbId: number, formData: FormData): Promise<A
     }
 
     const input = validateSendInput(climb.type, readSendFormData(formData));
+    const sendStatement = buildSendInsert(db, {
+      userId: session.user.id,
+      climbId,
+      climbType: climb.type,
+      input,
+    });
     try {
-      await buildSendInsert(db, {
-        userId: session.user.id,
-        climbId,
-        climbType: climb.type,
-        input,
-      });
+      if (input.dateSent) {
+        await db.batch([
+          sendStatement,
+          db
+            .insert(journalEntries)
+            .values(journalEntryFromSend(session.user.id, climbId, input.dateSent, input.comment)),
+        ]);
+        revalidateJournalSurfaces({ userId: session.user.id, climbIds: [climbId] });
+      } else {
+        await sendStatement;
+      }
     } catch (error) {
       if (isSendClimbGuardFailure(error)) {
         throw new ActionError("Climb changed while this send was being saved — try again.");
@@ -76,11 +92,36 @@ export async function updateSend(sendId: number, formData: FormData): Promise<Ac
     if (!climb) throw new ActionError("Climb not found");
 
     const input = validateSendInput(climb.type, readSendFormData(formData));
+    const sentEntries = await getSentJournalEntries(db, session.user.id, [existing.climbId]);
+    const ascent = sentEntries[0];
+    const sendStatement = db.update(sends).set(input).where(eq(sends.id, sendId));
 
-    // The climbs aggregates follow this write via trigger — including a
-    // rating moving to or from null, which the trigger handles as a full
-    // remove-then-add.
-    await db.update(sends).set(input).where(eq(sends.id, sendId));
+    if (ascent && !input.dateSent) {
+      throw new ActionError("A send with journal history must keep its date");
+    }
+
+    if (input.dateSent) {
+      if (ascent) assertAscentDateChange(sentEntries, input.dateSent);
+      const journalStatement = ascent
+        ? db
+            .update(journalEntries)
+            .set({ entryDate: input.dateSent, body: input.comment })
+            .where(eq(journalEntries.id, ascent.id))
+        : db
+            .insert(journalEntries)
+            .values(
+              journalEntryFromSend(
+                session.user.id,
+                existing.climbId,
+                input.dateSent,
+                input.comment,
+              ),
+            );
+      await db.batch([sendStatement, journalStatement]);
+      revalidateJournalSurfaces({ userId: session.user.id, climbIds: [existing.climbId] });
+    } else {
+      await sendStatement;
+    }
 
     revalidateSendSurfaces({
       userIds: [session.user.id],
@@ -99,9 +140,22 @@ export async function deleteSend(sendId: number): Promise<ActionResult> {
     const existing = await db.select().from(sends).where(eq(sends.id, sendId)).get();
     if (!existing || existing.userId !== session.user.id) throw new ActionError("Send not found");
 
-    await db.delete(sends).where(eq(sends.id, sendId));
+    await db.batch([
+      db.delete(sends).where(eq(sends.id, sendId)),
+      db
+        .update(journalEntries)
+        .set({ sent: false })
+        .where(
+          and(
+            eq(journalEntries.userId, session.user.id),
+            eq(journalEntries.climbId, existing.climbId),
+            eq(journalEntries.sent, true),
+          ),
+        ),
+    ]);
 
     const climb = await getClimb(db, existing.climbId);
+    revalidateJournalSurfaces({ userId: session.user.id, climbIds: [existing.climbId] });
     revalidateSendSurfaces({
       userIds: [session.user.id],
       climbIds: [existing.climbId],
