@@ -13,8 +13,10 @@ import {
   assertAreaReparentable,
   assertClimbMergeable,
   assertClimbMovable,
-  changeRequestScopeAreaId,
+  changeRequestScopeAreaIds,
   getVisibleChangeRequests,
+  isAdminForAllAreas,
+  isAdminForAnyArea,
   isAdminForArea,
   MERGE_COMMENT_SEPARATOR,
   submitChangeRequest,
@@ -85,8 +87,8 @@ describe("isAdminForArea", () => {
   });
 });
 
-describe("changeRequestScopeAreaId", () => {
-  it("resolves an area_* request to the area itself", async () => {
+describe("changeRequestScopeAreaIds", () => {
+  it("resolves an area_edit/area_delete request to the area itself", async () => {
     const id = await submitChangeRequest(db, "area_edit", 2, "moderation-requester", {
       name: "Renamed",
       description: null,
@@ -94,24 +96,91 @@ describe("changeRequestScopeAreaId", () => {
     const request = (await db.select().from(changeRequests).where(eq(changeRequests.id, id))).at(
       0,
     )!;
-    expect(await changeRequestScopeAreaId(db, request)).toBe(2);
+    expect(await changeRequestScopeAreaIds(db, request)).toEqual([2]);
   });
 
-  it("resolves a climb_* request to the climb's current area", async () => {
+  it("resolves an area_reparent request to both the area and its destination", async () => {
+    const id = await submitChangeRequest(db, "area_reparent", 3, "moderation-requester", {
+      newParentId: 5,
+    });
+    const request = (await db.select().from(changeRequests).where(eq(changeRequests.id, id))).at(
+      0,
+    )!;
+    expect(await changeRequestScopeAreaIds(db, request)).toEqual([3, 5]);
+  });
+
+  it("resolves a climb_edit/climb_delete request to the climb's current area", async () => {
     // Climb 1 (Test Highball) lives in area 4.
     const id = await submitChangeRequest(db, "climb_delete", 1, "moderation-requester", {});
     const request = (await db.select().from(changeRequests).where(eq(changeRequests.id, id))).at(
       0,
     )!;
-    expect(await changeRequestScopeAreaId(db, request)).toBe(4);
+    expect(await changeRequestScopeAreaIds(db, request)).toEqual([4]);
   });
 
-  it("returns null when the underlying entity is gone", async () => {
+  it("resolves a climb_move request to both the current and destination area", async () => {
+    // Climb 1 (Test Highball) lives in area 4.
+    const id = await submitChangeRequest(db, "climb_move", 1, "moderation-requester", {
+      newAreaId: 3,
+    });
+    const request = (await db.select().from(changeRequests).where(eq(changeRequests.id, id))).at(
+      0,
+    )!;
+    expect(await changeRequestScopeAreaIds(db, request)).toEqual([4, 3]);
+  });
+
+  it("returns [] when the underlying entity is gone", async () => {
     const id = await submitChangeRequest(db, "climb_delete", 999999, "moderation-requester", {});
     const request = (await db.select().from(changeRequests).where(eq(changeRequests.id, id))).at(
       0,
     )!;
-    expect(await changeRequestScopeAreaId(db, request)).toBeNull();
+    expect(await changeRequestScopeAreaIds(db, request)).toEqual([]);
+  });
+});
+
+describe("isAdminForAnyArea", () => {
+  it("is true when only one of several areas is managed", async () => {
+    await seedFixtureUser(db, { id: "any-area-admin" });
+    await db.insert(adminAreaScopes).values({ userId: "any-area-admin", areaId: 2 });
+
+    expect(
+      await isAdminForAnyArea(db, { user: { id: "any-area-admin", role: "admin" } }, [3, 4]),
+    ).toBe(true); // area 4 is under managed area 2
+  });
+
+  it("is false when none of the areas are managed", async () => {
+    await seedFixtureUser(db, { id: "unrelated-admin" });
+    await db.insert(adminAreaScopes).values({ userId: "unrelated-admin", areaId: 3 });
+
+    expect(
+      await isAdminForAnyArea(db, { user: { id: "unrelated-admin", role: "admin" } }, [2, 4]),
+    ).toBe(false);
+  });
+});
+
+describe("isAdminForAllAreas", () => {
+  it("is true only when every area is managed", async () => {
+    await seedFixtureUser(db, { id: "all-area-admin" });
+    await db.insert(adminAreaScopes).values({ userId: "all-area-admin", areaId: 1 }); // root, covers everything
+
+    expect(
+      await isAdminForAllAreas(db, { user: { id: "all-area-admin", role: "admin" } }, [2, 3]),
+    ).toBe(true);
+  });
+
+  it("is false when only one of two areas is managed", async () => {
+    await seedFixtureUser(db, { id: "half-area-admin" });
+    await db.insert(adminAreaScopes).values({ userId: "half-area-admin", areaId: 2 });
+
+    expect(
+      await isAdminForAllAreas(db, { user: { id: "half-area-admin", role: "admin" } }, [2, 3]),
+    ).toBe(false);
+  });
+
+  it("is false for an empty area list", async () => {
+    expect(
+      await isAdminForAllAreas(db, { user: { id: "moderation-requester", role: "admin" } }, []),
+    ).toBe(false);
   });
 });
 
@@ -137,6 +206,21 @@ describe("getVisibleChangeRequests", () => {
     const visibleIds = visible.map((r) => r.id);
     expect(visibleIds).toContain(inScopeId);
     expect(visibleIds).not.toContain(outOfScopeId);
+  });
+
+  it("shows a reparent request to an admin managing only the destination side", async () => {
+    await seedFixtureUser(db, { id: "destination-only-admin" });
+    // Managed area 5 — the destination, not area 3 (the area being moved).
+    await db.insert(adminAreaScopes).values({ userId: "destination-only-admin", areaId: 5 });
+
+    const id = await submitChangeRequest(db, "area_reparent", 3, "moderation-requester", {
+      newParentId: 5,
+    });
+
+    const visible = await getVisibleChangeRequests(db, {
+      user: { id: "destination-only-admin", role: "admin" },
+    });
+    expect(visible.map((r) => r.id)).toContain(id);
   });
 
   it("returns nothing for a non-admin session", async () => {

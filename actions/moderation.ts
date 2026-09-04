@@ -24,8 +24,10 @@ import {
   assertClimbDeletable,
   assertClimbMergeable,
   assertClimbMovable,
-  changeRequestScopeAreaId,
+  changeRequestScopeAreaIds,
   describeChangeRequest,
+  isAdminForAllAreas,
+  isAdminForAnyArea,
   isAdminForArea,
   submitChangeRequest,
   type ChangeRequestDescription,
@@ -143,7 +145,12 @@ export async function requestAreaReparent(
     if (parseId(areaId) === null) throw new ActionError("Area not found");
     if (parseId(newParentId) === null) throw new ActionError("Parent area not found");
 
-    if (await isAdminForArea(db, session, areaId)) {
+    // Bypass needs both sides — managing only where the area is moving from
+    // or only where it's moving to doesn't get to push it across a boundary
+    // half out of scope. It still queues either way, and any admin on
+    // either side can review it (see isAdminForAnyArea in
+    // loadReviewableRequest).
+    if (await isAdminForAllAreas(db, session, [areaId, newParentId])) {
       await applyAreaReparent(db, areaId, newParentId);
       return { status: "applied" };
     }
@@ -165,8 +172,9 @@ export async function requestClimbMove(
     if (parseId(climbId) === null) throw new ActionError("Climb not found");
     if (parseId(newAreaId) === null) throw new ActionError("Area not found");
 
+    // Same both-sides requirement as requestAreaReparent, above.
     const existing = await getClimb(db, climbId);
-    if (existing && (await isAdminForArea(db, session, existing.areaId))) {
+    if (existing && (await isAdminForAllAreas(db, session, [existing.areaId, newAreaId]))) {
       await applyClimbMove(db, climbId, newAreaId);
       return { status: "applied" };
     }
@@ -206,11 +214,14 @@ export async function requestClimbMerge(
   });
 }
 
-/** Loads the request and re-checks `isAdminForArea` for real (the review
+/** Loads the request and re-checks `isAdminForAnyArea` for real (the review
  * queue already only shows in-scope requests, but a second admin could have
  * reviewed — or the underlying row could have been deleted by something
  * else — in the time since this page loaded). Shared by approve and reject
- * so neither can diverge on what "still reviewable" means. */
+ * so neither can diverge on what "still reviewable" means. "Any" rather
+ * than "all": a reparent/move only needs one admin covering either side to
+ * review it, even though submitting one bypasses review only with both
+ * (see requestAreaReparent/requestClimbMove). */
 async function loadReviewableRequest(
   db: Awaited<ReturnType<typeof getDb>>,
   session: Awaited<ReturnType<typeof requireAdmin>>,
@@ -220,9 +231,9 @@ async function loadReviewableRequest(
   if (!request) throw new ActionError("Request not found");
   if (request.status !== "pending") throw new ActionError("This request has already been reviewed");
 
-  const areaId = await changeRequestScopeAreaId(db, request);
-  if (areaId == null) throw new ActionError("The area or climb this request affects is gone");
-  if (!(await isAdminForArea(db, session, areaId))) {
+  const areaIds = await changeRequestScopeAreaIds(db, request);
+  if (areaIds.length === 0) throw new ActionError("The area or climb this request affects is gone");
+  if (!(await isAdminForAnyArea(db, session, areaIds))) {
     throw new ActionError("You don't manage this area");
   }
   return request;

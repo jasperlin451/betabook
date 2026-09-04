@@ -302,6 +302,60 @@ describe("requestAreaReparent", () => {
     expect((await db.select().from(areas).where(eq(areas.id, 300)).get())?.parentId).toBe(301);
     expect(await requestsFor("area_reparent", 300)).toHaveLength(0);
   });
+
+  it("queues rather than bypassing when the admin manages only one side", async () => {
+    await db.insert(areas).values([
+      { id: 600, parentId: 1, name: "Dual Source Area" },
+      { id: 601, parentId: 1, name: "Dual Destination Area" },
+    ]);
+    await seedFixtureUser(db, { id: "half-scope-admin" });
+    await db.insert(adminAreaScopes).values({ userId: "half-scope-admin", areaId: 600 });
+
+    sessionState.userId = "half-scope-admin";
+    sessionState.role = "admin";
+
+    const result = await requestAreaReparent(600, 601);
+    expect(result).toEqual({ ok: true, value: { status: "pending" } });
+    expect((await db.select().from(areas).where(eq(areas.id, 600)).get())?.parentId).toBe(1);
+  });
+
+  it("applies immediately once the admin manages both sides", async () => {
+    await db.insert(areas).values([
+      { id: 610, parentId: 1, name: "Dual Source Area 2" },
+      { id: 611, parentId: 1, name: "Dual Destination Area 2" },
+    ]);
+    await seedFixtureUser(db, { id: "full-scope-admin" });
+    await db.insert(adminAreaScopes).values([
+      { userId: "full-scope-admin", areaId: 610 },
+      { userId: "full-scope-admin", areaId: 611 },
+    ]);
+
+    sessionState.userId = "full-scope-admin";
+    sessionState.role = "admin";
+
+    const result = await requestAreaReparent(610, 611);
+    expect(result).toEqual({ ok: true, value: { status: "applied" } });
+    expect((await db.select().from(areas).where(eq(areas.id, 610)).get())?.parentId).toBe(611);
+  });
+
+  it("lets an admin managing only the destination approve a queued reparent", async () => {
+    await db.insert(areas).values([
+      { id: 620, parentId: 1, name: "Dual Source Area 3" },
+      { id: 621, parentId: 1, name: "Dual Destination Area 3" },
+    ]);
+    await seedFixtureUser(db, { id: "destination-approver" });
+    await db.insert(adminAreaScopes).values({ userId: "destination-approver", areaId: 621 });
+
+    sessionState.userId = "moderation-user";
+    sessionState.role = null;
+    expect(await requestAreaReparent(620, 621)).toEqual({ ok: true, value: { status: "pending" } });
+    const [request] = await requestsFor("area_reparent", 620);
+
+    sessionState.userId = "destination-approver";
+    sessionState.role = "admin";
+    expect(await approveChangeRequest(request.id)).toEqual({ ok: true, value: undefined });
+    expect((await db.select().from(areas).where(eq(areas.id, 620)).get())?.parentId).toBe(621);
+  });
 });
 
 describe("requestClimbMove", () => {
@@ -335,6 +389,23 @@ describe("requestClimbMove", () => {
 
     expect((await db.select().from(climbs).where(eq(climbs.id, 400)).get())?.areaId).toBe(5);
     expect(await requestsFor("climb_move", 400)).toHaveLength(0);
+  });
+
+  it("queues rather than bypassing when the admin manages only the climb's current area", async () => {
+    await db.insert(areas).values({ id: 630, parentId: 1, name: "Dual Climb Destination" });
+    await db
+      .insert(climbs)
+      .values({ id: 631, areaId: 3, name: "Dual Climb Source", type: "boulder", grade: 3 });
+    await seedFixtureUser(db, { id: "climb-half-scope-admin" });
+    // Managed area 3 — where the climb currently lives, not area 630.
+    await db.insert(adminAreaScopes).values({ userId: "climb-half-scope-admin", areaId: 3 });
+
+    sessionState.userId = "climb-half-scope-admin";
+    sessionState.role = "admin";
+
+    const result = await requestClimbMove(631, 630);
+    expect(result).toEqual({ ok: true, value: { status: "pending" } });
+    expect((await db.select().from(climbs).where(eq(climbs.id, 631)).get())?.areaId).toBe(3);
   });
 });
 

@@ -412,29 +412,79 @@ export async function applyClimbMerge(
 
 // --- Admin queue -------------------------------------------------------------
 
-/** The area a request's admin-visibility is checked against — the area
- * itself for an `area_*` request, or the affected climb's *current* area for
- * a `climb_*` one (a merge is scoped by its source climb, same as
- * requestClimbMerge's own gating). `null` when the underlying row is already
- * gone — deleted or merged away since the request was submitted — which
- * `approveChangeRequest`/`rejectChangeRequest` treat as "no longer
+/** The area(s) a request's admin-visibility/reviewability is checked
+ * against. Most types have exactly one — the area itself for an `area_*`
+ * request, or the affected climb's *current* area for a `climb_*` one (a
+ * merge is scoped by its source climb, same as requestClimbMerge's own
+ * gating). `area_reparent`/`climb_move` have two: the area being moved *and*
+ * its destination — an admin managing either side can see and review the
+ * request (see isAdminForAnyArea), even though submitting one still needs
+ * *both* sides to bypass review (see isAdminForAllAreas, used by
+ * requestAreaReparent/requestClimbMove). `[]` when the underlying row is
+ * already gone — deleted or merged away since the request was submitted —
+ * which `approveChangeRequest`/`rejectChangeRequest` treat as "no longer
  * reviewable" rather than a permission question. */
-export async function changeRequestScopeAreaId(
+export async function changeRequestScopeAreaIds(
   db: Database,
   request: ChangeRequest,
-): Promise<number | null> {
-  if (request.type.startsWith("area_")) {
-    return (await getArea(db, request.entityId))?.id ?? null;
+): Promise<number[]> {
+  if (request.type === "area_reparent") {
+    const area = await getArea(db, request.entityId);
+    if (!area) return [];
+    const { newParentId } = JSON.parse(request.payload) as ChangeRequestPayload["area_reparent"];
+    return [area.id, newParentId];
   }
-  return (await getClimb(db, request.entityId))?.areaId ?? null;
+  if (request.type === "climb_move") {
+    const climb = await getClimb(db, request.entityId);
+    if (!climb) return [];
+    const { newAreaId } = JSON.parse(request.payload) as ChangeRequestPayload["climb_move"];
+    return [climb.areaId, newAreaId];
+  }
+  if (request.type.startsWith("area_")) {
+    const area = await getArea(db, request.entityId);
+    return area ? [area.id] : [];
+  }
+  const climb = await getClimb(db, request.entityId);
+  return climb ? [climb.areaId] : [];
+}
+
+/** True if the session is an admin for at least one of `areaIds` — what
+ * "can see or review this request" means for `area_reparent`/`climb_move`,
+ * where either the source or destination side is enough. */
+export async function isAdminForAnyArea(
+  db: Database,
+  session: { user: { id: string; role?: string | null } },
+  areaIds: number[],
+): Promise<boolean> {
+  for (const areaId of areaIds) {
+    if (await isAdminForArea(db, session, areaId)) return true;
+  }
+  return false;
+}
+
+/** True if the session is an admin for every one of `areaIds` (and there's
+ * at least one) — what bypassing review for a reparent/move means: an admin
+ * covering only the source or only the destination doesn't get to push a
+ * change across a boundary they only half-manage, so it queues instead and
+ * waits for a reviewer on either side (isAdminForAnyArea). */
+export async function isAdminForAllAreas(
+  db: Database,
+  session: { user: { id: string; role?: string | null } },
+  areaIds: number[],
+): Promise<boolean> {
+  if (areaIds.length === 0) return false;
+  for (const areaId of areaIds) {
+    if (!(await isAdminForArea(db, session, areaId))) return false;
+  }
+  return true;
 }
 
 /** Every pending request an admin manages the area for — the review queue's
  * whole dataset. Filters in application code rather than a SQL join: with
  * `climb_merge`'s `entityId` needing a climb lookup anyway and the pending
- * queue expected to stay small, a per-request `isAdminForArea` check reads
- * far more clearly than folding the area/climb union and the recursive
- * ancestor walk into one query. */
+ * queue expected to stay small, a per-request `isAdminForAnyArea` check
+ * reads far more clearly than folding the area/climb union and the
+ * recursive ancestor walk into one query. */
 export async function getVisibleChangeRequests(
   db: Database,
   session: { user: { id: string; role?: string | null } },
@@ -442,8 +492,10 @@ export async function getVisibleChangeRequests(
   const pending = await getPendingChangeRequests(db);
   const visible: ChangeRequest[] = [];
   for (const request of pending) {
-    const areaId = await changeRequestScopeAreaId(db, request);
-    if (areaId != null && (await isAdminForArea(db, session, areaId))) visible.push(request);
+    const areaIds = await changeRequestScopeAreaIds(db, request);
+    if (areaIds.length > 0 && (await isAdminForAnyArea(db, session, areaIds))) {
+      visible.push(request);
+    }
   }
   return visible;
 }
