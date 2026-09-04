@@ -1,6 +1,7 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { betterAuth } from "better-auth";
+import { admin } from "better-auth/plugins";
 
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
@@ -113,6 +114,12 @@ async function authBuilder() {
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,
     },
+    // Adds user.role/banned/banReason/banExpires and session.impersonatedBy
+    // (columns added in drizzle/schema/auth.ts) plus the auth.api.banUser /
+    // setRole / listUsers admin endpoints. No one is granted "admin" by this
+    // — the first admin is promoted with a one-off DB update; see
+    // scripts/promote-admin.ts.
+    plugins: [admin()],
   });
 }
 

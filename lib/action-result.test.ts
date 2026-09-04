@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ActionError,
   GENERIC_ERROR_MESSAGE,
+  NotAdminError,
   NotSignedInError,
+  NOT_ADMIN_MESSAGE,
   SESSION_EXPIRED_MESSAGE,
   toActionResult,
 } from "./action-result";
@@ -31,6 +33,14 @@ describe("toActionResult", () => {
         throw new NotSignedInError();
       }),
     ).toEqual({ ok: false, error: SESSION_EXPIRED_MESSAGE });
+  });
+
+  it("maps a non-admin session to the admins-only message", async () => {
+    expect(
+      await toActionResult(async () => {
+        throw new NotAdminError();
+      }),
+    ).toEqual({ ok: false, error: NOT_ADMIN_MESSAGE });
   });
 
   it("logs an unexpected Error and returns the generic message instead of leaking it", async () => {

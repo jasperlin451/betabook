@@ -24,6 +24,7 @@
     "test": "vitest run",
     "seed": "node --disable-warning=ExperimentalWarning scripts/seed.ts",
     "setup": "node scripts/setup.ts",
+    "promote-admin": "node --disable-warning=ExperimentalWarning scripts/promote-admin.ts",
     "prepare": "husky"
   },
   "dependencies": {
