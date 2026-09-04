@@ -28,8 +28,6 @@ const cacheMocks = vi.hoisted(() => ({
 
 vi.mock("next/cache", () => cacheMocks);
 
-// See db/mutations/mutations.test.ts for why the session is stubbed rather
-// than run for real.
 vi.mock("@/lib/session", async () => {
   const { NotSignedInError } = await import("@/lib/action-result");
   return {

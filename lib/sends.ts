@@ -4,22 +4,8 @@ import { parseGradeIndex, trimOrNull } from "@/lib/validation";
 
 export const ASCENT_STYLES = ["redpoint", "flash", "onsight"] as const;
 export type AscentStyle = (typeof ASCENT_STYLES)[number];
-export const MAX_COMMENT_LENGTH = 2000;
+export const MAX_COMMENT_LENGTH = 1000;
 
-// How many rows one importSends call may carry. Cloudflare Workers cap a
-// single invocation at 50 subrequests (Free plan). Per db/mutations/import.ts's
-// importSends: ~2 for the session/auth lookup, 1 to load the batch's climbs
-// by id, 1 for getUserSentClimbIds, and 1 for the single atomic
-// insert+overwrite db.batch (one subrequest regardless of how many statements
-// ride in it) — a fixed ~5 whatever the row count, since climbs are resolved
-// to ids before the import (see resolveImportClimbs). The cap is instead set
-// by the db.batch's statement count: every overwrite is its own UPDATE, so a
-// 50-row overwrite batch is ~55 statements, which D1 handles comfortably. The
-// wizard slices the CSV into batches of this size; importSends rejects
-// anything larger. It lives here rather than lib/sends-import.ts so the "use
-// server" module can enforce it without pulling the wizard's parser into the
-// Worker bundle, and not in db/mutations/import.ts because a "use server"
-// file can only export async functions.
 export const IMPORT_BATCH_SIZE = 50;
 
 // How many distinct climb names one resolveImportClimbs call may look up.
@@ -88,7 +74,7 @@ function parseAscentStyle(value: unknown): AscentStyle {
 /** ISO shape AND a date that exists. The shape check alone passes 2026-02-30
  * and 2026-13-01, which the wizard's date-fns parse rejects — round-tripping
  * through UTC is what catches a day the month doesn't have. */
-function isRealIsoDate(value: string): boolean {
+export function isRealIsoDate(value: string): boolean {
   if (!ISO_DATE_RE.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
   const parsed = new Date(Date.UTC(year, month - 1, day));

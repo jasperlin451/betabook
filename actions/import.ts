@@ -237,10 +237,6 @@ export async function importSends(
       // db.batch wants a non-empty tuple; the guard above already ensures it.
       await db.batch(statements as [(typeof statements)[number], ...typeof statements]);
 
-      // Same revalidation set as createSend (db/mutations/sends.ts): the batch
-      // above moves climbs.sendCount/ratingSum/ratingCount, which the home
-      // page, each climb's page, and each area's climb list all render — not
-      // just the user's profile.
       revalidateSendSurfaces({
         userIds: [session.user.id],
         climbIds: [
