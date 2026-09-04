@@ -25,6 +25,7 @@ import { ActionError } from "@/lib/action-result";
 import type { AreaInput } from "@/lib/areas";
 import type { ClimbInput } from "@/lib/climbs";
 import { isAdmin } from "@/lib/session";
+import { areaHref, climbHref } from "@/lib/slug";
 
 export type ChangeRequestType = (typeof CHANGE_REQUEST_TYPES)[number];
 
@@ -445,4 +446,91 @@ export async function getVisibleChangeRequests(
     if (areaId != null && (await isAdminForArea(db, session, areaId))) visible.push(request);
   }
   return visible;
+}
+
+export type ChangeRequestDescription = { summary: string; href: string | null };
+
+// One describer per request type, dispatched by `request.type` — a plain
+// record instead of a switch so each case stays small and self-contained.
+// Shared by the admin queue page (app/admin/requests) and the decision email
+// (sendChangeRequestDecisionEmail via approveChangeRequest/
+// rejectChangeRequest) so the two never describe the same request
+// differently.
+const CHANGE_REQUEST_DESCRIBERS: Record<
+  ChangeRequestType,
+  (db: Database, request: ChangeRequest) => Promise<ChangeRequestDescription>
+> = {
+  area_edit: async (db, request) => {
+    const area = await getArea(db, request.entityId);
+    const { name } = JSON.parse(request.payload) as ChangeRequestPayload["area_edit"];
+    return {
+      summary: `Rename "${area?.name ?? "an area"}" to "${name}"`,
+      href: area ? areaHref(area.id, area.name) : null,
+    };
+  },
+  area_delete: async (db, request) => {
+    const area = await getArea(db, request.entityId);
+    return {
+      summary: `Delete "${area?.name ?? "an area"}"`,
+      href: area ? areaHref(area.id, area.name) : null,
+    };
+  },
+  area_reparent: async (db, request) => {
+    const { newParentId } = JSON.parse(request.payload) as ChangeRequestPayload["area_reparent"];
+    const [area, newParent] = await Promise.all([
+      getArea(db, request.entityId),
+      getArea(db, newParentId),
+    ]);
+    return {
+      summary: `Move "${area?.name ?? "an area"}" under "${newParent?.name ?? "another area"}"`,
+      href: area ? areaHref(area.id, area.name) : null,
+    };
+  },
+  climb_edit: async (db, request) => {
+    const climb = await getClimb(db, request.entityId);
+    const { name } = JSON.parse(request.payload) as ChangeRequestPayload["climb_edit"];
+    return {
+      summary: `Rename "${climb?.name ?? "a climb"}" to "${name}"`,
+      href: climb ? climbHref(climb.id, climb.name) : null,
+    };
+  },
+  climb_delete: async (db, request) => {
+    const climb = await getClimb(db, request.entityId);
+    return {
+      summary: `Delete "${climb?.name ?? "a climb"}"`,
+      href: climb ? climbHref(climb.id, climb.name) : null,
+    };
+  },
+  climb_move: async (db, request) => {
+    const { newAreaId } = JSON.parse(request.payload) as ChangeRequestPayload["climb_move"];
+    const [climb, newArea] = await Promise.all([
+      getClimb(db, request.entityId),
+      getArea(db, newAreaId),
+    ]);
+    return {
+      summary: `Move "${climb?.name ?? "a climb"}" to "${newArea?.name ?? "another area"}"`,
+      href: climb ? climbHref(climb.id, climb.name) : null,
+    };
+  },
+  climb_merge: async (db, request) => {
+    const { targetClimbId } = JSON.parse(request.payload) as ChangeRequestPayload["climb_merge"];
+    const [source, target] = await Promise.all([
+      getClimb(db, request.entityId),
+      getClimb(db, targetClimbId),
+    ]);
+    return {
+      summary: `Merge "${source?.name ?? "a climb"}" into "${target?.name ?? "another climb"}"`,
+      href: source ? climbHref(source.id, source.name) : null,
+    };
+  },
+};
+
+/** A short "what's being asked for" line plus a link to the affected entity
+ * — the queue's whole point is letting an admin tell at a glance whether
+ * something is worth a closer look, not a full diff. */
+export function describeChangeRequest(
+  db: Database,
+  request: ChangeRequest,
+): Promise<ChangeRequestDescription> {
+  return CHANGE_REQUEST_DESCRIBERS[request.type](db, request);
 }

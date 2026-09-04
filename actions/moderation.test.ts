@@ -16,6 +16,7 @@ import {
 import { createDb } from "@/db/client";
 import { searchAreas, searchClimbs } from "@/db/queries";
 import { adminAreaScopes, areas, changeRequests, climbs } from "@/db/schema";
+import { sendChangeRequestDecisionEmail } from "@/lib/email";
 import type { ChangeRequestType } from "@/lib/moderation";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
@@ -34,6 +35,14 @@ const sessionState = vi.hoisted(() => ({
 vi.mock("next/cache", () => ({
   refresh: () => {},
   revalidatePath: () => {},
+}));
+
+// Reaching for getCloudflareContext outside a request — see
+// lib/welcome-email.test.ts for the same rationale. Stub the decision so
+// approve/reject's fire-and-forget notification can be asserted on directly
+// instead of a real Resend call swallowed by notifyRequester's try/catch.
+vi.mock("@/lib/email", () => ({
+  sendChangeRequestDecisionEmail: vi.fn<() => Promise<void>>(async () => {}),
 }));
 
 vi.mock("@/lib/session", async () => {
@@ -110,6 +119,7 @@ beforeAll(async () => {
 beforeEach(() => {
   sessionState.userId = "moderation-user";
   sessionState.role = null;
+  vi.mocked(sendChangeRequestDecisionEmail).mockClear();
 });
 
 // Fixture tree: Test Crag (1) > Test Boulders (2) > {Test Highball Alcove (4),
@@ -393,6 +403,10 @@ describe("approveChangeRequest", () => {
     expect((await db.select().from(areas).where(eq(areas.id, 3)).get())?.name).toBe(
       "Approved Rename",
     );
+    expect(sendChangeRequestDecisionEmail).toHaveBeenCalledExactlyOnceWith(
+      "moderation-user@example.com",
+      expect.objectContaining({ decision: "approved", note: null }),
+    );
     const row = (await db.select().from(changeRequests).where(eq(changeRequests.id, requestId))).at(
       0,
     )!;
@@ -482,6 +496,10 @@ describe("rejectChangeRequest", () => {
     });
 
     expect(await db.select().from(climbs).where(eq(climbs.id, 2)).get()).toBeDefined();
+    expect(sendChangeRequestDecisionEmail).toHaveBeenCalledExactlyOnceWith(
+      "moderation-user@example.com",
+      expect.objectContaining({ decision: "rejected", note: "Not a duplicate after all" }),
+    );
     const row = (await db.select().from(changeRequests).where(eq(changeRequests.id, requestId))).at(
       0,
     )!;

@@ -5,11 +5,12 @@ import { revalidatePath } from "next/cache";
 
 import type { Database } from "@/db/client";
 import { getDb } from "@/db/client";
-import { getArea, getChangeRequest, getClimb, type ChangeRequest } from "@/db/queries";
+import { getArea, getChangeRequest, getClimb, getUser, type ChangeRequest } from "@/db/queries";
 import { changeRequests } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { validateAreaInput, type RawAreaInput } from "@/lib/areas";
 import { validateClimbEditInput, type ClimbInput, type RawClimbInput } from "@/lib/climbs";
+import { sendChangeRequestDecisionEmail } from "@/lib/email";
 import {
   applyAreaDelete,
   applyAreaEdit,
@@ -24,8 +25,10 @@ import {
   assertClimbMergeable,
   assertClimbMovable,
   changeRequestScopeAreaId,
+  describeChangeRequest,
   isAdminForArea,
   submitChangeRequest,
+  type ChangeRequestDescription,
   type ChangeRequestType,
   type GatedActionResult,
 } from "@/lib/moderation";
@@ -250,12 +253,42 @@ const CHANGE_REQUEST_APPLIERS: Record<
   },
 };
 
+/** Fire-and-forget, like lib/welcome-email.ts's afterEmailVerification hook:
+ * the review itself already committed by the time this runs, so a failed
+ * notification shouldn't turn a successful approve/reject into a
+ * user-facing error the requester has no way to retry. */
+async function notifyRequester(
+  db: Database,
+  request: ChangeRequest,
+  decision: "approved" | "rejected",
+  description: ChangeRequestDescription,
+  note: string | null,
+) {
+  const requester = await getUser(db, request.requestedBy);
+  if (!requester) return;
+  try {
+    await sendChangeRequestDecisionEmail(requester.email, {
+      name: requester.name,
+      summary: description.summary,
+      decision,
+      note,
+      href: description.href,
+    });
+  } catch (err) {
+    console.error("change request decision email failed", err);
+  }
+}
+
 export async function approveChangeRequest(requestId: number): Promise<ActionResult> {
   return toActionResult(async () => {
     const session = await requireAdmin();
     const db = await getDb();
 
     const request = await loadReviewableRequest(db, session, requestId);
+    // Captured before applying: for an edit, this reads as "current name ->
+    // requested name" — after applying, the entity's current name already
+    // *is* the requested one, and the "before" half of that framing is gone.
+    const description = await describeChangeRequest(db, request);
     await CHANGE_REQUEST_APPLIERS[request.type](db, request);
 
     await db
@@ -263,6 +296,8 @@ export async function approveChangeRequest(requestId: number): Promise<ActionRes
       .set({ status: "approved", reviewedBy: session.user.id, reviewedAt: new Date() })
       .where(eq(changeRequests.id, requestId));
     revalidatePath("/admin/requests");
+
+    await notifyRequester(db, request, "approved", description, null);
   });
 }
 
@@ -271,7 +306,9 @@ export async function rejectChangeRequest(requestId: number, note: string): Prom
     const session = await requireAdmin();
     const db = await getDb();
 
-    await loadReviewableRequest(db, session, requestId);
+    const request = await loadReviewableRequest(db, session, requestId);
+    const description = await describeChangeRequest(db, request);
+    const trimmedNote = note.trim() || null;
 
     await db
       .update(changeRequests)
@@ -279,9 +316,11 @@ export async function rejectChangeRequest(requestId: number, note: string): Prom
         status: "rejected",
         reviewedBy: session.user.id,
         reviewedAt: new Date(),
-        reviewNote: note.trim() || null,
+        reviewNote: trimmedNote,
       })
       .where(eq(changeRequests.id, requestId));
     revalidatePath("/admin/requests");
+
+    await notifyRequester(db, request, "rejected", description, trimmedNote);
   });
 }
