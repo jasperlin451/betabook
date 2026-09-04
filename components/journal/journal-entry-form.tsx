@@ -15,7 +15,7 @@ import {
 import { AppLink } from "@/components/ui/app-link";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import type { SendableClimb } from "@/db/queries";
-import { MAX_JOURNAL_BODY_LENGTH, describePendingEntry, type JournalKind } from "@/lib/journal";
+import { MAX_JOURNAL_BODY_LENGTH, type JournalKind } from "@/lib/journal";
 import type { AscentStyle, GradeFeel } from "@/lib/sends";
 
 type JournalEntryFormProps = {
@@ -24,6 +24,36 @@ type JournalEntryFormProps = {
   hasPriorSend?: boolean;
   onDone?: () => void;
 };
+
+function describePendingEntry(input: {
+  kind: JournalKind;
+  climbName?: string | null;
+  sent: boolean;
+  hasPriorSend: boolean;
+}): { headline: string; consequence: string | null } {
+  if (input.kind === "training") {
+    return { headline: "Logging training.", consequence: null };
+  }
+
+  const climb = input.climbName?.trim();
+  if (!climb) return { headline: "Logging an outdoor session.", consequence: null };
+
+  if (!input.sent) {
+    return { headline: `Logging an outdoor session on ${climb}.`, consequence: null };
+  }
+
+  if (input.hasPriorSend) {
+    return {
+      headline: `Logging a repeat of ${climb}.`,
+      consequence: `Your ascent of ${climb} is already recorded — a repeat doesn't change it.`,
+    };
+  }
+
+  return {
+    headline: `Logging an ascent of ${climb}.`,
+    consequence: `Records a send on ${climb}, counting toward its send total and grade consensus.`,
+  };
+}
 
 export function JournalEntryForm({
   kind,
