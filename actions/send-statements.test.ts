@@ -4,8 +4,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import {
   buildSentJournalInsert,
-  isJournalSendInvariantFailure,
   journalEntryFromSend,
+  rethrowJournalSendInvariant,
 } from "@/actions/journal-sync";
 import {
   buildMirroredSendUpdate,
@@ -160,7 +160,9 @@ describe("journal synchronization statements", () => {
       caught = error;
     }
 
-    expect(isJournalSendInvariantFailure(caught)).toBe(true);
+    expect(() => rethrowJournalSendInvariant(caught, "Guarded journal write")).toThrow(
+      "Guarded journal write",
+    );
     expect(
       await db
         .select()
@@ -207,7 +209,9 @@ describe("journal synchronization statements", () => {
       caught = error;
     }
 
-    expect(isJournalSendInvariantFailure(caught)).toBe(true);
+    expect(() => rethrowJournalSendInvariant(caught, "Guarded send write")).toThrow(
+      "Guarded send write",
+    );
     expect(
       await db
         .select({ dateSent: sends.dateSent })

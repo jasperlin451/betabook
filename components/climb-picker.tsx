@@ -58,9 +58,6 @@ function ClimbRow({
     </>
   );
 
-  // Listed but not pickable: createSend refuses a second send for the same
-  // climb, and a filtered-out row reads as a failed search rather than an
-  // answer to "did I log this one?".
   if (sent && !allowSentClimbs) {
     return (
       <div

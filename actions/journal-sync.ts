@@ -10,7 +10,7 @@ const JOURNAL_SEND_INVARIANT_ERRORS = [
   "NOT NULL constraint failed: sends.user_id",
 ] as const;
 
-export function isJournalSendInvariantFailure(error: unknown): boolean {
+function isJournalSendInvariantFailure(error: unknown): boolean {
   for (let current = error; current instanceof Error; current = current.cause) {
     if (JOURNAL_SEND_INVARIANT_ERRORS.some((message) => current.message.includes(message))) {
       return true;
