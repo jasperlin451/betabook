@@ -4,17 +4,19 @@ import { getDb } from "@/db/client";
 import { getArea, getClimb } from "@/db/queries";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { validateAreaInput, type RawAreaInput } from "@/lib/areas";
-import { validateClimbEditInput, type RawClimbInput } from "@/lib/climbs";
+import { validateClimbEditInput, type ClimbInput, type RawClimbInput } from "@/lib/climbs";
 import {
   applyAreaDelete,
   applyAreaEdit,
   applyAreaReparent,
   applyClimbDelete,
   applyClimbEdit,
+  applyClimbMerge,
   applyClimbMove,
   assertAreaDeletable,
   assertAreaReparentable,
   assertClimbDeletable,
+  assertClimbMergeable,
   assertClimbMovable,
   submitChangeRequest,
   type GatedActionResult,
@@ -158,6 +160,32 @@ export async function requestClimbMove(
 
     await assertClimbMovable(db, climbId, newAreaId);
     await submitChangeRequest(db, "climb_move", climbId, session.user.id, { newAreaId });
+    return { status: "pending" };
+  });
+}
+
+export async function requestClimbMerge(
+  sourceClimbId: number,
+  targetClimbId: number,
+  overrides?: Partial<Pick<ClimbInput, "name" | "grade" | "description">>,
+): Promise<ActionResult<GatedActionResult>> {
+  return toActionResult(async () => {
+    const session = await requireSession();
+    const db = await getDb();
+
+    if (parseId(sourceClimbId) === null) throw new ActionError("Climb not found");
+    if (parseId(targetClimbId) === null) throw new ActionError("Target climb not found");
+
+    if (isAdmin(session)) {
+      await applyClimbMerge(db, sourceClimbId, targetClimbId, overrides);
+      return { status: "applied" };
+    }
+
+    await assertClimbMergeable(db, sourceClimbId, targetClimbId);
+    await submitChangeRequest(db, "climb_merge", sourceClimbId, session.user.id, {
+      targetClimbId,
+      overrides,
+    });
     return { status: "pending" };
   });
 }

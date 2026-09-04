@@ -1,4 +1,5 @@
-import { and, eq, notExists, sql } from "drizzle-orm";
+import { and, eq, exists, notExists, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import { refresh, revalidatePath } from "next/cache";
 
 import type { Database } from "@/db/client";
@@ -33,7 +34,12 @@ export type ChangeRequestPayload = {
   climb_edit: ClimbInput;
   climb_delete: Record<string, never>;
   climb_move: { newAreaId: number };
-  climb_merge: { targetClimbId: number; overrides?: Partial<ClimbInput> };
+  // `type`/`areaId` are deliberately excluded: type must already match (see
+  // assertClimbMergeable) and the target's area always wins a merge.
+  climb_merge: {
+    targetClimbId: number;
+    overrides?: Partial<Pick<ClimbInput, "name" | "grade" | "description">>;
+  };
 };
 
 /** Queues a change instead of applying it — the non-admin half of every
@@ -249,6 +255,121 @@ export async function applyClimbDelete(db: Database, climbId: number): Promise<v
   }
 
   revalidatePath(`/areas/${deleted.areaId}`);
+  revalidatePath("/");
+  refresh();
+}
+
+/** Placed between two merged sends' comments — see applyClimbMerge. */
+export const MERGE_COMMENT_SEPARATOR = "\n---------\n";
+
+/** Throws without mutating anything — used both to give a non-admin
+ * immediate feedback before queuing a request that could never succeed, and
+ * inside applyClimbMerge itself. Discipline mismatch is a hard block rather
+ * than a mergeable difference: `sends.suggestedGrade` is in the same ordinal
+ * space as `climbs.grade` but scoped by `climb.type`, so a boulder/sport pair
+ * can't be true duplicates — that's a mis-categorization, not a duplicate. */
+export async function assertClimbMergeable(
+  db: Database,
+  sourceClimbId: number,
+  targetClimbId: number,
+): Promise<{ source: Climb; target: Climb }> {
+  if (sourceClimbId === targetClimbId) throw new ActionError("Can't merge a climb into itself");
+  const source = await getClimb(db, sourceClimbId);
+  if (!source) throw new ActionError("Climb not found");
+  const target = await getClimb(db, targetClimbId);
+  if (!target) throw new ActionError("Target climb not found");
+  if (source.type !== target.type) {
+    throw new ActionError("Can't merge climbs of different disciplines");
+  }
+  return { source, target };
+}
+
+/** Folds `sourceClimbId` into `targetClimbId`: the target survives (with
+ * `overrides` applied to it, if given — a strict superset of applyClimbEdit,
+ * not a separate heuristic), the source is deleted. Everything runs as one
+ * `db.batch` (a single D1 transaction, per actions/import.ts's precedent) so
+ * a mid-merge failure can't leave sends reassigned without the source climb
+ * actually gone, or vice versa.
+ *
+ * Three steps, in an order that never trips the unique (userId, climbId)
+ * index on `sends` for a user who logged both climbs:
+ *  1. For each colliding pair, fold the source's comment into the surviving
+ *     target send (joined with MERGE_COMMENT_SEPARATOR) rather than silently
+ *     dropping it — its other fields (rating/dateSent/ascentStyle/
+ *     suggestedGrade/gradeFeel) don't survive; the target's own values win.
+ *  2. Delete the now-redundant colliding sends on the source.
+ *  3. Reassign everything still on the source (by construction, no longer
+ *     colliding) to the target.
+ * No manual aggregate math is needed: 0014_sends_aggregate_triggers.sql's
+ * `AFTER UPDATE` trigger already moves climbs.sendCount/ratingSum/ratingCount
+ * when a send's climb_id changes, and its `AFTER DELETE` trigger covers step
+ * 2's drops — both fire inside this same batch. */
+export async function applyClimbMerge(
+  db: Database,
+  sourceClimbId: number,
+  targetClimbId: number,
+  overrides?: Partial<Pick<ClimbInput, "name" | "grade" | "description">>,
+): Promise<void> {
+  const { source, target } = await assertClimbMergeable(db, sourceClimbId, targetClimbId);
+
+  // Aliased self-joins, not raw SQL: D1's `batch()` only accepts drizzle
+  // query-builder statements (the same objects `db.update`/`db.delete`
+  // return) — a `db.run(sql\`...\`)` type-checks as a batch item but fails at
+  // runtime, since D1's driver expects each item's own prepared-statement
+  // shape.
+  const src = alias(sends, "src");
+  const collidingTarget = alias(sends, "t");
+
+  const statements = [
+    // 1. Fold the source's comment into the surviving target send, for
+    // every user who logged both climbs.
+    db
+      .update(sends)
+      .set({
+        comment: sql`CASE
+          WHEN ${sends.comment} IS NULL THEN ${src.comment}
+          WHEN ${src.comment} IS NULL THEN ${sends.comment}
+          ELSE ${sends.comment} || ${MERGE_COMMENT_SEPARATOR} || ${src.comment}
+        END`,
+      })
+      .from(src)
+      .where(
+        and(
+          eq(sends.climbId, targetClimbId),
+          eq(src.climbId, sourceClimbId),
+          eq(src.userId, sends.userId),
+        ),
+      ),
+    // 2. The source's half of each pair folded above is now redundant.
+    db.delete(sends).where(
+      and(
+        eq(sends.climbId, sourceClimbId),
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(collidingTarget)
+            .where(
+              and(
+                eq(collidingTarget.climbId, targetClimbId),
+                eq(collidingTarget.userId, sends.userId),
+              ),
+            ),
+        ),
+      ),
+    ),
+    // 3. Everything still on the source is, by construction, non-colliding.
+    db.update(sends).set({ climbId: targetClimbId }).where(eq(sends.climbId, sourceClimbId)),
+    ...(overrides && Object.keys(overrides).length > 0
+      ? [db.update(climbs).set(overrides).where(eq(climbs.id, targetClimbId))]
+      : []),
+    db.delete(climbs).where(eq(climbs.id, sourceClimbId)),
+  ];
+  await db.batch(statements as [(typeof statements)[number], ...typeof statements]);
+
+  revalidatePath(`/climbs/${targetClimbId}`);
+  revalidatePath(`/climbs/${sourceClimbId}`);
+  revalidatePath(`/areas/${target.areaId}`);
+  if (source.areaId !== target.areaId) revalidatePath(`/areas/${source.areaId}`);
   revalidatePath("/");
   refresh();
 }

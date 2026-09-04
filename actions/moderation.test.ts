@@ -8,6 +8,7 @@ import {
   requestAreaReparent,
   requestClimbDelete,
   requestClimbEdit,
+  requestClimbMerge,
   requestClimbMove,
 } from "@/actions";
 import { createDb } from "@/db/client";
@@ -311,5 +312,50 @@ describe("requestClimbMove", () => {
 
     expect((await db.select().from(climbs).where(eq(climbs.id, 400)).get())?.areaId).toBe(5);
     expect(await requestsFor("climb_move", 400)).toHaveLength(0);
+  });
+});
+
+describe("requestClimbMerge", () => {
+  it("queues a change request instead of merging for a non-admin", async () => {
+    await db.insert(climbs).values([
+      { id: 950, areaId: 3, name: "Action Merge Source", type: "boulder", grade: 3 },
+      { id: 951, areaId: 3, name: "Action Merge Target", type: "boulder", grade: 3 },
+    ]);
+
+    const result = await requestClimbMerge(950, 951);
+    expect(result).toEqual({ ok: true, value: { status: "pending" } });
+
+    expect(await db.select().from(climbs).where(eq(climbs.id, 950)).get()).toBeDefined();
+    const requests = await requestsFor("climb_merge", 950);
+    expect(requests).toHaveLength(1);
+    expect(JSON.parse(requests[0].payload)).toEqual({ targetClimbId: 951 });
+  });
+
+  it("applies immediately for an admin, without queuing anything", async () => {
+    sessionState.role = "admin";
+    await db.insert(climbs).values([
+      { id: 952, areaId: 3, name: "Action Merge Source 2", type: "boulder", grade: 3 },
+      { id: 953, areaId: 3, name: "Action Merge Target 2", type: "boulder", grade: 3 },
+    ]);
+
+    const result = await requestClimbMerge(952, 953);
+    expect(result).toEqual({ ok: true, value: { status: "applied" } });
+
+    expect(await db.select().from(climbs).where(eq(climbs.id, 952)).get()).toBeUndefined();
+    expect(await requestsFor("climb_merge", 952)).toHaveLength(0);
+  });
+
+  it("rejects a discipline mismatch immediately, without queuing", async () => {
+    await db.insert(climbs).values([
+      { id: 954, areaId: 3, name: "Action Merge Boulder", type: "boulder", grade: 3 },
+      { id: 955, areaId: 3, name: "Action Merge Sport", type: "sport", grade: 8 },
+    ]);
+
+    const result = await requestClimbMerge(954, 955);
+    expect(result).toEqual({
+      ok: false,
+      error: "Can't merge climbs of different disciplines",
+    });
+    expect(await requestsFor("climb_merge", 954)).toHaveLength(0);
   });
 });

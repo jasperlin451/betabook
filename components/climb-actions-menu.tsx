@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 
 import { requestClimbDelete } from "@/actions";
 import { ClimbEditRequestDrawer } from "@/components/climb-edit-request-drawer";
+import { ClimbMergeDrawer } from "@/components/climb-merge-drawer";
 import { ClimbMoveDialog } from "@/components/climb-move-dialog";
 import { ActionsMenu } from "@/components/ui/actions-menu";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
@@ -25,6 +26,7 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
   const router = useRouter();
   const editState = useOverlayState();
   const moveState = useOverlayState();
+  const mergeState = useOverlayState();
   const deleteState = useOverlayState();
   const [pending, startTransition] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
         onAction={(key) => {
           if (key === "edit") editState.open();
           if (key === "move") moveState.open();
+          if (key === "merge") mergeState.open();
           if (key === "delete") {
             setDeleteError(null);
             setDeletePendingNotice(null);
@@ -66,6 +69,7 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
       >
         <Menu.Item id="edit">Request full edit…</Menu.Item>
         <Menu.Item id="move">Move to area…</Menu.Item>
+        <Menu.Item id="merge">Merge into…</Menu.Item>
         <Menu.Item id="delete" isDisabled={hasSends} textValue="Delete">
           {hasSends ? (
             // A disabled Menu.Item gets `pointer-events: none`, which would
@@ -86,6 +90,7 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
       </ActionsMenu>
       <ClimbEditRequestDrawer climb={climb} state={editState} />
       <ClimbMoveDialog climbId={climb.id} state={moveState} />
+      <ClimbMergeDrawer climbId={climb.id} state={mergeState} />
       <ConfirmDeleteDialog
         noun="climb"
         state={deleteState}
