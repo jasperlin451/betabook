@@ -1,4 +1,3 @@
-import type { Climb } from "@/db/queries";
 import { ActionError } from "@/lib/action-result";
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 import { parseGradeIndex, requireTrimmed, trimOrNull } from "@/lib/validation";
@@ -19,13 +18,17 @@ export type RawClimbInput = {
   description: FormDataEntryValue | null;
 };
 
+export type RawClimbDescriptionInput = {
+  description: FormDataEntryValue | null;
+};
+
 /** Also used to validate a `type` search param (see app/climbs/new), so this
  * takes `unknown` rather than just a form value. */
 export function isClimbType(value: unknown): value is ClimbType {
   return typeof value === "string" && (CLIMB_TYPES as readonly string[]).includes(value);
 }
 
-function parseClimbFields(raw: RawClimbInput): ClimbInput {
+export function validateNewClimbInput(raw: RawClimbInput): ClimbInput {
   const name = requireTrimmed(raw.name, "Name");
 
   if (!isClimbType(raw.type)) {
@@ -39,14 +42,10 @@ function parseClimbFields(raw: RawClimbInput): ClimbInput {
   return { name, type, grade, description };
 }
 
-export function validateNewClimbInput(raw: RawClimbInput): ClimbInput {
-  return parseClimbFields(raw);
-}
-
-export function validateClimbInput(existing: Climb, raw: RawClimbInput): ClimbInput {
-  const input = parseClimbFields(raw);
-  if (input.type !== existing.type && existing.sendCount > 0) {
-    throw new ActionError("Can't change discipline once a climb has logged sends");
-  }
-  return input;
+/** Name/discipline/grade are immutable after creation — editing a climb
+ * only ever touches its description. */
+export function validateClimbDescriptionInput(raw: RawClimbDescriptionInput): {
+  description: string | null;
+} {
+  return { description: trimOrNull(raw.description) };
 }

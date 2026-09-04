@@ -32,27 +32,23 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
 
   const parentId = fixedParentId ?? pickedParent?.id ?? null;
   const trimmedName = name.trim();
-  // Only when the picker is the one supplying the parent: a fixed parent is
-  // always set, and editing doesn't touch the parent at all.
-  const parentInvalid = submitAttempted && !area && parentId == null;
+  const parentInvalid = submitAttempted && parentId == null;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitAttempted(true);
 
-    const formData = new FormData();
-    formData.set("name", trimmedName);
-    formData.set("description", description);
-
     if (area) {
+      const formData = new FormData();
+      formData.set("description", description);
       startTransition(async () => {
         const result = await updateArea(area.id, formData);
         if (!result.ok) {
           setError(result.error);
           return;
         }
-        onDone?.(area.id, trimmedName);
+        onDone?.(area.id, area.name);
       });
       return;
     }
@@ -60,6 +56,10 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
     // A new area always goes under an existing one; `parentInvalid` is
     // already showing why nothing happened.
     if (parentId == null) return;
+
+    const formData = new FormData();
+    formData.set("name", trimmedName);
+    formData.set("description", description);
 
     startTransition(async () => {
       const result = await createArea(parentId, formData);
@@ -71,9 +71,26 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
     });
   }
 
+  if (area) {
+    return (
+      <form onSubmit={handleSubmit} className={SURFACE_CARD_CLASS}>
+        <TextField value={description} onChange={setDescription}>
+          <Label>Description</Label>
+          <TextArea placeholder="Describe the area…" />
+        </TextField>
+
+        {error && <p className="text-sm text-danger">{error}</p>}
+
+        <Button type="submit" isDisabled={pending} fullWidth>
+          Save changes
+        </Button>
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className={SURFACE_CARD_CLASS}>
-      {!area && fixedParentId == null && (
+      {fixedParentId == null && (
         <TextField>
           <Label>Parent area</Label>
           <AreaPicker
@@ -103,7 +120,7 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
       {error && <p className="text-sm text-danger">{error}</p>}
 
       <Button type="submit" isDisabled={pending || !trimmedName} fullWidth>
-        {area ? "Save changes" : "Add area"}
+        Add area
       </Button>
     </form>
   );

@@ -1,24 +1,19 @@
 import { env } from "cloudflare:test";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  createArea,
-  createClimb,
-  deleteArea,
-  deleteClimb,
-  updateArea,
-  updateClimb,
-} from "@/actions";
+import { createArea, createClimb } from "@/actions";
 import { createDb } from "@/db/client";
 import { searchAreas, searchClimbs } from "@/db/queries";
 import { seedFixtureTree } from "@/test/fixtures";
 
 /** The FTS indexes are maintained by triggers
  * (drizzle/migrations/0015_fts_sync_triggers.sql), inside the same statement
- * as each base-table write. These tests pin the sync across every mutation
- * shape — create, rename, delete — through the real server actions and the
- * real search queries. Renames especially: they used to bypass the index
- * entirely, leaving the entity findable only under its old name. */
+ * as each base-table write. These tests pin the sync on creation through the
+ * real server actions and the real search queries. Areas/climbs can't be
+ * renamed or deleted through the app anymore — name is immutable after
+ * creation and deletion isn't offered at all — so those mutation shapes are
+ * no longer exercised here; the underlying triggers still guard any
+ * DB-level write that changes name or removes a row. */
 
 const sessionState = vi.hoisted(() => ({ userId: "test-user" as string | null }));
 
@@ -94,35 +89,6 @@ describe("FTS sync triggers", () => {
     );
   });
 
-  it("makes a renamed area searchable under its new name and not its old one", async () => {
-    // Area 2 is "Test Boulders".
-    expect((await searchAreas(db, "Boulders")).areas.map((a) => a.id)).toEqual([2]);
-
-    expect(await updateArea(2, areaFormData("Granite Garden"))).toEqual({
-      ok: true,
-      value: undefined,
-    });
-
-    expect((await searchAreas(db, "Granite Garden")).areas.map((a) => a.id)).toEqual([2]);
-    expect((await searchAreas(db, "Boulders")).areas).toEqual([]);
-  });
-
-  it("makes a renamed climb searchable under its new name and not its old one", async () => {
-    // Climb 3 is "Test Crimper" (sport 5.10a — grade index 10).
-    expect(
-      (await searchClimbs(db, { name: "Crimper", disciplines: [] })).climbs.map((c) => c.id),
-    ).toEqual([3]);
-
-    expect(
-      await updateClimb(3, climbFormData("Dyno Dance", { type: "sport", grade: "10" })),
-    ).toEqual({ ok: true, value: undefined });
-
-    expect(
-      (await searchClimbs(db, { name: "Dyno Dance", disciplines: [] })).climbs.map((c) => c.id),
-    ).toEqual([3]);
-    expect((await searchClimbs(db, { name: "Crimper", disciplines: [] })).climbs).toEqual([]);
-  });
-
   it("makes a created area searchable immediately", async () => {
     const result = await createArea(1, areaFormData("Fresh Gully"));
     expect(result.ok).toBe(true);
@@ -141,28 +107,5 @@ describe("FTS sync triggers", () => {
         ),
       ).toEqual([result.value]);
     }
-  });
-
-  it("removes a deleted area from the index", async () => {
-    const created = await createArea(1, areaFormData("Ephemeral Cove"));
-    expect(created.ok).toBe(true);
-    if (!created.ok) return;
-    expect((await searchAreas(db, "Ephemeral Cove")).areas).toHaveLength(1);
-
-    expect(await deleteArea(created.value)).toEqual({ ok: true, value: undefined });
-    expect((await searchAreas(db, "Ephemeral Cove")).areas).toEqual([]);
-  });
-
-  // Regression: deleteClimb never issued the manual climbs_fts cleanup, so a
-  // deleted climb kept matching its name in search until the triggers took
-  // over the sync.
-  it("removes a deleted climb from the index", async () => {
-    // Climb 2 is "Test Slab" (no sends seeded, so it's deletable).
-    expect(
-      (await searchClimbs(db, { name: "Slab", disciplines: [] })).climbs.map((c) => c.id),
-    ).toEqual([2]);
-
-    expect(await deleteClimb(2)).toEqual({ ok: true, value: undefined });
-    expect((await searchClimbs(db, { name: "Slab", disciplines: [] })).climbs).toEqual([]);
   });
 });

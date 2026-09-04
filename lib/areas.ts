@@ -10,9 +10,21 @@ export type RawAreaInput = {
   description: FormDataEntryValue | null;
 };
 
+export type RawAreaDescriptionInput = {
+  description: FormDataEntryValue | null;
+};
+
 export function validateAreaInput(raw: RawAreaInput): AreaInput {
   const name = requireTrimmed(raw.name, "Name");
   const description = trimOrNull(raw.description);
 
   return { name, description };
+}
+
+/** Name is immutable after creation — editing an area only ever touches its
+ * description. */
+export function validateAreaDescriptionInput(raw: RawAreaDescriptionInput): {
+  description: string | null;
+} {
+  return { description: trimOrNull(raw.description) };
 }

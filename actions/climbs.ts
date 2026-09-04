@@ -1,18 +1,23 @@
 "use server";
 
-import { and, eq, notExists } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { refresh, revalidatePath } from "next/cache";
 
 import { getDb } from "@/db/client";
 import { getArea, getClimb } from "@/db/queries";
-import { climbs, sends } from "@/db/schema";
+import { climbs } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
-import { validateClimbInput, validateNewClimbInput, type RawClimbInput } from "@/lib/climbs";
+import {
+  validateClimbDescriptionInput,
+  validateNewClimbInput,
+  type RawClimbInput,
+} from "@/lib/climbs";
 import { parseId } from "@/lib/parse-id";
 import { requireSession } from "@/lib/session";
 import { pickFormFields } from "@/lib/validation";
 
 const CLIMB_FORM_FIELDS = ["name", "type", "grade", "description"] as const;
+const CLIMB_UPDATE_FORM_FIELDS = ["description"] as const;
 
 function readClimbFormData(formData: FormData): RawClimbInput {
   return pickFormFields(formData, CLIMB_FORM_FIELDS);
@@ -26,56 +31,11 @@ export async function updateClimb(climbId: number, formData: FormData): Promise<
     const existing = parseId(climbId) === null ? undefined : await getClimb(db, climbId);
     if (!existing) throw new ActionError("Climb not found");
 
-    const input = validateClimbInput(existing, readClimbFormData(formData));
-    const condition =
-      input.type === existing.type
-        ? eq(climbs.id, climbId)
-        : and(
-            eq(climbs.id, climbId),
-            notExists(db.select({ id: sends.id }).from(sends).where(eq(sends.climbId, climbs.id))),
-          );
-    const updated = await db
-      .update(climbs)
-      .set(input)
-      .where(condition)
-      .returning({ id: climbs.id })
-      .get();
-    if (!updated) {
-      if (!(await getClimb(db, climbId))) throw new ActionError("Climb not found");
-      throw new ActionError("Can't change discipline once a climb has logged sends");
-    }
+    const input = validateClimbDescriptionInput(pickFormFields(formData, CLIMB_UPDATE_FORM_FIELDS));
+    await db.update(climbs).set(input).where(eq(climbs.id, climbId));
 
     revalidatePath(`/climbs/${climbId}`);
     revalidatePath(`/areas/${existing.areaId}`);
-    revalidatePath("/");
-    refresh();
-  });
-}
-
-export async function deleteClimb(climbId: number): Promise<ActionResult> {
-  return toActionResult(async () => {
-    await requireSession();
-    const db = await getDb();
-
-    if (parseId(climbId) === null) throw new ActionError("Climb not found");
-    const deleted = await db
-      .delete(climbs)
-      .where(
-        and(
-          eq(climbs.id, climbId),
-          notExists(db.select({ id: sends.id }).from(sends).where(eq(sends.climbId, climbs.id))),
-        ),
-      )
-      .returning({ areaId: climbs.areaId })
-      .get();
-
-    if (!deleted) {
-      const existing = await getClimb(db, climbId);
-      if (!existing) throw new ActionError("Climb not found");
-      throw new ActionError("Can't delete a climb with logged sends");
-    }
-
-    revalidatePath(`/areas/${deleted.areaId}`);
     revalidatePath("/");
     refresh();
   });

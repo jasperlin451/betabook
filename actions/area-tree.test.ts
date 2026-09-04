@@ -2,9 +2,9 @@ import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { createArea, createClimb, updateArea } from "@/actions";
+import { createArea, createClimb } from "@/actions";
 import { createDb } from "@/db/client";
-import { getArea, getSubareas, getSubtreeClimbs, findClimbCandidatesByNames } from "@/db/queries";
+import { getArea, getSubtreeClimbs, findClimbCandidatesByNames } from "@/db/queries";
 import { seedFixtureTree } from "@/test/fixtures";
 
 /** A newly created area has to be *fully placed* the moment createArea
@@ -160,25 +160,6 @@ describe("creating an area doesn't rewrite the rest of the tree", () => {
     // Ancestry lives in parentId now, so an insert is an insert.
     expect(after.areas).toEqual(before.areas);
     expect(after.climbs).toEqual(before.climbs);
-  });
-});
-
-describe("renaming an area", () => {
-  it("reorders it among its siblings immediately", async () => {
-    await createArea(TEST_CRAG, areaForm("Zzz Test Last Wall"));
-
-    const before = (await getSubareas(db, TEST_CRAG)).map((a) => a.name);
-    expect(before.at(-1)).toBe("Zzz Test Last Wall");
-
-    const target = (await getSubareas(db, TEST_CRAG)).find((a) => a.name === "Zzz Test Last Wall");
-    const renamed = await updateArea(target!.id, areaForm("Aaa Test First Wall"));
-    expect(renamed.ok).toBe(true);
-
-    // Sibling order came from areas.lft, which only moved when a full tree
-    // recompute ran — and updateArea never triggered one, so a rename used to
-    // leave the area sorted under its old name indefinitely.
-    const after = (await getSubareas(db, TEST_CRAG)).map((a) => a.name);
-    expect(after[0]).toBe("Aaa Test First Wall");
   });
 });
 
