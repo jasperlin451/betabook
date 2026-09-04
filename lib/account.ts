@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
-import { sends } from "@/db/schema";
+import { changeRequests, sends } from "@/db/schema";
 
 /** Deletes every send belonging to a user, ahead of deleting the user row
  * itself in better-auth's `deleteUser` flow. D1 doesn't fire a table's AFTER
@@ -13,4 +13,17 @@ import { sends } from "@/db/schema";
  * per row and keep those aggregates correct. */
 export async function deleteAccountSends(db: Database, userId: string): Promise<void> {
   await db.delete(sends).where(eq(sends.userId, userId));
+}
+
+/** Deletes the user's *pending* change requests ahead of the user row —
+ * nobody is left to hear a decision on them. Decided rows deliberately
+ * survive: requested_by is a set-null FK (see drizzle/schema/moderation.ts),
+ * so the audit trail of applied structural changes outlives the account. */
+export async function deleteAccountPendingChangeRequests(
+  db: Database,
+  userId: string,
+): Promise<void> {
+  await db
+    .delete(changeRequests)
+    .where(and(eq(changeRequests.requestedBy, userId), eq(changeRequests.status, "pending")));
 }
