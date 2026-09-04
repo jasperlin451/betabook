@@ -9,7 +9,6 @@ import {
   type DisciplineFilter,
 } from "@/lib/discipline-filter";
 import { formatGrade, type ClimbType } from "@/lib/grades";
-import { RECENT_SENDS_PAGE_SIZE } from "@/lib/page-sizes";
 import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
 
 import { areaNameCondition } from "./areas";
@@ -90,77 +89,6 @@ export async function getSendsForClimb(
 
   const hasMore = rows.length > pageSize;
   return { sends: hasMore ? rows.slice(0, pageSize) : rows, hasMore };
-}
-
-export type RecentSendRow = {
-  id: number;
-  userId: string;
-  userName: string;
-  climbId: number;
-  climbName: string;
-  climbType: ClimbType;
-  climbGrade: number | null;
-  areaId: number;
-  areaName: string;
-  ascentStyle: AscentStyle;
-  dateSent: string | null;
-  rating: number | null;
-  suggestedGrade: number | null;
-  gradeFeel: GradeFeel;
-  comment: string | null;
-};
-
-export { RECENT_SENDS_PAGE_SIZE };
-
-export type RecentSendsPage = { sends: RecentSendRow[]; hasMore: boolean };
-
-/** The home feed: the latest sends across every climber and area, newest
- * ascent date first. This is a logbook chronology rather than an import
- * activity stream: importing an older ascent places it at its historical
- * date instead of presenting it as something sent today. Paged the same way
- * as every other list: server-rendered first page, /api/feed for the rest.
- *
- * The ORDER BY below is load-bearing beyond its ordering: it is matched
- * verbatim by sends_date_desc_idx — (date_sent DESC, id DESC), declared in
- * drizzle/migrations/0018_sends_date_index.sql, since drizzle-kit can't model
- * descending index columns — and that exact agreement is the only reason this
- * query reads ~64 rows instead of the whole sends table. SQLite drops the sort
- * only when an index satisfies the ORDER BY exactly, and it fails SILENTLY:
- * reordering these keys or flipping a direction doesn't error, it puts the
- * app's most-requested query back on `SCAN sends` + `USE TEMP B-TREE FOR ORDER
- * BY`, whose cost is linear in total sends. Measured at 2M sends: 8ms with the
- * index, 1,365ms without — and on D1 that scan is also billed per row read and
- * capped at 30s, so this doesn't degrade gracefully, it eventually stops
- * loading. Change the sort here and the index has to move with it. */
-export async function getRecentSends(db: Database, page = 1): Promise<RecentSendsPage> {
-  const rows = await db
-    .select({
-      id: sends.id,
-      userId: sends.userId,
-      userName: user.name,
-      climbId: sends.climbId,
-      climbName: climbs.name,
-      climbType: climbs.type,
-      climbGrade: climbs.grade,
-      areaId: climbs.areaId,
-      areaName: areas.name,
-      ascentStyle: sends.ascentStyle,
-      dateSent: sends.dateSent,
-      rating: sends.rating,
-      suggestedGrade: sends.suggestedGrade,
-      gradeFeel: sends.gradeFeel,
-      comment: sends.comment,
-    })
-    .from(sends)
-    .innerJoin(user, eq(sends.userId, user.id))
-    .innerJoin(climbs, eq(sends.climbId, climbs.id))
-    .innerJoin(areas, eq(climbs.areaId, areas.id))
-    .orderBy(desc(sends.dateSent), desc(sends.id))
-    .limit(RECENT_SENDS_PAGE_SIZE + 1)
-    .offset((page - 1) * RECENT_SENDS_PAGE_SIZE);
-
-  const hasMore = rows.length > RECENT_SENDS_PAGE_SIZE;
-  return { sends: hasMore ? rows.slice(0, RECENT_SENDS_PAGE_SIZE) : rows, hasMore };
 }
 
 export type SuggestedGradeCount = { grade: number; feel: GradeFeel; count: number };

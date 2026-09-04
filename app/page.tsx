@@ -2,12 +2,10 @@ import { clsx } from "clsx";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { HomeSearchEntry } from "@/components/command-palette";
 import {
   NavigationPendingProvider,
   NavigationPendingRegion,
 } from "@/components/navigation-pending";
-import { RecentSendsFeed } from "@/components/recent-sends-feed";
 import { AreaSearchToolbar, ClimbSearchToolbar } from "@/components/search-form";
 import { AreaSearchResults, ClimbSearchResults } from "@/components/search-results";
 import { AppLink } from "@/components/ui/app-link";
@@ -18,7 +16,6 @@ import {
   countSearchClimbs,
   getAreaBreadcrumbs,
   getClimbSendStats,
-  getRecentSends,
   getUserSentClimbIds,
   searchAreas,
   searchClimbs,
@@ -40,7 +37,7 @@ type SearchPageProps = {
 export async function generateMetadata({ searchParams }: SearchPageProps): Promise<Metadata> {
   // Any param at all is a search/filter state (see the page body) — infinite
   // and low-value as a landing page, so it's kept out of the index and
-  // canonicalized to the bare feed.
+  // canonicalized to the bare, unfiltered search page.
   const isSearch = Object.keys(await searchParams).length > 0;
   return isSearch
     ? { title: "Search", robots: { index: false }, alternates: { canonical: "/" } }
@@ -49,48 +46,16 @@ export async function generateMetadata({ searchParams }: SearchPageProps): Promi
 
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
+  const isBare = Object.keys(params).length === 0;
 
-  // Bare `/` is the home feed — the latest sends across the whole book. The
-  // way in to search is the header's ⌘K palette, which reaches both routes
-  // and areas from every page, so the feed doesn't carry a bar of its own.
-  // Any search param at all (a query, a mode, a filter) switches to the full
-  // search view below.
-  if (Object.keys(params).length === 0) {
-    const session = await getSession();
-    if (session) {
-      redirect(`/users/${session.user.id}`);
-    }
-
-    const db = await getDb();
-    const feed = await getRecentSends(db, 1);
-    const areaBreadcrumbs = await getAreaBreadcrumbs(
-      db,
-      feed.sends.map((send) => send.areaId),
-    );
-
-    return (
-      <div className="flex flex-col gap-8 pt-4">
-        <h1 className="sr-only">Betabook</h1>
-
-        {/* Search leads: it is how someone arrives looking for a route, and
-         * the feed below is what they read when they aren't. The header's
-         * icon is enough once you know the site, but it is far too quiet to
-         * be the only search on a landing page — especially on a phone,
-         * where the keyboard shortcut it stands for doesn't exist. */}
-        <section className="mx-auto w-full max-w-3xl">
-          <HomeSearchEntry />
-        </section>
-
-        <section className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-          <SectionHeading>Recent sends</SectionHeading>
-          <RecentSendsFeed
-            initialSends={feed.sends}
-            initialHasMore={feed.hasMore}
-            initialAreaBreadcrumbs={areaBreadcrumbs}
-          />
-        </section>
-      </div>
-    );
+  // Bare `/` used to be a "recent sends" feed; it's now the same search view
+  // as every other state of this page (climb mode, unfiltered), so a signed-
+  // out visitor lands directly on search instead of a feed. A signed-in
+  // visitor still gets their own page — that's the one thing bare `/` still
+  // special-cases.
+  const bareSession = isBare ? await getSession() : null;
+  if (isBare && bareSession) {
+    redirect(`/users/${bareSession.user.id}`);
   }
 
   const db = await getDb();
@@ -158,10 +123,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     climbSearchFilterToSearchParams(sort, filter).toString() !==
     climbSearchFilterToSearchParams(sort, DEFAULT_CLIMB_SEARCH_FILTER).toString();
   const queryParams = toSearchClimbsQueryParams(filter, sort);
+  // Bare `/` already resolved the session above (to decide the redirect,
+  // where it's always null by this point) — reuse it instead of a second
+  // getSession() round trip on the highest-traffic anonymous page.
   const [results, totalCount, session] = await Promise.all([
     searchClimbs(db, queryParams),
     searchActive ? countSearchClimbs(db, queryParams) : null,
-    getSession(),
+    isBare ? bareSession : getSession(),
   ]);
   const [sendStats, areaBreadcrumbs, sentClimbIds] = await Promise.all([
     getClimbSendStats(

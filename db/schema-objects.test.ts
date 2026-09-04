@@ -21,8 +21,9 @@ beforeAll(() => {
  * knew they existed: 0019_snapshot.json lists exactly three indexes on
  * `sends` and no triggers at all. 0019 hand-restores them, but nothing
  * *enforces* that the next rebuild does, and neither drizzle-kit nor a
- * passing type-check will say a word. The symptom is silent too — the home
- * feed reverts to a full table scan, which is correct and just slow.
+ * passing type-check will say a word. The symptom is silent too — a query
+ * that depended on one of these reverts to a full table scan, which is
+ * correct and just slow.
  *
  * So: if a new migration makes this fail, do not update the expectations to
  * match. Add the missing CREATEs to that migration. */
@@ -50,8 +51,7 @@ const HAND_WRITTEN_OBJECTS = [
   "climbs|trigger|climbs_fts_after_insert",
   "climbs|trigger|climbs_fts_after_update",
   "climbs|trigger|climbs_reject_type_change_with_sends",
-  // 0018's feed index, 0020's export index, 0014's aggregate triggers.
-  "sends|index|sends_date_desc_idx",
+  // 0020's export index, 0014's aggregate triggers.
   "sends|index|sends_user_date_idx",
   "sends|trigger|sends_aggregates_ad",
   "sends|trigger|sends_aggregates_ai",
@@ -71,19 +71,19 @@ describe("schema objects drizzle-kit cannot model", () => {
     expect([...HAND_WRITTEN_OBJECTS].filter((name) => !present.has(name))).toEqual([]);
   });
 
-  // Direction is the whole point of both indexes and the only part of them a
+  // Direction is the whole point of this index and the only part of it a
   // rebuild can get subtly wrong: SQLite drops the sort only when an index
   // matches the ORDER BY exactly, and silently sorts when it doesn't.
-  it.each([
-    ["sends_date_desc_idx", ["date_sent DESC", "id DESC"]],
-    ["sends_user_date_idx", ["user_id ASC", "date_sent DESC", "id DESC"]],
-  ])("%s keeps its column directions", async (index, expected) => {
-    const columns = await db.all<{ name: string | null; desc: number; key: number }>(
-      sql`SELECT name, desc, key FROM pragma_index_xinfo(${index})`,
-    );
-    const keyColumns = columns
-      .filter((column) => column.key === 1)
-      .map((column) => `${column.name} ${column.desc ? "DESC" : "ASC"}`);
-    expect(keyColumns).toEqual(expected);
-  });
+  it.each([["sends_user_date_idx", ["user_id ASC", "date_sent DESC", "id DESC"]]])(
+    "%s keeps its column directions",
+    async (index, expected) => {
+      const columns = await db.all<{ name: string | null; desc: number; key: number }>(
+        sql`SELECT name, desc, key FROM pragma_index_xinfo(${index})`,
+      );
+      const keyColumns = columns
+        .filter((column) => column.key === 1)
+        .map((column) => `${column.name} ${column.desc ? "DESC" : "ASC"}`);
+      expect(keyColumns).toEqual(expected);
+    },
+  );
 });
