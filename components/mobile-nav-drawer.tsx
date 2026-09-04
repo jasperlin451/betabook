@@ -34,11 +34,10 @@ export function MobileNavDrawer({
             <Drawer.CloseTrigger />
           </Drawer.Header>
           <Drawer.Body>
-            {/* No Search entry: every screen already carries a way into
-             * search — the header's magnifier everywhere, and the home
-             * page's own inline search fields. The desktop nav dropped
-             * its Search link for the same reason — a menu row pointing
-             * at "/" just duplicates it one tap deeper. */}
+            {/* AuthNav's signed-in link set includes an explicit Search
+             * entry (to "/?mode=climb") alongside the header magnifier and
+             * ⌘K palette — a deliberate product decision to make search
+             * reachable from the nav itself, not just those affordances. */}
             <nav aria-label="Primary" className="flex flex-col items-start gap-4 text-sm">
               <AuthNav direction="col" onNavigate={onClose} />
               {!isStandalone && (

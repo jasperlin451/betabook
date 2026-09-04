@@ -16,10 +16,17 @@ type AuthNavProps = {
 };
 
 /** One pill per signed-in link, each sized to roughly the label it stands in
- * for ("Add climb", "Add area", "My sends", "Account"). The signed-in
- * set is the widest (and, for a logbook, the most common) state, so holding
- * its geometry keeps the header from reflowing when the session resolves. */
-const PLACEHOLDER_WIDTHS = ["w-21", "w-20", "w-16", "w-14"] as const;
+ * for ("Search", "Add climb", "Add area", "My sends", "Account"). The
+ * signed-in set is the widest (and, for a logbook, the most common) state, so
+ * holding its geometry keeps the header from reflowing when the session
+ * resolves. */
+const PLACEHOLDER_WIDTHS = [
+  { key: "search", width: "w-14" },
+  { key: "add-climb", width: "w-21" },
+  { key: "add-area", width: "w-20" },
+  { key: "my-sends", width: "w-16" },
+  { key: "account", width: "w-14" },
+] as const;
 
 export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
   // better-auth's session store can resolve from a client-side cache before
@@ -41,10 +48,10 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
     // div — the classes, not the wrapper tag, define the geometry.
     return (
       <div className={signedInGroupClass} aria-hidden>
-        {PLACEHOLDER_WIDTHS.map((width) => (
+        {PLACEHOLDER_WIDTHS.map(({ key, width }) => (
           // my-0.5 + h-4 adds up to the 20px line box of a text-sm link, so
           // each pill occupies exactly one link's height in both directions.
-          <Skeleton key={width} rounded="rounded-full" className={clsx("my-0.5 h-4", width)} />
+          <Skeleton key={key} rounded="rounded-full" className={clsx("my-0.5 h-4", width)} />
         ))}
       </div>
     );
@@ -53,6 +60,9 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
   if (session) {
     return (
       <span className={signedInGroupClass}>
+        <NavLink href="/?mode=climb" onClick={onNavigate}>
+          Search
+        </NavLink>
         <NavLink href="/climbs/new" onClick={onNavigate}>
           Add climb
         </NavLink>
