@@ -169,6 +169,13 @@
       "when": 1788504120000,
       "tag": "0023_drop_sends_date_index",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1788507432119,
+      "tag": "0024_add_user_is_private",
+      "breakpoints": true
     }
   ]
 }

@@ -12,7 +12,9 @@ import {
   parseOffset,
   searchParamsToRecord,
 } from "@/lib/search-params";
+import { getSession } from "@/lib/session";
 import { parseUserSendsFilter } from "@/lib/user-sends-filter";
+import { canViewUser } from "@/lib/user-visibility";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -27,11 +29,13 @@ export async function GET(request: Request, { params }: RouteParams) {
   const filter = parseUserSendsFilter(searchParams);
   const safeOffset = parseOffset(url.searchParams);
 
-  const db = await getDb();
+  const [db, session] = await Promise.all([getDb(), getSession()]);
   // A real 404 rather than a normal-looking empty page for any id — the
-  // client checks res.ok, and an empty 200 would read as "end of list".
+  // client checks res.ok, and an empty 200 would read as "end of list". A
+  // private profile the viewer doesn't own gets the identical response, so
+  // its existence isn't leaked either.
   const user = await getUser(db, userId);
-  if (!user) {
+  if (!user || !canViewUser(user, session?.user.id ?? null)) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 

@@ -25,6 +25,7 @@ import { getUser, getUserSendsForAnalytics } from "@/db/queries";
 import { formatCount } from "@/lib/format";
 import type { ClimbType } from "@/lib/grades";
 import type { SearchParamsRecord } from "@/lib/search-params";
+import { getSession } from "@/lib/session";
 import {
   buildPyramid,
   buildUserAnalytics,
@@ -33,6 +34,7 @@ import {
   formatMonthLabel,
   parseDisciplineScope,
 } from "@/lib/user-analytics";
+import { canViewUser } from "@/lib/user-visibility";
 
 type UserAnalyticsPageProps = {
   params: Promise<{ id: string }>;
@@ -46,8 +48,8 @@ const getUserById = cache(async (id: string) => {
 
 export async function generateMetadata({ params }: UserAnalyticsPageProps): Promise<Metadata> {
   const { id } = await params;
-  const user = await getUserById(id);
-  if (!user) notFound();
+  const [user, session] = await Promise.all([getUserById(id), getSession()]);
+  if (!user || !canViewUser(user, session?.user.id ?? null)) notFound();
 
   return { title: `${user.name} · Analytics`, robots: { index: false } };
 }
@@ -60,8 +62,9 @@ function analyticsHref(userId: string, scope: ClimbType): string {
 export default async function UserAnalyticsPage({ params, searchParams }: UserAnalyticsPageProps) {
   const [{ id }, search] = await Promise.all([params, searchParams]);
 
-  const [db, user] = await Promise.all([getDb(), getUserById(id)]);
+  const [db, user, session] = await Promise.all([getDb(), getUserById(id), getSession()]);
   if (!user) notFound();
+  if (!canViewUser(user, session?.user.id ?? null)) notFound();
 
   const rows = await getUserSendsForAnalytics(db, id);
 

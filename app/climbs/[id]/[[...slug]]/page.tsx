@@ -118,7 +118,7 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
   const [area, userSend, sendsPage, summary] = await Promise.all([
     getAreaById(climb.areaId),
     session ? getUserSendForClimb(db, session.user.id, climb.id).then((s) => s ?? null) : null,
-    getSendsForClimb(db, climb.id),
+    getSendsForClimb(db, climb.id, 0, undefined, session?.user.id ?? null),
     getClimbSendSummary(db, climb.id),
   ]);
   if (!area) notFound();
