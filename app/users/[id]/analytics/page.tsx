@@ -76,12 +76,13 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
       rows.some((row) => row.climbType === type) ||
       journalSessions?.some((entry) => entry.climbType === type),
   );
-  const dominantRows = journalSessions && journalSessions.length > 0 ? journalSessions : rows;
-  const dominant = [...present].sort(
-    (a, b) =>
-      dominantRows.filter((entry) => entry.climbType === b).length -
-      dominantRows.filter((entry) => entry.climbType === a).length,
-  )[0];
+  const disciplineVolume = (type: ClimbType) =>
+    journalSessions
+      ? journalSessions
+          .filter((entry) => entry.climbType === type)
+          .reduce((total, entry) => total + entry.count, 0)
+      : rows.filter((entry) => entry.climbType === type).length;
+  const dominant = [...present].sort((a, b) => disciplineVolume(b) - disciplineVolume(a))[0];
   const requested = parseDisciplineScope(
     typeof search.discipline === "string" ? search.discipline : undefined,
   );

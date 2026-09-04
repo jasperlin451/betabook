@@ -16,7 +16,13 @@ import { formatDate } from "@/lib/format-date";
 import { formatGrade } from "@/lib/grades";
 import { climbHref } from "@/lib/slug";
 
-export function OpenProjectList({ projects }: { projects: OpenProject[] }) {
+export function OpenProjectList({
+  projects,
+  hasMore = false,
+}: {
+  projects: OpenProject[];
+  hasMore?: boolean;
+}) {
   const state = useOverlayState();
   const [selected, setSelected] = useState<OpenProject | null>(null);
 
@@ -65,6 +71,12 @@ export function OpenProjectList({ projects }: { projects: OpenProject[] }) {
           />
         ))}
       </div>
+
+      {hasMore && (
+        <p className="text-sm text-muted">
+          Showing the {projects.length} most recently active projects.
+        </p>
+      )}
 
       {selected && (
         <JournalEntryDrawer

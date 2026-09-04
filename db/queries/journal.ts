@@ -1,7 +1,7 @@
 import { and, eq, sql, type SQL } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
-import { climbs, journalEntries } from "@/db/schema";
+import { journalEntries } from "@/db/schema";
 import type { ClimbType } from "@/lib/grades";
 import type { JournalKind, JournalVisibility } from "@/lib/journal";
 import type { JournalFilter, JournalView } from "@/lib/journal-filter";
@@ -77,20 +77,15 @@ const VIEW_CONDITION: Record<JournalView, SQL | null> = {
   training: sql`j.kind = 'training'`,
 };
 
-function likePattern(value: string): string {
-  return `%${value.replace(/[\\%_]/g, "\\$&")}%`;
-}
-
 function filterConditions(filter: JournalFilter): SQL[] {
   const view = VIEW_CONDITION[filter.view];
   const conditions: SQL[] = view ? [view] : [];
 
   if (filter.query) {
-    const pattern = likePattern(filter.query);
     conditions.push(sql`(
-      climbs.name LIKE ${pattern} ESCAPE ${"\\"}
-      OR COALESCE(j.body, '') LIKE ${pattern} ESCAPE ${"\\"}
-      OR COALESCE(j.tags, '') LIKE ${pattern} ESCAPE ${"\\"}
+      instr(lower(COALESCE(climbs.name, '')), lower(${filter.query})) > 0
+      OR instr(lower(COALESCE(j.body, '')), lower(${filter.query})) > 0
+      OR instr(lower(COALESCE(j.tags, '')), lower(${filter.query})) > 0
       OR EXISTS (
         WITH RECURSIVE ancestors(id, parent_id, name) AS (
           SELECT a.id, a.parent_id, a.name FROM areas a WHERE a.id = climbs.area_id
@@ -98,7 +93,9 @@ function filterConditions(filter: JournalFilter): SQL[] {
           SELECT parent.id, parent.parent_id, parent.name
           FROM areas parent JOIN ancestors child ON parent.id = child.parent_id
         )
-        SELECT 1 FROM ancestors WHERE ancestors.name LIKE ${pattern} ESCAPE ${"\\"}
+        SELECT 1
+        FROM ancestors
+        WHERE instr(lower(ancestors.name), lower(${filter.query})) > 0
       )
     )`);
   }
@@ -218,7 +215,6 @@ export type JournalCounts = {
   entries: number;
   sessions: number;
   training: number;
-  sent: number;
   days: number;
   entriesThisMonth: number;
   daysThisMonth: number;
@@ -229,7 +225,6 @@ const EMPTY_COUNTS: JournalCounts = {
   entries: 0,
   sessions: 0,
   training: 0,
-  sent: 0,
   days: 0,
   entriesThisMonth: 0,
   daysThisMonth: 0,
@@ -250,7 +245,6 @@ export async function getJournalCounts(
       COUNT(*)                                                        AS entries,
       COUNT(*) FILTER (WHERE j.kind = 'session')                      AS sessions,
       COUNT(*) FILTER (WHERE j.kind = 'training')                     AS training,
-      COUNT(*) FILTER (WHERE j.sent = 1)                              AS sent,
       COUNT(DISTINCT CASE WHEN j.kind = 'session' THEN j.entry_date END)
                                                                       AS days,
       COUNT(*) FILTER (WHERE j.entry_date LIKE ${monthPrefix})        AS entriesThisMonth,
@@ -269,6 +263,7 @@ export async function getJournalCounts(
 export type AnalyticsSessionRow = {
   entryDate: string;
   climbType: ClimbType | null;
+  count: number;
 };
 
 export async function getJournalSessionsForAnalytics(
@@ -278,15 +273,17 @@ export async function getJournalSessionsForAnalytics(
 ): Promise<AnalyticsSessionRow[]> {
   if (!canViewJournal(owner, viewerId)) return [];
 
-  return db
-    .select({
-      entryDate: journalEntries.entryDate,
-      climbType: climbs.type,
-    })
-    .from(journalEntries)
-    .leftJoin(climbs, eq(journalEntries.climbId, climbs.id))
-    .where(and(eq(journalEntries.userId, owner.id), eq(journalEntries.kind, "session")))
-    .orderBy(journalEntries.entryDate, journalEntries.id);
+  return db.all<AnalyticsSessionRow>(sql`
+    SELECT
+      j.entry_date AS entryDate,
+      climbs.type AS climbType,
+      COUNT(*) AS count
+    FROM journal_entries j
+    JOIN climbs ON climbs.id = j.climb_id
+    WHERE j.user_id = ${owner.id} AND j.kind = 'session'
+    GROUP BY j.entry_date, climbs.type
+    ORDER BY j.entry_date, climbs.type
+  `);
 }
 
 export type OpenProject = {
@@ -301,12 +298,18 @@ export type OpenProject = {
   lastSession: string;
 };
 
+export const OPEN_PROJECT_PAGE_SIZE = 100;
+
 export async function getOpenProjects(
   db: Database,
   owner: JournalOwner,
   viewerId: string | null,
+  limit: number = OPEN_PROJECT_PAGE_SIZE,
 ): Promise<OpenProject[]> {
   if (!canViewJournal(owner, viewerId)) return [];
+  const boundedLimit = Number.isInteger(limit)
+    ? Math.min(Math.max(limit, 1), OPEN_PROJECT_PAGE_SIZE + 1)
+    : OPEN_PROJECT_PAGE_SIZE;
 
   return db.all<OpenProject>(sql`
     SELECT
@@ -325,5 +328,6 @@ export async function getOpenProjects(
     WHERE j.user_id = ${owner.id} AND ${IS_OPEN_PROJECT}
     GROUP BY j.climb_id
     ORDER BY lastSession DESC, j.climb_id ASC
+    LIMIT ${boundedLimit}
   `);
 }

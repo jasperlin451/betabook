@@ -4,6 +4,7 @@ import {
   DEFAULT_JOURNAL_FILTER,
   JOURNAL_VIEWS,
   type JournalView,
+  MAX_JOURNAL_QUERY_LENGTH,
   journalFilterToSearchParams,
   parseJournalFilter,
 } from "@/lib/journal-filter";
@@ -33,7 +34,7 @@ describe("parseJournalFilter", () => {
 
   it("normalizes and limits a journal search", () => {
     expect(parseJournalFilter({ q: "  top   move  " }).query).toBe("top move");
-    expect(parseJournalFilter({ q: "x".repeat(120) }).query).toHaveLength(100);
+    expect(parseJournalFilter({ q: "x".repeat(120) }).query).toHaveLength(MAX_JOURNAL_QUERY_LENGTH);
   });
 
   it("reads a climb id, and drops junk", () => {

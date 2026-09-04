@@ -65,7 +65,6 @@ const GATED_READS = [
       entries: 0,
       sessions: 0,
       training: 0,
-      sent: 0,
       days: 0,
       entriesThisMonth: 0,
       daysThisMonth: 0,

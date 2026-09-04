@@ -83,6 +83,7 @@ export type UserAnalytics = {
 export type AnalyticsJournalSession = {
   entryDate: string;
   climbType: ClimbType | null;
+  count?: number;
 };
 
 const MS_PER_DAY = 86_400_000;
@@ -243,7 +244,8 @@ export function buildUserAnalytics(
   if (journalSessions !== undefined) {
     for (const session of journalSessions) {
       if (scope !== "all" && session.climbType !== scope) continue;
-      sessionCounts[session.entryDate] = (sessionCounts[session.entryDate] ?? 0) + 1;
+      sessionCounts[session.entryDate] =
+        (sessionCounts[session.entryDate] ?? 0) + (session.count ?? 1);
     }
   }
   const calendarCounts = journalSessions === undefined ? sendsByDay : sessionCounts;

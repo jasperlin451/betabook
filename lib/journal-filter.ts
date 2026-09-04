@@ -20,7 +20,7 @@ export const DEFAULT_JOURNAL_FILTER: JournalFilter = {
   year: null,
 };
 
-const MAX_JOURNAL_QUERY_LENGTH = 100;
+export const MAX_JOURNAL_QUERY_LENGTH = 100;
 const MIN_JOURNAL_YEAR = 1900;
 const MAX_JOURNAL_YEAR = 2200;
 

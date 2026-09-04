@@ -10,12 +10,11 @@ import { choicePillClass } from "@/components/ui/choice-pill";
 import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
 import {
   JOURNAL_VIEWS,
+  MAX_JOURNAL_QUERY_LENGTH,
   journalFilterToSearchParams,
   type JournalFilter,
   type JournalView,
 } from "@/lib/journal-filter";
-
-const MAX_JOURNAL_QUERY_LENGTH = 100;
 
 const VIEW_LABELS: Record<JournalView, string> = {
   all: "All",

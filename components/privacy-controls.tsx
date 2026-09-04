@@ -18,7 +18,7 @@ export function PrivacyControls({
     useState<JournalVisibility>(initialJournalVisibility);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [journalError, setJournalError] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   function handleProfileChange(next: boolean) {
     setIsPrivate(next);
@@ -49,7 +49,7 @@ export function PrivacyControls({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <Checkbox isSelected={isPrivate} onChange={handleProfileChange}>
+        <Checkbox isDisabled={isPending} isSelected={isPrivate} onChange={handleProfileChange}>
           <Checkbox.Content>
             <Checkbox.Control>
               <Checkbox.Indicator />
@@ -66,7 +66,7 @@ export function PrivacyControls({
 
       <div className="flex flex-col gap-1 border-t border-border pt-4">
         <Checkbox
-          isDisabled={isPrivate}
+          isDisabled={isPrivate || isPending}
           isSelected={journalVisibility === "public"}
           onChange={handleJournalChange}
         >
