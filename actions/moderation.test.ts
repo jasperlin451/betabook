@@ -22,6 +22,7 @@ import {
   changeRequests,
   climbs,
 } from "@/db/schema";
+import { sendChangeRequestDecisionEmail } from "@/lib/email";
 import type { ChangeRequestType } from "@/lib/moderation";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
@@ -40,6 +41,14 @@ const sessionState = vi.hoisted(() => ({
 vi.mock("next/cache", () => ({
   refresh: () => {},
   revalidatePath: () => {},
+}));
+
+// Stub the decision email so it can be asserted on directly instead of a
+// real Resend call swallowed by notifyRequester's try/catch (which also
+// reaches for getCloudflareContext outside a request — see
+// lib/welcome-email.test.ts for the same rationale).
+vi.mock("@/lib/email", () => ({
+  sendChangeRequestDecisionEmail: vi.fn<() => Promise<void>>(async () => {}),
 }));
 
 vi.mock("@/lib/session", async () => {
@@ -123,6 +132,7 @@ beforeAll(async () => {
 beforeEach(() => {
   sessionState.userId = "moderation-user";
   sessionState.role = null;
+  vi.mocked(sendChangeRequestDecisionEmail).mockClear();
 });
 
 // Fixture tree: Test Crag (1) > Test Boulders (2) > {Test Highball Alcove (4),
@@ -590,6 +600,10 @@ describe("approveChangeRequest", () => {
     expect(row.status).toBe("approved");
     expect(row.reviewedBy).toBe("reviewer-root");
     expect(row.reviewedAt).toBeInstanceOf(Date);
+    expect(sendChangeRequestDecisionEmail).toHaveBeenCalledExactlyOnceWith(
+      "review-requester@example.com",
+      expect.objectContaining({ decision: "approved", note: null }),
+    );
   });
 
   it("accumulates approvals across admins until every area is covered", async () => {
@@ -628,6 +642,8 @@ describe("approveChangeRequest", () => {
         ?.status,
     ).toBe("pending");
     expect((await db.select().from(areas).where(eq(areas.id, 702)).get())?.parentId).toBe(700);
+    // No decision yet — no email.
+    expect(sendChangeRequestDecisionEmail).not.toHaveBeenCalled();
 
     sessionState.userId = "coverage-approver-b";
     expect(await approveChangeRequest(requestId)).toEqual({
@@ -642,6 +658,10 @@ describe("approveChangeRequest", () => {
       .get();
     expect(row?.status).toBe("approved");
     expect(row?.reviewedBy).toBe("coverage-approver-b");
+    expect(sendChangeRequestDecisionEmail).toHaveBeenCalledExactlyOnceWith(
+      "moderation-user@example.com",
+      expect.objectContaining({ decision: "approved" }),
+    );
   });
 
   it("blocks approving your own request", async () => {
@@ -818,6 +838,10 @@ describe("rejectChangeRequest", () => {
     expect(row.status).toBe("rejected");
     expect(row.reviewNote).toBe("Not a duplicate after all");
     expect(row.reviewedBy).toBe("reviewer-root");
+    expect(sendChangeRequestDecisionEmail).toHaveBeenCalledExactlyOnceWith(
+      "review-requester@example.com",
+      expect.objectContaining({ decision: "rejected", note: "Not a duplicate after all" }),
+    );
   });
 
   it("lets a requester-admin withdraw their own request", async () => {
@@ -839,6 +863,8 @@ describe("rejectChangeRequest", () => {
       (await db.select().from(changeRequests).where(eq(changeRequests.id, requestId)).get())
         ?.status,
     ).toBe("rejected");
+    // Withdrawing your own request isn't news — no email.
+    expect(sendChangeRequestDecisionEmail).not.toHaveBeenCalled();
   });
 
   it("refuses a second decision on the same request", async () => {
