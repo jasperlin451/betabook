@@ -224,6 +224,43 @@ describe("createJournalEntry", () => {
       });
     });
 
+    it("preserves a dated send when recovering its missing journal history", async () => {
+      await seedFixtureSend(db, {
+        userId: "j-user",
+        climbId: HIGHBALL,
+        dateSent: "2026-02-01",
+        comment: "Original ascent.",
+      });
+
+      const result = await createJournalEntry(
+        entryFormData({ sent: "true", entryDate: "2026-03-01", body: "Repeat." }),
+      );
+
+      expect(result.ok).toBe(true);
+      expect(await sendFor("j-user", HIGHBALL)).toMatchObject({
+        dateSent: "2026-02-01",
+        comment: "Original ascent.",
+      });
+      expect((await entriesFor("j-user")).sort((a, b) => a.id - b.id)).toMatchObject([
+        { sent: true, entryDate: "2026-02-01", body: "Original ascent." },
+        { sent: true, entryDate: "2026-03-01", body: "Repeat." },
+      ]);
+    });
+
+    it("rejects a repeat before a dated send even when its journal history is missing", async () => {
+      await seedFixtureSend(db, {
+        userId: "j-user",
+        climbId: HIGHBALL,
+        dateSent: "2026-04-01",
+      });
+
+      const result = await createJournalEntry(entryFormData({ sent: "true" }));
+
+      expect(result.ok).toBe(false);
+      expect(await entriesFor("j-user")).toEqual([]);
+      expect((await sendFor("j-user", HIGHBALL))?.dateSent).toBe("2026-04-01");
+    });
+
     it("refuses a rating or grade on a repeat", async () => {
       await createJournalEntry(ascentFormData());
       const result = await createJournalEntry(ascentFormData({ entryDate: "2026-04-01" }));

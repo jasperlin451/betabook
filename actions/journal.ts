@@ -18,6 +18,7 @@ import {
   assertRepeatDate,
   buildSentJournalInsert,
   getSentJournalEntries,
+  journalEntryFromSend,
   rethrowJournalSendInvariant,
 } from "./journal-sync";
 import { revalidateJournalSurfaces, revalidateSendSurfaces } from "./revalidation";
@@ -114,19 +115,28 @@ export async function createJournalEntry(formData: FormData): Promise<ActionResu
 
       const sentEntries = await getSentJournalEntries(db, session.user.id, [climb.id]);
       if (sentEntries.length === 0) {
+        const dateSent = existingSend.dateSent ?? input.entryDate;
+        const comment = existingSend.dateSent === null ? input.body : existingSend.comment;
+        if (input.entryDate < dateSent) {
+          throw new ActionError("A repeat can't be earlier than the recorded ascent");
+        }
+        const entry = { ...entryValues(session.user.id, input), climbId: climb.id };
+        // A dated send can predate the journal rollout. Recover its ascent
+        // before the repeat so the original date and note remain authoritative.
+        const entries =
+          existingSend.dateSent === null
+            ? [entry]
+            : [journalEntryFromSend(session.user.id, climb.id, dateSent, comment), entry];
         try {
           await db.batch([
             buildMirroredSendUpdate(db, {
               userId: session.user.id,
               climbId: climb.id,
               sendId: existingSend.id,
-              values: { dateSent: input.entryDate, comment: input.body },
+              values: { dateSent, comment },
               ascentEntryId: null,
             }),
-            buildSentJournalInsert(db, {
-              ...entryValues(session.user.id, input),
-              climbId: climb.id,
-            }),
+            buildSentJournalInsert(db, entries),
           ]);
         } catch (error) {
           rethrowJournalSendInvariant(
