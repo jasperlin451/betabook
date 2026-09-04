@@ -5,8 +5,10 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   requestAreaDelete,
   requestAreaEdit,
+  requestAreaReparent,
   requestClimbDelete,
   requestClimbEdit,
+  requestClimbMove,
 } from "@/actions";
 import { createDb } from "@/db/client";
 import { searchAreas, searchClimbs } from "@/db/queries";
@@ -241,5 +243,73 @@ describe("requestClimbDelete", () => {
     expect((await searchClimbs(db, { name: "Ephemeral Problem", disciplines: [] })).climbs).toEqual(
       [],
     );
+  });
+});
+
+describe("requestAreaReparent", () => {
+  it("queues a change request instead of mutating for a non-admin", async () => {
+    const result = await requestAreaReparent(5, 3);
+    expect(result).toEqual({ ok: true, value: { status: "pending" } });
+
+    expect((await db.select().from(areas).where(eq(areas.id, 5)).get())?.parentId).toBe(2);
+    const requests = await requestsFor("area_reparent", 5);
+    expect(requests).toHaveLength(1);
+    expect(JSON.parse(requests[0].payload)).toEqual({ newParentId: 3 });
+  });
+
+  it("rejects immediately, without queuing, when the move is illegal", async () => {
+    // Area 4 (Test Highball Alcove) is a child of area 2 (Test Boulders) —
+    // can't move area 2 under its own sub-area.
+    expect(await requestAreaReparent(2, 4)).toEqual({
+      ok: false,
+      error: "Can't move an area under itself or one of its own sub-areas",
+    });
+    expect(await requestsFor("area_reparent", 2)).toHaveLength(0);
+  });
+
+  it("applies immediately for an admin", async () => {
+    sessionState.role = "admin";
+    await db.insert(areas).values({ id: 300, parentId: 1, name: "Ephemeral Buttress" });
+    await db.insert(areas).values({ id: 301, parentId: 3, name: "Ephemeral Ledge" });
+
+    const result = await requestAreaReparent(300, 301);
+    expect(result).toEqual({ ok: true, value: { status: "applied" } });
+
+    expect((await db.select().from(areas).where(eq(areas.id, 300)).get())?.parentId).toBe(301);
+    expect(await requestsFor("area_reparent", 300)).toHaveLength(0);
+  });
+});
+
+describe("requestClimbMove", () => {
+  it("queues a change request instead of mutating for a non-admin", async () => {
+    const result = await requestClimbMove(4, 5);
+    expect(result).toEqual({ ok: true, value: { status: "pending" } });
+
+    expect((await db.select().from(climbs).where(eq(climbs.id, 4)).get())?.areaId).toBe(3);
+    const requests = await requestsFor("climb_move", 4);
+    expect(requests).toHaveLength(1);
+    expect(JSON.parse(requests[0].payload)).toEqual({ newAreaId: 5 });
+  });
+
+  it("rejects immediately, without queuing, for an unknown destination area", async () => {
+    await db
+      .insert(climbs)
+      .values({ id: 401, areaId: 3, name: "Ephemeral Arete", type: "boulder", grade: 3 });
+
+    expect(await requestClimbMove(401, 999999)).toEqual({ ok: false, error: "Area not found" });
+    expect(await requestsFor("climb_move", 401)).toHaveLength(0);
+  });
+
+  it("applies immediately for an admin and keeps the search index in sync", async () => {
+    sessionState.role = "admin";
+    await db
+      .insert(climbs)
+      .values({ id: 400, areaId: 3, name: "Ephemeral Traverse", type: "boulder", grade: 3 });
+
+    const result = await requestClimbMove(400, 5);
+    expect(result).toEqual({ ok: true, value: { status: "applied" } });
+
+    expect((await db.select().from(climbs).where(eq(climbs.id, 400)).get())?.areaId).toBe(5);
+    expect(await requestsFor("climb_move", 400)).toHaveLength(0);
   });
 });

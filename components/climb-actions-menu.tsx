@@ -6,6 +6,7 @@ import { useState, useTransition } from "react";
 
 import { requestClimbDelete } from "@/actions";
 import { ClimbEditRequestDrawer } from "@/components/climb-edit-request-drawer";
+import { ClimbMoveDialog } from "@/components/climb-move-dialog";
 import { ActionsMenu } from "@/components/ui/actions-menu";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
 import type { Climb } from "@/db/queries";
@@ -23,6 +24,7 @@ type ClimbActionsMenuProps = {
 export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
   const router = useRouter();
   const editState = useOverlayState();
+  const moveState = useOverlayState();
   const deleteState = useOverlayState();
   const [pending, startTransition] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
         ariaLabel="Climb actions"
         onAction={(key) => {
           if (key === "edit") editState.open();
+          if (key === "move") moveState.open();
           if (key === "delete") {
             setDeleteError(null);
             setDeletePendingNotice(null);
@@ -62,6 +65,7 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
         }}
       >
         <Menu.Item id="edit">Request full edit…</Menu.Item>
+        <Menu.Item id="move">Move to area…</Menu.Item>
         <Menu.Item id="delete" isDisabled={hasSends} textValue="Delete">
           {hasSends ? (
             // A disabled Menu.Item gets `pointer-events: none`, which would
@@ -81,6 +85,7 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
         </Menu.Item>
       </ActionsMenu>
       <ClimbEditRequestDrawer climb={climb} state={editState} />
+      <ClimbMoveDialog climbId={climb.id} state={moveState} />
       <ConfirmDeleteDialog
         noun="climb"
         state={deleteState}

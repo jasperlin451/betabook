@@ -1,4 +1,4 @@
-import { and, eq, notExists } from "drizzle-orm";
+import { and, eq, notExists, sql } from "drizzle-orm";
 import { refresh, revalidatePath } from "next/cache";
 
 import type { Database } from "@/db/client";
@@ -98,6 +98,91 @@ export async function applyAreaDelete(db: Database, areaId: number): Promise<voi
 
   revalidatePath(`/areas/${areaId}`);
   if (existing.parentId != null) revalidatePath(`/areas/${existing.parentId}`);
+  revalidatePath("/");
+  refresh();
+}
+
+/** True when `candidateId` is `ofId` itself or a descendant of it — walked by
+ * following `candidateId`'s ancestor chain upward (bounded by tree depth)
+ * rather than enumerating `ofId`'s descendants (which can fan out over an
+ * entire subtree). Same recursive-CTE shape as resolveSubareaScope in
+ * db/queries/areas.ts. Used to give a friendly error before the database's
+ * own cycle-guard trigger (0017_area_cycle_guard.sql) would otherwise reject
+ * the update outright. */
+async function isAreaOrDescendant(
+  db: Database,
+  candidateId: number,
+  ofId: number,
+): Promise<boolean> {
+  if (candidateId === ofId) return true;
+  const [row] = await db.all<{ found: number }>(sql`
+    WITH RECURSIVE chain(id) AS (
+      SELECT parent_id FROM areas WHERE id = ${candidateId}
+      UNION ALL
+      SELECT areas.parent_id FROM chain JOIN areas ON areas.id = chain.id
+      WHERE areas.parent_id IS NOT NULL
+    )
+    SELECT 1 AS found FROM chain WHERE id = ${ofId} LIMIT 1
+  `);
+  return Boolean(row);
+}
+
+/** Throws without mutating anything — used both to give a non-admin
+ * immediate feedback before queuing a request that could never succeed, and
+ * inside applyAreaReparent itself. */
+export async function assertAreaReparentable(
+  db: Database,
+  areaId: number,
+  newParentId: number,
+): Promise<Area> {
+  const existing = await getArea(db, areaId);
+  if (!existing) throw new ActionError("Area not found");
+  if (!(await getArea(db, newParentId))) throw new ActionError("Parent area not found");
+  if (await isAreaOrDescendant(db, newParentId, areaId)) {
+    throw new ActionError("Can't move an area under itself or one of its own sub-areas");
+  }
+  return existing;
+}
+
+export async function applyAreaReparent(
+  db: Database,
+  areaId: number,
+  newParentId: number,
+): Promise<void> {
+  const existing = await assertAreaReparentable(db, areaId, newParentId);
+
+  await db.update(areas).set({ parentId: newParentId }).where(eq(areas.id, areaId));
+
+  revalidatePath(`/areas/${areaId}`);
+  revalidatePath(`/areas/${newParentId}`);
+  if (existing.parentId != null) revalidatePath(`/areas/${existing.parentId}`);
+  revalidatePath("/");
+  refresh();
+}
+
+export async function assertClimbMovable(
+  db: Database,
+  climbId: number,
+  newAreaId: number,
+): Promise<Climb> {
+  const existing = await getClimb(db, climbId);
+  if (!existing) throw new ActionError("Climb not found");
+  if (!(await getArea(db, newAreaId))) throw new ActionError("Area not found");
+  return existing;
+}
+
+export async function applyClimbMove(
+  db: Database,
+  climbId: number,
+  newAreaId: number,
+): Promise<void> {
+  const existing = await assertClimbMovable(db, climbId, newAreaId);
+
+  await db.update(climbs).set({ areaId: newAreaId }).where(eq(climbs.id, climbId));
+
+  revalidatePath(`/climbs/${climbId}`);
+  revalidatePath(`/areas/${newAreaId}`);
+  revalidatePath(`/areas/${existing.areaId}`);
   revalidatePath("/");
   refresh();
 }

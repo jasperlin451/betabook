@@ -8,6 +8,7 @@ import { useState, useTransition } from "react";
 import { requestAreaDelete } from "@/actions";
 import { AreaEditRequestDrawer } from "@/components/area-edit-request-drawer";
 import { AreaFormDrawer } from "@/components/area-form-drawer";
+import { AreaReparentDialog } from "@/components/area-reparent-dialog";
 import { ClimbFormDrawer } from "@/components/climb-form-drawer";
 import { ActionsMenu } from "@/components/ui/actions-menu";
 import { ConfirmDeleteDialog } from "@/components/ui/confirm-delete-dialog";
@@ -29,6 +30,7 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
   const addClimbState = useOverlayState();
   const addSubareaState = useOverlayState();
   const editState = useOverlayState();
+  const reparentState = useOverlayState();
   const deleteState = useOverlayState();
   const [pending, startTransition] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -71,6 +73,7 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
           ariaLabel="Area actions"
           onAction={(key) => {
             if (key === "edit") editState.open();
+            if (key === "reparent") reparentState.open();
             if (key === "delete") {
               setDeleteError(null);
               setDeletePendingNotice(null);
@@ -79,12 +82,14 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
           }}
         >
           <Menu.Item id="edit">Request full edit…</Menu.Item>
+          <Menu.Item id="reparent">Change parent…</Menu.Item>
           <Menu.Item id="delete">Delete</Menu.Item>
         </ActionsMenu>
       </div>
       <ClimbFormDrawer areaId={area.id} state={addClimbState} />
       <AreaFormDrawer parentId={area.id} state={addSubareaState} />
       <AreaEditRequestDrawer area={area} state={editState} />
+      <AreaReparentDialog areaId={area.id} state={reparentState} />
       <ConfirmDeleteDialog
         noun="area"
         state={deleteState}

@@ -8,10 +8,14 @@ import { validateClimbEditInput, type RawClimbInput } from "@/lib/climbs";
 import {
   applyAreaDelete,
   applyAreaEdit,
+  applyAreaReparent,
   applyClimbDelete,
   applyClimbEdit,
+  applyClimbMove,
   assertAreaDeletable,
+  assertAreaReparentable,
   assertClimbDeletable,
+  assertClimbMovable,
   submitChangeRequest,
   type GatedActionResult,
 } from "@/lib/moderation";
@@ -110,6 +114,50 @@ export async function requestClimbDelete(
 
     await assertClimbDeletable(db, climbId);
     await submitChangeRequest(db, "climb_delete", climbId, session.user.id, {});
+    return { status: "pending" };
+  });
+}
+
+export async function requestAreaReparent(
+  areaId: number,
+  newParentId: number,
+): Promise<ActionResult<GatedActionResult>> {
+  return toActionResult(async () => {
+    const session = await requireSession();
+    const db = await getDb();
+
+    if (parseId(areaId) === null) throw new ActionError("Area not found");
+    if (parseId(newParentId) === null) throw new ActionError("Parent area not found");
+
+    if (isAdmin(session)) {
+      await applyAreaReparent(db, areaId, newParentId);
+      return { status: "applied" };
+    }
+
+    await assertAreaReparentable(db, areaId, newParentId);
+    await submitChangeRequest(db, "area_reparent", areaId, session.user.id, { newParentId });
+    return { status: "pending" };
+  });
+}
+
+export async function requestClimbMove(
+  climbId: number,
+  newAreaId: number,
+): Promise<ActionResult<GatedActionResult>> {
+  return toActionResult(async () => {
+    const session = await requireSession();
+    const db = await getDb();
+
+    if (parseId(climbId) === null) throw new ActionError("Climb not found");
+    if (parseId(newAreaId) === null) throw new ActionError("Area not found");
+
+    if (isAdmin(session)) {
+      await applyClimbMove(db, climbId, newAreaId);
+      return { status: "applied" };
+    }
+
+    await assertClimbMovable(db, climbId, newAreaId);
+    await submitChangeRequest(db, "climb_move", climbId, session.user.id, { newAreaId });
     return { status: "pending" };
   });
 }
