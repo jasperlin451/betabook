@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { DeleteAccountButton } from "@/components/delete-account-button";
 import { ExportSendsButton } from "@/components/export-sends-button";
 import { ResetPasswordButton } from "@/components/reset-password-button";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -58,6 +59,13 @@ export default async function AccountPage() {
       <AccountSection title="Session">
         <ResetPasswordButton email={session.user.email} />
         <SignOutButton />
+      </AccountSection>
+
+      <AccountSection title="Danger zone">
+        <p className="text-sm text-muted">
+          Export your sends above before deleting your account — this can&apos;t be undone.
+        </p>
+        <DeleteAccountButton />
       </AccountSection>
     </div>
   );

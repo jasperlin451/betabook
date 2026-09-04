@@ -4,6 +4,7 @@ import { betterAuth } from "better-auth";
 
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
+import { deleteAccountSends } from "@/lib/account";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@/lib/email";
 import { sendWelcomeEmailOnce } from "@/lib/welcome-email";
 
@@ -67,6 +68,17 @@ async function authBuilder() {
       accountLinking: {
         enabled: true,
         trustedProviders: ["google"],
+      },
+    },
+    user: {
+      deleteUser: {
+        enabled: true,
+        // Runs before better-auth deletes the account/session/user rows —
+        // see lib/account.ts for why the user's sends have to go first,
+        // as an explicit delete rather than via cascade.
+        beforeDelete: async (deletedUser) => {
+          await deleteAccountSends(db, deletedUser.id);
+        },
       },
     },
     databaseHooks: {
