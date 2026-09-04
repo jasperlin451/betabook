@@ -183,6 +183,13 @@
       "when": 1788499280550,
       "tag": "0025_supreme_tarot",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1788499738739,
+      "tag": "0026_spooky_toro",
+      "breakpoints": true
     }
   ]
 }

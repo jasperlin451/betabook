@@ -10,7 +10,7 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 import { NotAdminError, NotSignedInError } from "@/lib/action-result";
-import { requireAdmin, requireSession } from "@/lib/session";
+import { isAdmin, requireAdmin, requireSession } from "@/lib/session";
 
 beforeEach(() => {
   getSessionMock.mockReset();
@@ -44,5 +44,13 @@ describe("requireAdmin", () => {
     const session = { user: { id: "1", role: "admin" } };
     getSessionMock.mockResolvedValueOnce(session);
     await expect(requireAdmin()).resolves.toBe(session);
+  });
+});
+
+describe("isAdmin", () => {
+  it('is true only for role === "admin"', () => {
+    expect(isAdmin({ user: { role: "admin" } })).toBe(true);
+    expect(isAdmin({ user: { role: null } })).toBe(false);
+    expect(isAdmin({ user: { role: "moderator" } })).toBe(false);
   });
 });
