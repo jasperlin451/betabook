@@ -33,7 +33,7 @@ export type JournalPage = {
   nextCursor: JournalCursor | null;
 };
 
-export const JOURNAL_PAGE_SIZE = 20;
+const JOURNAL_PAGE_SIZE = 20;
 
 type JournalEntryRow = {
   id: number;
@@ -116,6 +116,26 @@ function filterConditions(filter: JournalFilter): SQL[] {
   return conditions;
 }
 
+const JOURNAL_ENTRY_SELECT = sql`
+    SELECT
+      j.id AS id,
+      j.climb_id AS climbId,
+      j.kind AS kind,
+      j.sent AS sent,
+      j.entry_date AS entryDate,
+      j.body AS body,
+      j.tags AS tags,
+      climbs.name AS climbName,
+      climbs.type AS climbType,
+      climbs.grade AS climbGrade,
+      climbs.area_id AS areaId,
+      areas.name AS areaName,
+      ${IS_ASCENT} AS isAscent
+    FROM journal_entries j
+    LEFT JOIN climbs ON climbs.id = j.climb_id
+    LEFT JOIN areas ON areas.id = climbs.area_id
+`;
+
 const EMPTY_PAGE: JournalPage = { entries: [], hasMore: false, nextCursor: null };
 
 export async function getJournalPage(
@@ -134,23 +154,7 @@ export async function getJournalPage(
   }
 
   const rows = await db.all<JournalEntryRow>(sql`
-    SELECT
-      j.id AS id,
-      j.climb_id AS climbId,
-      j.kind AS kind,
-      j.sent AS sent,
-      j.entry_date AS entryDate,
-      j.body AS body,
-      j.tags AS tags,
-      climbs.name AS climbName,
-      climbs.type AS climbType,
-      climbs.grade AS climbGrade,
-      climbs.area_id AS areaId,
-      areas.name AS areaName,
-      ${IS_ASCENT} AS isAscent
-    FROM journal_entries j
-    LEFT JOIN climbs ON climbs.id = j.climb_id
-    LEFT JOIN areas ON areas.id = climbs.area_id
+    ${JOURNAL_ENTRY_SELECT}
     WHERE ${sql.join(conditions, sql` AND `)}
     ORDER BY j.entry_date DESC, j.id DESC
     LIMIT ${pageSize + 1}
@@ -167,7 +171,7 @@ export async function getJournalPage(
   };
 }
 
-export const CLIMB_JOURNAL_ENTRY_LIMIT = 4;
+const CLIMB_JOURNAL_ENTRY_LIMIT = 4;
 
 export async function getJournalForClimb(
   db: Database,
@@ -179,23 +183,7 @@ export async function getJournalForClimb(
   if (!canViewJournal(owner, viewerId)) return [];
 
   const rows = await db.all<JournalEntryRow>(sql`
-    SELECT
-      j.id AS id,
-      j.climb_id AS climbId,
-      j.kind AS kind,
-      j.sent AS sent,
-      j.entry_date AS entryDate,
-      j.body AS body,
-      j.tags AS tags,
-      climbs.name AS climbName,
-      climbs.type AS climbType,
-      climbs.grade AS climbGrade,
-      climbs.area_id AS areaId,
-      areas.name AS areaName,
-      ${IS_ASCENT} AS isAscent
-    FROM journal_entries j
-    LEFT JOIN climbs ON climbs.id = j.climb_id
-    LEFT JOIN areas ON areas.id = climbs.area_id
+    ${JOURNAL_ENTRY_SELECT}
     WHERE j.user_id = ${owner.id} AND j.climb_id = ${climbId}
     ORDER BY j.entry_date DESC, j.id DESC
     LIMIT ${limit}

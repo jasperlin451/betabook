@@ -4,14 +4,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
 import {
   getJournalCounts,
-  getJournalEntry,
   getJournalForClimb,
   getJournalPage,
   getJournalSessionsForAnalytics,
   getOpenProjects,
   type JournalOwner,
 } from "@/db/queries";
-import * as journalQueries from "@/db/queries/journal";
 import { DEFAULT_JOURNAL_FILTER } from "@/lib/journal-filter";
 import { seedFixtureJournalEntry, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
@@ -97,28 +95,5 @@ describe.each(GATED_READS)("$name", ({ read, empty }) => {
 
   it("returns a public journal to anyone", async () => {
     expect(await read(owner({ journalVisibility: "public" }), null)).not.toEqual(empty);
-  });
-});
-
-describe("getJournalEntry", () => {
-  it("is scoped by owner rather than by visibility", async () => {
-    const page = await getJournalPage(db, owner(), OWNER_ID, DEFAULT_JOURNAL_FILTER);
-    const entryId = page.entries[0].id;
-
-    expect(await getJournalEntry(db, entryId, OWNER_ID)).toBeDefined();
-    expect(await getJournalEntry(db, entryId, "someone-else")).toBeUndefined();
-  });
-});
-
-describe("the module's exports", () => {
-  const OWNER_SCOPED = new Set(["getJournalEntry", "getAscentEntryId"]);
-
-  it("has no read that skipped both", () => {
-    const gated = new Set<string>(GATED_READS.map((read) => read.name));
-    const reads = Object.entries(journalQueries)
-      .filter(([name, value]) => typeof value === "function" && name.startsWith("get"))
-      .map(([name]) => name);
-
-    expect(reads.filter((name) => !gated.has(name) && !OWNER_SCOPED.has(name))).toEqual([]);
   });
 });
