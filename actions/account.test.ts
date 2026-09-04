@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { setUserPrivate } from "@/actions";
+import { setJournalVisibility, setUserPrivate } from "@/actions";
 import { createDb } from "@/db/client";
 import { user } from "@/db/schema";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
@@ -66,5 +66,34 @@ describe("setUserPrivate action boundary", () => {
 
     const row = await db.select().from(user).where(eq(user.id, "test-user")).get();
     expect(row?.isPrivate).toBe(false);
+  });
+});
+
+describe("setJournalVisibility action boundary", () => {
+  it("requires a signed-in user", async () => {
+    sessionState.userId = null;
+    const result = await setJournalVisibility("public");
+    expect(result).toEqual({ ok: false, error: SESSION_EXPIRED_MESSAGE });
+  });
+
+  it("publishes the signed-in user's journal", async () => {
+    const result = await setJournalVisibility("public");
+    expect(result).toEqual({ ok: true, value: undefined });
+
+    const row = await db.select().from(user).where(eq(user.id, "test-user")).get();
+    expect(row?.journalVisibility).toBe("public");
+  });
+
+  it("makes the signed-in user's journal private again", async () => {
+    const result = await setJournalVisibility("private");
+    expect(result).toEqual({ ok: true, value: undefined });
+
+    const row = await db.select().from(user).where(eq(user.id, "test-user")).get();
+    expect(row?.journalVisibility).toBe("private");
+  });
+
+  it("rejects an invalid visibility", async () => {
+    const result = await setJournalVisibility("friends");
+    expect(result).toEqual({ ok: false, error: "Invalid journal visibility" });
   });
 });
