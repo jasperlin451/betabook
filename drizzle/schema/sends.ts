@@ -38,15 +38,11 @@ export const sends = sqliteTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  // sends_date_desc_idx (the home feed) and sends_user_date_idx (keyset CSV
-  // export) contain descending columns, so they are declared in hand-written
-  // migrations
-  // instead of here, because drizzle-kit doesn't model descending index
-  // columns (same reason the nine climbs sort indexes from
-  // 0010_climb_sort_indexes.sql aren't in drizzle/schema/climbs.ts).
-  // Nothing in this file will tell you it exists, so: getRecentSends is the
-  // reason it exists, and changing that query's ORDER BY silently reverts the
-  // home page to scanning and sorting the entire sends table.
+  // sends_user_date_idx (keyset CSV export) contains a descending column, so
+  // it's declared in a hand-written migration instead of here, because
+  // drizzle-kit doesn't model descending index columns (same reason the nine
+  // climbs sort indexes from 0010_climb_sort_indexes.sql aren't in
+  // drizzle/schema/climbs.ts). Nothing in this file will tell you it exists.
   (t) => [
     uniqueIndex("sends_user_climb_unique").on(t.userId, t.climbId),
     index("sends_climb_idx").on(t.climbId),

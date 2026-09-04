@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import SearchPage from "@/app/page";
+import { searchClimbs } from "@/db/queries";
 
 const sessionState = vi.hoisted(() => ({
   session: null as { user: { id: string } } | null,
@@ -23,10 +24,6 @@ vi.mock("@/db/client", () => ({
 }));
 
 vi.mock("@/db/queries", () => ({
-  getRecentSends: vi.fn<() => Promise<{ sends: []; hasMore: boolean }>>(async () => ({
-    sends: [],
-    hasMore: false,
-  })),
   getAreaBreadcrumbs: vi.fn<() => Promise<Record<string, never>>>(async () => ({})),
   searchClimbs: vi.fn<() => Promise<{ climbs: []; hasNextPage: boolean }>>(async () => ({
     climbs: [],
@@ -65,14 +62,6 @@ vi.mock("@/components/navigation-pending", () => ({
   NavigationPendingRegion: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-vi.mock("@/components/command-palette", () => ({
-  HomeSearchEntry: () => null,
-}));
-
-vi.mock("@/components/recent-sends-feed", () => ({
-  RecentSendsFeed: () => null,
-}));
-
 describe("SearchPage (Landing home)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -89,7 +78,7 @@ describe("SearchPage (Landing home)", () => {
     expect(mockRedirect).toHaveBeenCalledWith("/users/climber-42");
   });
 
-  it("does not redirect an unauthenticated user on the default landing home", async () => {
+  it("renders the unfiltered climb search instead of a feed for an unauthenticated visitor", async () => {
     sessionState.session = null;
 
     const result = await SearchPage({
@@ -97,6 +86,7 @@ describe("SearchPage (Landing home)", () => {
     });
 
     expect(mockRedirect).not.toHaveBeenCalled();
+    expect(searchClimbs).toHaveBeenCalled();
     expect(result).toBeDefined();
   });
 

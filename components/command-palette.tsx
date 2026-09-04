@@ -101,13 +101,7 @@ export function SearchPaletteProvider({ children }: { children: ReactNode }) {
 
 /** The header's way into the palette, and where the shortcut is advertised.
  * Purely an affordance — the chord itself is bound by the provider, so it
- * works on pages that never render this.
- *
- * Stands down on any page carrying its own prominent search entry: two of
- * these on one screen, both badged with the same shortcut, read as two
- * searches. The hiding is a CSS `:has()` rule against `data-page-search`
- * (see globals.css) rather than unmounting, so it holds on the very first
- * paint instead of flashing a button that hydration then removes. */
+ * works on pages that never render this. */
 export function SearchTrigger() {
   const openSearch = useOpenSearch();
   const keys = useModifierLabels();
@@ -115,7 +109,6 @@ export function SearchTrigger() {
   return (
     <button
       type="button"
-      data-header-search
       onClick={() => openSearch?.()}
       aria-label="Search"
       aria-keyshortcuts={keys?.ariaPalette}
@@ -124,36 +117,6 @@ export function SearchTrigger() {
       <Search className="size-4" />
       <span className="hidden text-sm sm:inline">Search</span>
       {keys && <Kbd className="hidden sm:inline-flex">{keys.palette}</Kbd>}
-    </button>
-  );
-}
-
-/** The home page's way in: a full-width field-shaped button, sized and
- * placed like the search box a visitor expects to land on. It opens the same
- * palette the header and the shortcut do rather than searching on its own,
- * so there is one search on the site with three doors into it.
- *
- * A button, not an input: it would otherwise be a text field that takes a
- * keystroke and then hands both the keystroke and the focus to a different
- * text field, which drops characters on slower devices and reads as a jump.
- */
-export function HomeSearchEntry() {
-  const openSearch = useOpenSearch();
-  const keys = useModifierLabels();
-
-  return (
-    <button
-      type="button"
-      // Marks this page as already carrying a search entry, which stands the
-      // header's compact one down (see SearchTrigger).
-      data-page-search
-      onClick={() => openSearch?.()}
-      aria-keyshortcuts={keys?.ariaPalette}
-      className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3.5 text-left transition-colors hover:border-muted focus-visible:status-focused"
-    >
-      <Search className="size-5 shrink-0 text-muted" aria-hidden />
-      <span className="min-w-0 flex-1 truncate text-muted">Search routes and areas</span>
-      {keys && <Kbd className="hidden shrink-0 sm:inline-flex">{keys.palette}</Kbd>}
     </button>
   );
 }
