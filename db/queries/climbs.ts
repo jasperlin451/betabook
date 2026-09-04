@@ -46,6 +46,18 @@ export async function getClimbSitemapRows(
     .all();
 }
 
+/** Used by requestAreaDelete's assertAreaDeletable (lib/moderation.ts) — an
+ * area with climbs directly in it can't be deleted. */
+export async function hasClimbsInArea(db: Database, areaId: number): Promise<boolean> {
+  const row = await db
+    .select({ id: climbs.id })
+    .from(climbs)
+    .where(eq(climbs.areaId, areaId))
+    .limit(1)
+    .get();
+  return row != null;
+}
+
 export type SubtreeClimbsSort =
   | "name_asc"
   | "name_desc"

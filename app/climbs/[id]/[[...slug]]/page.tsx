@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
+import { ClimbActionsMenu } from "@/components/climb-actions-menu";
 import { ClimbDescription } from "@/components/climb-description";
 import { GradeWithTrend } from "@/components/climb-list";
 import { ClimbSendList } from "@/components/climb-send-list";
@@ -152,14 +153,17 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
       />
       <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
 
-      <div className="flex flex-col gap-1">
-        <Eyebrow>Climb</Eyebrow>
-        <PageTitle>{climb.name}</PageTitle>
-        <div className="mt-1 flex items-center gap-2">
-          <Grade size="md">{formatGrade(climb.type, climb.grade)}</Grade>
-          <DisciplineChip type={climb.type} />
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <Eyebrow>Climb</Eyebrow>
+          <PageTitle>{climb.name}</PageTitle>
+          <div className="mt-1 flex items-center gap-2">
+            <Grade size="md">{formatGrade(climb.type, climb.grade)}</Grade>
+            <DisciplineChip type={climb.type} />
+          </div>
+          <ClimbDescription climb={climb} isEditor={session != null} />
         </div>
-        <ClimbDescription climb={climb} isEditor={session != null} />
+        {session && <ClimbActionsMenu climb={climb} />}
       </div>
 
       <SidebarLayout

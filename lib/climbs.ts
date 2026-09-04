@@ -1,3 +1,4 @@
+import type { Climb } from "@/db/queries";
 import { ActionError } from "@/lib/action-result";
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 import { parseGradeIndex, requireTrimmed, trimOrNull } from "@/lib/validation";
@@ -48,4 +49,17 @@ export function validateClimbDescriptionInput(raw: RawClimbDescriptionInput): {
   description: string | null;
 } {
   return { description: trimOrNull(raw.description) };
+}
+
+/** Full edit — name/discipline/grade/description — is moderation-exclusive
+ * (see actions/moderation.ts's requestClimbEdit); the direct action only
+ * ever validates the description. Discipline still can't change once sends
+ * exist: that's a data-integrity rule independent of who's allowed to
+ * request the edit. */
+export function validateClimbEditInput(existing: Climb, raw: RawClimbInput): ClimbInput {
+  const input = validateNewClimbInput(raw);
+  if (input.type !== existing.type && existing.sendCount > 0) {
+    throw new ActionError("Can't change discipline once a climb has logged sends");
+  }
+  return input;
 }

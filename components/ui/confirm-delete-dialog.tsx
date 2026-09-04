@@ -13,6 +13,10 @@ type ConfirmDeleteDialogProps = {
   /** Failure message from the last delete attempt, if any — shown inline so
    * the viewer can retry or cancel. */
   error?: string | null;
+  /** Set instead of closing the dialog when a non-admin's delete was queued
+   * for admin review rather than applied — swaps the confirm/cancel footer
+   * for a single acknowledgement, since nothing was actually deleted yet. */
+  pendingNotice?: string | null;
 };
 
 /** The one delete confirmation: a centered alert dialog, not a bottom sheet
@@ -26,25 +30,42 @@ export function ConfirmDeleteDialog({
   onConfirm,
   isPending,
   error,
+  pendingNotice,
 }: ConfirmDeleteDialogProps) {
   return (
     <AlertDialog.Backdrop isOpen={state.isOpen} onOpenChange={state.setOpen}>
       <AlertDialog.Container placement="center" size="sm">
         <AlertDialog.Dialog>
           <AlertDialog.Header>
-            <AlertDialog.Heading>Delete this {noun}?</AlertDialog.Heading>
+            <AlertDialog.Heading>
+              {pendingNotice ? "Submitted for review" : `Delete this ${noun}?`}
+            </AlertDialog.Heading>
           </AlertDialog.Header>
           <AlertDialog.Body>
-            <p className="text-sm text-muted">This can&apos;t be undone.</p>
-            {error && <p className="text-sm text-danger">{error}</p>}
+            {pendingNotice ? (
+              <p className="text-sm text-muted">{pendingNotice}</p>
+            ) : (
+              <>
+                <p className="text-sm text-muted">This can&apos;t be undone.</p>
+                {error && <p className="text-sm text-danger">{error}</p>}
+              </>
+            )}
           </AlertDialog.Body>
           <AlertDialog.Footer className="flex justify-end gap-2">
-            <Button variant="ghost" onPress={state.close} isDisabled={isPending}>
-              Cancel
-            </Button>
-            <Button variant="danger" onPress={onConfirm} isDisabled={isPending}>
-              Delete
-            </Button>
+            {pendingNotice ? (
+              <Button variant="ghost" onPress={state.close}>
+                Close
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" onPress={state.close} isDisabled={isPending}>
+                  Cancel
+                </Button>
+                <Button variant="danger" onPress={onConfirm} isDisabled={isPending}>
+                  Delete
+                </Button>
+              </>
+            )}
           </AlertDialog.Footer>
         </AlertDialog.Dialog>
       </AlertDialog.Container>

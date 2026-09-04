@@ -23,6 +23,7 @@ import {
   getClimb,
   getSubtreeClimbs,
   getSubtreeGradeHistogram,
+  hasClimbsInArea,
   searchClimbs,
   LARGE_AREA_SUBTREE_AREAS,
 } from "./climbs";
@@ -48,6 +49,20 @@ describe("getClimb", () => {
   it("returns undefined for an unknown id", async () => {
     const climb = await getClimb(db, 999999);
     expect(climb).toBeUndefined();
+  });
+});
+
+describe("hasClimbsInArea", () => {
+  it("returns true for an area with climbs directly in it", async () => {
+    expect(await hasClimbsInArea(db, 3)).toBe(true); // Test Sport Wall
+  });
+
+  it("returns false for an area with no climbs of its own, even if its sub-areas have some", async () => {
+    expect(await hasClimbsInArea(db, 2)).toBe(false); // Test Boulders — climbs live on its children
+  });
+
+  it("returns false for a leaf area with no climbs", async () => {
+    expect(await hasClimbsInArea(db, 1)).toBe(false); // Test Crag itself has no direct climbs
   });
 });
 
