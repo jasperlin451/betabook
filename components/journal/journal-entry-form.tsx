@@ -100,7 +100,7 @@ export function JournalEntryForm({
               <Checkbox.Control>
                 <Checkbox.Indicator />
               </Checkbox.Control>
-              This session ended in a send
+              I sent
             </Checkbox.Content>
           </Checkbox>
         )}

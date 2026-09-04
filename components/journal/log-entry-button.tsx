@@ -19,7 +19,7 @@ export function LogEntryButton({ climb, sentClimbIds, fullWidth }: LogEntryButto
     <>
       <Button fullWidth={fullWidth} onPress={state.open} className="gap-2">
         <CirclePlus className="size-5" />
-        Log session
+        Log
       </Button>
       <JournalEntryDrawer climb={climb} sentClimbIds={sentClimbIds} state={state} />
     </>
