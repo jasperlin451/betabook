@@ -13,6 +13,8 @@ import {
   assertAreaReparentable,
   assertClimbMergeable,
   assertClimbMovable,
+  changeRequestScopeAreaId,
+  getVisibleChangeRequests,
   isAdminForArea,
   MERGE_COMMENT_SEPARATOR,
   submitChangeRequest,
@@ -80,6 +82,71 @@ describe("isAdminForArea", () => {
   it("is false outside the managed area's subtree", async () => {
     // Area 3 (Test Sport Wall) is a sibling of area 2, not under it.
     expect(await isAdminForArea(db, { user: { id: "scope-admin", role: "admin" } }, 3)).toBe(false);
+  });
+});
+
+describe("changeRequestScopeAreaId", () => {
+  it("resolves an area_* request to the area itself", async () => {
+    const id = await submitChangeRequest(db, "area_edit", 2, "moderation-requester", {
+      name: "Renamed",
+      description: null,
+    });
+    const request = (await db.select().from(changeRequests).where(eq(changeRequests.id, id))).at(
+      0,
+    )!;
+    expect(await changeRequestScopeAreaId(db, request)).toBe(2);
+  });
+
+  it("resolves a climb_* request to the climb's current area", async () => {
+    // Climb 1 (Test Highball) lives in area 4.
+    const id = await submitChangeRequest(db, "climb_delete", 1, "moderation-requester", {});
+    const request = (await db.select().from(changeRequests).where(eq(changeRequests.id, id))).at(
+      0,
+    )!;
+    expect(await changeRequestScopeAreaId(db, request)).toBe(4);
+  });
+
+  it("returns null when the underlying entity is gone", async () => {
+    const id = await submitChangeRequest(db, "climb_delete", 999999, "moderation-requester", {});
+    const request = (await db.select().from(changeRequests).where(eq(changeRequests.id, id))).at(
+      0,
+    )!;
+    expect(await changeRequestScopeAreaId(db, request)).toBeNull();
+  });
+});
+
+describe("getVisibleChangeRequests", () => {
+  it("only returns pending requests inside the admin's managed areas", async () => {
+    await seedFixtureUser(db, { id: "visibility-admin" });
+    // Area 2 (Test Boulders) and its subtree — climb 1 lives in area 4, under
+    // area 2; area 3 (Test Sport Wall) is a sibling, out of scope.
+    await db.insert(adminAreaScopes).values({ userId: "visibility-admin", areaId: 2 });
+
+    const inScopeId = await submitChangeRequest(db, "climb_delete", 1, "moderation-requester", {});
+    const outOfScopeId = await submitChangeRequest(
+      db,
+      "area_delete",
+      3,
+      "moderation-requester",
+      {},
+    );
+
+    const visible = await getVisibleChangeRequests(db, {
+      user: { id: "visibility-admin", role: "admin" },
+    });
+    const visibleIds = visible.map((r) => r.id);
+    expect(visibleIds).toContain(inScopeId);
+    expect(visibleIds).not.toContain(outOfScopeId);
+  });
+
+  it("returns nothing for a non-admin session", async () => {
+    await seedFixtureUser(db, { id: "non-admin-viewer" });
+    await db.insert(adminAreaScopes).values({ userId: "non-admin-viewer", areaId: 1 });
+
+    const visible = await getVisibleChangeRequests(db, {
+      user: { id: "non-admin-viewer", role: null },
+    });
+    expect(visible).toEqual([]);
   });
 });
 

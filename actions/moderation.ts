@@ -1,7 +1,12 @@
 "use server";
 
+import { eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+
+import type { Database } from "@/db/client";
 import { getDb } from "@/db/client";
-import { getArea, getClimb } from "@/db/queries";
+import { getArea, getChangeRequest, getClimb, type ChangeRequest } from "@/db/queries";
+import { changeRequests } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { validateAreaInput, type RawAreaInput } from "@/lib/areas";
 import { validateClimbEditInput, type ClimbInput, type RawClimbInput } from "@/lib/climbs";
@@ -18,12 +23,14 @@ import {
   assertClimbDeletable,
   assertClimbMergeable,
   assertClimbMovable,
+  changeRequestScopeAreaId,
   isAdminForArea,
   submitChangeRequest,
+  type ChangeRequestType,
   type GatedActionResult,
 } from "@/lib/moderation";
 import { parseId } from "@/lib/parse-id";
-import { requireSession } from "@/lib/session";
+import { requireAdmin, requireSession } from "@/lib/session";
 import { pickFormFields } from "@/lib/validation";
 
 const AREA_EDIT_REQUEST_FIELDS = ["name", "description"] as const;
@@ -193,5 +200,88 @@ export async function requestClimbMerge(
       overrides,
     });
     return { status: "pending" };
+  });
+}
+
+/** Loads the request and re-checks `isAdminForArea` for real (the review
+ * queue already only shows in-scope requests, but a second admin could have
+ * reviewed — or the underlying row could have been deleted by something
+ * else — in the time since this page loaded). Shared by approve and reject
+ * so neither can diverge on what "still reviewable" means. */
+async function loadReviewableRequest(
+  db: Awaited<ReturnType<typeof getDb>>,
+  session: Awaited<ReturnType<typeof requireAdmin>>,
+  requestId: number,
+) {
+  const request = await getChangeRequest(db, requestId);
+  if (!request) throw new ActionError("Request not found");
+  if (request.status !== "pending") throw new ActionError("This request has already been reviewed");
+
+  const areaId = await changeRequestScopeAreaId(db, request);
+  if (areaId == null) throw new ActionError("The area or climb this request affects is gone");
+  if (!(await isAdminForArea(db, session, areaId))) {
+    throw new ActionError("You don't manage this area");
+  }
+  return request;
+}
+
+// One applier per gated operation, dispatched by `request.type` — a plain
+// record instead of a switch so each case stays a one-liner and adding a
+// type can't accidentally fall through to another's branch.
+const CHANGE_REQUEST_APPLIERS: Record<
+  ChangeRequestType,
+  (db: Database, request: ChangeRequest) => Promise<void>
+> = {
+  area_edit: (db, request) => applyAreaEdit(db, request.entityId, JSON.parse(request.payload)),
+  area_delete: (db, request) => applyAreaDelete(db, request.entityId),
+  area_reparent: (db, request) => {
+    const { newParentId } = JSON.parse(request.payload);
+    return applyAreaReparent(db, request.entityId, newParentId);
+  },
+  climb_edit: (db, request) => applyClimbEdit(db, request.entityId, JSON.parse(request.payload)),
+  climb_delete: (db, request) => applyClimbDelete(db, request.entityId),
+  climb_move: (db, request) => {
+    const { newAreaId } = JSON.parse(request.payload);
+    return applyClimbMove(db, request.entityId, newAreaId);
+  },
+  climb_merge: (db, request) => {
+    const { targetClimbId, overrides } = JSON.parse(request.payload);
+    return applyClimbMerge(db, request.entityId, targetClimbId, overrides);
+  },
+};
+
+export async function approveChangeRequest(requestId: number): Promise<ActionResult> {
+  return toActionResult(async () => {
+    const session = await requireAdmin();
+    const db = await getDb();
+
+    const request = await loadReviewableRequest(db, session, requestId);
+    await CHANGE_REQUEST_APPLIERS[request.type](db, request);
+
+    await db
+      .update(changeRequests)
+      .set({ status: "approved", reviewedBy: session.user.id, reviewedAt: new Date() })
+      .where(eq(changeRequests.id, requestId));
+    revalidatePath("/admin/requests");
+  });
+}
+
+export async function rejectChangeRequest(requestId: number, note: string): Promise<ActionResult> {
+  return toActionResult(async () => {
+    const session = await requireAdmin();
+    const db = await getDb();
+
+    await loadReviewableRequest(db, session, requestId);
+
+    await db
+      .update(changeRequests)
+      .set({
+        status: "rejected",
+        reviewedBy: session.user.id,
+        reviewedAt: new Date(),
+        reviewNote: note.trim() || null,
+      })
+      .where(eq(changeRequests.id, requestId));
+    revalidatePath("/admin/requests");
   });
 }

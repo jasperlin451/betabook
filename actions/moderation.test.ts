@@ -3,6 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  approveChangeRequest,
+  rejectChangeRequest,
   requestAreaDelete,
   requestAreaEdit,
   requestAreaReparent,
@@ -35,7 +37,8 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("@/lib/session", async () => {
-  const { NotSignedInError } = await import("@/lib/action-result");
+  const { NotAdminError, NotSignedInError } = await import("@/lib/action-result");
+  const isAdmin = (session: { user: { role?: string | null } }) => session.user.role === "admin";
   return {
     getSession: async () =>
       sessionState.userId ? { user: { id: sessionState.userId, role: sessionState.role } } : null,
@@ -43,7 +46,13 @@ vi.mock("@/lib/session", async () => {
       if (!sessionState.userId) throw new NotSignedInError();
       return { user: { id: sessionState.userId, role: sessionState.role } };
     },
-    isAdmin: (session: { user: { role?: string | null } }) => session.user.role === "admin",
+    requireAdmin: async () => {
+      if (!sessionState.userId) throw new NotSignedInError();
+      const session = { user: { id: sessionState.userId, role: sessionState.role } };
+      if (!isAdmin(session)) throw new NotAdminError();
+      return session;
+    },
+    isAdmin,
   };
 });
 
@@ -361,5 +370,122 @@ describe("requestClimbMerge", () => {
       error: "Can't merge climbs of different disciplines",
     });
     expect(await requestsFor("climb_merge", 954)).toHaveLength(0);
+  });
+});
+
+describe("approveChangeRequest", () => {
+  it("applies the change and marks the request approved", async () => {
+    sessionState.userId = "moderation-user";
+    sessionState.role = "admin";
+
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "area_edit",
+        entityId: 3,
+        payload: JSON.stringify({ name: "Approved Rename", description: null }),
+        requestedBy: "moderation-user",
+      })
+      .returning({ id: changeRequests.id });
+
+    expect(await approveChangeRequest(requestId)).toEqual({ ok: true, value: undefined });
+
+    expect((await db.select().from(areas).where(eq(areas.id, 3)).get())?.name).toBe(
+      "Approved Rename",
+    );
+    const row = (await db.select().from(changeRequests).where(eq(changeRequests.id, requestId))).at(
+      0,
+    )!;
+    expect(row.status).toBe("approved");
+    expect(row.reviewedBy).toBe("moderation-user");
+    expect(row.reviewedAt).toBeInstanceOf(Date);
+  });
+
+  it("returns Admins only for a signed-in non-admin", async () => {
+    sessionState.userId = "moderation-user";
+    sessionState.role = null;
+
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({ type: "climb_delete", entityId: 3, payload: "{}", requestedBy: "moderation-user" })
+      .returning({ id: changeRequests.id });
+
+    expect(await approveChangeRequest(requestId)).toEqual({ ok: false, error: "Admins only." });
+  });
+
+  it("rejects reviewing an unknown request", async () => {
+    sessionState.role = "admin";
+    expect(await approveChangeRequest(999999)).toEqual({ ok: false, error: "Request not found" });
+  });
+
+  it("rejects reviewing an already-decided request", async () => {
+    sessionState.role = "admin";
+
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "area_edit",
+        entityId: 3,
+        payload: JSON.stringify({ name: "Whatever", description: null }),
+        requestedBy: "moderation-user",
+        status: "approved",
+      })
+      .returning({ id: changeRequests.id });
+
+    expect(await approveChangeRequest(requestId)).toEqual({
+      ok: false,
+      error: "This request has already been reviewed",
+    });
+  });
+
+  it("rejects a request outside the admin's managed areas", async () => {
+    // A brand-new root area, disjoint from the fixture tree's root (area 1).
+    await db.insert(areas).values({ id: 500, parentId: null, name: "Unmanaged Continent" });
+    await seedFixtureUser(db, { id: "elsewhere-admin" });
+    await db.insert(adminAreaScopes).values({ userId: "elsewhere-admin", areaId: 500 });
+
+    sessionState.userId = "elsewhere-admin";
+    sessionState.role = "admin";
+
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "area_edit",
+        entityId: 3,
+        payload: JSON.stringify({ name: "Whatever", description: null }),
+        requestedBy: "moderation-user",
+      })
+      .returning({ id: changeRequests.id });
+
+    expect(await approveChangeRequest(requestId)).toEqual({
+      ok: false,
+      error: "You don't manage this area",
+    });
+  });
+});
+
+describe("rejectChangeRequest", () => {
+  it("marks the request rejected with a note, without mutating anything", async () => {
+    sessionState.userId = "moderation-user";
+    sessionState.role = "admin";
+
+    // Climb 2 (Test Slab) has no sends seeded in this file — deletable, but
+    // the point here is that rejection must not delete it regardless.
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({ type: "climb_delete", entityId: 2, payload: "{}", requestedBy: "moderation-user" })
+      .returning({ id: changeRequests.id });
+
+    expect(await rejectChangeRequest(requestId, "Not a duplicate after all")).toEqual({
+      ok: true,
+      value: undefined,
+    });
+
+    expect(await db.select().from(climbs).where(eq(climbs.id, 2)).get()).toBeDefined();
+    const row = (await db.select().from(changeRequests).where(eq(changeRequests.id, requestId))).at(
+      0,
+    )!;
+    expect(row.status).toBe("rejected");
+    expect(row.reviewNote).toBe("Not a duplicate after all");
   });
 });

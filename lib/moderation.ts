@@ -6,9 +6,11 @@ import type { Database } from "@/db/client";
 import {
   getArea,
   getClimb,
+  getPendingChangeRequests,
   getSubareas,
   hasClimbsInArea,
   type Area,
+  type ChangeRequest,
   type Climb,
 } from "@/db/queries";
 import {
@@ -405,4 +407,42 @@ export async function applyClimbMerge(
   if (source.areaId !== target.areaId) revalidatePath(`/areas/${source.areaId}`);
   revalidatePath("/");
   refresh();
+}
+
+// --- Admin queue -------------------------------------------------------------
+
+/** The area a request's admin-visibility is checked against — the area
+ * itself for an `area_*` request, or the affected climb's *current* area for
+ * a `climb_*` one (a merge is scoped by its source climb, same as
+ * requestClimbMerge's own gating). `null` when the underlying row is already
+ * gone — deleted or merged away since the request was submitted — which
+ * `approveChangeRequest`/`rejectChangeRequest` treat as "no longer
+ * reviewable" rather than a permission question. */
+export async function changeRequestScopeAreaId(
+  db: Database,
+  request: ChangeRequest,
+): Promise<number | null> {
+  if (request.type.startsWith("area_")) {
+    return (await getArea(db, request.entityId))?.id ?? null;
+  }
+  return (await getClimb(db, request.entityId))?.areaId ?? null;
+}
+
+/** Every pending request an admin manages the area for — the review queue's
+ * whole dataset. Filters in application code rather than a SQL join: with
+ * `climb_merge`'s `entityId` needing a climb lookup anyway and the pending
+ * queue expected to stay small, a per-request `isAdminForArea` check reads
+ * far more clearly than folding the area/climb union and the recursive
+ * ancestor walk into one query. */
+export async function getVisibleChangeRequests(
+  db: Database,
+  session: { user: { id: string; role?: string | null } },
+): Promise<ChangeRequest[]> {
+  const pending = await getPendingChangeRequests(db);
+  const visible: ChangeRequest[] = [];
+  for (const request of pending) {
+    const areaId = await changeRequestScopeAreaId(db, request);
+    if (areaId != null && (await isAdminForArea(db, session, areaId))) visible.push(request);
+  }
+  return visible;
 }
