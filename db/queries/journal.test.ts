@@ -75,6 +75,7 @@ beforeAll(async () => {
     body: "Gym laps.",
   });
 
+  await seedFixtureSend(db, { userId: "tl-other", climbId: CRIMPER, dateSent: "2026-02-01" });
   await seedFixtureJournalEntry(db, {
     userId: "tl-other",
     climbId: CRIMPER,
