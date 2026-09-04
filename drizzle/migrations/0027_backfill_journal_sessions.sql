@@ -1,5 +1,3 @@
-UPDATE sends SET comment = substr(comment, 1, 1000) WHERE length(comment) > 1000;
---> statement-breakpoint
 INSERT INTO journal_entries (user_id, climb_id, kind, entry_date, sent, body, created_at, updated_at)
 SELECT s.user_id, s.climb_id, 'session', s.date_sent, 1, s.comment, s.created_at, s.updated_at
 FROM sends s

@@ -162,13 +162,13 @@ describe("0027 backfill", () => {
       kind: "session",
       sent: true,
       entryDate: "2025-06-01",
-      body: "x".repeat(1000),
+      body: "x".repeat(1200),
       createdAt: new Date("2025-06-01T10:00:00.000Z"),
       updatedAt: new Date("2025-06-02T11:30:00.000Z"),
     });
 
     const send = await db.select().from(sends).where(eq(sends.climbId, 3)).get();
-    expect(send?.comment).toBe("x".repeat(1000));
+    expect(send?.comment).toBe("x".repeat(1200));
   });
 
   it("is a no-op on re-application", async () => {
