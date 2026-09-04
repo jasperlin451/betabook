@@ -65,7 +65,7 @@ export function TagInput({
       <p className="mt-1 text-xs text-muted">
         {full
           ? `That's all ${MAX_JOURNAL_TAGS} tags — remove one to add another.`
-          : "Letters, numbers, spaces and hyphens. Enter or comma to add."}
+          : `Up to ${MAX_JOURNAL_TAGS} tags, ${MAX_JOURNAL_TAG_LENGTH} characters each. Enter or comma to add.`}
       </p>
     </TextField>
   );
