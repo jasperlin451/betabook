@@ -3,3 +3,4 @@ export * from "./areas";
 export * from "./climbs";
 export * from "./users";
 export * from "./sends";
+export * from "./moderation";
