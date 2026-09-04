@@ -18,11 +18,12 @@ import {
   assertClimbDeletable,
   assertClimbMergeable,
   assertClimbMovable,
+  isAdminForArea,
   submitChangeRequest,
   type GatedActionResult,
 } from "@/lib/moderation";
 import { parseId } from "@/lib/parse-id";
-import { isAdmin, requireSession } from "@/lib/session";
+import { requireSession } from "@/lib/session";
 import { pickFormFields } from "@/lib/validation";
 
 const AREA_EDIT_REQUEST_FIELDS = ["name", "description"] as const;
@@ -51,7 +52,7 @@ export async function requestAreaEdit(
 
     const input = validateAreaInput(readAreaFormData(formData));
 
-    if (isAdmin(session)) {
+    if (await isAdminForArea(db, session, areaId)) {
       await applyAreaEdit(db, areaId, input);
       return { status: "applied" };
     }
@@ -65,7 +66,7 @@ export async function requestAreaDelete(areaId: number): Promise<ActionResult<Ga
     const session = await requireSession();
     const db = await getDb();
 
-    if (isAdmin(session)) {
+    if (await isAdminForArea(db, session, areaId)) {
       await applyAreaDelete(db, areaId);
       return { status: "applied" };
     }
@@ -91,7 +92,7 @@ export async function requestClimbEdit(
 
     const input = validateClimbEditInput(existing, readClimbFormData(formData));
 
-    if (isAdmin(session)) {
+    if (await isAdminForArea(db, session, existing.areaId)) {
       await applyClimbEdit(db, climbId, input);
       return { status: "applied" };
     }
@@ -107,9 +108,10 @@ export async function requestClimbDelete(
     const session = await requireSession();
     const db = await getDb();
 
-    if (parseId(climbId) === null) throw new ActionError("Climb not found");
+    const existing = parseId(climbId) === null ? undefined : await getClimb(db, climbId);
+    if (!existing) throw new ActionError("Climb not found");
 
-    if (isAdmin(session)) {
+    if (await isAdminForArea(db, session, existing.areaId)) {
       await applyClimbDelete(db, climbId);
       return { status: "applied" };
     }
@@ -131,7 +133,7 @@ export async function requestAreaReparent(
     if (parseId(areaId) === null) throw new ActionError("Area not found");
     if (parseId(newParentId) === null) throw new ActionError("Parent area not found");
 
-    if (isAdmin(session)) {
+    if (await isAdminForArea(db, session, areaId)) {
       await applyAreaReparent(db, areaId, newParentId);
       return { status: "applied" };
     }
@@ -153,7 +155,8 @@ export async function requestClimbMove(
     if (parseId(climbId) === null) throw new ActionError("Climb not found");
     if (parseId(newAreaId) === null) throw new ActionError("Area not found");
 
-    if (isAdmin(session)) {
+    const existing = await getClimb(db, climbId);
+    if (existing && (await isAdminForArea(db, session, existing.areaId))) {
       await applyClimbMove(db, climbId, newAreaId);
       return { status: "applied" };
     }
@@ -176,7 +179,10 @@ export async function requestClimbMerge(
     if (parseId(sourceClimbId) === null) throw new ActionError("Climb not found");
     if (parseId(targetClimbId) === null) throw new ActionError("Target climb not found");
 
-    if (isAdmin(session)) {
+    // Gated on the source's area — that's the climb (and area) actually
+    // disappearing into the target.
+    const existingSource = await getClimb(db, sourceClimbId);
+    if (existingSource && (await isAdminForArea(db, session, existingSource.areaId))) {
       await applyClimbMerge(db, sourceClimbId, targetClimbId, overrides);
       return { status: "applied" };
     }

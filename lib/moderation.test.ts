@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { createDb, type Database } from "@/db/client";
-import { changeRequests, climbs, sends } from "@/db/schema";
+import { adminAreaScopes, changeRequests, climbs, sends } from "@/db/schema";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
 vi.mock("next/cache", () => ({ refresh: () => {}, revalidatePath: () => {} }));
@@ -13,6 +13,7 @@ import {
   assertAreaReparentable,
   assertClimbMergeable,
   assertClimbMovable,
+  isAdminForArea,
   MERGE_COMMENT_SEPARATOR,
   submitChangeRequest,
 } from "./moderation";
@@ -45,6 +46,40 @@ describe("submitChangeRequest", () => {
     const first = await submitChangeRequest(db, "climb_delete", 1, "moderation-requester", {});
     const second = await submitChangeRequest(db, "climb_delete", 2, "moderation-requester", {});
     expect(first).not.toBe(second);
+  });
+});
+
+// Fixture tree: Test Crag (1) > Test Boulders (2) > {Test Highball Alcove (4),
+// Test Slab Area (5)}, and Test Crag (1) > Test Sport Wall (3).
+describe("isAdminForArea", () => {
+  beforeAll(async () => {
+    await seedFixtureUser(db, { id: "scope-admin" });
+    await seedFixtureUser(db, { id: "roleless-scope-admin" });
+    await db.insert(adminAreaScopes).values({ userId: "scope-admin", areaId: 2 });
+  });
+
+  it("is false for a non-admin role, even with a managed area", async () => {
+    expect(await isAdminForArea(db, { user: { id: "scope-admin", role: null } }, 4)).toBe(false);
+  });
+
+  it("is false for an admin with no managed areas at all", async () => {
+    expect(
+      await isAdminForArea(db, { user: { id: "roleless-scope-admin", role: "admin" } }, 4),
+    ).toBe(false);
+  });
+
+  it("is true for the managed area itself", async () => {
+    expect(await isAdminForArea(db, { user: { id: "scope-admin", role: "admin" } }, 2)).toBe(true);
+  });
+
+  it("is true for a descendant of the managed area", async () => {
+    // Area 4 (Test Highball Alcove) is under area 2 (Test Boulders).
+    expect(await isAdminForArea(db, { user: { id: "scope-admin", role: "admin" } }, 4)).toBe(true);
+  });
+
+  it("is false outside the managed area's subtree", async () => {
+    // Area 3 (Test Sport Wall) is a sibling of area 2, not under it.
+    expect(await isAdminForArea(db, { user: { id: "scope-admin", role: "admin" } }, 3)).toBe(false);
   });
 });
 

@@ -11,10 +11,18 @@ import {
   type Area,
   type Climb,
 } from "@/db/queries";
-import { areas, changeRequests, climbs, sends, CHANGE_REQUEST_TYPES } from "@/db/schema";
+import {
+  adminAreaScopes,
+  areas,
+  changeRequests,
+  climbs,
+  sends,
+  CHANGE_REQUEST_TYPES,
+} from "@/db/schema";
 import { ActionError } from "@/lib/action-result";
 import type { AreaInput } from "@/lib/areas";
 import type { ClimbInput } from "@/lib/climbs";
+import { isAdmin } from "@/lib/session";
 
 export type ChangeRequestType = (typeof CHANGE_REQUEST_TYPES)[number];
 
@@ -131,6 +139,31 @@ async function isAreaOrDescendant(
     SELECT 1 AS found FROM chain WHERE id = ${ofId} LIMIT 1
   `);
   return Boolean(row);
+}
+
+/** The actual bypass gate every gated action checks — not just `isAdmin`'s
+ * coarse role check. An admin with no rows in `adminAreaScopes` at all
+ * bypasses nothing; a row covers its whole subtree, walked the same way
+ * `isAreaOrDescendant` does for the reparent cycle-guard. `areaId` is always
+ * the entity's *current* area (a climb's own `areaId`, or the area itself
+ * for an area operation) — a merge is gated on the source climb's area,
+ * since that's the one being deleted into another. */
+export async function isAdminForArea(
+  db: Database,
+  session: { user: { id: string; role?: string | null } },
+  areaId: number,
+): Promise<boolean> {
+  if (!isAdmin(session)) return false;
+
+  const managed = await db
+    .select({ areaId: adminAreaScopes.areaId })
+    .from(adminAreaScopes)
+    .where(eq(adminAreaScopes.userId, session.user.id));
+
+  for (const { areaId: managedAreaId } of managed) {
+    if (await isAreaOrDescendant(db, areaId, managedAreaId)) return true;
+  }
+  return false;
 }
 
 /** Throws without mutating anything — used both to give a non-admin

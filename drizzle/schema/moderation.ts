@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
-import { sqliteTable, integer, text, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, integer, text, index, primaryKey } from "drizzle-orm/sqlite-core";
 
+import { areas } from "./areas";
 import { user } from "./auth";
 
 // The seven structural operations gated behind admin review — see
@@ -47,5 +48,30 @@ export const changeRequests = sqliteTable(
     // this status.
     index("change_requests_status_idx").on(t.status),
     index("change_requests_entity_idx").on(t.type, t.entityId),
+  ],
+);
+
+// Which areas an admin manages — a grant covers the whole subtree beneath
+// each row, not just the area itself (see isAdminForArea in
+// lib/moderation.ts, which walks the same ancestor chain as
+// isAreaOrDescendant). Many-to-many: one admin can cover several regions. No
+// assignment UI yet — rows are inserted directly, same as promoting the
+// admin role itself (scripts/promote-admin.ts).
+export const adminAreaScopes = sqliteTable(
+  "admin_area_scopes",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    areaId: integer("area_id")
+      .notNull()
+      .references(() => areas.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.areaId] }),
+    index("admin_area_scopes_area_idx").on(t.areaId),
   ],
 );

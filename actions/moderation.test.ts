@@ -13,7 +13,7 @@ import {
 } from "@/actions";
 import { createDb } from "@/db/client";
 import { searchAreas, searchClimbs } from "@/db/queries";
-import { areas, changeRequests, climbs } from "@/db/schema";
+import { adminAreaScopes, areas, changeRequests, climbs } from "@/db/schema";
 import type { ChangeRequestType } from "@/lib/moderation";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
@@ -92,6 +92,10 @@ async function requestsFor(type: ChangeRequestType, entityId: number) {
 beforeAll(async () => {
   await seedFixtureTree(db);
   await seedFixtureUser(db, { id: "moderation-user" });
+  // Admin bypass is area-scoped (see lib/moderation.ts's isAdminForArea) — a
+  // grant on the fixture tree's root covers every area/climb under it. Only
+  // takes effect in the tests below that also set sessionState.role = "admin".
+  await db.insert(adminAreaScopes).values({ userId: "moderation-user", areaId: 1 });
 });
 
 beforeEach(() => {

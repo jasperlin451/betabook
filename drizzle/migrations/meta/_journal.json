@@ -190,6 +190,13 @@
       "when": 1788499738739,
       "tag": "0026_spooky_toro",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1788502476984,
+      "tag": "0027_lowly_imperial_guard",
+      "breakpoints": true
     }
   ]
 }
