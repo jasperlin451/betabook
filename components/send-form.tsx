@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Checkbox, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Checkbox, Input, Label, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
 import { updateSend } from "@/actions";
@@ -12,7 +12,6 @@ import {
   SuggestedGradeField,
 } from "@/components/send-fields";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
-import { FIELD_CLASS } from "@/components/ui/field";
 import type { EditableSend, SendableClimb } from "@/db/queries";
 import { MAX_COMMENT_LENGTH, type AscentStyle, type GradeFeel } from "@/lib/sends";
 
@@ -30,10 +29,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   const [dateUnknown, setDateUnknown] = useState(existingSend.dateSent == null);
   const [comment, setComment] = useState(existingSend.comment ?? "");
   const [rating, setRating] = useState<number | null>(existingSend.rating);
-  const [skipRating, setSkipRating] = useState(existingSend.rating == null);
-  const [suggestedGrade, setSuggestedGrade] = useState(
-    String(existingSend.suggestedGrade ?? climb.grade ?? 0),
-  );
+  const [suggestedGrade, setSuggestedGrade] = useState(String(existingSend.suggestedGrade ?? ""));
   const [gradeFeel, setGradeFeel] = useState<GradeFeel>(existingSend.gradeFeel);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -67,13 +63,12 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
 
         <TextField>
           <Label>Date sent</Label>
-          <input
+          <Input
             type="date"
             value={dateSent}
             max={today}
             disabled={dateUnknown}
             onChange={(e) => setDateSent(e.target.value)}
-            className={FIELD_CLASS}
           />
           <Checkbox className="mt-2" isSelected={dateUnknown} onChange={setDateUnknown}>
             <Checkbox.Content>
@@ -88,12 +83,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
 
       <FormSection label="Your opinion">
         <div className="grid gap-4 sm:grid-cols-2">
-          <RatingField
-            value={rating}
-            skipped={skipRating}
-            onValueChange={setRating}
-            onSkippedChange={setSkipRating}
-          />
+          <RatingField value={rating} onValueChange={setRating} />
           <SuggestedGradeField
             climbType={climb.type}
             value={suggestedGrade}

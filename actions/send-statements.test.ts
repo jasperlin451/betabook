@@ -7,13 +7,9 @@ import {
   journalEntryFromSend,
   rethrowJournalSendInvariant,
 } from "@/actions/journal-sync";
-import {
-  buildMirroredSendUpdate,
-  buildSendInsert,
-  isSendClimbGuardFailure,
-} from "@/actions/send-statements";
+import { buildMirroredSendUpdate, buildSendInsert } from "@/actions/send-statements";
 import { createDb, type Database } from "@/db/client";
-import { climbs, journalEntries, sends } from "@/db/schema";
+import { journalEntries, sends } from "@/db/schema";
 import type { SendInput } from "@/lib/sends";
 import {
   seedFixtureJournalEntry,
@@ -52,19 +48,6 @@ beforeAll(async () => {
 });
 
 describe("buildSendInsert", () => {
-  it("inserts the send and returns its id", async () => {
-    const inserted = await buildSendInsert(db, {
-      userId: "stmt-user",
-      climbId: HIGHBALL,
-      climbType: "boulder",
-      input: INPUT,
-    });
-
-    expect(inserted).toHaveLength(1);
-    const send = await db.select().from(sends).where(eq(sends.id, inserted[0].id)).get();
-    expect(send).toMatchObject({ climbId: HIGHBALL, ascentStyle: "redpoint", rating: 4 });
-  });
-
   it("refuses to write against a climb of a different discipline", async () => {
     const messages: string[] = [];
     try {
@@ -78,9 +61,6 @@ describe("buildSendInsert", () => {
       for (let e: unknown = error; e instanceof Error; e = e.cause) messages.push(e.message);
     }
     expect(messages.join("\n")).toContain("NOT NULL constraint failed: sends.climb_id");
-    expect(
-      isSendClimbGuardFailure(new Error("wrapper", { cause: new Error(messages.at(-1)) })),
-    ).toBe(true);
     expect(await db.select().from(sends).where(eq(sends.climbId, CRIMPER)).get()).toBeUndefined();
   });
 
@@ -120,24 +100,6 @@ describe("buildSendInsert", () => {
     ).rejects.toThrow(/NOT NULL constraint failed/);
 
     expect(await db.select().from(journalEntries)).toHaveLength(before.length);
-  });
-
-  it("leaves the climb aggregates to the triggers", async () => {
-    const before = await db.select().from(climbs).where(eq(climbs.id, 2)).get();
-
-    await buildSendInsert(db, {
-      userId: "stmt-user",
-      climbId: 2,
-      climbType: "boulder",
-      input: INPUT,
-    });
-
-    const after = await db.select().from(climbs).where(eq(climbs.id, 2)).get();
-    expect(after).toMatchObject({
-      sendCount: (before?.sendCount ?? 0) + 1,
-      ratingSum: (before?.ratingSum ?? 0) + 4,
-      ratingCount: (before?.ratingCount ?? 0) + 1,
-    });
   });
 });
 

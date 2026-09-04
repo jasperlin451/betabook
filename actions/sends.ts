@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 
 import { getDb } from "@/db/client";
@@ -103,19 +103,7 @@ export async function deleteSend(sendId: number): Promise<ActionResult> {
     const existing = await db.select().from(sends).where(eq(sends.id, sendId)).get();
     if (!existing || existing.userId !== session.user.id) throw new ActionError("Send not found");
 
-    await db.batch([
-      db.delete(sends).where(eq(sends.id, sendId)),
-      db
-        .update(journalEntries)
-        .set({ sent: false })
-        .where(
-          and(
-            eq(journalEntries.userId, session.user.id),
-            eq(journalEntries.climbId, existing.climbId),
-            eq(journalEntries.sent, true),
-          ),
-        ),
-    ]);
+    await db.delete(sends).where(eq(sends.id, sendId));
 
     const climb = await getClimb(db, existing.climbId);
     revalidateJournalSurfaces({ userId: session.user.id, climbIds: [existing.climbId] });

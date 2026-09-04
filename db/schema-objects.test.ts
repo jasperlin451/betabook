@@ -57,6 +57,11 @@ const HAND_WRITTEN_OBJECTS = [
   "sends|trigger|sends_aggregates_ai",
   "sends|trigger|sends_aggregates_au",
   "journal_entries|index|journal_user_date_idx",
+  // 0028's journal/send consistency triggers must survive table rebuilds.
+  "journal_entries|trigger|journal_sent_insert_guard",
+  "journal_entries|trigger|journal_sent_update_guard",
+  "sends|trigger|send_journal_update_guard",
+  "sends|trigger|send_journal_delete_sync",
 ];
 
 describe("schema objects drizzle-kit cannot model", () => {

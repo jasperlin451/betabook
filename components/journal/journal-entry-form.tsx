@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Checkbox, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Checkbox, Input, Label, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
 import { createJournalEntry } from "@/actions";
@@ -14,7 +14,6 @@ import {
 } from "@/components/send-fields";
 import { AppLink } from "@/components/ui/app-link";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
-import { FIELD_CLASS } from "@/components/ui/field";
 import type { SendableClimb } from "@/db/queries";
 import { MAX_JOURNAL_BODY_LENGTH, describePendingEntry, type JournalKind } from "@/lib/journal";
 import type { AscentStyle, GradeFeel } from "@/lib/sends";
@@ -41,8 +40,7 @@ export function JournalEntryForm({
 
   const [ascentStyle, setAscentStyle] = useState<AscentStyle>("redpoint");
   const [rating, setRating] = useState<number | null>(null);
-  const [skipRating, setSkipRating] = useState(true);
-  const [suggestedGrade, setSuggestedGrade] = useState(String(climb?.grade ?? 0));
+  const [suggestedGrade, setSuggestedGrade] = useState(String(climb?.grade ?? ""));
   const [gradeFeel, setGradeFeel] = useState<GradeFeel>("solid");
 
   const [error, setError] = useState<string | null>(null);
@@ -85,12 +83,11 @@ export function JournalEntryForm({
       <FormSection label="The day">
         <TextField>
           <Label>Date</Label>
-          <input
+          <Input
             type="date"
             value={entryDate}
             max={today}
             onChange={(e) => setEntryDate(e.target.value)}
-            className={FIELD_CLASS}
           />
         </TextField>
 
@@ -110,12 +107,7 @@ export function JournalEntryForm({
         <FormSection label="The ascent">
           <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} />
           <div className="grid gap-4 sm:grid-cols-2">
-            <RatingField
-              value={rating}
-              skipped={skipRating}
-              onValueChange={setRating}
-              onSkippedChange={setSkipRating}
-            />
+            <RatingField value={rating} onValueChange={setRating} />
             <SuggestedGradeField
               climbType={climb.type}
               value={suggestedGrade}

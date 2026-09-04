@@ -1,6 +1,6 @@
 "use client";
 
-import { Checkbox, Label, ListBox, Select, TextField } from "@heroui/react";
+import { Button, Label, ListBox, Select, TextField } from "@heroui/react";
 import { clsx } from "clsx";
 import { Star } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -106,40 +106,24 @@ function RatingPicker({
 
 export function RatingField({
   value,
-  skipped,
   onValueChange,
-  onSkippedChange,
 }: {
   value: number | null;
-  skipped: boolean;
   onValueChange: (value: number | null) => void;
-  onSkippedChange: (skipped: boolean) => void;
 }) {
   return (
     <TextField>
       <Label>Rating</Label>
-      <RatingPicker
-        value={value}
-        onChange={(next) => {
-          onValueChange(next);
-          onSkippedChange(false);
-        }}
-      />
-      <Checkbox
-        className="mt-2"
-        isSelected={skipped}
-        onChange={(selected) => {
-          onSkippedChange(selected);
-          if (selected) onValueChange(null);
-        }}
+      <RatingPicker value={value} onChange={onValueChange} />
+      <Button
+        size="sm"
+        variant="ghost"
+        className="mt-2 self-start"
+        isDisabled={value === null}
+        onPress={() => onValueChange(null)}
       >
-        <Checkbox.Content>
-          <Checkbox.Control>
-            <Checkbox.Indicator />
-          </Checkbox.Control>
-          Skip rating
-        </Checkbox.Content>
-      </Checkbox>
+        Clear rating
+      </Button>
     </TextField>
   );
 }
@@ -161,8 +145,8 @@ export function SuggestedGradeField({
       <Select
         aria-label="Suggested grade"
         fullWidth
-        selectedKey={value}
-        onSelectionChange={(key) => onChange(String(key))}
+        selectedKey={value || "none"}
+        onSelectionChange={(key) => onChange(key === "none" ? "" : String(key))}
       >
         <Select.Trigger>
           <Select.Value />
@@ -170,6 +154,7 @@ export function SuggestedGradeField({
         </Select.Trigger>
         <Select.Popover>
           <ListBox className="max-h-64 overflow-y-auto">
+            <ListBox.Item id="none">No suggested grade</ListBox.Item>
             {gradeOptions.map((label, i) => (
               <ListBox.Item key={label} id={String(i)}>
                 {label}

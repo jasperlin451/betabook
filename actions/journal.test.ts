@@ -4,6 +4,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createJournalEntry, deleteJournalEntry, updateJournalEntry } from "@/actions";
 import { createDb } from "@/db/client";
+import * as queries from "@/db/queries";
 import { climbs, journalEntries, sends } from "@/db/schema";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
 import { allowJournalWrite } from "@/lib/rate-limit";
@@ -384,6 +385,40 @@ describe("deleteJournalEntry", () => {
 
     const climb = await db.select().from(climbs).where(eq(climbs.id, HIGHBALL)).get();
     expect(climb).toMatchObject({ sendCount: 0, ratingSum: 0, ratingCount: 0 });
+  });
+
+  it("does not delete a replacement send created after the ascent was read", async () => {
+    await createJournalEntry(ascentFormData());
+    const [entry] = await entriesFor("j-user");
+    const getAscentEntryId = queries.getAscentEntryId;
+    const spy = vi.spyOn(queries, "getAscentEntryId").mockImplementationOnce(async (...args) => {
+      const id = await getAscentEntryId(...args);
+      await db.delete(sends).where(eq(sends.userId, "j-user"));
+      await seedFixtureSend(db, {
+        userId: "j-user",
+        climbId: HIGHBALL,
+        dateSent: "2026-04-01",
+        comment: "Replacement.",
+      });
+      await seedFixtureJournalEntry(db, {
+        userId: "j-user",
+        climbId: HIGHBALL,
+        entryDate: "2026-04-01",
+        body: "Replacement.",
+        sent: true,
+      });
+      return id;
+    });
+
+    try {
+      expect((await deleteJournalEntry(entry.id)).ok).toBe(true);
+      expect(await sendFor("j-user", HIGHBALL)).toMatchObject({ dateSent: "2026-04-01" });
+      expect(await entriesFor("j-user")).toMatchObject([
+        { entryDate: "2026-04-01", sent: true, body: "Replacement." },
+      ]);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("leaves the send alone when the deleted session is a repeat", async () => {
