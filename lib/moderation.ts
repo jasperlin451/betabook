@@ -846,7 +846,7 @@ const CHANGE_REQUEST_DESCRIBERS: Record<
       );
     }
     return {
-      summary: `Merge "${source?.name ?? "a climb"}" into "${target?.name ?? "another climb"}"`,
+      summary: `Mark "${source?.name ?? "a climb"}" as a duplicate of "${target?.name ?? "another climb"}"`,
       href: source ? climbHref(source.id, source.name) : null,
       details,
     };
