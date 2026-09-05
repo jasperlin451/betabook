@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "46b26655-439f-44ad-abce-8f5ed483e67b",
-  "prevId": "7b758e38-7c18-482d-baa1-42f5a9b34e15",
+  "id": "21def0ce-c832-45b1-9188-3ea220892530",
+  "prevId": "a8091e3f-e0b9-4d87-9d55-dad45eaea4fa",
   "tables": {
     "areas": {
       "name": "areas",
@@ -470,6 +470,14 @@
           "autoincrement": false,
           "default": "'private'"
         },
+        "product_tour_returning": {
+          "name": "product_tour_returning",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -871,8 +879,8 @@
         }
       }
     },
-    "admin_area_scopes": {
-      "name": "admin_area_scopes",
+    "user_product_tours": {
+      "name": "user_product_tours",
       "columns": {
         "user_id": {
           "name": "user_id",
@@ -881,277 +889,53 @@
           "notNull": true,
           "autoincrement": false
         },
-        "area_id": {
-          "name": "area_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
-        }
-      },
-      "indexes": {
-        "admin_area_scopes_area_idx": {
-          "name": "admin_area_scopes_area_idx",
-          "columns": [
-            "area_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "admin_area_scopes_user_id_user_id_fk": {
-          "name": "admin_area_scopes_user_id_user_id_fk",
-          "tableFrom": "admin_area_scopes",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "admin_area_scopes_area_id_areas_id_fk": {
-          "name": "admin_area_scopes_area_id_areas_id_fk",
-          "tableFrom": "admin_area_scopes",
-          "tableTo": "areas",
-          "columnsFrom": [
-            "area_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "admin_area_scopes_user_id_area_id_pk": {
-          "columns": [
-            "user_id",
-            "area_id"
-          ],
-          "name": "admin_area_scopes_user_id_area_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "change_request_approvals": {
-      "name": "change_request_approvals",
-      "columns": {
-        "request_id": {
-          "name": "request_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
+        "tour_id": {
+          "name": "tour_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "change_request_approvals_request_id_change_requests_id_fk": {
-          "name": "change_request_approvals_request_id_change_requests_id_fk",
-          "tableFrom": "change_request_approvals",
-          "tableTo": "change_requests",
-          "columnsFrom": [
-            "request_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "change_request_approvals_user_id_user_id_fk": {
-          "name": "change_request_approvals_user_id_user_id_fk",
-          "tableFrom": "change_request_approvals",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "change_request_approvals_request_id_user_id_pk": {
-          "columns": [
-            "request_id",
-            "user_id"
-          ],
-          "name": "change_request_approvals_request_id_user_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "change_requests": {
-      "name": "change_requests",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "entity_id": {
-          "name": "entity_id",
+        "version": {
+          "name": "version",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "payload": {
-          "name": "payload",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "requested_by": {
-          "name": "requested_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "requested_at": {
-          "name": "requested_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
         },
         "status": {
           "name": "status",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false,
-          "default": "'pending'"
-        },
-        "reviewed_by": {
-          "name": "reviewed_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "reviewed_at": {
-          "name": "reviewed_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "review_note": {
-          "name": "review_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         }
       },
-      "indexes": {
-        "change_requests_status_idx": {
-          "name": "change_requests_status_idx",
-          "columns": [
-            "status"
-          ],
-          "isUnique": false
-        },
-        "change_requests_entity_idx": {
-          "name": "change_requests_entity_idx",
-          "columns": [
-            "type",
-            "entity_id"
-          ],
-          "isUnique": false
-        },
-        "change_requests_requested_by_idx": {
-          "name": "change_requests_requested_by_idx",
-          "columns": [
-            "requested_by"
-          ],
-          "isUnique": false
-        },
-        "change_requests_pending_unique": {
-          "name": "change_requests_pending_unique",
-          "columns": [
-            "type",
-            "entity_id",
-            "requested_by"
-          ],
-          "isUnique": true,
-          "where": "status = 'pending'"
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "change_requests_requested_by_user_id_fk": {
-          "name": "change_requests_requested_by_user_id_fk",
-          "tableFrom": "change_requests",
+        "user_product_tours_user_id_user_id_fk": {
+          "name": "user_product_tours_user_id_user_id_fk",
+          "tableFrom": "user_product_tours",
           "tableTo": "user",
           "columnsFrom": [
-            "requested_by"
+            "user_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "change_requests_reviewed_by_user_id_fk": {
-          "name": "change_requests_reviewed_by_user_id_fk",
-          "tableFrom": "change_requests",
-          "tableTo": "user",
-          "columnsFrom": [
-            "reviewed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "user_product_tours_user_id_tour_id_pk": {
+          "columns": [
+            "user_id",
+            "tour_id"
+          ],
+          "name": "user_product_tours_user_id_tour_id_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     }
