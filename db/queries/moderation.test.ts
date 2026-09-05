@@ -8,6 +8,7 @@ import { seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 import {
   getChangeRequest,
   getChangeRequestApprovals,
+  getManagedAreas,
   getPendingChangeRequests,
 } from "./moderation";
 
@@ -71,5 +72,25 @@ describe("getChangeRequestApprovals", () => {
 
   it("is empty for a request with no approvals", async () => {
     expect(await getChangeRequestApprovals(db, 102)).toEqual([]);
+  });
+});
+
+describe("getManagedAreas", () => {
+  it("returns the granted areas by name, not the expanded subtree", async () => {
+    const { adminAreaScopes } = await import("@/db/schema");
+    await seedFixtureUser(db, { id: "queries-scoped-admin" });
+    // Areas 2 (Test Boulders) and 3 (Test Sport Wall) — area 2's children
+    // (4, 5) are covered by the grant but must not appear here.
+    await db.insert(adminAreaScopes).values([
+      { userId: "queries-scoped-admin", areaId: 3 },
+      { userId: "queries-scoped-admin", areaId: 2 },
+    ]);
+
+    const managed = await getManagedAreas(db, "queries-scoped-admin");
+    expect(managed.map((area) => area.name)).toEqual(["Test Boulders", "Test Sport Wall"]);
+  });
+
+  it("is empty for a user with no grants", async () => {
+    expect(await getManagedAreas(db, "queries-requester")).toEqual([]);
   });
 });

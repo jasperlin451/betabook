@@ -6,12 +6,13 @@ import { AppLink } from "@/components/ui/app-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageTitle } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
-import { getArea, getUser } from "@/db/queries";
+import { getArea, getManagedAreas, getUser } from "@/db/queries";
 import {
   changeRequestCoverage,
   describeChangeRequest,
   getVisibleChangeRequests,
 } from "@/lib/moderation";
+import { areaHref } from "@/lib/slug";
 
 export const metadata: Metadata = { title: "Review requests" };
 
@@ -25,7 +26,10 @@ export default async function AdminRequestsPage() {
   const session = await requireAdminOrRedirect();
   const db = await getDb();
 
-  const requests = await getVisibleChangeRequests(db, session);
+  const [managedAreas, requests] = await Promise.all([
+    getManagedAreas(db, session.user.id),
+    getVisibleChangeRequests(db, session),
+  ]);
   const rows = await Promise.all(
     requests.map(async (request) => {
       const [requester, description, coverage] = await Promise.all([
@@ -52,7 +56,29 @@ export default async function AdminRequestsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageTitle className="text-2xl">Review requests</PageTitle>
+      <div className="flex flex-col gap-2">
+        <PageTitle className="text-2xl">Review requests</PageTitle>
+        {/* Just the granted areas — each one covers its whole subtree, so
+            expanding the tree here would bury the actual grants. */}
+        {managedAreas.length > 0 ? (
+          <p className="text-sm text-muted">
+            Areas you moderate:{" "}
+            {managedAreas.map((area, i) => (
+              <span key={area.id}>
+                {i > 0 && ", "}
+                <AppLink href={areaHref(area.id, area.name)} className="text-foreground">
+                  {area.name}
+                </AppLink>
+              </span>
+            ))}
+          </p>
+        ) : (
+          <p className="text-sm text-muted">
+            You don&apos;t moderate any areas yet — requests will appear here once you&apos;re
+            granted one.
+          </p>
+        )}
+      </div>
 
       {rows.length === 0 ? (
         <EmptyState message="No pending requests in your managed areas." />
