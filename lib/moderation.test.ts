@@ -1007,7 +1007,10 @@ describe("describeChangeRequest", () => {
     });
 
     const description = await describeChangeRequest(db, await loadRequest(id));
-    expect(description.summary).toBe('Mark "Describe Source" as a duplicate of "Describe Target"');
+    expect(description.summary).toBe('Merge "Describe Source" into "Describe Target"');
+    expect(description.requesterSummary).toBe(
+      'Mark "Describe Source" as a duplicate of "Describe Target"',
+    );
     expect(description.details).toEqual([
       '1 send(s) move to "Describe Target"',
       'Name: "Describe Target" → "Merged Describe"',
