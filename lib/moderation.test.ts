@@ -405,10 +405,9 @@ describe("getVisibleChangeRequests", () => {
     expect(visible.map((r) => r.id)).toContain(id);
   });
 
-  it("shows a request whose entity is gone to any admin, so it can be cleared", async () => {
+  it("hides a request whose entity is gone — the queue is strictly in-scope", async () => {
     await seedFixtureUser(db, { id: "zombie-viewer-admin" });
     await seedFixtureUser(db, { id: "zombie-requester" });
-    // A scope nowhere near the (gone) entity — zombie rows are visible anyway.
     await db.insert(adminAreaScopes).values({ userId: "zombie-viewer-admin", areaId: 5 });
 
     const id = await submitChangeRequest(db, "climb_delete", 999997, "zombie-requester", {});
@@ -416,7 +415,7 @@ describe("getVisibleChangeRequests", () => {
     const visible = await getVisibleChangeRequests(db, {
       user: { id: "zombie-viewer-admin", role: "admin" },
     });
-    expect(visible.map((r) => r.id)).toContain(id);
+    expect(visible.map((r) => r.id)).not.toContain(id);
   });
 
   it("returns nothing for a non-admin session", async () => {
