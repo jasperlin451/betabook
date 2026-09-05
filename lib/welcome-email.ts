@@ -4,12 +4,6 @@ import type { Database } from "@/db/client";
 import { user } from "@/db/schema";
 import { sendWelcomeEmail } from "@/lib/email";
 
-/** Sends the welcome email to an account that has never had one.
- *
- * Not in db/mutations/: those are `"use server"` actions returning
- * ActionResult to a form. Nothing here is user-invoked — the only caller is
- * the afterEmailVerification hook in lib/auth.ts.
- */
 export async function sendWelcomeEmailOnce(
   db: Database,
   account: { id: string; email: string; name: string },

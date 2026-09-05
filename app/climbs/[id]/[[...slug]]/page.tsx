@@ -8,9 +8,9 @@ import { ClimbActionsMenu } from "@/components/climb-actions-menu";
 import { ClimbDescription } from "@/components/climb-description";
 import { GradeWithTrend } from "@/components/climb-list";
 import { ClimbSendList } from "@/components/climb-send-list";
-import { EditSendButton } from "@/components/edit-send-button";
-import { LogSendButton } from "@/components/log-send-button";
+import { ClimbJournalCard, LogEntryButton } from "@/components/journal";
 import { LoggedGradeHistogram } from "@/components/logged-grade-histogram";
+import { SendActionsMenu } from "@/components/send-actions-menu";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass } from "@/components/ui/card";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
@@ -29,7 +29,9 @@ import {
   getArea,
   getClimb,
   getClimbSendSummary,
+  getJournalForClimb,
   getSendsForClimb,
+  getUser,
   getUserSendForClimb,
 } from "@/db/queries";
 import { buildLoggedGradeRows } from "@/lib/grade-histogram";
@@ -96,6 +98,7 @@ export async function generateMetadata({
   });
 }
 
+// oxlint-disable-next-line complexity
 export default async function ClimbPage({ params, searchParams }: ClimbPageProps) {
   const [{ id, slug }, search] = await Promise.all([params, searchParams]);
   const climbId = Number(id);
@@ -116,15 +119,21 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
   // Stats come from whole-history aggregates and the list from a paginated
   // query — a popular climb's full send history never ships in the RSC
   // payload (ClimbSendList "load more"-fetches the rest on demand).
-  const [area, userSend, sendsPage, summary] = await Promise.all([
+  const [area, journalOwner, userSend, sendsPage, summary] = await Promise.all([
     getAreaById(climb.areaId),
+    session ? getUser(db, session.user.id) : null,
     session ? getUserSendForClimb(db, session.user.id, climb.id).then((s) => s ?? null) : null,
     getSendsForClimb(db, climb.id, 0, undefined, session?.user.id ?? null),
     getClimbSendSummary(db, climb.id),
   ]);
   if (!area) notFound();
 
-  const ancestors = await getAreaAncestors(area);
+  const [ancestors, journalEntries] = await Promise.all([
+    getAreaAncestors(area),
+    journalOwner && session
+      ? getJournalForClimb(db, journalOwner, session.user.id, climb.id)
+      : Promise.resolve([]),
+  ]);
 
   const trail = locationTrail([...ancestors.map((a) => a.name), area.name]);
   const breadcrumbCrumbs = [
@@ -153,7 +162,7 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
       />
       <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
 
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
           <Eyebrow>Climb</Eyebrow>
           <PageTitle>{climb.name}</PageTitle>
@@ -163,7 +172,16 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
           </div>
           <ClimbDescription climb={climb} isEditor={session != null} />
         </div>
-        {session && <ClimbActionsMenu climb={climb} />}
+        {session && (
+          <div className="flex shrink-0 items-center gap-2">
+            <LogEntryButton
+              climb={climb}
+              sentClimbIds={userSend ? new Set([climb.id]) : undefined}
+            />
+            {userSend && <SendActionsMenu climb={climb} send={userSend} />}
+            <ClimbActionsMenu climb={climb} />
+          </div>
+        )}
       </div>
 
       <SidebarLayout
@@ -219,13 +237,7 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
                 <LoggedGradeHistogram type={climb.type} rows={loggedGradeRows} />
               </div>
             )}
-            {session ? (
-              userSend ? (
-                <EditSendButton climb={climb} send={userSend} />
-              ) : (
-                <LogSendButton climb={climb} fullWidth />
-              )
-            ) : (
+            {!session && (
               // Quiet stand-in for Log Send: signed-out visitors otherwise
               // never learn ascents can be logged. The continuation brings
               // them straight back here after signing in.
@@ -239,30 +251,38 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
           </>
         }
       >
-        <div className="flex flex-col gap-3">
-          <SectionHeading>Sends</SectionHeading>
-          <ClimbSendList
-            climb={climb}
-            initialSends={sendsPage.sends}
-            initialHasMore={sendsPage.hasMore}
-            currentUserId={session?.user.id}
-            emptyState={
-              <EmptyState
-                message="No sends yet — this line is waiting for its first ascent."
-                cta={
-                  session ? (
-                    userSend ? undefined : (
-                      <LogSendButton climb={climb} fullWidth />
+        <div className="flex flex-col gap-6">
+          {session && (
+            <ClimbJournalCard
+              userId={session.user.id}
+              climbId={climb.id}
+              entries={journalEntries}
+            />
+          )}
+          <div className="flex flex-col gap-3">
+            <SectionHeading>Sends</SectionHeading>
+            <ClimbSendList
+              climb={climb}
+              initialSends={sendsPage.sends}
+              initialHasMore={sendsPage.hasMore}
+              currentUserId={session?.user.id}
+              emptyState={
+                <EmptyState
+                  message="No sends yet — this line is waiting for its first ascent."
+                  cta={
+                    session ? undefined : (
+                      <AppLink
+                        href={signInUrl(climbHref(climb.id, climb.name))}
+                        className="text-sm"
+                      >
+                        Sign in to log the first send
+                      </AppLink>
                     )
-                  ) : (
-                    <AppLink href={signInUrl(climbHref(climb.id, climb.name))} className="text-sm">
-                      Sign in to log the first send
-                    </AppLink>
-                  )
-                }
-              />
-            }
-          />
+                  }
+                />
+              }
+            />
+          </div>
         </div>
       </SidebarLayout>
     </div>

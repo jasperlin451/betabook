@@ -765,8 +765,7 @@ describe("getSendsForUserPage tie-breaking across pages", () => {
     expect(pagedIds.length).toBe(3);
     expect(new Set(pagedIds).size).toBe(3);
     expect(new Set(pagedIds)).toEqual(new Set(allIds));
-    // Within the tied date, order is the deterministic sends.id ascending.
-    expect(pagedIds).toEqual([...pagedIds].sort((a, b) => a - b));
+    expect(pagedIds).toEqual([...pagedIds].sort((a, b) => b - a));
   });
 });
 

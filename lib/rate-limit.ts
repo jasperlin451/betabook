@@ -24,3 +24,16 @@ export async function allowContactSubmission(key: string): Promise<boolean> {
   const { success } = await limiter.limit({ key });
   return success;
 }
+
+export async function allowJournalWrite(key: string): Promise<boolean> {
+  const { env } = await getCloudflareContext({ async: true });
+
+  const limiter: RateLimit | undefined = env.JOURNAL_RATE_LIMITER;
+  if (!limiter) {
+    console.warn("JOURNAL_RATE_LIMITER is not bound — allowing the write unthrottled");
+    return true;
+  }
+
+  const { success } = await limiter.limit({ key });
+  return success;
+}

@@ -23,6 +23,7 @@
     ".wrangler/**",
     "climbs_data/**",
     ".claude/**",
+    ".agents/skills/github-upload-image-to-pr/**",
     "drizzle/migrations/**",
     "worker-configuration.d.ts",
     "next-env.d.ts",

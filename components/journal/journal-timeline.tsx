@@ -1,0 +1,115 @@
+"use client";
+
+import { JournalEntryRow } from "@/components/journal/journal-entry-row";
+import { NavigationPendingRegion } from "@/components/navigation-pending";
+import { EmptyState } from "@/components/ui/empty-state";
+import { LoadMoreButton } from "@/components/ui/load-more-button";
+import type { AreaBreadcrumbs, JournalCursor, JournalEntry } from "@/db/queries";
+import { usePagedList } from "@/hooks/use-paged-list";
+import { journalFilterToSearchParams, type JournalFilter } from "@/lib/journal-filter";
+
+type JournalTimelineProps = {
+  userId: string;
+  filter: JournalFilter;
+  initialEntries: JournalEntry[];
+  initialHasMore: boolean;
+  initialAreaBreadcrumbs: AreaBreadcrumbs;
+  isOwner: boolean;
+  hasAnyEntries: boolean;
+};
+
+const MONTH_FORMAT = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+function monthLabel(entryDate: string): string {
+  return MONTH_FORMAT.format(new Date(`${entryDate.slice(0, 7)}-01`));
+}
+
+export function JournalTimeline({
+  userId,
+  filter,
+  initialEntries,
+  initialHasMore,
+  initialAreaBreadcrumbs,
+  isOwner,
+  hasAnyEntries,
+}: JournalTimelineProps) {
+  const { items, hasMore, meta, loadingMore, loadMoreFailed, loadMore } = usePagedList<
+    JournalEntry,
+    AreaBreadcrumbs
+  >({
+    initialItems: initialEntries,
+    initialHasMore,
+    initialMeta: initialAreaBreadcrumbs,
+    itemKey: (entry) => entry.id,
+    fetchPage: async (_offset, _page, lastItem) => {
+      const cursor: JournalCursor | undefined = lastItem
+        ? { entryDate: lastItem.entryDate, id: lastItem.id }
+        : undefined;
+      const params = journalFilterToSearchParams(filter);
+      if (cursor) {
+        params.set("cursorDate", cursor.entryDate);
+        params.set("cursorId", String(cursor.id));
+      }
+
+      const res = await fetch(`/api/users/${userId}/journal?${params}`);
+      if (!res.ok) throw new Error("Failed to load more entries");
+      const data = (await res.json()) as {
+        entries: JournalEntry[];
+        hasMore: boolean;
+        areaBreadcrumbs: AreaBreadcrumbs;
+      };
+      return { items: data.entries, hasMore: data.hasMore, meta: data.areaBreadcrumbs };
+    },
+    mergeMeta: (current, incoming) => ({ ...current, ...incoming }),
+  });
+
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        message={
+          hasAnyEntries
+            ? "No entries match these filters."
+            : isOwner
+              ? "Nothing logged yet. Every day out starts here — sends, sessions and training."
+              : "Nothing logged yet."
+        }
+      />
+    );
+  }
+
+  return (
+    <NavigationPendingRegion className="flex flex-col gap-4">
+      <div className="flex flex-col">
+        {items.map((entry, index) => {
+          const month = monthLabel(entry.entryDate);
+          const newMonth = index === 0 || month !== monthLabel(items[index - 1].entryDate);
+          return (
+            <div key={entry.id}>
+              {newMonth && (
+                <h3 className="sticky top-0 z-10 border-b border-separator bg-background px-4 py-2 text-xs font-medium tracking-widest text-muted uppercase">
+                  {month}
+                </h3>
+              )}
+              <div className="border-b border-separator">
+                <JournalEntryRow
+                  entry={entry}
+                  isOwner={isOwner}
+                  userId={userId}
+                  filter={filter}
+                  areaBreadcrumbs={meta}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {hasMore && (
+        <LoadMoreButton onPress={loadMore} loading={loadingMore} failed={loadMoreFailed} />
+      )}
+    </NavigationPendingRegion>
+  );
+}
