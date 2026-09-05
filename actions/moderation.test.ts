@@ -545,7 +545,7 @@ describe("requestClimbMerge", () => {
     const result = await requestClimbMerge(954, 955);
     expect(result).toEqual({
       ok: false,
-      error: "Can't merge climbs of different disciplines",
+      error: "Can't mark a climb as a duplicate of a different discipline",
     });
     expect(await requestsFor("climb_merge", 954)).toHaveLength(0);
   });
