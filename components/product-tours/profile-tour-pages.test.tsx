@@ -69,7 +69,9 @@ describe("profile tutorials", () => {
       link?.props.onClick?.();
       expect(props.close).toHaveBeenCalledOnce();
       const overview = nodes.find(
-        (node) => node.props.children === "All tutorials",
+        (node) =>
+          node.props.children === "All tutorials" ||
+          (Array.isArray(node.props.children) && node.props.children.includes("All tutorials")),
       ) as ReactElement<{ onPress: () => void }>;
       overview.props.onPress();
       expect(props.navigate).toHaveBeenCalledWith("explore");

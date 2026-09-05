@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@heroui/react";
-import { ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 
 import {
@@ -93,7 +93,12 @@ function PageTutorial({
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <Button variant="ghost" className="self-start" onPress={() => navigate("explore")}>
+      <Button
+        variant="secondary"
+        className="self-start border border-foreground/30 text-foreground"
+        onPress={() => navigate("explore")}
+      >
+        <ArrowLeft aria-hidden className="size-4 shrink-0" />
         All tutorials
       </Button>
       <p className="max-w-3xl text-sm leading-relaxed">{introduction}</p>
