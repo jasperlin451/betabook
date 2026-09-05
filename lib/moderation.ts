@@ -29,7 +29,7 @@ import { ActionError } from "@/lib/action-result";
 import type { AreaInput } from "@/lib/areas";
 import {
   validateClimbMergeOverrides,
-  type ClimbInput,
+  type ClimbEditInput,
   type ClimbMergeOverrides,
 } from "@/lib/climbs";
 import { formatGrade } from "@/lib/grades";
@@ -47,10 +47,14 @@ export type ChangeRequestType = (typeof CHANGE_REQUEST_TYPES)[number];
  * still exists, discipline rule still holds, etc), and applyClimbMerge
  * re-validates `overrides` from scratch since a payload is just JSON. */
 export type ChangeRequestPayload = {
-  area_edit: Partial<AreaInput>;
+  // Descriptions never ride along on an edit request: editing one is free
+  // and instant for any signed-in user (updateArea/updateClimb), so a
+  // moderated edit covers only the gated fields — an area's name, a climb's
+  // name/discipline/grade.
+  area_edit: Partial<Pick<AreaInput, "name">>;
   area_delete: Record<string, never>;
   area_reparent: { newParentId: number };
-  climb_edit: Partial<ClimbInput>;
+  climb_edit: Partial<ClimbEditInput>;
   climb_delete: Record<string, never>;
   climb_move: { newAreaId: number };
   // `type`/`areaId` are deliberately excluded: type must already match (see
@@ -128,7 +132,7 @@ export async function submitChangeRequest<T extends ChangeRequestType>(
 export async function applyAreaEdit(
   db: Database,
   areaId: number,
-  input: Partial<AreaInput>,
+  input: Partial<Pick<AreaInput, "name">>,
 ): Promise<void> {
   const existing = await getArea(db, areaId);
   if (!existing) throw new ActionError("Area not found");
@@ -278,7 +282,7 @@ export async function applyClimbMove(
 export async function applyClimbEdit(
   db: Database,
   climbId: number,
-  input: Partial<ClimbInput>,
+  input: Partial<ClimbEditInput>,
 ): Promise<void> {
   const existing = await getClimb(db, climbId);
   if (!existing) throw new ActionError("Climb not found");
@@ -739,9 +743,6 @@ const CHANGE_REQUEST_DESCRIBERS: Record<
     if (payload.name !== undefined) {
       details.push(`Name: "${area?.name ?? "?"}" → "${payload.name}"`);
     }
-    if (payload.description !== undefined) {
-      details.push(`Description: ${excerpt(area?.description)} → ${excerpt(payload.description)}`);
-    }
     return {
       summary:
         payload.name !== undefined
@@ -787,9 +788,6 @@ const CHANGE_REQUEST_DESCRIBERS: Record<
       details.push(
         `Grade: ${formatGrade(climb.type, climb.grade)} → ${formatGrade(newType, payload.grade)}`,
       );
-    }
-    if (payload.description !== undefined) {
-      details.push(`Description: ${excerpt(climb?.description)} → ${excerpt(payload.description)}`);
     }
     return {
       summary:

@@ -962,7 +962,6 @@ describe("describeChangeRequest", () => {
     const id = await submitChangeRequest(db, "climb_edit", 970, "describe-requester", {
       name: "Described",
       grade: 5,
-      description: "New description",
     });
 
     const description = await describeChangeRequest(db, await loadRequest(id));
@@ -970,7 +969,6 @@ describe("describeChangeRequest", () => {
     expect(description.details).toEqual([
       'Name: "Describe Me" → "Described"',
       `Grade: ${formatGrade("boulder", 3)} → ${formatGrade("boulder", 5)}`,
-      "Description: Old description → New description",
     ]);
   });
 
