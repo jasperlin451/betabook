@@ -71,6 +71,15 @@ async function authBuilder() {
       },
     },
     user: {
+      // `role` is our own column (drizzle/schema/auth.ts), surfaced into
+      // session.user so requireAdmin/isAdmin (lib/session.ts) can read it —
+      // deliberately NOT better-auth's admin plugin, whose ban/impersonation/
+      // user-management machinery this app doesn't want. input: false keeps
+      // sign-up payloads from ever setting it; the only granter is
+      // scripts/promote-admin.ts.
+      additionalFields: {
+        role: { type: "string", required: false, input: false },
+      },
       deleteUser: {
         enabled: true,
         // Runs before better-auth deletes the account/session/user rows —

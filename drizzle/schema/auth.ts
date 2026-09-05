@@ -7,6 +7,11 @@ export const user = sqliteTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: integer("email_verified", { mode: "boolean" }).default(false).notNull(),
   image: text("image"),
+  // Our own moderation marker, not a better-auth plugin column: null for
+  // every ordinary user, "admin" only via scripts/promote-admin.ts. Exposed
+  // into session.user through user.additionalFields (lib/auth.ts) so
+  // lib/session.ts's requireAdmin()/isAdmin can check for "admin" exactly.
+  role: text("role"),
   // Null means "never welcomed", and that is not derivable from
   // emailVerified: better-auth routes a *changed* address through the same
   // afterEmailVerification hook as a first verification, so an established

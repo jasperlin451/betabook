@@ -24,6 +24,8 @@ export class ActionError extends Error {
 
 export const SESSION_EXPIRED_MESSAGE = "Your session has expired — sign in again to continue.";
 
+export const NOT_ADMIN_MESSAGE = "Admins only.";
+
 export const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
 
 /** Thrown by `requireSession` when there's no signed-in session. Defined
@@ -33,6 +35,15 @@ export class NotSignedInError extends Error {
   public constructor() {
     super("Not signed in");
     this.name = "NotSignedInError";
+  }
+}
+
+/** Thrown by `requireAdmin` when the signed-in session isn't an admin.
+ * Defined alongside NotSignedInError for the same reason. */
+export class NotAdminError extends Error {
+  public constructor() {
+    super("Not an admin");
+    this.name = "NotAdminError";
   }
 }
 
@@ -48,6 +59,9 @@ export async function toActionResult<T>(fn: () => Promise<T>): Promise<ActionRes
   } catch (err) {
     if (err instanceof NotSignedInError) {
       return { ok: false, error: SESSION_EXPIRED_MESSAGE };
+    }
+    if (err instanceof NotAdminError) {
+      return { ok: false, error: NOT_ADMIN_MESSAGE };
     }
     if (err instanceof ActionError) {
       return { ok: false, error: err.message };
