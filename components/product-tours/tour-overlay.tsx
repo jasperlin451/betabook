@@ -127,19 +127,20 @@ export function TourOverlay({
           <Button
             size="sm"
             variant="secondary"
+            className="px-2 text-xs"
             aria-expanded={showSteps}
             onPress={() => setShowSteps(!showSteps)}
           >
             All tutorials
           </Button>
           {index === steps.length - 1 ? (
-            <Button onPress={finish} isDisabled={pending}>
+            <Button size="sm" className="text-xs" onPress={finish} isDisabled={pending}>
               {pending ? "Finishing…" : "Finish tour"}
             </Button>
           ) : (
             <AppLink
               href={href(steps[index + 1].id)}
-              className={buttonVariants()}
+              className={buttonVariants({ size: "sm" })}
               aria-label={`Next: ${steps[index + 1].title}`}
             >
               Next

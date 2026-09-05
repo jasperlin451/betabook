@@ -18,7 +18,7 @@
 @media (min-width: 1280px), (min-width: 768px) and (max-height: 500px) {
   .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 20rem;
+    grid-template-columns: minmax(0, 1fr) 18rem;
     gap: 1.25rem;
   }
 
