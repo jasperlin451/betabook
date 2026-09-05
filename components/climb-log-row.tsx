@@ -46,7 +46,7 @@ export function ClimbLogRow({
         <div className="flex flex-col items-end gap-1 text-sm">
           {grade}
           {status}
-          <div className="text-xs text-muted">{formatDate(date)}</div>
+          <div className="text-xs text-muted">{date ? formatDate(date) : "Date unknown"}</div>
         </div>
       }
       actions={actions}

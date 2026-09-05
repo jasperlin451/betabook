@@ -2,7 +2,13 @@ import { env } from "cloudflare:test";
 import { and, eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createJournalEntry, deleteJournalEntry, updateJournalEntry } from "@/actions";
+import {
+  createJournalEntry,
+  createUndatedSend,
+  deleteJournalEntry,
+  updateJournalEntry,
+  updateSend,
+} from "@/actions";
 import { createDb } from "@/db/client";
 import * as queries from "@/db/queries";
 import { climbs, journalEntries, sends } from "@/db/schema";
@@ -103,28 +109,176 @@ beforeEach(async () => {
   await db.delete(sends);
 });
 
+function undatedFormData(overrides: Record<string, string> = {}) {
+  return ascentFormData({ dateSent: "", comment: "Original ascent.", ...overrides });
+}
+
+const OWNER = { id: "j-user", isPrivate: false, journalVisibility: "private" as const };
+
+describe("unknown-date sends", () => {
+  it("saves the send and aggregates without inventing a journal day", async () => {
+    expect((await createUndatedSend(undatedFormData())).ok).toBe(true);
+    expect(await sendFor("j-user", HIGHBALL)).toMatchObject({
+      dateSent: null,
+      comment: "Original ascent.",
+      ascentStyle: "flash",
+      rating: 4,
+      suggestedGrade: 5,
+      gradeFeel: "solid",
+    });
+    expect(await entriesFor("j-user")).toEqual([]);
+    expect(await db.select().from(climbs).where(eq(climbs.id, HIGHBALL)).get()).toMatchObject({
+      sendCount: 1,
+      ratingSum: 4,
+      ratingCount: 1,
+    });
+    expect(await queries.getJournalCounts(db, OWNER, OWNER.id, "2026-03")).toMatchObject({
+      entries: 0,
+      days: 0,
+      sentThisMonth: 0,
+    });
+  });
+
+  it("requires authentication and respects the logging rate limit", async () => {
+    sessionState.userId = null;
+    expect(await createUndatedSend(undatedFormData())).toEqual({
+      ok: false,
+      error: SESSION_EXPIRED_MESSAGE,
+    });
+    sessionState.userId = "j-user";
+    vi.mocked(allowJournalWrite).mockResolvedValue(false);
+    expect((await createUndatedSend(undatedFormData())).ok).toBe(false);
+    expect(await sendFor("j-user", HIGHBALL)).toBeUndefined();
+  });
+
+  it.each<Record<string, string>>([
+    { climbId: "" },
+    { climbId: "99999" },
+    { rating: "6" },
+    { dateSent: "2026-03-01" },
+    { ascentStyle: "invalid" },
+  ])("rejects invalid or dated submissions: %j", async (overrides) => {
+    expect((await createUndatedSend(undatedFormData(overrides))).ok).toBe(false);
+    expect(await sendFor("j-user", HIGHBALL)).toBeUndefined();
+    expect(await entriesFor("j-user")).toEqual([]);
+  });
+
+  it("does not overwrite an existing send", async () => {
+    await createUndatedSend(undatedFormData());
+    expect((await createUndatedSend(undatedFormData({ comment: "Replacement" }))).ok).toBe(false);
+    expect(await sendFor("j-user", HIGHBALL)).toMatchObject({ comment: "Original ascent." });
+  });
+
+  it("keeps every dated repeat independent, even when logged out of order", async () => {
+    await createUndatedSend(undatedFormData());
+    for (const entryDate of ["2026-04-01", "2026-03-01"]) {
+      expect(
+        (await createJournalEntry(entryFormData({ sent: "true", entryDate, body: "Repeat." }))).ok,
+      ).toBe(true);
+    }
+    const entries = await queries.getJournalForClimb(db, OWNER, OWNER.id, HIGHBALL);
+    expect(entries).toHaveLength(2);
+    expect(entries.every((entry) => entry.sent && !entry.isAscent)).toBe(true);
+    expect(await queries.getAscentEntryId(db, OWNER.id, HIGHBALL)).toBeUndefined();
+    expect(
+      (
+        await updateJournalEntry(
+          entries[0].id,
+          entryFormData({
+            sent: "true",
+            entryDate: entries[0].entryDate,
+            body: "Edited repeat.",
+          }),
+        )
+      ).ok,
+    ).toBe(true);
+    expect((await deleteJournalEntry(entries[1].id)).ok).toBe(true);
+    expect(await sendFor("j-user", HIGHBALL)).toMatchObject({
+      dateSent: null,
+      comment: "Original ascent.",
+    });
+    expect(await db.select().from(climbs).where(eq(climbs.id, HIGHBALL)).get()).toMatchObject({
+      sendCount: 1,
+    });
+  });
+
+  it("can edit an undated send with repeats without changing their notes", async () => {
+    await createUndatedSend(undatedFormData());
+    await createJournalEntry(entryFormData({ sent: "true", body: "Repeat." }));
+    const send = await sendFor("j-user", HIGHBALL);
+    expect(
+      (await updateSend(send!.id, undatedFormData({ comment: "Updated original.", rating: "5" })))
+        .ok,
+    ).toBe(true);
+    expect(await sendFor("j-user", HIGHBALL)).toMatchObject({
+      dateSent: null,
+      comment: "Updated original.",
+      rating: 5,
+    });
+    expect(await entriesFor("j-user")).toMatchObject([{ body: "Repeat.", isAscent: false }]);
+  });
+
+  it.each(["2026-02-01", "2026-03-01"])(
+    "adds the original date %s without converting a repeat into the ascent",
+    async (dateSent) => {
+      await createUndatedSend(undatedFormData());
+      await createJournalEntry(
+        entryFormData({ sent: "true", entryDate: "2026-03-01", body: "Repeat." }),
+      );
+      const [repeat] = await entriesFor("j-user");
+      const send = await sendFor("j-user", HIGHBALL);
+      expect((await updateSend(send!.id, undatedFormData({ dateSent }))).ok).toBe(true);
+      const entries = await queries.getJournalForClimb(db, OWNER, OWNER.id, HIGHBALL);
+      const ascent = entries.find((entry) => entry.isAscent);
+      expect(ascent).toMatchObject({ entryDate: dateSent, body: "Original ascent." });
+      expect(ascent?.id).not.toBe(repeat.id);
+      expect(entries.find((entry) => entry.id === repeat.id)).toMatchObject({
+        entryDate: "2026-03-01",
+        body: "Repeat.",
+        isAscent: false,
+      });
+      expect(await queries.getAscentEntryId(db, OWNER.id, HIGHBALL)).toBe(ascent?.id);
+      expect((await deleteJournalEntry(repeat.id)).ok).toBe(true);
+      expect(await sendFor("j-user", HIGHBALL)).toBeDefined();
+    },
+  );
+
+  it("rejects an original date after a repeat without changing either record", async () => {
+    await createUndatedSend(undatedFormData());
+    await createJournalEntry(entryFormData({ sent: "true", body: "Repeat." }));
+    const send = await sendFor("j-user", HIGHBALL);
+    expect(await updateSend(send!.id, undatedFormData({ dateSent: "2026-04-01" }))).toEqual({
+      ok: false,
+      error: "The ascent date can't be later than a logged repeat",
+    });
+    expect(await sendFor("j-user", HIGHBALL)).toMatchObject({
+      dateSent: null,
+      comment: "Original ascent.",
+    });
+    expect(await entriesFor("j-user")).toMatchObject([{ isAscent: false, body: "Repeat." }]);
+  });
+
+  it("still requires dates for sessions, training and repeats", async () => {
+    await createUndatedSend(undatedFormData());
+    const cases: Record<string, string>[] = [{}, { kind: "training" }, { sent: "true" }];
+    for (const overrides of cases) {
+      expect(await createJournalEntry(entryFormData({ ...overrides, entryDate: "" }))).toEqual({
+        ok: false,
+        error: "Entry date is required",
+      });
+    }
+    expect(await entriesFor("j-user")).toEqual([]);
+  });
+});
+
 describe("createJournalEntry", () => {
   it("writes a session and no send", async () => {
     const result = await createJournalEntry(entryFormData());
-    expect(result).toEqual({ ok: true, value: "project" });
+    expect(result).toEqual({ ok: true, value: undefined });
 
     const entries = await entriesFor("j-user");
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ kind: "session", sent: false, climbId: HIGHBALL });
-  });
-
-  it("returns the committed outcome for guidance without relying on client flags", async () => {
-    expect(
-      await createJournalEntry(entryFormData({ kind: "training", body: "Hangboard" })),
-    ).toEqual({ ok: true, value: "training" });
-    expect(await createJournalEntry(ascentFormData())).toEqual({ ok: true, value: "ascent" });
-    expect(
-      await createJournalEntry(entryFormData({ sent: "true", entryDate: "2026-03-02" })),
-    ).toEqual({ ok: true, value: "repeat" });
-    expect(await createJournalEntry(entryFormData({ entryDate: "2026-03-03" }))).toEqual({
-      ok: true,
-      value: "session",
-    });
   });
 
   it("stores normalized tags", async () => {
@@ -228,7 +382,7 @@ describe("createJournalEntry", () => {
       expect((await sendFor("j-user", HIGHBALL))?.dateSent).toBe("2026-03-01");
     });
 
-    it("attaches the first sent journal entry to a legacy undated send", async () => {
+    it("preserves the original unknown date and note when logging a repeat", async () => {
       await seedFixtureSend(db, {
         userId: "j-user",
         climbId: HIGHBALL,
@@ -237,16 +391,16 @@ describe("createJournalEntry", () => {
       });
 
       const result = await createJournalEntry(
-        entryFormData({ climbId: String(HIGHBALL), sent: "true", body: "Now dated." }),
+        entryFormData({ climbId: String(HIGHBALL), sent: "true", body: "Repeat." }),
       );
 
-      expect(result).toEqual({ ok: true, value: "repeat" });
+      expect(result).toEqual({ ok: true, value: undefined });
       expect(await entriesFor("j-user")).toMatchObject([
-        { climbId: HIGHBALL, sent: true, entryDate: "2026-03-01", body: "Now dated." },
+        { climbId: HIGHBALL, sent: true, entryDate: "2026-03-01", body: "Repeat." },
       ]);
       expect(await sendFor("j-user", HIGHBALL)).toMatchObject({
-        dateSent: "2026-03-01",
-        comment: "Now dated.",
+        dateSent: null,
+        comment: "Imported without a date.",
       });
     });
 
@@ -431,6 +585,7 @@ describe("deleteJournalEntry", () => {
         entryDate: "2026-04-01",
         body: "Replacement.",
         sent: true,
+        isAscent: true,
       });
       return id;
     });

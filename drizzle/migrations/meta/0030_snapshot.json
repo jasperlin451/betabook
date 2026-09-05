@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ab3fd56e-8236-4b18-b3a6-3793fe497455",
-  "prevId": "02967e5b-f42d-405a-b5b1-ae1a9af449b0",
+  "id": "a8091e3f-e0b9-4d87-9d55-dad45eaea4fa",
+  "prevId": "ab3fd56e-8236-4b18-b3a6-3793fe497455",
   "tables": {
     "areas": {
       "name": "areas",
@@ -463,6 +463,14 @@
           "autoincrement": false,
           "default": "'private'"
         },
+        "product_tour_returning": {
+          "name": "product_tour_returning",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -863,6 +871,66 @@
           "value": "\"journal_entries\".\"kind\" <> 'session' OR \"journal_entries\".\"climb_id\" IS NOT NULL"
         }
       }
+    },
+    "user_product_tours": {
+      "name": "user_product_tours",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tour_id": {
+          "name": "tour_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_product_tours_user_id_user_id_fk": {
+          "name": "user_product_tours_user_id_user_id_fk",
+          "tableFrom": "user_product_tours",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "user_product_tours_user_id_tour_id_pk": {
+          "columns": [
+            "user_id",
+            "tour_id"
+          ],
+          "name": "user_product_tours_user_id_tour_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     }
   },
   "views": {},

@@ -1,9 +1,9 @@
 "use client";
 
 import { Button, Checkbox, Input, Label, TextArea, TextField } from "@heroui/react";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
-import { createJournalEntry, updateJournalEntry } from "@/actions";
+import { createJournalEntry, createUndatedSend, updateJournalEntry } from "@/actions";
 import { TagInput } from "@/components/journal/tag-input";
 import {
   AscentStylePicker,
@@ -16,7 +16,7 @@ import { AppLink } from "@/components/ui/app-link";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import type { JournalEntry, SendableClimb } from "@/db/queries";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
-import { MAX_JOURNAL_BODY_LENGTH, type JournalKind, type JournalSaveOutcome } from "@/lib/journal";
+import { MAX_JOURNAL_BODY_LENGTH, type JournalKind } from "@/lib/journal";
 import type { AscentStyle, GradeFeel } from "@/lib/sends";
 
 type JournalEntryFormProps = {
@@ -25,8 +25,6 @@ type JournalEntryFormProps = {
   hasPriorSend?: boolean;
   existingEntry?: JournalEntry;
   onDone?: () => void;
-  onCreated?: (outcome: JournalSaveOutcome) => void;
-  guided?: boolean;
   onPendingChange?: (pending: boolean) => void;
 };
 
@@ -67,17 +65,12 @@ export function JournalEntryForm({
   hasPriorSend = false,
   existingEntry,
   onDone,
-  onCreated,
-  guided = false,
   onPendingChange,
 }: JournalEntryFormProps) {
-  const dateInput = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (guided) dateInput.current?.focus();
-  }, [guided]);
   const today = new Intl.DateTimeFormat("en-CA").format(new Date());
 
   const [entryDate, setEntryDate] = useState(existingEntry?.entryDate ?? today);
+  const [dateUnknown, setDateUnknown] = useState(false);
   const [sent, setSent] = useState(existingEntry?.sent ?? false);
   const [body, setBody] = useState(existingEntry?.body ?? "");
   const [tags, setTags] = useState<string[]>(existingEntry?.tags ?? []);
@@ -91,6 +84,7 @@ export function JournalEntryForm({
   const [pending, startTransition] = useTransition();
 
   const isAscent = !existingEntry && sent && climb != null && !hasPriorSend;
+  const isUndatedSend = isAscent && dateUnknown;
   const summary = describePendingEntry({ kind, climbName: climb?.name, sent, hasPriorSend });
 
   function handleSubmit(e: React.FormEvent) {
@@ -104,7 +98,9 @@ export function JournalEntryForm({
     formData.set("body", body);
     if (climb) formData.set("climbId", String(climb.id));
     if (sent) formData.set("sent", "true");
-    for (const tag of tags) formData.append("tag", tag);
+    if (!isUndatedSend) {
+      for (const tag of tags) formData.append("tag", tag);
+    }
 
     if (isAscent) {
       formData.set("ascentStyle", ascentStyle);
@@ -112,26 +108,24 @@ export function JournalEntryForm({
       formData.set("suggestedGrade", suggestedGrade);
       formData.set("gradeFeel", gradeFeel);
     }
+    if (isUndatedSend) {
+      formData.set("dateSent", "");
+      formData.set("comment", body);
+    }
 
     onPendingChange?.(true);
     startTransition(async () => {
       try {
-        if (existingEntry) {
-          const result = await updateJournalEntry(existingEntry.id, formData);
-          if (!result.ok) {
-            setError(result.error);
-            return;
-          }
-          onDone?.();
-        } else {
-          const result = await createJournalEntry(formData);
-          if (!result.ok) {
-            setError(result.error);
-            return;
-          }
-          if (onCreated) onCreated(result.value);
-          else onDone?.();
+        const result = existingEntry
+          ? await updateJournalEntry(existingEntry.id, formData)
+          : isUndatedSend
+            ? await createUndatedSend(formData)
+            : await createJournalEntry(formData);
+        if (!result.ok) {
+          setError(result.error);
+          return;
         }
+        onDone?.();
       } catch {
         setError(GENERIC_ERROR_MESSAGE);
       } finally {
@@ -142,25 +136,30 @@ export function JournalEntryForm({
 
   return (
     <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-6`}>
-      {guided && (
-        <p className="text-sm text-muted">
-          {kind === "training"
-            ? "Record indoor climbing, drills, strength, or conditioning. Add at least a note or a tag before saving."
-            : "Log one climb per entry. If you worked on more than one climb that day, add an entry for each."}
-        </p>
-      )}
       <FormSection label="The day">
-        <TextField>
-          <Label>Date</Label>
-          <Input
-            ref={dateInput}
-            type="date"
-            value={entryDate}
-            max={today}
-            readOnly={existingEntry?.sent}
-            onChange={(e) => setEntryDate(e.target.value)}
-          />
-        </TextField>
+        {!isUndatedSend && (
+          <TextField>
+            <Label>Date</Label>
+            <Input
+              type="date"
+              value={entryDate}
+              max={today}
+              readOnly={existingEntry?.sent}
+              onChange={(e) => setEntryDate(e.target.value)}
+            />
+          </TextField>
+        )}
+
+        {isAscent && (
+          <Checkbox isSelected={dateUnknown} onChange={setDateUnknown}>
+            <Checkbox.Content>
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              I don&apos;t remember the date
+            </Checkbox.Content>
+          </Checkbox>
+        )}
 
         {climb &&
           (existingEntry ? (
@@ -181,13 +180,6 @@ export function JournalEntryForm({
               </Checkbox.Content>
             </Checkbox>
           ))}
-        {guided && climb && !existingEntry && (
-          <p className="text-sm text-muted">
-            {hasPriorSend
-              ? "You've sent this climb before. Select I sent to log a repeat; Sends will keep your original ascent."
-              : "Leave I sent unchecked to record work on a project. Select it when you send to also add the ascent to Sends."}
-          </p>
-        )}
       </FormSection>
 
       {isAscent && climb && (
@@ -227,13 +219,19 @@ export function JournalEntryForm({
             your journal is private.
           </p>
         )}
-        <TagInput value={tags} onChange={setTags} />
+        {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}
       </FormSection>
 
       {!existingEntry && (
         <div className="flex flex-col gap-1 rounded-lg bg-surface-secondary px-4 py-3">
           <p className="text-sm font-medium text-foreground">{summary.headline}</p>
           {summary.consequence && <p className="text-sm text-muted">{summary.consequence}</p>}
+          {isUndatedSend && (
+            <p className="text-sm text-muted">
+              Saved in your logbook with Date unknown. Add a date later to include it in your
+              journal. Journal tags require a date.
+            </p>
+          )}
         </div>
       )}
 
@@ -244,7 +242,7 @@ export function JournalEntryForm({
       )}
 
       <Button type="submit" isDisabled={pending} fullWidth>
-        {existingEntry ? "Save changes" : "Save entry"}
+        {existingEntry ? "Save changes" : isUndatedSend ? "Save send" : "Save entry"}
       </Button>
 
       <p className="text-center text-xs text-muted">

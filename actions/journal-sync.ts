@@ -44,8 +44,7 @@ export function buildSentJournalInsert(
         FROM sends s
         WHERE s.user_id = ${row.userId}
           AND s.climb_id = ${row.climbId}
-          AND s.date_sent IS NOT NULL
-          AND ${row.entryDate} >= s.date_sent
+          AND (s.date_sent IS NULL OR ${row.entryDate} >= s.date_sent)
       )`,
     })),
   );
@@ -53,7 +52,7 @@ export function buildSentJournalInsert(
 
 export type SentJournalEntry = Pick<
   typeof journalEntries.$inferSelect,
-  "id" | "climbId" | "entryDate"
+  "id" | "climbId" | "entryDate" | "isAscent"
 >;
 
 export function journalEntryFromSend(
@@ -67,6 +66,7 @@ export function journalEntryFromSend(
     climbId,
     kind: "session" as const,
     sent: true,
+    isAscent: true,
     entryDate,
     body,
     tags: null,
@@ -85,6 +85,7 @@ export async function getSentJournalEntries(
       id: journalEntries.id,
       climbId: journalEntries.climbId,
       entryDate: journalEntries.entryDate,
+      isAscent: journalEntries.isAscent,
     })
     .from(journalEntries)
     .where(
@@ -109,18 +110,13 @@ export function groupSentJournalEntries(entries: SentJournalEntry[]) {
 }
 
 export function assertAscentDateChange(entries: SentJournalEntry[], entryDate: string) {
-  const [ascent, next] = entries;
-  if (
-    ascent &&
-    next &&
-    (entryDate > next.entryDate || (entryDate === next.entryDate && ascent.id > next.id))
-  ) {
+  if (entries.some((entry) => !entry.isAscent && entry.entryDate < entryDate)) {
     throw new ActionError("The ascent date can't be later than a logged repeat");
   }
 }
 
 export function assertRepeatDate(entries: SentJournalEntry[], entryDate: string) {
-  const [ascent] = entries;
+  const ascent = entries.find((entry) => entry.isAscent);
   if (ascent && entryDate < ascent.entryDate) {
     throw new ActionError("A repeat can't be earlier than the recorded ascent");
   }

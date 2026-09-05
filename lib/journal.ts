@@ -128,6 +128,3 @@ export function validateJournalInput(
 
   return { kind, climbId, sent, entryDate, body, tags: tags.length > 0 ? tags : null };
 }
-
-/** Describes the committed create action, independently of the client's picker state. */
-export type JournalSaveOutcome = "training" | "project" | "session" | "ascent" | "repeat";

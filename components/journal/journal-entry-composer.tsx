@@ -9,7 +9,6 @@ import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { Grade } from "@/components/ui/grade";
 import type { ClimbWithAreaName } from "@/db/queries";
 import { formatGrade } from "@/lib/grades";
-import type { JournalSaveOutcome } from "@/lib/journal";
 
 function ChosenStrip({
   choice,
@@ -50,15 +49,9 @@ function ChosenStrip({
 export function JournalEntryComposer({
   sentClimbIds,
   onDone,
-  onCreated,
-  guided = false,
-  onPendingChange,
 }: {
   sentClimbIds?: Set<number>;
   onDone: () => void;
-  onCreated?: (outcome: JournalSaveOutcome) => void;
-  guided?: boolean;
-  onPendingChange?: (pending: boolean) => void;
 }) {
   const [pending, setPending] = useState(false);
   const [choice, setChoice] = useState<EntryKindChoice | null>(null);
@@ -77,12 +70,7 @@ export function JournalEntryComposer({
         climb={climb}
         hasPriorSend={choice.kind === "session" ? choice.hasPriorSend : false}
         onDone={onDone}
-        onCreated={onCreated}
-        guided={guided}
-        onPendingChange={(saving) => {
-          setPending(saving);
-          onPendingChange?.(saving);
-        }}
+        onPendingChange={setPending}
       />
     </div>
   );

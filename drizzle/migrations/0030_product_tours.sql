@@ -9,5 +9,5 @@ CREATE TABLE `user_product_tours` (
 --> statement-breakpoint
 ALTER TABLE `user` ADD `product_tour_returning` integer DEFAULT false NOT NULL;
 --> statement-breakpoint
--- Existing accounts get the shorter journal introduction, independently of their history.
+-- Existing accounts get the shorter introduction, independently of their history.
 UPDATE `user` SET `product_tour_returning` = 1;

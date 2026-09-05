@@ -38,7 +38,8 @@ export function TourExperience({
   const [Page, setPage] = useState<ProductTourPage | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ path: string; message: string } | null>(null);
+  const completion = useRef(0);
   const [pending, startTransition] = useTransition();
   const page = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLDivElement>(null);
@@ -48,6 +49,12 @@ export function TourExperience({
   const href = useCallback((id: string) => productTourPath(tour.id, id, from), [tour.id, from]);
 
   useEffect(() => suspendMobileHelper(), []);
+  useEffect(
+    () => () => {
+      completion.current += 1;
+    },
+    [pathname],
+  );
   useEffect(() => {
     let active = true;
     async function load() {
@@ -65,16 +72,21 @@ export function TourExperience({
   }, [tour, attempt]);
 
   function finish() {
+    completion.current += 1;
+    const request = completion.current;
+    setError(null);
     startTransition(async () => {
       try {
         const result = await saveProductTourStatus(tour.id, tour.version, "completed");
+        if (request !== completion.current) return;
         if (!result.ok) {
-          setError(result.error);
+          setError({ path: pathname, message: result.error });
           return;
         }
         router.replace(`/users/${userId}/journal`);
       } catch {
-        setError(GENERIC_ERROR_MESSAGE);
+        if (request === completion.current)
+          setError({ path: pathname, message: GENERIC_ERROR_MESSAGE });
       }
     });
   }
@@ -123,7 +135,7 @@ export function TourExperience({
             exit={exit}
             finish={finish}
             pending={pending}
-            error={error}
+            error={error?.path === pathname ? error.message : null}
           />
         </div>
       ) : (

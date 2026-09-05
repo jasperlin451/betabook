@@ -25,7 +25,10 @@ beforeEach(async () => {
   await db.delete(sends).where(eq(sends.userId, USER_ID));
 });
 
-async function expectInvariantViolation(query: Promise<unknown>) {
+async function expectInvariantViolation(
+  query: Promise<unknown>,
+  message = "journal/send invariant:",
+) {
   const messages: string[] = [];
   try {
     await query;
@@ -34,7 +37,7 @@ async function expectInvariantViolation(query: Promise<unknown>) {
       messages.push(current.message);
     }
   }
-  expect(messages.join("\n")).toContain("journal/send invariant:");
+  expect(messages.join("\n")).toContain(message);
 }
 
 async function seedAscent() {
@@ -50,6 +53,7 @@ async function seedAscent() {
     entryDate: "2026-03-01",
     body: "Ascent",
     sent: true,
+    isAscent: true,
   });
 }
 
@@ -62,6 +66,56 @@ describe("journal and send database invariants", () => {
         entryDate: "2026-03-01",
         sent: true,
       }),
+    );
+  });
+
+  it("allows dated repeats of an undated send but rejects a fabricated ascent", async () => {
+    await seedFixtureSend(db, { userId: USER_ID, climbId: CLIMB_ID, dateSent: null });
+    await seedFixtureJournalEntry(db, {
+      userId: USER_ID,
+      climbId: CLIMB_ID,
+      entryDate: "2026-03-01",
+      sent: true,
+    });
+    await expectInvariantViolation(
+      seedFixtureJournalEntry(db, {
+        userId: USER_ID,
+        climbId: CLIMB_ID,
+        entryDate: "2026-03-01",
+        sent: true,
+        isAscent: true,
+      }),
+    );
+    expect(await db.select().from(sends).where(eq(sends.userId, USER_ID)).get()).toMatchObject({
+      dateSent: null,
+    });
+  });
+
+  it("guards a newly supplied original date against existing repeats", async () => {
+    await seedFixtureSend(db, { userId: USER_ID, climbId: CLIMB_ID, dateSent: null });
+    await seedFixtureJournalEntry(db, {
+      userId: USER_ID,
+      climbId: CLIMB_ID,
+      entryDate: "2026-03-01",
+      sent: true,
+    });
+    await expectInvariantViolation(
+      db.update(sends).set({ dateSent: "2026-04-01" }).where(eq(sends.userId, USER_ID)),
+    );
+  });
+
+  it("allows only one ascent per user and climb", async () => {
+    await seedAscent();
+    await expectInvariantViolation(
+      seedFixtureJournalEntry(db, {
+        userId: USER_ID,
+        climbId: CLIMB_ID,
+        entryDate: "2026-03-01",
+        body: "Ascent",
+        sent: true,
+        isAscent: true,
+      }),
+      "UNIQUE constraint",
     );
   });
 
@@ -149,7 +203,7 @@ describe("journal and send database invariants", () => {
       .from(journalEntries)
       .where(eq(journalEntries.userId, USER_ID))
       .get();
-    expect(entry?.sent).toBe(false);
+    expect(entry).toMatchObject({ sent: false, isAscent: false });
   });
 });
 
@@ -181,5 +235,46 @@ describe("0028 reconciliation", () => {
         sent: true,
       },
     ]);
+  });
+});
+
+describe("0029 ascent backfill", () => {
+  it("marks the original dated ascent while leaving same-day and undated-send repeats alone", async () => {
+    await seedFixtureSend(db, { userId: USER_ID, climbId: CLIMB_ID, dateSent: "2026-03-01" });
+    for (let i = 0; i < 2; i += 1) {
+      await seedFixtureJournalEntry(db, {
+        userId: USER_ID,
+        climbId: CLIMB_ID,
+        entryDate: "2026-03-01",
+        sent: true,
+      });
+    }
+    await seedFixtureSend(db, { userId: USER_ID, climbId: 2, dateSent: null });
+    await seedFixtureJournalEntry(db, {
+      userId: USER_ID,
+      climbId: 2,
+      entryDate: "2026-03-01",
+      sent: true,
+    });
+    const migration = env.TEST_MIGRATIONS.find((item) =>
+      item.name.startsWith("0029_explicit_journal_ascents"),
+    );
+    const backfill = migration?.queries.find((query) =>
+      query.includes("UPDATE journal_entries AS j"),
+    );
+    if (!backfill) throw new Error("0029 ascent backfill is missing");
+    // The deployment runs this before installing the new write guards.
+    await db.run(sql`DROP TRIGGER journal_sent_update_guard`);
+    await db.run(sql.raw(backfill));
+    const updateGuard = migration!.queries.find((query) =>
+      query.includes("CREATE TRIGGER journal_sent_update_guard"),
+    )!;
+    await db.run(sql.raw(updateGuard));
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, USER_ID))
+      .orderBy(journalEntries.id);
+    expect(entries.map((entry) => entry.isAscent)).toEqual([true, false, false]);
   });
 });

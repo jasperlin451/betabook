@@ -208,8 +208,15 @@
     {
       "idx": 29,
       "version": "6",
-      "when": 1788566076701,
-      "tag": "0029_clear_toxin",
+      "when": 1788575212878,
+      "tag": "0029_explicit_journal_ascents",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1788578425051,
+      "tag": "0030_product_tours",
       "breakpoints": true
     }
   ]

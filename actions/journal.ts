@@ -8,11 +8,7 @@ import { getAscentEntryId, getClimb, getJournalEntry, getUserSendForClimb } from
 import { journalEntries, sends } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import type { ClimbType } from "@/lib/grades";
-import {
-  validateJournalInput,
-  type JournalEntryInput,
-  type JournalSaveOutcome,
-} from "@/lib/journal";
+import { validateJournalInput, type JournalEntryInput } from "@/lib/journal";
 import { allowJournalWrite } from "@/lib/rate-limit";
 import { validateSendInput, type RawSendInput } from "@/lib/sends";
 import { requireSession } from "@/lib/session";
@@ -91,16 +87,18 @@ async function writeAscent(
 
   await db.batch([
     buildSendInsert(db, { userId, climbId: climb.id, climbType: climb.type, input: sendInput }),
-    buildSentJournalInsert(db, { ...entryValues(userId, input), climbId: climb.id }),
+    buildSentJournalInsert(db, {
+      ...entryValues(userId, input),
+      climbId: climb.id,
+      isAscent: true,
+    }),
   ]);
 
   revalidateJournalSurfaces({ userId, climbIds: [climb.id] });
   revalidateSendSurfaces({ userIds: [userId], climbIds: [climb.id], areaIds: [climb.areaId] });
 }
 
-export async function createJournalEntry(
-  formData: FormData,
-): Promise<ActionResult<JournalSaveOutcome>> {
+export async function createJournalEntry(formData: FormData): Promise<ActionResult> {
   return toActionResult(async () => {
     const session = await requireJournalSession();
     const db = await getDb();
@@ -108,31 +106,28 @@ export async function createJournalEntry(
     const input = validateJournalInput(readJournalFormData(formData));
     const climb = input.climbId === null ? null : await requireClimb(db, input.climbId);
 
-    const existingSend = climb ? await getUserSendForClimb(db, session.user.id, climb.id) : null;
     if (input.sent && climb) {
+      const existingSend = await getUserSendForClimb(db, session.user.id, climb.id);
       if (!existingSend) {
         await writeAscent(db, session.user.id, input, climb, formData);
         refresh();
-        return "ascent" as const;
+        return;
       }
       if (carriesSendFields(formData)) {
         throw new ActionError("A repeat doesn't carry a rating or a grade");
       }
 
       const sentEntries = await getSentJournalEntries(db, session.user.id, [climb.id]);
-      if (sentEntries.length === 0) {
-        const dateSent = existingSend.dateSent ?? input.entryDate;
-        const comment = existingSend.dateSent === null ? input.body : existingSend.comment;
+      if (!sentEntries.some((entry) => entry.isAscent) && existingSend.dateSent !== null) {
+        const dateSent = existingSend.dateSent;
+        const comment = existingSend.comment;
         if (input.entryDate < dateSent) {
           throw new ActionError("A repeat can't be earlier than the recorded ascent");
         }
         const entry = { ...entryValues(session.user.id, input), climbId: climb.id };
         // A dated send can predate the journal rollout. Recover its ascent
         // before the repeat so the original date and note remain authoritative.
-        const entries =
-          existingSend.dateSent === null
-            ? [entry]
-            : [journalEntryFromSend(session.user.id, climb.id, dateSent, comment), entry];
+        const entries = [journalEntryFromSend(session.user.id, climb.id, dateSent, comment), entry];
         try {
           await db.batch([
             buildMirroredSendUpdate(db, {
@@ -157,7 +152,7 @@ export async function createJournalEntry(
           areaIds: [climb.areaId],
         });
         refresh();
-        return "repeat" as const;
+        return;
       }
       assertRepeatDate(sentEntries, input.entryDate);
     }
@@ -180,9 +175,6 @@ export async function createJournalEntry(
       climbIds: climb ? [climb.id] : [],
     });
     refresh();
-    if (input.kind === "training") return "training";
-    if (input.sent) return "repeat";
-    return existingSend ? "session" : "project";
   });
 }
 
@@ -284,8 +276,8 @@ export async function deleteJournalEntry(entryId: number): Promise<ActionResult>
             eq(sends.userId, session.user.id),
             eq(sends.climbId, climbId),
             sql`(SELECT j.id FROM journal_entries j
-            WHERE j.user_id = ${session.user.id} AND j.climb_id = ${climbId} AND j.sent = 1
-            ORDER BY j.entry_date, j.id LIMIT 1) = ${entryId}`,
+            WHERE j.user_id = ${session.user.id} AND j.climb_id = ${climbId} AND j.is_ascent = 1
+            LIMIT 1) = ${entryId}`,
           ),
         ),
         db.delete(journalEntries).where(eq(journalEntries.id, entryId)),

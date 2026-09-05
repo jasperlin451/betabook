@@ -240,13 +240,13 @@ export async function importSends(
 
     for (const { climbId, values } of toUpdate) {
       const climbEntries = existingEntries.get(climbId) ?? [];
-      const ascent = climbEntries[0];
+      const ascent = climbEntries.find((entry) => entry.isAscent);
       if (!values.dateSent) {
         if (ascent) throw new ActionError("A send with journal history must keep its date");
         continue;
       }
+      assertAscentDateChange(climbEntries, values.dateSent);
       if (ascent) {
-        assertAscentDateChange(climbEntries, values.dateSent);
         mirroredEntryIdsByClimb.set(climbId, ascent.id);
         journalUpdates.push({
           id: ascent.id,
