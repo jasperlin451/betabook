@@ -1,10 +1,10 @@
 import { env } from "cloudflare:test";
-import { sql } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { createDb, type Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
 import { seedFixtureSend, seedFixtureUser } from "@/test/fixtures";
+import { explainQueries } from "@/test/query-plans";
 
 import { getArea, type Area } from "./areas";
 import { getSubtreeClimbs, type SubtreeClimbsSort } from "./climbs";
@@ -59,11 +59,12 @@ beforeAll(async () => {
     dateSent: "2026-01-02",
     rating: 3,
   });
-  // Aardvark Wall (id START_ID): 1 send, no rating.
+  // Aardvark Wall: one send rated 2, distinct from Crusher Face (4).
   await seedFixtureSend(db, {
     userId: "test-user-large-area-3",
     climbId: START_ID,
     dateSent: "2026-01-03",
+    rating: 2,
   });
   // Bandit Crack, Driftwood Slab: no sends.
 });
@@ -106,8 +107,8 @@ describe("getSubtreeClimbs on a large-area-shaped subtree", () => {
     const area = await getArea(db, AREA_ID);
     const { climbs } = await largeSubtreeClimbs(area!, "rating_asc");
     expect(climbs.map((c) => c.name)).toEqual([
-      "Crusher Face", // avg 4, the only rated climb
-      "Aardvark Wall",
+      "Aardvark Wall", // avg 2
+      "Crusher Face", // avg 4
       "Bandit Crack",
       "Driftwood Slab",
     ]);
@@ -174,25 +175,14 @@ describe("getSubtreeClimbs on a large-area-shaped subtree", () => {
     });
     expect(result.climbs.map((climb) => climb.name)).toEqual(["Aardvark Wall"]);
 
-    const plan = await db.all<{ detail: string }>(sql`
-      EXPLAIN QUERY PLAN
-      WITH RECURSIVE subtree(id) AS (
-        SELECT ${AREA_ID}
-        UNION ALL
-        SELECT areas.id FROM areas JOIN subtree ON areas.parent_id = subtree.id
-      )
-      SELECT climbs.id
-      FROM climbs INDEXED BY climbs_name_asc_idx
-      JOIN areas ON areas.id = climbs.area_id
-      WHERE climbs.area_id IN (SELECT id FROM subtree)
-        AND EXISTS (
-          SELECT 1 FROM climbs_fts
-          WHERE climbs_fts.rowid = climbs.id
-            AND climbs_fts MATCH ${'"A"*'}
-        )
-      ORDER BY climbs.name ASC, climbs.id
-      LIMIT 51
-    `);
+    const plans = await explainQueries(db, async () =>
+      getSubtreeClimbs(db, { ...area!, largeSubtree: true }, 1, "name_asc", {
+        disciplines: [],
+        name: "A",
+      }),
+    );
+    expect(plans).toHaveLength(1);
+    const [plan] = plans;
     const details = plan.map((row) => row.detail).join("\n");
     expect(details).toContain("climbs_name_asc_idx");
     expect(details).not.toContain("TEMP B-TREE");
@@ -216,19 +206,11 @@ describe("getSubtreeClimbs on a large-area-shaped subtree", () => {
   });
 
   it("the query plan uses the sort-column index, not a full sort of the subtree", async () => {
-    const plan = await db.all<{ detail: string }>(sql`
-      EXPLAIN QUERY PLAN
-      WITH RECURSIVE subtree(id) AS (
-        SELECT ${AREA_ID}
-        UNION ALL
-        SELECT a.id FROM areas a JOIN subtree s ON a.parent_id = s.id
-      )
-      SELECT climbs.id FROM climbs INDEXED BY climbs_send_count_desc_idx
-      JOIN areas ON areas.id = climbs.area_id
-      WHERE climbs.area_id IN (SELECT id FROM subtree)
-      ORDER BY climbs.send_count DESC, climbs.id
-      LIMIT 51 OFFSET 0
-    `);
+    const plans = await explainQueries(db, async () =>
+      largeSubtreeClimbs((await getArea(db, AREA_ID))!),
+    );
+    expect(plans).toHaveLength(1);
+    const [plan] = plans;
     const details = plan.map((row) => row.detail);
     // Scanning the sort index in order, so no sort step and no early stop lost.
     expect(details.some((d) => d.includes("climbs_send_count_desc_idx"))).toBe(true);

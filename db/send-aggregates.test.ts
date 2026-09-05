@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { and, eq, sql } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createDb, type Database } from "@/db/client";
 import { climbs, sends } from "@/db/schema";
@@ -26,6 +26,14 @@ beforeAll(async () => {
   await seedFixtureUser(db, { id: "agg-user-2", name: "Aggregate User Two" });
   await seedFixtureUser(db, { id: "agg-user-3", name: "Aggregate User Three" });
 });
+
+beforeEach(async () => {
+  await db.delete(sends);
+});
+
+async function seedRatings(ratings: (number | null)[]) {
+  for (const [i, rating] of ratings.entries()) await insertSend(`agg-user-${i + 1}`, CLIMB, rating);
+}
 
 async function aggregates(climbId: number) {
   const row = await db
@@ -72,6 +80,7 @@ describe("sends aggregate triggers", () => {
   });
 
   it("counts an insert with a null rating without moving the rating totals", async () => {
+    await seedRatings([4]);
     await insertSend("agg-user-2", CLIMB, null);
     expect(await aggregates(CLIMB)).toEqual({
       sendCount: 2,
@@ -82,6 +91,7 @@ describe("sends aggregate triggers", () => {
   });
 
   it("averages across several rated sends on one climb", async () => {
+    await seedRatings([4, null]);
     await insertSend("agg-user-3", CLIMB, 5);
     expect(await aggregates(CLIMB)).toEqual({
       sendCount: 3,
@@ -92,6 +102,7 @@ describe("sends aggregate triggers", () => {
   });
 
   it("leaves other climbs untouched", async () => {
+    await seedRatings([4, null, 5]);
     expect(await aggregates(OTHER_CLIMB)).toEqual({
       sendCount: 0,
       ratingSum: 0,
@@ -101,6 +112,7 @@ describe("sends aggregate triggers", () => {
   });
 
   it("moves ratingCount up when an update fills in a null rating", async () => {
+    await seedRatings([4, null, 5]);
     await db.update(sends).set({ rating: 3 }).where(sendFor("agg-user-2", CLIMB));
     expect(await aggregates(CLIMB)).toEqual({
       sendCount: 3,
@@ -111,6 +123,7 @@ describe("sends aggregate triggers", () => {
   });
 
   it("swaps one rating for another without touching sendCount or ratingCount", async () => {
+    await seedRatings([4, 3, 5]);
     await db.update(sends).set({ rating: 1 }).where(sendFor("agg-user-3", CLIMB));
     expect(await aggregates(CLIMB)).toEqual({
       sendCount: 3,
@@ -121,6 +134,7 @@ describe("sends aggregate triggers", () => {
   });
 
   it("moves ratingCount down when an update clears a rating", async () => {
+    await seedRatings([4, 3, 1]);
     await db.update(sends).set({ rating: null }).where(sendFor("agg-user-3", CLIMB));
     expect(await aggregates(CLIMB)).toEqual({
       sendCount: 3,
@@ -131,6 +145,7 @@ describe("sends aggregate triggers", () => {
   });
 
   it("ignores an update that doesn't touch the rating", async () => {
+    await seedRatings([4, 3, null]);
     await db.update(sends).set({ ascentStyle: "flash" }).where(sendFor("agg-user-1", CLIMB));
     expect(await aggregates(CLIMB)).toEqual({
       sendCount: 3,
@@ -141,6 +156,7 @@ describe("sends aggregate triggers", () => {
   });
 
   it("moves both climbs when a send changes climb", async () => {
+    await seedRatings([4, 3, null]);
     await db.update(sends).set({ climbId: OTHER_CLIMB }).where(sendFor("agg-user-1", CLIMB));
     expect(await aggregates(CLIMB)).toEqual({
       sendCount: 2,
@@ -154,11 +170,10 @@ describe("sends aggregate triggers", () => {
       ratingCount: 1,
       avgRating: 4,
     });
-    // Put it back so the running totals below stay easy to follow.
-    await db.update(sends).set({ climbId: CLIMB }).where(sendFor("agg-user-1", OTHER_CLIMB));
   });
 
   it("backs a rated send out on delete", async () => {
+    await seedRatings([4, 3, null]);
     await db.delete(sends).where(sendFor("agg-user-1", CLIMB));
     expect(await aggregates(CLIMB)).toEqual({
       sendCount: 2,
@@ -169,6 +184,8 @@ describe("sends aggregate triggers", () => {
   });
 
   it("backs an unrated send out on delete without moving rating totals", async () => {
+    await insertSend("agg-user-2", CLIMB, 3);
+    await insertSend("agg-user-3", CLIMB, null);
     await db.delete(sends).where(sendFor("agg-user-3", CLIMB));
     expect(await aggregates(CLIMB)).toEqual({
       sendCount: 1,
@@ -179,6 +196,7 @@ describe("sends aggregate triggers", () => {
   });
 
   it("returns to zero — and a null average — once every send is gone", async () => {
+    await insertSend("agg-user-2", CLIMB, 3);
     await db.delete(sends).where(sendFor("agg-user-2", CLIMB));
     expect(await aggregates(CLIMB)).toEqual({
       sendCount: 0,

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { OPEN_MOBILE_HELPER_EVENT, openMobileAppHelper } from "@/components/mobile-app-helper";
 
@@ -15,12 +15,14 @@ describe("openMobileAppHelper", () => {
     vi.stubGlobal("window", fakeWindow);
     openMobileAppHelper();
     expect(capturedEventName).toBe(OPEN_MOBILE_HELPER_EVENT);
-    vi.unstubAllGlobals();
   });
 
   it("safely handles server-side execution without window", () => {
     vi.stubGlobal("window", undefined);
     expect(() => openMobileAppHelper()).not.toThrow();
-    vi.unstubAllGlobals();
   });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });

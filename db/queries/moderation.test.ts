@@ -20,8 +20,22 @@ beforeAll(async () => {
   await seedFixtureUser(db, { id: "queries-requester" });
 
   await db.insert(changeRequests).values([
-    { id: 101, type: "area_edit", entityId: 1, payload: "{}", requestedBy: "queries-requester" },
-    { id: 102, type: "climb_delete", entityId: 1, payload: "{}", requestedBy: "queries-requester" },
+    {
+      id: 101,
+      type: "area_edit",
+      entityId: 1,
+      payload: "{}",
+      requestedBy: "queries-requester",
+      requestedAt: new Date(2000),
+    },
+    {
+      id: 102,
+      type: "climb_delete",
+      entityId: 1,
+      payload: "{}",
+      requestedBy: "queries-requester",
+      requestedAt: new Date(1000),
+    },
     {
       id: 103,
       type: "climb_delete",
@@ -49,10 +63,7 @@ describe("getPendingChangeRequests", () => {
   it("only returns pending requests, oldest first", async () => {
     const pending = await getPendingChangeRequests(db);
     const ids = pending.map((r) => r.id);
-    expect(ids).toContain(101);
-    expect(ids).toContain(102);
-    expect(ids).not.toContain(103);
-    expect(ids.indexOf(101)).toBeLessThan(ids.indexOf(102));
+    expect(ids).toEqual([102, 101]);
   });
 });
 
@@ -62,12 +73,12 @@ describe("getChangeRequestApprovals", () => {
     await seedFixtureUser(db, { id: "queries-approver-a" });
     await seedFixtureUser(db, { id: "queries-approver-b" });
     await db.insert(changeRequestApprovals).values([
-      { requestId: 101, userId: "queries-approver-a", createdAt: new Date(1000) },
-      { requestId: 101, userId: "queries-approver-b", createdAt: new Date(2000) },
+      { requestId: 101, userId: "queries-approver-a", createdAt: new Date(2000) },
+      { requestId: 101, userId: "queries-approver-b", createdAt: new Date(1000) },
     ]);
 
     const approvals = await getChangeRequestApprovals(db, 101);
-    expect(approvals.map((a) => a.userId)).toEqual(["queries-approver-a", "queries-approver-b"]);
+    expect(approvals.map((a) => a.userId)).toEqual(["queries-approver-b", "queries-approver-a"]);
   });
 
   it("is empty for a request with no approvals", async () => {

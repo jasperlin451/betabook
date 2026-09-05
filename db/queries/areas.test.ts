@@ -108,7 +108,7 @@ describe("getNearestAncestors", () => {
 });
 
 describe("getAreaBreadcrumbs", () => {
-  it("returns nearest-ancestor breadcrumbs keyed by area id, one lookup per distinct id", async () => {
+  it("returns nearest-ancestor breadcrumbs keyed by distinct area ids", async () => {
     const breadcrumbs = await getAreaBreadcrumbs(db, [4, 3, 4]);
     expect(breadcrumbs[4].map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
     expect(breadcrumbs[3].map((a) => a.name)).toEqual(["Test Crag"]);

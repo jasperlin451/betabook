@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { OG_IMAGE } from "@/lib/site";
+
 import {
+  pageMetadata,
   areaDescription,
   areaTitle,
   breadcrumbJsonLd,
@@ -24,10 +27,10 @@ describe("climbTitle", () => {
     );
   });
 
-  it("omits the parenthetical when the converted scale adds nothing", () => {
+  it("includes the distinct Font conversion even for the easiest grade", () => {
     // VB (index 0) converts to Font "3" — distinct, so it is shown.
     const t = climbTitle({ name: "Slab", type: "boulder", grade: 0 }, "Boulder Field");
-    expect(t.startsWith("Slab · VB")).toBe(true);
+    expect(t).toBe("Slab · VB (3) · Boulder Field");
   });
 });
 
@@ -116,4 +119,38 @@ describe("climbJsonLd", () => {
     expect(page.url).toBe("https://betabook.ca/climbs/1");
     expect(JSON.stringify(page)).not.toContain("AggregateRating");
   });
+});
+
+describe("pageMetadata", () => {
+  it.each([undefined, "article"] as const)(
+    "supplies canonical and complete social metadata for %s",
+    (ogType) => {
+      expect(
+        pageMetadata({
+          title: "Camp 4",
+          description: "Bouldering in Yosemite.",
+          path: "/areas/4/camp-4",
+          ogType,
+        }),
+      ).toEqual({
+        title: "Camp 4",
+        description: "Bouldering in Yosemite.",
+        alternates: { canonical: "/areas/4/camp-4" },
+        openGraph: {
+          type: ogType ?? "website",
+          siteName: "Betabook",
+          title: "Camp 4",
+          description: "Bouldering in Yosemite.",
+          url: "/areas/4/camp-4",
+          images: [OG_IMAGE],
+        },
+        twitter: {
+          card: "summary_large_image",
+          title: "Camp 4",
+          description: "Bouldering in Yosemite.",
+          images: [OG_IMAGE.url],
+        },
+      });
+    },
+  );
 });

@@ -29,13 +29,13 @@ describe("formatGrade", () => {
   });
 
   it("formats a boulder grade in Font when explicitly requested", () => {
-    expect(formatGrade("boulder", 5, "font")).toBe(HUECO_TO_FONT[5]);
+    expect(formatGrade("boulder", 5, "font")).toBe("6B");
     expect(formatGrade("boulder", 5, "font")).not.toBe(BOULDER_HUECO[5]);
   });
 
   it("formats a rope grade in French when explicitly requested", () => {
-    expect(formatGrade("sport", 10, "french")).toBe(YDS_TO_FRENCH[10]);
-    expect(formatGrade("trad", 10, "french")).toBe(YDS_TO_FRENCH[10]);
+    expect(formatGrade("sport", 10, "french")).toBe("6a");
+    expect(formatGrade("trad", 10, "french")).toBe("6a");
   });
 
   it("returns the '—' fallback for an out-of-range grade", () => {
@@ -85,8 +85,8 @@ describe("parseGrade", () => {
   });
 
   it("parses a converted-scale grade when requested", () => {
-    expect(parseGrade("boulder", HUECO_TO_FONT[5], "converted")).toBe(5);
-    expect(parseGrade("sport", YDS_TO_FRENCH[10], "converted")).toBe(10);
+    expect(parseGrade("boulder", "6B", "converted")).toBe(5);
+    expect(parseGrade("sport", "6a", "converted")).toBe(10);
   });
 
   it("resolves an ambiguous converted-scale value to its first matching index", () => {

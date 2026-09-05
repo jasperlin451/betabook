@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { eq, sql } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createDb, type Database } from "@/db/client";
 import { journalEntries, sends, user } from "@/db/schema";
@@ -10,13 +10,15 @@ import {
   seedFixtureTree,
   seedFixtureUser,
 } from "@/test/fixtures";
+import { resetDb } from "@/test/reset-db";
 
 let db: Database;
 
 const CLIMB = 1; // Test Highball, from seedFixtureTree
 
-beforeAll(async () => {
+beforeEach(async () => {
   db = createDb(env.DB);
+  await resetDb(db);
   await seedFixtureTree(db);
   await seedFixtureUser(db, { id: "journal-user", name: "Journal User" });
 });
@@ -140,7 +142,7 @@ async function runBackfill() {
 }
 
 describe("0027 backfill", () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     await seedFixtureUser(db, { id: "backfill-user", name: "Backfill User" });
     await seedFixtureSend(db, {
       userId: "backfill-user",
@@ -178,6 +180,15 @@ describe("0027 backfill", () => {
 
   it("is a no-op on re-application", async () => {
     await runBackfill();
+    const before = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, "backfill-user"));
+    expect(before).toHaveLength(1);
+    await runBackfill();
+    expect(
+      await db.select().from(journalEntries).where(eq(journalEntries.userId, "backfill-user")),
+    ).toEqual(before);
 
     const rows = await db
       .select()

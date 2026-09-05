@@ -50,6 +50,9 @@ describe("climb search filter serialization", () => {
       minAscents: 3,
     };
     const params = climbSearchFilterToSearchParams("grade_desc", filter);
+    expect(params.toString()).toBe(
+      "mode=climb&sort=grade_desc&name=Midnight+Lightning&areaName=Yosemite&discipline=boulder&discipline=sport&boulderRange=2&boulderRange=8&sportRange=1&sportRange=20&ratingRange=2&ratingRange=5&minAscents=3",
+    );
     const record = searchParamsToRecord(params);
 
     expect(parseClimbSearchSort(record)).toBe("grade_desc");

@@ -1,3 +1,4 @@
+import Papa from "papaparse";
 import { describe, expect, it } from "vitest";
 
 import { MAX_COMMENT_LENGTH } from "./sends";
@@ -1234,13 +1235,21 @@ describe("buildFailedRowsCsv", () => {
 
   it("carries a row's original CSV values through unchanged, including unmapped columns", () => {
     const failures: FailedImportRow[] = [
-      { raw: row({ Country: "Canada" }), reason: "Missing climb name" },
+      {
+        raw: row({ Country: "Canada", Climb: 'A "quoted",\nmultiline climb' }),
+        reason: "Missing climb name",
+      },
     ];
     const csvText = buildFailedRowsCsv(SAMPLE_HEADERS, failures);
-    expect(csvText).toContain("I'll Burn the Building Down");
-    expect(csvText).toContain("Office Space");
-    expect(csvText).toContain("Canada"); // Country isn't used by any wizard field, but must still round-trip
-    expect(csvText).toContain("Missing climb name");
+    const parsed = Papa.parse<Record<string, string>>(csvText, {
+      header: true,
+      skipEmptyLines: true,
+    });
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.meta.fields).toEqual([...SAMPLE_HEADERS, "Import Failure Reason"]);
+    expect(parsed.data).toEqual([
+      { ...failures[0].raw, "Import Failure Reason": "Missing climb name" },
+    ]);
   });
 
   it("writes one data row per failure, whatever stage produced it", () => {
@@ -1250,10 +1259,14 @@ describe("buildFailedRowsCsv", () => {
       { raw: row({ Climb: "Ghost Route" }), reason: "No climb with this name" },
       { raw: row({ Climb: "Batch Route" }), reason: "Not imported: network error" },
     ];
-    const lines = buildFailedRowsCsv(SAMPLE_HEADERS, failures).trim().split("\n");
-    expect(lines).toHaveLength(4); // header + 3 data rows
-    expect(lines[2]).toContain("Ghost Route");
-    expect(lines[3]).toContain("Not imported: network error");
+    const parsed = Papa.parse<Record<string, string>>(
+      buildFailedRowsCsv(SAMPLE_HEADERS, failures),
+      { header: true, skipEmptyLines: true },
+    );
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.data).toEqual(
+      failures.map((failure) => ({ ...failure.raw, "Import Failure Reason": failure.reason })),
+    );
   });
 
   it("returns just a header row when there's nothing to export", () => {
