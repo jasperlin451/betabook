@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Betabook PR"
+  short_description: "Test, showcase, and open a Betabook PR"
+  default_prompt: "Use $create-betabook-pr to test this feature, showcase it, and open a pull request."

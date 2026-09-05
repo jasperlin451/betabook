@@ -41,6 +41,7 @@ export function ImportClimbSearchDrawer({
             {target && (
               <ClimbPicker
                 key={target.rowIndex}
+                allowSentClimbs
                 initialName={target.climbName}
                 initialAreaName={target.areaName ?? ""}
                 onPick={(climb, context) => {
@@ -60,7 +61,7 @@ export function ImportClimbSearchDrawer({
  * up, so a hand-picked climb's path can be shorter than a looked-up one's. */
 function toCandidate(
   climb: ClimbWithAreaName,
-  context: { ancestors: { id: number; name: string }[]; sendCount: number },
+  context: { ancestors: { id: number; name: string }[]; sendCount: number; sent: boolean },
 ): ClimbCandidate {
   return {
     id: climb.id,

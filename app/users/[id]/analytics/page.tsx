@@ -1,8 +1,7 @@
-import { ChartColumnIncreasing } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cache } from "react";
 
+import { ProfileHeader, getUserById } from "@/app/users/[id]/profile-shell";
 import { AnalyticsGradePyramid } from "@/components/analytics-grade-pyramid";
 import { StatTiles, type StatTile } from "@/components/analytics-stat-tiles";
 import { AnalyticsYearSelect } from "@/components/analytics-year-select";
@@ -19,9 +18,8 @@ import {
 } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { PageTitle } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
-import { getUser, getUserSendsForAnalytics } from "@/db/queries";
+import { getJournalSessionsForAnalytics, getUserSendsForAnalytics } from "@/db/queries";
 import { formatCount } from "@/lib/format";
 import type { ClimbType } from "@/lib/grades";
 import type { SearchParamsRecord } from "@/lib/search-params";
@@ -34,17 +32,12 @@ import {
   formatMonthLabel,
   parseDisciplineScope,
 } from "@/lib/user-analytics";
-import { canViewUser } from "@/lib/user-visibility";
+import { canViewJournal, canViewUser } from "@/lib/user-visibility";
 
 type UserAnalyticsPageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<SearchParamsRecord>;
 };
-
-const getUserById = cache(async (id: string) => {
-  const db = await getDb();
-  return getUser(db, id);
-});
 
 export async function generateMetadata({ params }: UserAnalyticsPageProps): Promise<Metadata> {
   const { id } = await params;
@@ -64,19 +57,32 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
 
   const [db, user, session] = await Promise.all([getDb(), getUserById(id), getSession()]);
   if (!user) notFound();
-  if (!canViewUser(user, session?.user.id ?? null)) notFound();
+  const viewerId = session?.user.id ?? null;
+  if (!canViewUser(user, viewerId)) notFound();
 
-  const rows = await getUserSendsForAnalytics(db, id);
+  const journalVisible = canViewJournal(user, viewerId);
+  const [rows, journalSessions] = await Promise.all([
+    getUserSendsForAnalytics(db, id),
+    journalVisible
+      ? getJournalSessionsForAnalytics(db, user, viewerId)
+      : Promise.resolve(undefined),
+  ]);
 
   // Grades only compare within one discipline, so the whole page is always
   // scoped to one — the chips only offer disciplines this climber has
   // actually logged, and the default is their most-logged.
-  const present = DISCIPLINE_ORDER.filter((type) => rows.some((row) => row.climbType === type));
-  const dominant = [...present].sort(
-    (a, b) =>
-      rows.filter((row) => row.climbType === b).length -
-      rows.filter((row) => row.climbType === a).length,
-  )[0];
+  const present = DISCIPLINE_ORDER.filter(
+    (type) =>
+      rows.some((row) => row.climbType === type) ||
+      journalSessions?.some((entry) => entry.climbType === type),
+  );
+  const disciplineVolume = (type: ClimbType) =>
+    journalSessions
+      ? journalSessions
+          .filter((entry) => entry.climbType === type)
+          .reduce((total, entry) => total + entry.count, 0)
+      : rows.filter((entry) => entry.climbType === type).length;
+  const dominant = [...present].sort((a, b) => disciplineVolume(b) - disciplineVolume(a))[0];
   const requested = parseDisciplineScope(
     typeof search.discipline === "string" ? search.discipline : undefined,
   );
@@ -85,19 +91,19 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
   if (scope == null) {
     return (
       <div className="flex flex-col gap-6">
-        <AnalyticsHeader id={id} name={user.name} />
-        <EmptyState message="No sends logged yet — analytics appear with the first send." />
+        <ProfileHeader user={user} viewerId={session?.user.id ?? null} />
+        <EmptyState message="No outdoor sessions logged yet — analytics appear with the first session." />
       </div>
     );
   }
 
-  const analytics = buildUserAnalytics(rows, scope);
+  const analytics = buildUserAnalytics(rows, scope, journalSessions);
   const hue = DISCIPLINE_HUE[scope];
 
   const requestedYear = Number(typeof search.year === "string" ? search.year : Number.NaN);
-  const year = analytics.years.includes(requestedYear)
+  const year = analytics.calendarYears.includes(requestedYear)
     ? requestedYear
-    : (analytics.years.at(-1) ?? null);
+    : (analytics.calendarYears.at(-1) ?? null);
 
   // The pyramid has its own year selector — null means all time.
   const requestedPyramidYear = Number(
@@ -132,13 +138,19 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     },
     {
       label: "First try",
-      value: `${Math.round((firstTryCount / analytics.sendCount) * 100)}%`,
-      sub: analytics.hardestFirstTry
-        ? `Hardest: ${analytics.hardestFirstTry.label}`
-        : `${analytics.flashCount} flash · ${analytics.onsightCount} onsight`,
+      value:
+        analytics.sendCount === 0
+          ? "—"
+          : `${Math.round((firstTryCount / analytics.sendCount) * 100)}%`,
+      sub:
+        analytics.sendCount === 0
+          ? "no sends yet"
+          : analytics.hardestFirstTry
+            ? `Hardest: ${analytics.hardestFirstTry.label}`
+            : `${analytics.flashCount} flash · ${analytics.onsightCount} onsight`,
     },
     {
-      label: "Days out",
+      label: journalVisible ? "Days out" : "Sending days",
       value: analytics.daysOut,
       sub: analytics.daysPerMonth != null ? `${analytics.daysPerMonth.toFixed(1)} per month` : null,
     },
@@ -158,7 +170,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     ...(analytics.longestStreak
       ? [
           {
-            label: "Longest streak",
+            label: journalVisible ? "Longest streak" : "Longest send streak",
             value: formatCount(analytics.longestStreak.days, "day"),
             sub: formatMonthLabel(analytics.longestStreak.end.slice(0, 7)),
           },
@@ -167,7 +179,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     ...(analytics.longestLayoff
       ? [
           {
-            label: "Longest layoff",
+            label: journalVisible ? "Longest layoff" : "Longest send gap",
             value: formatDaySpan(analytics.longestLayoff.days),
             sub: `${formatMonthLabel(analytics.longestLayoff.from.slice(0, 7))} – ${formatMonthLabel(analytics.longestLayoff.to.slice(0, 7))}`,
           },
@@ -195,7 +207,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
 
   return (
     <div className="flex flex-col gap-6">
-      <AnalyticsHeader id={id} name={user.name} />
+      <ProfileHeader user={user} viewerId={session?.user.id ?? null} />
 
       {present.length > 1 && (
         <nav aria-label="Discipline" className="flex flex-wrap gap-2">
@@ -288,13 +300,17 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
       <section className={cardClass("fluid")}>
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <Eyebrow>Climbing calendar</Eyebrow>
-            <p className="text-xs text-muted">Sends per day — darker squares, bigger days.</p>
+            <Eyebrow>{journalVisible ? "Outdoor calendar" : "Sending calendar"}</Eyebrow>
+            <p className="text-xs text-muted">
+              {journalVisible
+                ? "Climb sessions per day — darker squares, more routes logged."
+                : "Sends per day — darker squares, bigger days."}
+            </p>
           </div>
-          {analytics.years.length > 1 && (
+          {analytics.calendarYears.length > 1 && (
             <AnalyticsYearSelect
               param="year"
-              years={analytics.years.toReversed()}
+              years={analytics.calendarYears.toReversed()}
               selected={year}
               label="Calendar year"
             />
@@ -302,27 +318,21 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         </div>
         {year == null ? (
           <p className="text-sm text-muted">
-            No dated sends yet — the calendar fills in as sends carry dates.
+            {journalVisible
+              ? "No outdoor sessions yet — the calendar fills in as sessions are logged."
+              : "No dated sends yet — the calendar fills in as sends carry dates."}
           </p>
         ) : (
-          <ClimbingCalendar sendsByDay={analytics.sendsByDay} year={year} hue={hue} />
+          <ClimbingCalendar
+            countsByDay={analytics.calendarCounts}
+            year={year}
+            hue={hue}
+            unit={journalVisible ? "session" : "send"}
+          />
         )}
       </section>
 
       <StatTiles tiles={consistencyTiles} className="grid-cols-2 xl:grid-cols-4" />
-    </div>
-  );
-}
-
-function AnalyticsHeader({ id, name }: { id: string; name: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <Eyebrow icon={ChartColumnIncreasing}>Analytics</Eyebrow>
-      <PageTitle>{name}</PageTitle>
-      <p className="mt-1 text-sm text-muted">
-        Progression, pyramid, and season rhythm from every logged send, at the grades they logged.{" "}
-        <AppLink href={`/users/${id}`}>Back to profile</AppLink>
-      </p>
     </div>
   );
 }

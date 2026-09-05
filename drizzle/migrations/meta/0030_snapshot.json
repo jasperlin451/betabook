@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e6ed4c17-87f2-48ff-a6c9-c2cb53aa7402",
-  "prevId": "6018ffb0-82cb-425f-a307-882a0e1827d5",
+  "id": "7b758e38-7c18-482d-baa1-42f5a9b34e15",
+  "prevId": "ab3fd56e-8236-4b18-b3a6-3793fe497455",
   "tables": {
     "areas": {
       "name": "areas",
@@ -491,6 +491,14 @@
           "autoincrement": false,
           "default": false
         },
+        "journal_visibility": {
+          "name": "journal_visibility",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'private'"
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -724,150 +732,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "admin_area_scopes": {
-      "name": "admin_area_scopes",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "area_id": {
-          "name": "area_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
-        }
-      },
-      "indexes": {
-        "admin_area_scopes_area_idx": {
-          "name": "admin_area_scopes_area_idx",
-          "columns": [
-            "area_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "admin_area_scopes_user_id_user_id_fk": {
-          "name": "admin_area_scopes_user_id_user_id_fk",
-          "tableFrom": "admin_area_scopes",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "admin_area_scopes_area_id_areas_id_fk": {
-          "name": "admin_area_scopes_area_id_areas_id_fk",
-          "tableFrom": "admin_area_scopes",
-          "tableTo": "areas",
-          "columnsFrom": [
-            "area_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "admin_area_scopes_user_id_area_id_pk": {
-          "columns": [
-            "user_id",
-            "area_id"
-          ],
-          "name": "admin_area_scopes_user_id_area_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "change_request_approvals": {
-      "name": "change_request_approvals",
-      "columns": {
-        "request_id": {
-          "name": "request_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "change_request_approvals_request_id_change_requests_id_fk": {
-          "name": "change_request_approvals_request_id_change_requests_id_fk",
-          "tableFrom": "change_request_approvals",
-          "tableTo": "change_requests",
-          "columnsFrom": [
-            "request_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "change_request_approvals_user_id_user_id_fk": {
-          "name": "change_request_approvals_user_id_user_id_fk",
-          "tableFrom": "change_request_approvals",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "change_request_approvals_request_id_user_id_pk": {
-          "columns": [
-            "request_id",
-            "user_id"
-          ],
-          "name": "change_request_approvals_request_id_user_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "change_requests": {
-      "name": "change_requests",
+    "journal_entries": {
+      "name": "journal_entries",
       "columns": {
         "id": {
           "name": "id",
@@ -876,137 +742,163 @@
           "notNull": true,
           "autoincrement": true
         },
-        "type": {
-          "name": "type",
+        "user_id": {
+          "name": "user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "entity_id": {
-          "name": "entity_id",
+        "climb_id": {
+          "name": "climb_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sent": {
+          "name": "sent",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": false
         },
-        "payload": {
-          "name": "payload",
+        "is_ascent": {
+          "name": "is_ascent",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "entry_date": {
+          "name": "entry_date",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "requested_by": {
-          "name": "requested_by",
+        "body": {
+          "name": "body",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "requested_at": {
-          "name": "requested_at",
+        "tags": {
+          "name": "tags",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
           "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
         },
-        "status": {
-          "name": "status",
-          "type": "text",
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'pending'"
-        },
-        "reviewed_by": {
-          "name": "reviewed_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "reviewed_at": {
-          "name": "reviewed_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "review_note": {
-          "name": "review_note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
         }
       },
       "indexes": {
-        "change_requests_status_idx": {
-          "name": "change_requests_status_idx",
+        "journal_user_climb_idx": {
+          "name": "journal_user_climb_idx",
           "columns": [
-            "status"
+            "user_id",
+            "climb_id"
           ],
           "isUnique": false
         },
-        "change_requests_entity_idx": {
-          "name": "change_requests_entity_idx",
+        "journal_climb_idx": {
+          "name": "journal_climb_idx",
           "columns": [
-            "type",
-            "entity_id"
+            "climb_id"
           ],
           "isUnique": false
         },
-        "change_requests_requested_by_idx": {
-          "name": "change_requests_requested_by_idx",
+        "journal_ascent_unique": {
+          "name": "journal_ascent_unique",
           "columns": [
-            "requested_by"
-          ],
-          "isUnique": false
-        },
-        "change_requests_pending_unique": {
-          "name": "change_requests_pending_unique",
-          "columns": [
-            "type",
-            "entity_id",
-            "requested_by"
+            "user_id",
+            "climb_id"
           ],
           "isUnique": true,
-          "where": "status = 'pending'"
+          "where": "\"journal_entries\".\"is_ascent\" = 1"
         }
       },
       "foreignKeys": {
-        "change_requests_requested_by_user_id_fk": {
-          "name": "change_requests_requested_by_user_id_fk",
-          "tableFrom": "change_requests",
+        "journal_entries_user_id_user_id_fk": {
+          "name": "journal_entries_user_id_user_id_fk",
+          "tableFrom": "journal_entries",
           "tableTo": "user",
           "columnsFrom": [
-            "requested_by"
+            "user_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "change_requests_reviewed_by_user_id_fk": {
-          "name": "change_requests_reviewed_by_user_id_fk",
-          "tableFrom": "change_requests",
-          "tableTo": "user",
+        "journal_entries_climb_id_climbs_id_fk": {
+          "name": "journal_entries_climb_id_climbs_id_fk",
+          "tableFrom": "journal_entries",
+          "tableTo": "climbs",
           "columnsFrom": [
-            "reviewed_by"
+            "climb_id"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "set null",
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {}
+      "checkConstraints": {
+        "journal_ascent_shape": {
+          "name": "journal_ascent_shape",
+          "value": "\"journal_entries\".\"is_ascent\" = 0 OR (\"journal_entries\".\"is_ascent\" = 1 AND \"journal_entries\".\"sent\" = 1)"
+        },
+        "journal_kind_valid": {
+          "name": "journal_kind_valid",
+          "value": "\"journal_entries\".\"kind\" IN ('session', 'training')"
+        },
+        "journal_sent_boolean": {
+          "name": "journal_sent_boolean",
+          "value": "\"journal_entries\".\"sent\" IN (0, 1)"
+        },
+        "journal_training_shape": {
+          "name": "journal_training_shape",
+          "value": "\"journal_entries\".\"kind\" <> 'training' OR (\"journal_entries\".\"climb_id\" IS NULL AND \"journal_entries\".\"sent\" = 0)"
+        },
+        "journal_sent_needs_climb": {
+          "name": "journal_sent_needs_climb",
+          "value": "\"journal_entries\".\"sent\" = 0 OR \"journal_entries\".\"climb_id\" IS NOT NULL"
+        },
+        "journal_session_needs_climb": {
+          "name": "journal_session_needs_climb",
+          "value": "\"journal_entries\".\"kind\" <> 'session' OR \"journal_entries\".\"climb_id\" IS NOT NULL"
+        }
+      }
     }
   },
   "views": {},
