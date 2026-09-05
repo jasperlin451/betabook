@@ -32,9 +32,11 @@ jobs:
 
       # setup-node's `cache: pnpm` covers the package store but not pnpm's
       # cache dir, where the minimumReleaseAge verdict from pnpm-workspace.yaml
-      # is recorded. Without it every run re-checks all lockfile entries against
-      # the registry, ~12s. Keyed on the lockfile and the policy, so a
-      # dependency change still gets verified from scratch.
+      # is recorded. Without it every run re-checks all 828 lockfile entries
+      # against the registry. That check overlaps package linking, so restoring
+      # it takes the step from 13.1s to 10.4s rather than saving its full ~12s.
+      # Keyed on the lockfile and the policy, so a dependency change is still
+      # verified from scratch.
       - name: Locate pnpm cache
         id: pnpm-cache
         run: echo "dir=$(pnpm cache path)" >> "$GITHUB_OUTPUT"
@@ -97,9 +99,11 @@ jobs:
 
       # setup-node's `cache: pnpm` covers the package store but not pnpm's
       # cache dir, where the minimumReleaseAge verdict from pnpm-workspace.yaml
-      # is recorded. Without it every run re-checks all lockfile entries against
-      # the registry, ~12s. Keyed on the lockfile and the policy, so a
-      # dependency change still gets verified from scratch.
+      # is recorded. Without it every run re-checks all 828 lockfile entries
+      # against the registry. That check overlaps package linking, so restoring
+      # it takes the step from 13.1s to 10.4s rather than saving its full ~12s.
+      # Keyed on the lockfile and the policy, so a dependency change is still
+      # verified from scratch.
       - name: Locate pnpm cache
         id: pnpm-cache
         run: echo "dir=$(pnpm cache path)" >> "$GITHUB_OUTPUT"
