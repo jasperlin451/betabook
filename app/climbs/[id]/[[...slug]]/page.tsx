@@ -10,7 +10,6 @@ import { GradeWithTrend } from "@/components/climb-list";
 import { ClimbSendList } from "@/components/climb-send-list";
 import { ClimbJournalCard, LogEntryButton } from "@/components/journal";
 import { LoggedGradeHistogram } from "@/components/logged-grade-histogram";
-import { SendActionsMenu } from "@/components/send-actions-menu";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass } from "@/components/ui/card";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
@@ -178,8 +177,7 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
               climb={climb}
               sentClimbIds={userSend ? new Set([climb.id]) : undefined}
             />
-            {userSend && <SendActionsMenu climb={climb} send={userSend} />}
-            <ClimbActionsMenu climb={climb} />
+            <ClimbActionsMenu climb={climb} send={userSend ?? undefined} />
           </div>
         )}
       </div>
