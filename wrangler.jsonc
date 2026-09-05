@@ -21,7 +21,7 @@
     {
       "binding": "DB",
       "database_name": "betabook-db",
-      "database_id": "15af4a85-e36f-4cb6-a310-a0b2cdfe126e",
+      "database_id": "a326796c-69a3-450a-a145-6e3d69fd9079",
       "migrations_dir": "drizzle/migrations",
     },
   ],
