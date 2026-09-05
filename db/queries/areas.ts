@@ -1,4 +1,4 @@
-import { eq, sql, type SQL } from "drizzle-orm";
+import { eq, inArray, sql, type SQL } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
 import { areas } from "@/db/schema";
@@ -320,4 +320,11 @@ export async function countSearchAreas(db: Database, name: string): Promise<numb
     WHERE areas_fts MATCH ${query}
   `);
   return row?.count ?? 0;
+}
+
+/** Batch lookup for the review queue — one IN query for the areas still
+ * needing an approver, instead of one getArea round-trip per row. */
+export async function getAreasByIds(db: Database, ids: number[]): Promise<Area[]> {
+  if (ids.length === 0) return [];
+  return db.select().from(areas).where(inArray(areas.id, ids)).all();
 }

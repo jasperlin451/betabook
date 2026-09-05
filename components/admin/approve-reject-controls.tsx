@@ -7,13 +7,6 @@ import { approveChangeRequest, rejectChangeRequest } from "@/actions";
 
 type ApproveRejectControlsProps = {
   requestId: number;
-  /** The signed-in admin submitted this request themselves — approving is
-   * blocked server-side (their submission already recorded their coverage),
-   * so the button becomes "Withdraw" instead. */
-  isMine: boolean;
-  /** The affected entity is gone — nothing can be applied, only rejected to
-   * clear the queue. */
-  entityGone: boolean;
   /** This admin already approved; the request is waiting on an admin for the
    * remaining area(s). */
   alreadyApproved: boolean;
@@ -24,12 +17,7 @@ type ApproveRejectControlsProps = {
  * reject asks for a one-line reason first. Both re-check scope and pending
  * status server-side — this page already only lists reviewable requests, but
  * a second admin could decide the same one in the meantime. */
-export function ApproveRejectControls({
-  requestId,
-  isMine,
-  entityGone,
-  alreadyApproved,
-}: ApproveRejectControlsProps) {
+export function ApproveRejectControls({ requestId, alreadyApproved }: ApproveRejectControlsProps) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -72,22 +60,14 @@ export function ApproveRejectControls({
     rejectState.setOpen(isOpen);
   }
 
-  const showApprove = !isMine && !entityGone;
-
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="flex items-center gap-2">
-        {isMine && (
-          <span className="text-xs text-muted">Your request — awaiting another admin</span>
-        )}
-        {entityGone && <span className="text-xs text-muted">Target no longer exists</span>}
-        {showApprove && (
-          <Button size="sm" onPress={handleApprove} isDisabled={pending || alreadyApproved}>
-            {alreadyApproved ? "Approved" : "Approve"}
-          </Button>
-        )}
+        <Button size="sm" onPress={handleApprove} isDisabled={pending || alreadyApproved}>
+          {alreadyApproved ? "Approved" : "Approve"}
+        </Button>
         <Button size="sm" variant="outline" onPress={rejectState.open} isDisabled={pending}>
-          {isMine ? "Withdraw" : "Reject"}
+          Reject
         </Button>
       </div>
       {notice && <p className="text-sm text-muted">{notice}</p>}
@@ -97,13 +77,11 @@ export function ApproveRejectControls({
         <AlertDialog.Container placement="center" size="sm">
           <AlertDialog.Dialog>
             <AlertDialog.Header>
-              <AlertDialog.Heading>
-                {isMine ? "Withdraw this request?" : "Reject this request?"}
-              </AlertDialog.Heading>
+              <AlertDialog.Heading>Reject this request?</AlertDialog.Heading>
             </AlertDialog.Header>
             <AlertDialog.Body>
               <TextField value={note} onChange={setNote}>
-                <Label>Reason{isMine ? "" : " (shown to the requester)"}</Label>
+                <Label>Reason (shown to the requester)</Label>
                 <TextArea placeholder="Optional — why this doesn't work…" />
               </TextField>
             </AlertDialog.Body>
@@ -112,7 +90,7 @@ export function ApproveRejectControls({
                 Cancel
               </Button>
               <Button variant="danger" onPress={handleReject} isDisabled={pending}>
-                {isMine ? "Withdraw" : "Reject"}
+                Reject
               </Button>
             </AlertDialog.Footer>
           </AlertDialog.Dialog>
