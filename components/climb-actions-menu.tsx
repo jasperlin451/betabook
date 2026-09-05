@@ -69,7 +69,7 @@ export function ClimbActionsMenu({ climb }: ClimbActionsMenuProps) {
       >
         <Menu.Item id="edit">Request full edit…</Menu.Item>
         <Menu.Item id="move">Move to area…</Menu.Item>
-        <Menu.Item id="merge">Merge into…</Menu.Item>
+        <Menu.Item id="merge">Mark as duplicate…</Menu.Item>
         <Menu.Item id="delete" isDisabled={hasSends} textValue="Delete">
           {hasSends ? (
             // A disabled Menu.Item gets `pointer-events: none`, which would

@@ -34,7 +34,7 @@ export function ClimbMergeDrawer({ climbId, state }: ClimbMergeDrawerProps) {
     // in flight, and catch a self-pick without a server round-trip.
     if (pending) return;
     if (target.id === climbId) {
-      setError("Can't merge a climb into itself");
+      setError("Can't mark a climb as a duplicate of itself");
       return;
     }
     setError(null);
@@ -45,7 +45,7 @@ export function ClimbMergeDrawer({ climbId, state }: ClimbMergeDrawerProps) {
         return;
       }
       if (result.value.status === "pending") {
-        setPendingNotice("An admin needs to approve this before the climbs actually merge.");
+        setPendingNotice("An admin needs to approve this before the duplicate is folded in.");
         return;
       }
       state.close();
@@ -66,7 +66,7 @@ export function ClimbMergeDrawer({ climbId, state }: ClimbMergeDrawerProps) {
       <Drawer.Content>
         <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
           <Drawer.Header>
-            <Drawer.Heading>Merge into another climb</Drawer.Heading>
+            <Drawer.Heading>Mark as a duplicate</Drawer.Heading>
             <Drawer.CloseTrigger />
           </Drawer.Header>
           <Drawer.Body>
@@ -75,12 +75,12 @@ export function ClimbMergeDrawer({ climbId, state }: ClimbMergeDrawerProps) {
             ) : (
               <div className="flex flex-col gap-3">
                 <p className="text-sm text-muted">
-                  This climb and its sends fold into whichever one you pick — it won&apos;t exist
-                  separately once the merge lands.
+                  Pick the climb this one duplicates — this climb and its sends fold into it, and
+                  this page won&apos;t exist separately once that lands.
                 </p>
                 <ClimbPicker onPick={handlePick} />
                 {error && <p className="text-sm text-danger">{error}</p>}
-                {pending && <p className="text-sm text-muted">Merging…</p>}
+                {pending && <p className="text-sm text-muted">Marking as duplicate…</p>}
               </div>
             )}
           </Drawer.Body>
