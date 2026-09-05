@@ -64,9 +64,6 @@ export function DemoJournal() {
   }
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted">
-        Find Alex's gym workout: select Training, then #footwork.
-      </p>
       <SearchField
         aria-label="Search Alex's journal"
         value={query}
@@ -90,15 +87,6 @@ export function DemoJournal() {
           setShowAll(false);
         }}
       />
-      <button
-        type="button"
-        aria-pressed={tag === "footwork"}
-        aria-label="Filter by footwork"
-        onClick={() => toggleTag("footwork")}
-        className={`${choicePillClass(tag === "footwork", "bg-foreground text-background")} self-start`}
-      >
-        #footwork
-      </button>
       {tag && (
         <button
           type="button"
