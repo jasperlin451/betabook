@@ -25,9 +25,8 @@ jobs:
 
       # Installs pnpm, Node, and the dependencies, so there is no separate
       # install step. Caches the store and pnpm's minimumReleaseAge verdict.
-      # Pinned past @v2, which still resolves to v2.0.2: that release has
-      # neither the verdict cache nor require-lockfile, and ignores the
-      # latter with only a warning.
+      # Not @v2 -- that tag still resolves to v2.0.2, which has neither the
+      # verdict cache nor require-lockfile, and only warns on the latter.
       - uses: pnpm/setup@v2.1.0
         with:
           runtime: node@24
@@ -78,9 +77,8 @@ jobs:
 
       # Installs pnpm, Node, and the dependencies, so there is no separate
       # install step. Caches the store and pnpm's minimumReleaseAge verdict.
-      # Pinned past @v2, which still resolves to v2.0.2: that release has
-      # neither the verdict cache nor require-lockfile, and ignores the
-      # latter with only a warning.
+      # Not @v2 -- that tag still resolves to v2.0.2, which has neither the
+      # verdict cache nor require-lockfile, and only warns on the latter.
       - uses: pnpm/setup@v2.1.0
         with:
           runtime: node@24
