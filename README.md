@@ -48,6 +48,16 @@ Stop the dev server before running local database scripts and restart it afterwa
 
 `pnpm seed` creates 400 areas, 5,000 climbs, and 50 synthetic climbers by default, plus sends and journal history covering ascents, repeats, projects, and training. Synthetic accounts start at `climber1@example.com` and use `password` unless a different password is supplied when generating them.
 
+Synthetic climbers repeat these privacy settings in account-number order, so `--users 3` covers every case:
+
+| Account                | Profile and sends | Journal |
+| ---------------------- | ----------------- | ------- |
+| `climber1@example.com` | Public            | Public  |
+| `climber2@example.com` | Private           | Private |
+| `climber3@example.com` | Public            | Private |
+
+Each account has journal history to exercise visibility as its owner, another climber, or a signed-out visitor. Projects remain owner-only for every account. Seeding preserves the development account's privacy preferences.
+
 ```bash
 pnpm seed --email me@example.com --password local-password --name "Local Climber"
 pnpm seed --areas 50 --climbs 500 --users 3 --seed 7 --force
