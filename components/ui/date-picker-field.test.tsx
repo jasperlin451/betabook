@@ -12,16 +12,11 @@ type PickerProps = {
   children: ReactNode;
 };
 
-/** The component renders HeroUI's DatePicker as its root, and the date it
- * binds lives entirely in that element's props — no DOM needed to read them,
- * which the Workers test pool doesn't have. */
+/** Reads the bound props off the element tree — the Workers pool has no DOM. */
 function renderPicker(props: Parameters<typeof DatePickerField>[0]) {
   return (DatePickerField(props) as ReactElement<PickerProps>).props;
 }
 
-/** Depth-first search for the one element of a given type in the tree — the
- * calendar carries its own copy of the bound, so reading the root's props
- * alone would miss it. */
 function findElement(node: ReactNode, type: unknown): ReactElement<PickerProps> | null {
   if (Array.isArray(node)) {
     for (const child of node) {
@@ -53,9 +48,7 @@ describe("DatePickerField", () => {
     expect(renderPicker(baseProps).maxValue).toBeNull();
   });
 
-  // HeroUI's Calendar hands its grid an explicit maxValue defaulting to
-  // 2099-12-31, which beats the one it would inherit from the DatePicker. Miss
-  // this and the field rejects a future date while the grid still offers one.
+  // The grid keeps its own copy of the bound; the root's was never the broken one.
   it.each([
     ["2026-09-05", new CalendarDate(2026, 9, 5)],
     [undefined, null],
@@ -66,8 +59,7 @@ describe("DatePickerField", () => {
     expect(calendar?.props.maxValue).toEqual(expected);
   });
 
-  // The padded case is the one that matters: the forms submit these strings and
-  // the column sorts lexically, so an unpadded month would order wrongly.
+  // The padded case matters: these strings are stored and sorted lexically.
   it.each([
     [new CalendarDate(2026, 8, 12), "2026-08-12"],
     [new CalendarDate(2026, 1, 3), "2026-01-03"],

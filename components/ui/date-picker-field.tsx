@@ -3,8 +3,6 @@
 import { Calendar, DateField, DatePicker, Label } from "@heroui/react";
 import { parseDate, type CalendarDate } from "@internationalized/date";
 
-/** Both forms hold their date as the ISO `YYYY-MM-DD` string they put in
- * FormData, so the conversion lives here rather than at each call site. */
 function toCalendarDate(value: string | undefined): CalendarDate | null {
   if (!value) return null;
   try {
@@ -24,18 +22,9 @@ export type DatePickerFieldProps = {
   isReadOnly?: boolean;
 };
 
-/** The app's date field: a segmented text input plus a calendar popover, both
- * drawn from the theme tokens.
- *
- * `<input type="date">` was the alternative, and its popover is the browser's:
- * a white sheet with a system-blue selection and Chrome's own Clear/Today
- * links, none of which follow the paper/ink themes or re-theme with the
- * palette — and it looks different in every browser. This is HeroUI's
- * DatePicker, so the selected day wears `--accent`, today wears the soft
- * accent, and the popover sits on `--overlay` like every other one.
- *
- * The month heading doubles as a year picker (the native control's only
- * feature this would otherwise drop), which backfilling old sends needs. */
+/** The app's date field: a segmented input plus a calendar popover, themed from
+ * the same tokens as every other surface. A native `<input type="date">` draws
+ * its own popover instead, which no CSS here can reach. */
 export function DatePickerField({ label, value, onChange, max, isReadOnly }: DatePickerFieldProps) {
   const maxDate = toCalendarDate(max);
 
@@ -45,8 +34,7 @@ export function DatePickerField({ label, value, onChange, max, isReadOnly }: Dat
       value={toCalendarDate(value)}
       maxValue={maxDate}
       isReadOnly={isReadOnly}
-      // Segments are padded individually, so an unpadded month and day make the
-      // field's width jump as you tab across it.
+      // Segments are padded individually; unpadded, the field's width jumps.
       shouldForceLeadingZeros
       onChange={(date) => onChange(date?.toString() ?? "")}
     >
@@ -66,10 +54,8 @@ export function DatePickerField({ label, value, onChange, max, isReadOnly }: Dat
         </DateField.Suffix>
       </DateField.Group>
       <DatePicker.Popover>
-        {/* The bound has to be repeated here: HeroUI's Calendar always hands the
-         * grid an explicit maxValue, defaulting to 2099-12-31, which wins over
-         * the one the DatePicker would otherwise supply. Without this the field
-         * rejects a future date but the grid still offers one. */}
+        {/* Not redundant: HeroUI's Calendar always passes its grid an explicit
+         * maxValue, defaulting to 2099-12-31, which overrides the DatePicker's. */}
         <Calendar maxValue={maxDate}>
           <Calendar.Header>
             <Calendar.YearPickerTrigger>
