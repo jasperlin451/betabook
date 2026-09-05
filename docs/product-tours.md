@@ -15,7 +15,7 @@ The Journal tour covers Log, journal filters, Sends sorting, project history, An
 
 The URL owns the current step. Next, Back, profile tabs, the All tutorials menu, refresh, and browser history all resolve through the same step catalog. The persistent route layout loads the feature once and suspends the mobile installation helper while mounted. Each section's local demo state resets when leaving that section.
 
-The guide and demo are separate, nonmodal regions. The demo scrolls independently and has a tab stop for keyboard scrolling. The step heading receives focus, Escape exits, and the close button is always available. Hide tip makes more room without losing navigation; each new step shows its explanation again. Back, Next, and All tutorials stay outside the guide's scrolling text area.
+The guide and demo are separate, nonmodal regions. The demo scrolls independently and has a tab stop for keyboard scrolling. The step heading receives focus, Escape exits, and the close button is always available. Each step shows its explanation directly. Back, Next, and All tutorials stay outside the guide's scrolling text area.
 
 The frame fits below the app header and responds to changes in the visual viewport. New targets scroll into view with space for nearby results. Expanded controls are revealed with the smallest necessary scroll. The target outline follows scrolling and is clipped to the demo pane, so it cannot draw over the guide or app navigation. Missing or offscreen targets hide the outline while the guide stays usable.
 
@@ -34,6 +34,6 @@ Use a version bump only when previous users should receive another invitation. T
 ## Verify changes
 
 - Check invitations, Account replay, Exit, Finish, direct links, refresh, and browser Back/Forward.
-- Check each target at desktop and phone widths in both themes, including scroll, keyboard focus, Escape, short viewports, and Hide tip. The guide and demo must not overlap, including when the step chooser or a demo disclosure is open.
+- Check each target at desktop and phone widths in both themes, including scroll, keyboard focus, Escape, and short viewports. The guide and demo must not overlap, including when the step chooser or a demo disclosure is open.
 - Exercise filters, sorting, project disclosure, chart explanation, and privacy toggles. Check that no sample data or settings reach the real account.
 - Test step/route validation and positioning logic. Keep the existing persistence tests. Run `pnpm check` and the Cloudflare production build before updating the PR.

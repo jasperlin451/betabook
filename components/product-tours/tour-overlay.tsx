@@ -33,7 +33,6 @@ export function TourOverlay({
   pending,
   error,
 }: TourOverlayProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const [showSteps, setShowSteps] = useState(false);
   const step = steps[index];
@@ -63,7 +62,7 @@ export function TourOverlay({
       <div
         role="region"
         aria-label="Product tour"
-        className={`${styles.guide} ${showSteps ? styles.chooser : ""} flex shrink-0 flex-col gap-3 rounded-xl border border-foreground/30 bg-surface p-3 text-foreground ${collapsed && !showSteps ? "min-h-0" : "min-h-40"}`}
+        className={`${styles.guide} ${showSteps ? styles.chooser : ""} flex min-h-40 shrink-0 flex-col gap-3 rounded-xl border border-foreground/30 bg-surface p-3 text-foreground`}
       >
         <div className="flex shrink-0 items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -75,17 +74,6 @@ export function TourOverlay({
             </h2>
           </div>
           <Button
-            size="sm"
-            variant="secondary"
-            aria-expanded={!collapsed}
-            onPress={() => {
-              setCollapsed(!collapsed);
-              setShowSteps(false);
-            }}
-          >
-            {collapsed ? "Show tip" : "Hide tip"}
-          </Button>
-          <Button
             isIconOnly
             size="sm"
             variant="ghost"
@@ -96,37 +84,33 @@ export function TourOverlay({
             <X aria-hidden className="size-4" />
           </Button>
         </div>
-        {(!collapsed || showSteps || error) && (
-          <div className="min-h-0 overflow-y-auto">
-            {!collapsed && !showSteps && (
-              <p className="text-sm leading-relaxed">{step.description}</p>
-            )}
-            {showSteps && (
-              <nav aria-label="Tutorial steps" className="mt-2 flex flex-col gap-1">
-                {steps.map((entry, i) => (
-                  <AppLink
-                    key={entry.id}
-                    href={href(entry.id)}
-                    aria-current={entry.id === step.id ? "step" : undefined}
-                    className="rounded-md px-2 py-2 text-sm text-foreground hover:bg-surface-secondary"
-                  >
-                    {i + 1}. {entry.title}
-                  </AppLink>
-                ))}
-              </nav>
-            )}
-            {error && (
-              <div role="alert" className="mt-2 flex flex-col gap-2 text-sm">
-                <p className="text-danger">{error}</p>
-                {error === SESSION_EXPIRED_MESSAGE ? (
-                  <AppLink href={signInUrl(href(step.id))}>Sign in to finish</AppLink>
-                ) : (
-                  <p>Try finishing again.</p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        <div className="min-h-0 overflow-y-auto">
+          {!showSteps && <p className="text-sm leading-relaxed">{step.description}</p>}
+          {showSteps && (
+            <nav aria-label="Tutorial steps" className="mt-2 flex flex-col gap-1">
+              {steps.map((entry, i) => (
+                <AppLink
+                  key={entry.id}
+                  href={href(entry.id)}
+                  aria-current={entry.id === step.id ? "step" : undefined}
+                  className="rounded-md px-2 py-2 text-sm text-foreground hover:bg-surface-secondary"
+                >
+                  {i + 1}. {entry.title}
+                </AppLink>
+              ))}
+            </nav>
+          )}
+          {error && (
+            <div role="alert" className="mt-2 flex flex-col gap-2 text-sm">
+              <p className="text-danger">{error}</p>
+              {error === SESSION_EXPIRED_MESSAGE ? (
+                <AppLink href={signInUrl(href(step.id))}>Sign in to finish</AppLink>
+              ) : (
+                <p>Try finishing again.</p>
+              )}
+            </div>
+          )}
+        </div>
         <div className="flex shrink-0 items-center justify-between gap-2">
           {index > 0 ? (
             <AppLink
