@@ -6,6 +6,8 @@ export type ProductTourStepDefinition = {
   title: string;
   description: string;
   target: string;
+  introducedInVersion: number;
+  updatedInVersion?: number;
 };
 
 /** Stable targets belong to the view components, never to incidental CSS or text. */
@@ -13,6 +15,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
   journal: [
     {
       id: "journal",
+      introducedInVersion: 1,
       section: "Journal",
       title: "Start in Journal",
       description:
@@ -21,6 +24,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
     },
     {
       id: "journal-filters",
+      introducedInVersion: 1,
       section: "Journal",
       title: "Find an old entry",
       description:
@@ -29,6 +33,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
     },
     {
       id: "sends",
+      introducedInVersion: 1,
       section: "Sends",
       title: "Find your sends",
       description:
@@ -37,6 +42,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
     },
     {
       id: "projects",
+      introducedInVersion: 1,
       section: "Projects",
       title: "Pick up where you left off",
       description:
@@ -45,6 +51,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
     },
     {
       id: "analytics",
+      introducedInVersion: 1,
       section: "Analytics",
       title: "See your progress",
       description:
@@ -53,6 +60,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
     },
     {
       id: "account",
+      introducedInVersion: 1,
       section: "Account",
       title: "Choose what you share",
       description:
@@ -66,10 +74,33 @@ export function findProductTour(id: string) {
   return PRODUCT_TOURS.find((tour) => tour.id === id);
 }
 
-export function productTourPath(tourId: ProductTourId, stepId?: string, from = "journal") {
+/** Completed and dismissed versions both acknowledge their lessons. Zero means a first visit. */
+export function getProductTourSteps(
+  steps: readonly ProductTourStepDefinition[],
+  version: number,
+  acknowledgedVersion = 0,
+) {
+  return steps.filter(
+    (step) =>
+      step.introducedInVersion <= version &&
+      (step.updatedInVersion !== undefined && step.updatedInVersion <= version
+        ? step.updatedInVersion
+        : step.introducedInVersion) > acknowledgedVersion,
+  );
+}
+
+export function productTourPath(
+  tourId: ProductTourId,
+  stepId?: string,
+  from = "journal",
+  updates = false,
+) {
   const steps = PRODUCT_TOUR_STEPS[tourId];
   const step = steps.find((entry) => entry.id === stepId) ?? steps[0];
-  return `/tutorial/${tourId}/${step.id}${from === "account" ? "?from=account" : ""}`;
+  const query = new URLSearchParams();
+  if (from === "account") query.set("from", "account");
+  if (updates && from !== "account") query.set("mode", "updates");
+  return `/tutorial/${tourId}/${step.id}${query.size ? `?${query}` : ""}`;
 }
 
 export function productTourExitPath(userId: string, from: string | null) {

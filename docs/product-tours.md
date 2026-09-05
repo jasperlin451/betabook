@@ -4,9 +4,9 @@ Tours run at `/tutorial/[tourId]/[stepId]` inside the app shell. The page uses A
 
 ## Add a step or feature
 
-1. Add a step to `PRODUCT_TOUR_STEPS` in `lib/product-tour-navigation.ts`: a stable `id`, `section`, `title`, short `description`, and `target`. Keep each callout to one explanation. Do not repeat its text inside the demo.
+1. Add a step to `PRODUCT_TOUR_STEPS` in `lib/product-tour-navigation.ts`: a stable `id`, `section`, `title`, short `description`, `target`, and `introducedInVersion`. Keep each callout to one explanation. Do not repeat its text inside the demo.
 2. Add `data-tour-target="your-target"` to the relevant control or small group in the feature view. Avoid targeting a whole page or a long list. Targets must be visible and unique within the view; do not select them by CSS classes or translated text.
-3. Render the section in the feature's page component. `ProductTourPageProps` supplies its section and `href(stepId)` for links that preserve the replay destination. Reuse the app's layouts and display components. Keep demo controls local and never pass sample IDs to real links or mutation components.
+3. Render the section in the feature's page component. `ProductTourPageProps` supplies its section, the active `steps`, and `href(stepId)` for links that preserve the replay destination. Reuse the app's layouts and display components. Keep demo controls local and never pass sample IDs to real links or mutation components.
 4. For a separate tour, register its metadata in `lib/product-tour.ts`, steps in `PRODUCT_TOUR_STEPS`, and a lazy page loader in `components/product-tours/registry.ts`. The existing route layout handles the rest. An optional quick action beside the invitation belongs in `quick-actions.tsx`.
 
 The Journal tour covers Log, journal filters, Sends sorting, project history, Analytics, and privacy. The sample Log control is a visual reference for the first step, with no click action or popover. Users can log real entries from the invitation's ordinary Log button or their own Journal after leaving the tour.
@@ -29,11 +29,18 @@ Exit returns to Account for Account replay and otherwise to the user's Journal. 
 
 `user_product_tours` stores a version and dismissed/completed status for each user and tour. Existing atomic updates prevent stale tabs from downgrading completed or newer progress. An invitation appears on the owner's Journal when that version has not been dismissed or completed. Account always offers replay; replay does not clear saved progress. Closing a tour does not mark it complete. Loading and completion failures have retry controls.
 
-Use a version bump only when previous users should receive another invitation. This unreleased tour stays on version 1 during the overlay redesign. Adding a new tour ID tracks progress independently and needs no schema change.
+To add lessons after release, bump the tour's `version` and set each new step's `introducedInVersion` to that version. For a substantial change to an existing lesson, set its `updatedInVersion` to the new version while keeping its ID and introduction version. Copy edits do not need a bump. This unreleased tour and its existing steps remain on version 1.
+
+An account that completed or dismissed an older version gets a **What's new** invitation containing only lessons introduced or substantially updated since that saved version. Users who missed several releases see all the additions in catalog order. First-time users see the full tour, including existing accounts that have no tour progress. A version bump without any changed lessons does not produce an invitation.
+
+Update links use `?mode=updates`. The authenticated user's saved version selects the lessons; it is never taken from the URL. Next, Back, the step chooser, counters, and demo section links use that subset. Demo pages should derive section navigation from the supplied `steps`, using the first active step in each section. Refresh and sign-in preserve update mode. A link to an old step in update mode moves to the first eligible step. Already-acknowledged update links fall back to full replay.
+
+**Full tour** switches to all lessons, and Account replay always shows the complete tour. Finishing or dismissing the update saves the current tour version using the existing progress action. Exiting partway through does not acknowledge the update or track individual steps. Adding a separate tour ID tracks progress independently and needs no schema change.
 
 ## Verify changes
 
 - Check invitations, Account replay, Exit, Finish, direct links, refresh, and browser Back/Forward.
 - Check each target at desktop and phone widths in both themes, including scroll, keyboard focus, Escape, and short viewports. The guide and demo must not overlap, including when the step chooser or a demo disclosure is open.
 - Exercise filters, sorting, project disclosure, chart explanation, and privacy toggles. Check that no sample data or settings reach the real account.
+- Test first-time, completed, dismissed, skipped-version, revised-step, and single-step update cases. Check that update navigation stays within its subset and Account replay includes every lesson.
 - Test step/route validation and positioning logic. Keep the existing persistence tests. Run `pnpm check` and the Cloudflare production build before updating the PR.

@@ -7,11 +7,18 @@ export default async function TutorialStart({
   searchParams,
 }: {
   params: Promise<{ tourId: string }>;
-  searchParams: Promise<{ from?: string | string[] }>;
+  searchParams: Promise<{ from?: string | string[]; mode?: string | string[] }>;
 }) {
   const { tourId } = await params;
   const tour = findProductTour(tourId);
   if (!tour) notFound();
-  const { from } = await searchParams;
-  redirect(productTourPath(tour.id, undefined, typeof from === "string" ? from : undefined));
+  const { from, mode } = await searchParams;
+  redirect(
+    productTourPath(
+      tour.id,
+      undefined,
+      typeof from === "string" ? from : undefined,
+      mode === "updates",
+    ),
+  );
 }

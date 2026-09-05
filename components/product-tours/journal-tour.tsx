@@ -25,8 +25,6 @@ import {
   TOUR_DEMO_SENDS,
 } from "@/lib/product-tour-demo";
 
-const SECTIONS = ["Journal", "Sends", "Projects", "Analytics", "Account"];
-
 /** A visual reference to the app's entry point, without a demo action. */
 function DemoLog() {
   return (
@@ -40,17 +38,21 @@ function DemoLog() {
   );
 }
 
-export function JournalTourPage({ section, href }: ProductTourPageProps) {
+export function JournalTourPage({ section, href, steps }: ProductTourPageProps) {
   const isJournal = section === "Journal";
   return (
     <div className="flex flex-col gap-6">
       <ProfileHeading name={TOUR_DEMO_CLIMBER.name} since={2026} action={<DemoLog />} />
       <ProfileSectionNav
-        tabs={SECTIONS.map((label) => ({
-          label,
-          href: href(label.toLowerCase()),
-          current: section === label,
-        }))}
+        tabs={steps
+          .filter(
+            (step, index) => steps.findIndex((entry) => entry.section === step.section) === index,
+          )
+          .map((step) => ({
+            label: step.section,
+            href: href(step.id),
+            current: section === step.section,
+          }))}
       />
       {isJournal || section === "Sends" ? (
         <SidebarLayout

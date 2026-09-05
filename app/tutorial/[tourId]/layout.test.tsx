@@ -3,9 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import TutorialPage from "@/app/tutorial/[tourId]/[stepId]/page";
 import TutorialLayout, { metadata } from "@/app/tutorial/[tourId]/layout";
 import TutorialStart from "@/app/tutorial/[tourId]/page";
+import { getDb } from "@/db/client";
+import { getProductTourState } from "@/db/queries";
 import { getSession } from "@/lib/session";
 
 vi.mock("@/lib/session", () => ({ getSession: vi.fn<typeof getSession>() }));
+vi.mock("@/db/client", () => ({ getDb: vi.fn<typeof getDb>() }));
+vi.mock("@/db/queries", () => ({ getProductTourState: vi.fn<typeof getProductTourState>() }));
 vi.mock("@/components/product-tours/tour-experience", () => ({ TourExperience: () => null }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
@@ -37,6 +41,10 @@ describe("tutorial routes", () => {
   });
 
   it("uses the authenticated account for completion and exit", async () => {
+    vi.mocked(getProductTourState).mockResolvedValue({
+      returning: false,
+      progress: [{ tourId: "journal", version: 1, status: "completed" }],
+    });
     vi.mocked(getSession).mockResolvedValue({ user: { id: "signed-in-owner" } } as Awaited<
       ReturnType<typeof getSession>
     >);
@@ -44,7 +52,8 @@ describe("tutorial routes", () => {
       params: Promise.resolve({ tourId: "journal" }),
       children: null,
     });
-    expect(layout).toMatchObject({ props: { userId: "signed-in-owner" } });
+    expect(getProductTourState).toHaveBeenCalledWith(undefined, "signed-in-owner");
+    expect(layout).toMatchObject({ props: { userId: "signed-in-owner", savedVersion: 1 } });
   });
 
   it("rejects unknown tours and steps while allowing direct links", async () => {
@@ -84,5 +93,21 @@ describe("tutorial routes", () => {
         searchParams: Promise.resolve({ from: "https://example.com" }),
       }),
     ).rejects.toThrow("REDIRECT:/sign-in?next=%2Ftutorial%2Fjournal%2Faccount");
+  });
+
+  it("preserves the update selection through sign-in and root redirects", async () => {
+    vi.mocked(getSession).mockResolvedValue(null);
+    await expect(
+      TutorialPage({
+        params: Promise.resolve({ tourId: "journal", stepId: "sends" }),
+        searchParams: Promise.resolve({ mode: "updates" }),
+      }),
+    ).rejects.toThrow("REDIRECT:/sign-in?next=%2Ftutorial%2Fjournal%2Fsends%3Fmode%3Dupdates");
+    await expect(
+      TutorialStart({
+        params: Promise.resolve({ tourId: "journal" }),
+        searchParams: Promise.resolve({ mode: "updates" }),
+      }),
+    ).rejects.toThrow("REDIRECT:/tutorial/journal/journal?mode=updates");
   });
 });

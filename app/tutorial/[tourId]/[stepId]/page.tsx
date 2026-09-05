@@ -13,15 +13,22 @@ export default async function TutorialPage({
   searchParams,
 }: {
   params: Promise<{ tourId: string; stepId: string }>;
-  searchParams: Promise<{ from?: string | string[] }>;
+  searchParams: Promise<{ from?: string | string[]; mode?: string | string[] }>;
 }) {
   const { tourId, stepId } = await params;
   const tour = findProductTour(tourId);
   if (!tour || !PRODUCT_TOUR_STEPS[tour.id].some((step) => step.id === stepId)) notFound();
   if (!(await getSession())) {
-    const { from } = await searchParams;
+    const { from, mode } = await searchParams;
     redirect(
-      signInUrl(productTourPath(tour.id, stepId, typeof from === "string" ? from : undefined)),
+      signInUrl(
+        productTourPath(
+          tour.id,
+          stepId,
+          typeof from === "string" ? from : undefined,
+          mode === "updates",
+        ),
+      ),
     );
   }
   return null;

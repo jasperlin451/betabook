@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { TourExperience } from "@/components/product-tours/tour-experience";
+import { getDb } from "@/db/client";
+import { getProductTourState } from "@/db/queries";
 import { findProductTour } from "@/lib/product-tour-navigation";
 import { getSession } from "@/lib/session";
 
@@ -21,8 +23,10 @@ export default async function TutorialLayout({
   const session = await getSession();
   // The page has the step and search params needed for the exact sign-in continuation.
   if (!session) return children;
+  const state = await getProductTourState(await getDb(), session.user.id);
+  const savedVersion = state?.progress.find((entry) => entry.tourId === tour.id)?.version ?? 0;
   return (
-    <TourExperience userId={session.user.id} tour={tour}>
+    <TourExperience userId={session.user.id} tour={tour} savedVersion={savedVersion}>
       {children}
     </TourExperience>
   );

@@ -2,7 +2,7 @@
 
 import { Button } from "@heroui/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 
 import { saveProductTourStatus } from "@/actions";
 import { PRODUCT_TOUR_LOADERS } from "@/components/product-tours/registry";
@@ -15,6 +15,7 @@ import { suspendMobileHelper } from "@/lib/mobile-helper-suspension";
 import type { ProductTourDefinition } from "@/lib/product-tour";
 import {
   PRODUCT_TOUR_STEPS,
+  getProductTourSteps,
   productTourExitPath,
   productTourPath,
 } from "@/lib/product-tour-navigation";
@@ -24,16 +25,27 @@ import styles from "@/components/product-tours/tour-layout.module.css";
 export function TourExperience({
   userId,
   tour,
+  savedVersion,
   children,
 }: {
   userId: string;
   tour: ProductTourDefinition;
+  savedVersion: number;
   children: ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const from = useSearchParams().get("from") ?? "journal";
-  const steps = PRODUCT_TOUR_STEPS[tour.id];
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from") ?? "journal";
+  const newSteps = getProductTourSteps(PRODUCT_TOUR_STEPS[tour.id], tour.version, savedVersion);
+  // Already acknowledged update links fall back to replay, rather than an empty guide.
+  const updates =
+    from !== "account" &&
+    searchParams.get("mode") === "updates" &&
+    savedVersion > 0 &&
+    newSteps.length > 0;
+  const steps = updates ? newSteps : getProductTourSteps(PRODUCT_TOUR_STEPS[tour.id], tour.version);
+  const routeKey = `${pathname}:${from}:${updates}`;
   const index = steps.findIndex((step) => pathname.endsWith(`/${step.id}`));
   const [Page, setPage] = useState<ProductTourPage | null>(null);
   const [failed, setFailed] = useState(false);
@@ -45,15 +57,26 @@ export function TourExperience({
   const frame = useRef<HTMLDivElement>(null);
   const height = useTourFrame(frame);
   const exitPath = productTourExitPath(userId, from);
-  const exit = useCallback(() => router.replace(exitPath), [router, exitPath]);
-  const href = useCallback((id: string) => productTourPath(tour.id, id, from), [tour.id, from]);
+  function exit() {
+    router.replace(exitPath);
+  }
+  function href(id: string) {
+    return productTourPath(tour.id, id, from, updates);
+  }
+  const firstPath = href(steps[0].id);
+
+  useEffect(() => {
+    if (index < 0 && PRODUCT_TOUR_STEPS[tour.id].some((step) => pathname.endsWith(`/${step.id}`))) {
+      router.replace(firstPath);
+    }
+  }, [index, pathname, tour.id, router, firstPath]);
 
   useEffect(() => suspendMobileHelper(), []);
   useEffect(
     () => () => {
       completion.current += 1;
     },
-    [pathname],
+    [routeKey],
   );
   useEffect(() => {
     let active = true;
@@ -80,13 +103,13 @@ export function TourExperience({
         const result = await saveProductTourStatus(tour.id, tour.version, "completed");
         if (request !== completion.current) return;
         if (!result.ok) {
-          setError({ path: pathname, message: result.error });
+          setError({ path: routeKey, message: result.error });
           return;
         }
         router.replace(`/users/${userId}/journal`);
       } catch {
         if (request === completion.current)
-          setError({ path: pathname, message: GENERIC_ERROR_MESSAGE });
+          setError({ path: routeKey, message: GENERIC_ERROR_MESSAGE });
       }
     });
   }
@@ -95,7 +118,9 @@ export function TourExperience({
   return (
     <div ref={frame} style={{ height }} className="flex h-[80dvh] flex-col gap-4">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-secondary px-4 py-3 text-sm">
-        <span className="font-medium">Demo account · Product tour</span>
+        <span className="font-medium">
+          Demo account · {updates ? "What's new" : "Product tour"}
+        </span>
         <AppLink href={exitPath} className="text-foreground underline">
           Exit tour
         </AppLink>
@@ -123,11 +148,16 @@ export function TourExperience({
             tabIndex={0}
             className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain rounded-lg p-2 focus-visible:status-focused"
           >
-            <Page key={steps[index].section} section={steps[index].section} href={href} />
+            <Page
+              key={steps[index].section}
+              section={steps[index].section}
+              href={href}
+              steps={steps}
+            />
           </div>
           {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex */}
           <TourOverlay
-            key={steps[index].id}
+            key={`${updates}:${steps[index].id}`}
             steps={steps}
             index={index}
             page={page}
@@ -135,7 +165,8 @@ export function TourExperience({
             exit={exit}
             finish={finish}
             pending={pending}
-            error={error?.path === pathname ? error.message : null}
+            error={error?.path === routeKey ? error.message : null}
+            fullTourHref={updates ? productTourPath(tour.id, undefined, from) : undefined}
           />
         </div>
       ) : (

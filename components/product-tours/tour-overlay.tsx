@@ -21,6 +21,7 @@ type TourOverlayProps = {
   finish: () => void;
   pending: boolean;
   error: string | null;
+  fullTourHref?: string;
 };
 
 export function TourOverlay({
@@ -32,6 +33,7 @@ export function TourOverlay({
   finish,
   pending,
   error,
+  fullTourHref,
 }: TourOverlayProps) {
   const heading = useRef<HTMLHeadingElement>(null);
   const [showSteps, setShowSteps] = useState(false);
@@ -146,11 +148,11 @@ export function TourOverlay({
             aria-expanded={showSteps}
             onPress={() => setShowSteps(!showSteps)}
           >
-            All tutorials
+            {fullTourHref ? "New tutorials" : "All tutorials"}
           </Button>
           {index === steps.length - 1 ? (
             <Button size="sm" className="text-xs" onPress={finish} isDisabled={pending}>
-              {pending ? "Finishing…" : "Finish tour"}
+              {pending ? "Finishing…" : fullTourHref ? "Done" : "Finish tour"}
             </Button>
           ) : (
             <AppLink
@@ -162,6 +164,11 @@ export function TourOverlay({
             </AppLink>
           )}
         </div>
+        {fullTourHref && (
+          <AppLink href={fullTourHref} className="text-xs text-foreground underline">
+            Full tour
+          </AppLink>
+        )}
       </div>
     </>
   );
