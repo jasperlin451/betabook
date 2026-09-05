@@ -6,8 +6,13 @@ import { AppLink } from "@/components/ui/app-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageTitle } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
-import { getAreasByIds, getManagedAreas, getUsersByIds } from "@/db/queries";
-import { changeRequestCoverage, describeChangeRequest, getReviewQueue } from "@/lib/moderation";
+import {
+  getAreasByIds,
+  getManagedAreas,
+  getUsersByIds,
+  REVIEW_QUEUE_PAGE_SIZE,
+} from "@/db/queries";
+import { getReviewQueueDetails } from "@/lib/moderation";
 import { areaHref } from "@/lib/slug";
 
 export const metadata: Metadata = { title: "Review requests" };
@@ -18,28 +23,33 @@ const REQUESTED_AT_FORMAT = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-export default async function AdminRequestsPage() {
+export default async function AdminRequestsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ after?: string; at?: string }>;
+}) {
+  const params = await searchParams;
+  const id = Number(params.after);
+  const requestedAt = Number(params.at);
+  const after =
+    Number.isSafeInteger(id) && id > 0 && Number.isSafeInteger(requestedAt) && requestedAt >= 0
+      ? { id, requestedAt }
+      : undefined;
   const session = await requireAdminOrRedirect();
   const db = await getDb();
 
-  const [managedAreas, queue] = await Promise.all([
+  const [managedAreas, page] = await Promise.all([
     getManagedAreas(db, session.user.id),
-    getReviewQueue(db, session),
+    getReviewQueueDetails(db, session, { after, limit: REVIEW_QUEUE_PAGE_SIZE + 1 }),
   ]);
 
-  // Per-row work reuses what the queue already derived (scope ids) and what
-  // coverage already loaded (approver names); requester names and
-  // missing-area names batch into one IN query each across the whole page —
-  // every query here counts against the Workers subrequest cap.
-  const described = await Promise.all(
-    queue.map(async ({ request, scopeAreaIds }) => {
-      const [description, coverage] = await Promise.all([
-        describeChangeRequest(db, request),
-        changeRequestCoverage(db, request, scopeAreaIds),
-      ]);
-      return { request, description, coverage };
-    }),
-  );
+  const hasMore = page.length > REVIEW_QUEUE_PAGE_SIZE;
+  const described = page.slice(0, REVIEW_QUEUE_PAGE_SIZE);
+  const last = described.at(-1)?.request;
+  const nextHref =
+    hasMore && last
+      ? `/admin/requests?${new URLSearchParams({ after: String(last.id), at: String(last.requestedAt.getTime()) })}`
+      : null;
   const [requesters, missingAreas] = await Promise.all([
     getUsersByIds(db, [...new Set(described.flatMap(({ request }) => request.requestedBy ?? []))]),
     getAreasByIds(db, [...new Set(described.flatMap(({ coverage }) => coverage.missingAreaIds))]),
@@ -134,6 +144,10 @@ export default async function AdminRequestsPage() {
           )}
         </div>
       )}
+      <nav aria-label="Review queue pages" className="flex gap-4 text-sm">
+        {after && <AppLink href="/admin/requests">First requests</AppLink>}
+        {nextHref && <AppLink href={nextHref}>Next requests</AppLink>}
+      </nav>
     </div>
   );
 }

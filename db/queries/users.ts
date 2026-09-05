@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
 import { user, userProductTours } from "@/db/schema";
@@ -11,7 +11,11 @@ export async function getUser(db: Database, id: string) {
  * requester names instead of one getUser round-trip per row. */
 export async function getUsersByIds(db: Database, ids: string[]) {
   if (ids.length === 0) return [];
-  return db.select().from(user).where(inArray(user.id, ids)).all();
+  return db
+    .select({ id: user.id, name: user.name })
+    .from(user)
+    .where(sql`${user.id} IN (SELECT value FROM json_each(${JSON.stringify(ids)}))`)
+    .all();
 }
 
 export async function getProductTourState(db: Database, id: string) {

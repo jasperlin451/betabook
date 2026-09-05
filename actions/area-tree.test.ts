@@ -41,10 +41,6 @@ vi.mock("@/db/client", async (importOriginal) => {
   return {
     ...actual,
     getDb: async () => actual.createDb(env.DB),
-    getDbAndContext: async () => ({
-      db: actual.createDb(env.DB),
-      ctx: { waitUntil: () => {} } as unknown as ExecutionContext,
-    }),
   };
 });
 

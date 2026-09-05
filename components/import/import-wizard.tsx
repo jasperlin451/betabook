@@ -22,6 +22,7 @@ import { PageTitle } from "@/components/ui/typography";
 import type { ClimbCandidate } from "@/db/queries";
 import { downloadCsv } from "@/lib/download";
 import { formatCount } from "@/lib/format";
+import { runImportBatches, type ImportProgress } from "@/lib/import-execution";
 import {
   areaLookupsNeeded,
   distinctClimbNames,
@@ -34,7 +35,7 @@ import {
   type PreferredArea,
   type ResolvedRow,
 } from "@/lib/import-matching";
-import { IMPORT_BATCH_SIZE, RESOLVE_BATCH_SIZE, type ImportSendRow } from "@/lib/sends";
+import { RESOLVE_BATCH_SIZE, type ImportSendRow } from "@/lib/sends";
 import {
   buildFailedRowsCsv,
   deriveSourceColumns,
@@ -121,7 +122,6 @@ const COLUMN_FIELDS: { key: FieldKey; label: string; hint: string }[] = [
   },
 ];
 
-/** The first few values of a column, short enough to sit under its select. */
 function previewText(values: string[]): string {
   return values
     .slice(0, 3)
@@ -163,34 +163,18 @@ const CONFLICT_MODES = [
   { value: "overwrite", label: "Overwrite" },
 ] as const;
 
-type ImportProgress = {
-  completed: number;
-  total: number;
-  imported: number;
-  overwritten: number;
-  alreadyLogged: number;
-  failed: number; // rows from failed batches (importSends commits atomically, so a failed batch wrote nothing)
-  lastError: string | null; // most recent batch error, surfaced while the import is still running
-};
-
-type BatchError = { rows: ResolvedRow[]; message: string };
+type BatchError = { rows: ResolvedRow[]; message: string; uncertain: boolean };
 type WizardResult = Omit<ImportResult, "missing"> & {
   /** Rows whose climb was gone by the time the batch ran. */
   missing: ResolvedRow[];
   batchErrors: BatchError[];
+  duplicates: number;
   /** Rows never sent to the server because the import stopped early. */
   notAttempted: ResolvedRow[];
   stopped: { kind: "cancelled" | "aborted"; message: string } | null;
 };
 
-/** Stop the import once this many batches in a row fail outright — after
- * three, the cause is almost certainly systemic (expired session, network
- * down), and marching through the rest of a large CSV would just fail 80
- * more times. */
-const MAX_CONSECUTIVE_FAILED_BATCHES = 3;
-
-/** The result screen lists at most this many per-row failures inline; the
- * downloadable CSV is always the full record. */
+/** Cap inline rows; the download includes every row needing attention. */
 const MAX_LISTED_FAILURES = 50;
 
 const NOT_ATTEMPTED_MESSAGE = "the import stopped before reaching this row";
@@ -235,8 +219,6 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     warnings: CoercionWarning[];
   } | null>(null);
 
-  // The match step's data: what the server knows about every climb name in
-  // the file, and what the user decided on top of the automatic matching.
   const [candidateIndex, setCandidateIndex] = useState<CandidateIndex | null>(null);
   const [lookup, setLookup] = useState<LookupStatus>({ phase: "done" });
   const lookupRunRef = useRef(0);
@@ -247,19 +229,13 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const [importResult, setImportResult] = useState<WizardResult | null>(null);
 
-  // True when a recognized export skipped the columns and values steps, so
-  // the match step can say so and offer the way back.
   const [autoMapped, setAutoMapped] = useState(false);
 
-  // Cancellation is a ref + state pair: the ref is what the finalize loop
-  // polls between batches (state updates wouldn't be visible inside the
-  // running async closure), the state is what the UI renders.
+  // The running async import reads cancellation from the ref; state updates the UI.
   const cancelRequestedRef = useRef(false);
   const [cancelRequested, setCancelRequested] = useState(false);
 
-  // While batches are in flight, closing or reloading the tab wouldn't roll
-  // anything back — committed batches are kept — but it would silently lose
-  // the progress and the final report, so ask the browser to confirm.
+  // Leaving loses the progress report without rolling back committed batches.
   useEffect(() => {
     if (!pending) return;
     const warn = (e: BeforeUnloadEvent) => {
@@ -286,19 +262,14 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     () => distinctValues(rows, columnMapping?.date ?? null).slice(0, DATE_SAMPLE_SIZE),
     [rows, columnMapping?.date],
   );
-  // KAYA's stand-in for "no date" — see findPlaceholderTimestamps.
   const placeholderDates = useMemo(
     () => findPlaceholderTimestamps(rows, columnMapping?.date ?? null),
     [rows, columnMapping?.date],
   );
   const placeholderRowCount = placeholderDates.reduce((sum, p) => sum + p.count, 0);
 
-  // Most files answer the month-first/day-first question themselves, so the
-  // setting is only shown when this one doesn't — see needsDateFormatChoice.
   const needsDateFormat = useMemo(() => needsDateFormatChoice(dateValues), [dateValues]);
-  // Prefer a value the current setting can't read as the worked example: if
-  // anything in the column is going to fail, that's what the user needs to
-  // see, not the first row that happens to work.
+  // Prefer an unparseable date sample so the preview exposes a problem with the chosen format.
   const dateSample = useMemo(
     () =>
       dateValues.find((v) => parseDateWithFormat(v, dateFormat) === null) ?? dateValues[0] ?? null,
@@ -306,8 +277,6 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
   );
   const dateSamplePreview = dateSample ? parseDateWithFormat(dateSample, dateFormat) : null;
 
-  // The first few values of each column, so a mapping can be checked at a
-  // glance instead of by remembering what the file looked like.
   const columnPreviews = useMemo(() => {
     const previews = new Map<string, string>();
     for (const column of [...(parsedCsv?.headers ?? []), ...(parsedCsv?.derived ?? [])]) {
@@ -316,8 +285,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     return previews;
   }, [parsedCsv?.headers, parsedCsv?.derived, rows]);
 
-  // Matching is the expensive half and never reads the user's choices, so a
-  // pick or skip only re-runs the cheap overlay below.
+  // Manual choices do not affect automatic matching, so cache these separately.
   const matches = useMemo(
     () =>
       normalized && candidateIndex
@@ -331,8 +299,6 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
   );
   const summary = useMemo(() => (resolved ? summarizeResolved(resolved) : null), [resolved]);
 
-  // Every not-imported row, in CSV order. The list is capped at
-  // MAX_LISTED_FAILURES; the downloadable CSV is the full record.
   const failures = useMemo((): (FailedImportRow & { rowIndex: number; label: string | null })[] => {
     if (!importResult || !normalized || !resolved) return [];
     const fromResolved = (r: ResolvedRow, reason: string) => ({
@@ -365,7 +331,9 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
       ),
       ...importResult.missing.map((r) => fromResolved(r, "Climb no longer exists")),
       ...importResult.batchErrors.flatMap((batch) =>
-        batch.rows.map((r) => fromResolved(r, `Not imported: ${batch.message}`)),
+        batch.rows.map((r) =>
+          fromResolved(r, `${batch.uncertain ? "Unconfirmed" : "Not imported"}: ${batch.message}`),
+        ),
       ),
       ...importResult.notAttempted.map((r) =>
         fromResolved(r, `Not imported: ${NOT_ATTEMPTED_MESSAGE}`),
@@ -398,18 +366,15 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
       const detected = detectImportSource(parsed.headers);
       const withDerived = deriveSourceColumns(parsed, detected);
       const mapping = guessColumnMapping([...withDerived.headers, ...withDerived.derived]);
-      // Only KAYA is known to stamp undated sends with the export time, so
-      // only its files start with the cleanup on; elsewhere it's an offer.
+      // KAYA placeholder cleanup defaults on; other sources require the user to choose it.
       const dropPlaceholders = detected === "kaya";
       setParsedCsv(withDerived);
       setSource(detected);
       setColumnMapping(mapping);
       setDropPlaceholderDates(dropPlaceholders);
 
-      // A recognized export has nothing to ask on the columns and values
-      // steps: the preset maps every column and every value it exports.
-      // Both steps stay reachable from the step list for anyone who wants
-      // to change a mapping.
+      // Known formats with required columns mapped can skip ahead.
+      // Column and value mappings remain editable from the step list.
       if (detected !== "unknown" && missingRequiredColumns(mapping).length === 0) {
         const values = guessValueMappings(withDerived, mapping);
         setAscentStyleMapping(values.ascentStyleMapping);
@@ -432,9 +397,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const input = e.target;
     const file = input.files?.[0];
-    // Clear the input right away so picking the same file again still fires
-    // a change event — otherwise a file rejected below couldn't be re-picked
-    // after fixing it.
+    // Clear so selecting the same file again fires change.
     input.value = "";
     if (file) void handleFile(file);
   }
@@ -446,7 +409,6 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     if (file) void handleFile(file);
   }
 
-  /** The values step's starting point for a column mapping. */
   function guessValueMappings(parsed: ParsedCsv, mapping: ColumnMapping) {
     const dateSample = distinctValues(parsed.rows, mapping.date).slice(0, DATE_SAMPLE_SIZE);
     return {
@@ -481,9 +443,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     setStep("values");
   }
 
-  /** Normalizes the rows and moves to the match step, looking up climb
-   * names as it goes. Takes its inputs explicitly rather than from state so
-   * the upload step can call it in the same tick it set that state. */
+  /** Accept explicit inputs because upload can start matching before state updates render. */
   function beginMatching(
     parsed: ParsedCsv,
     mapping: ColumnMapping,
@@ -505,8 +465,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
       },
     );
     setNormalized(result);
-    // Earlier picks were about earlier rows: a changed mapping can move or
-    // remove the rows they pointed at, so they don't carry over.
+    // A remapped file invalidates choices tied to the old normalized rows.
     setManual(new Map());
     setStep("match");
     void runLookup(result.valid, values.gradeScale);
@@ -523,12 +482,8 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     );
   }
 
-  /** Asks the server about every distinct climb name, RESOLVE_BATCH_SIZE at
-   * a time, then again about any name the per-name cap cut short where the
-   * CSV says which area it's in (see areaLookupsNeeded). Progress counts
-   * requests. A run that's been superseded (the user went back and
-   * re-entered the step) writes nothing. `scale` is passed rather than read
-   * from state because the upload step calls this in the tick that sets it. */
+  /** Batch name lookups, then recover capped matches through name-and-area lookups.
+   * Superseded runs cannot update state; scale is explicit for same-tick uploads. */
   async function runLookup(valid: NormalizedImportRow[], scale: GradeScale) {
     lookupRunRef.current += 1;
     const run = lookupRunRef.current;
@@ -544,9 +499,6 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     let total = nameChunks.length;
     setLookup({ phase: "loading", done, total });
 
-    // Each request settles into the shared index, or ends the run: the action
-    // boundary turns server errors into { ok: false }, so a rejection here is
-    // the round-trip itself failing.
     let index: CandidateIndex = new Map();
     const request = async (
       call: () => Promise<{ ok: true; value: ClimbCandidate[] } | { ok: false; error: string }>,
@@ -590,8 +542,6 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
 
   function goBack(target: Step) {
     setError(null);
-    // Visiting either mapping step means the user has seen the mappings; the
-    // "mapped automatically" note would then be stale.
     if (target === "columns" || target === "values") setAutoMapped(false);
     setStep(target);
   }
@@ -604,7 +554,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     const toImport = resolved.filter(
       (r): r is ResolvedRow & { climb: ClimbCandidate } => r.climb !== null,
     );
-    const total = toImport.length;
+    const total = summary?.ready ?? 0;
     setProgress({
       completed: 0,
       total,
@@ -616,74 +566,20 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     });
 
     startTransition(async () => {
-      let imported = 0;
-      let overwritten = 0;
-      let alreadyLogged = 0;
-      let failedRows = 0;
-      let lastError: string | null = null;
-      let consecutiveFailures = 0;
-      let stopped: WizardResult["stopped"] = null;
-      let nextIndex = 0;
-      const missing: ResolvedRow[] = [];
-      const batchErrors: BatchError[] = [];
-
-      while (nextIndex < total) {
-        const batch = toImport.slice(nextIndex, nextIndex + IMPORT_BATCH_SIZE);
-        // The action boundary turns anything thrown server-side into
-        // { ok: false }, so a rejection here is the round-trip itself failing
-        // — offline, or the worker erroring outside the action. Either way
-        // it's the same story for this batch: nothing committed.
-        const result = await importSends(
-          batch.map((r) => toImportSendRow(r, r.climb)),
-          { gradeScale, onConflict },
-        ).catch(() => ({ ok: false, error: "Import failed" }) as const);
-        if (result.ok) {
-          imported += result.value.imported;
-          overwritten += result.value.overwritten;
-          alreadyLogged += result.value.alreadyLogged;
-          missing.push(...result.value.missing.map((i) => batch[i]));
-          consecutiveFailures = 0;
-        } else {
-          // importSends commits each call atomically, so a failed call
-          // means none of this batch's rows were written.
-          batchErrors.push({ rows: batch, message: result.error });
-          failedRows += batch.length;
-          lastError = result.error;
-          consecutiveFailures += 1;
-        }
-        nextIndex += batch.length;
-        setProgress({
-          completed: nextIndex,
-          total,
-          imported,
-          overwritten,
-          alreadyLogged,
-          failed: failedRows,
-          lastError,
-        });
-
-        if (nextIndex >= total) break;
-        if (cancelRequestedRef.current) {
-          stopped = { kind: "cancelled", message: "You cancelled the import." };
-          break;
-        }
-        if (!result.ok && consecutiveFailures >= MAX_CONSECUTIVE_FAILED_BATCHES) {
-          stopped = {
-            kind: "aborted",
-            message: `The import stopped after ${MAX_CONSECUTIVE_FAILED_BATCHES} failed batches in a row. Last error: ${result.error}`,
-          };
-          break;
-        }
-      }
-
+      const result = await runImportBatches(
+        toImport.map((r) => toImportSendRow(r, r.climb)),
+        (batch, batchId) => importSends(batch, { gradeScale, onConflict, batchId }),
+        { onProgress: setProgress, isCancelled: () => cancelRequestedRef.current },
+      );
       setImportResult({
-        imported,
-        overwritten,
-        alreadyLogged,
-        missing,
-        batchErrors,
-        notAttempted: toImport.slice(nextIndex),
-        stopped,
+        ...result,
+        duplicates: result.duplicates.length,
+        missing: result.missing.map((index) => toImport[index]),
+        batchErrors: result.batchErrors.map(({ indices, ...error }) => ({
+          ...error,
+          rows: indices.map((index) => toImport[index]),
+        })),
+        notAttempted: result.notAttempted.map((index) => toImport[index]),
       });
       setStep("result");
     });
@@ -738,7 +634,6 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
   }
 
   const headers = parsedCsv?.headers ?? [];
-  // Mappable columns: the file's own plus any derived for its source.
   const columns = [...headers, ...(parsedCsv?.derived ?? [])];
   const mappedHeaders = new Set(
     columnMapping
@@ -751,8 +646,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     const value = columnMapping[key];
     const preview = value ? columnPreviews.get(value) : null;
     return (
-      // min-w-0: a grid cell otherwise grows to its content's width, and a
-      // long preview line would push the whole column past a phone screen.
+      // Allow the grid cell to shrink below a long preview's intrinsic width.
       <TextField key={key} className="min-w-0">
         <Label>{label}</Label>
         <OptionSelect
@@ -1234,8 +1128,11 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
               <Stat label="Replaced" value={importResult.overwritten} />
             )}
             <Stat label="Already logged" value={importResult.alreadyLogged} />
+            {importResult.duplicates > 0 && (
+              <Stat label="Duplicates skipped" value={importResult.duplicates} />
+            )}
             <Stat
-              label="Not imported"
+              label="Needs attention"
               value={failures.length}
               tone={failures.length > 0 ? "warning" : undefined}
             />
@@ -1244,7 +1141,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
           {failures.length > 0 && (
             <details>
               <summary className="cursor-pointer text-sm text-muted underline decoration-dotted underline-offset-4 hover:text-foreground">
-                View rows that weren&apos;t imported
+                View rows needing attention
               </summary>
               <ul className="mt-2 flex flex-col gap-1 text-xs text-muted">
                 {failures.slice(0, MAX_LISTED_FAILURES).map((item) => (
@@ -1271,7 +1168,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
             )}
             {failures.length > 0 && (
               <Button variant="ghost" onPress={handleDownloadFailedRows}>
-                Download failed rows (CSV)
+                Download rows needing attention (CSV)
               </Button>
             )}
             <Button onPress={reset}>Import another file</Button>

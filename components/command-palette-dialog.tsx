@@ -21,7 +21,7 @@ import { areaHref, climbHref } from "@/lib/slug";
 type PaletteEntry = {
   key: string;
   href: string;
-  /** Plain-text identity, for the a11y announcement of the active row. */
+  /** Plain text for the active-row accessibility announcement. */
   text: string;
   content: React.ReactNode;
 };
@@ -29,13 +29,9 @@ type PaletteEntry = {
 type PaletteSection = {
   heading: string;
   entries: PaletteEntry[];
-  /** Set on the trailing actions group, which has no heading to separate it
-   * from the results above — without a rule it reads as more Areas. */
   divider?: boolean;
 };
 
-/** One "search all X" escape row. Every query has these, so the palette
- * never dead-ends on a suggestion list that missed what you meant. */
 function SearchAllRow({
   entity,
   query,
@@ -43,8 +39,7 @@ function SearchAllRow({
 }: {
   entity: string;
   query: string;
-  /** The platform's modifier+Enter label, on the row that chord triggers.
-   * Null before mount, when the platform isn't known yet. */
+  /** Null before the platform is known on mount. */
   shortcut?: string | null;
 }) {
   return (
@@ -75,14 +70,8 @@ function areaEntry(area: AreaSuggestion): PaletteEntry {
   };
 }
 
-/** The palette's overlay and contents, split from the provider so that
- * `Modal` — and the react-aria overlay machinery behind it — stays out of the
- * bundle every route loads. The provider owns the open state and preloads
- * this on idle, so it is in memory before the first ⌘K.
- *
- * Takes the overlay state as props rather than reading it from context: the
- * provider must be able to render the closed palette without this module
- * present, which means the state has to live above the split. */
+/** Keep overlay dependencies out of the provider's eagerly loaded bundle.
+ * The provider owns open state and preloads this module on idle. */
 export function PaletteDialog({
   isOpen,
   onOpenChange,
@@ -122,8 +111,7 @@ export function PaletteDialog({
   );
 }
 
-/** Mounted fresh by the overlay on each open, so a session starts empty
- * rather than showing the last search's results before the first keystroke. */
+/** Remount on open to reset the previous search. */
 function PaletteBody({
   scopeAreaId,
   scopeAreaName,
@@ -169,17 +157,13 @@ function PaletteBody({
 
     const result: PaletteSection[] = [];
 
-    // Derived from the scoped rows only when they are actually rendered. A
-    // set built from rows nobody can see would still subtract those routes
-    // from "Routes", leaving them reachable from neither section.
+    // Deduplicate only visible scoped results; hidden results must remain reachable globally.
     const showScoped = Boolean(scopeAreaName) && scoped.items.length > 0;
     const scopedIds = new Set(showScoped ? scoped.items.map((route) => route.id) : []);
 
     if (showScoped) {
       result.push({ heading: `In ${scopeAreaName}`, entries: scoped.items.map(routeEntry) });
     }
-    // Scoped matches already appeared above; repeating them under "Routes"
-    // would make the same route two different answers to one query.
     const globalRoutes = routes.items.filter((route) => !scopedIds.has(route.id));
     if (globalRoutes.length > 0) {
       result.push({ heading: "Routes", entries: globalRoutes.map(routeEntry) });
@@ -188,8 +172,6 @@ function PaletteBody({
       result.push({ heading: "Areas", entries: areas.items.map(areaEntry) });
     }
 
-    // Both modes get an escape, since the palette searches both: offering
-    // only the route one would strand anyone whose area isn't in the top few.
     result.push({
       heading: "",
       divider: true,
@@ -214,24 +196,14 @@ function PaletteBody({
 
   const entries = useMemo(() => sections.flatMap((section) => section.entries), [sections]);
 
-  // The highlight is held as the row's own key, not its position. Three
-  // independent lookups settle at different times, so rows appear, reorder
-  // and shift underneath a highlight that has not moved — an index would
-  // then name a different route than the one the user arrowed onto, and
-  // Enter would open the wrong thing.
-  //
-  // Only a new query clears it. Render-time "adjust state when inputs
-  // change" (per the React docs, and the shape use-filter-form-navigation
-  // already uses): an effect would let one frame paint the stale highlight.
+  // Track selection by row key because asynchronous results can reorder the list.
+  // Reset during render on a new query to avoid painting a stale highlight.
   const [prevTrimmed, setPrevTrimmed] = useState(trimmed);
   if (prevTrimmed !== trimmed) {
     setPrevTrimmed(trimmed);
     setActiveKey(null);
   }
 
-  // Falls back to the first row when the highlighted one is gone — nothing
-  // is selected before the first arrow press either, and the top row is what
-  // Enter should take in both cases.
   const foundIndex = activeKey == null ? -1 : entries.findIndex((e) => e.key === activeKey);
   const activeIndex = foundIndex === -1 ? 0 : foundIndex;
 
@@ -262,8 +234,7 @@ function PaletteBody({
   let optionIndex = -1;
 
   return (
-    /* Modal.Dialog caps itself to the visual viewport and clips overflow.
-     * min-h-0 lets this direct flex child shrink so the list can scroll. */
+    // min-h-0 lets the flex child shrink so the list can scroll inside the modal.
     <div className="flex min-h-0 flex-col">
       <div className="flex items-center gap-3 border-b border-separator px-4 py-3">
         <Search className="size-4 shrink-0 text-muted" aria-hidden />
@@ -311,9 +282,6 @@ function PaletteBody({
                 return (
                   <li
                     key={entry.key}
-                    // Keyed by row, not position, so aria-activedescendant
-                    // always resolves to the row that is actually
-                    // highlighted even as late results reorder the list.
                     id={`${optionIdPrefix}-${entry.key}`}
                     role="option"
                     aria-selected={isActive}

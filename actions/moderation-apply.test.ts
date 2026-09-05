@@ -2,6 +2,22 @@ import { env } from "cloudflare:test";
 import { eq, and } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  recordChangeRequestApproval,
+  submitChangeRequest,
+  applyAreaEdit,
+  assertAreaDeletable,
+  applyAreaDelete,
+  assertAreaReparentable,
+  applyAreaReparent,
+  assertClimbMovable,
+  applyClimbMove,
+  applyClimbEdit,
+  assertClimbDeletable,
+  applyClimbDelete,
+  assertClimbMergeable,
+  applyClimbMerge,
+} from "@/actions/moderation-apply";
 import { createDb, type Database } from "@/db/client";
 import { getChangeRequest } from "@/db/queries";
 import { adminAreaScopes, areas, changeRequests, climbs, journalEntries, sends } from "@/db/schema";
@@ -17,29 +33,15 @@ import { resetDb } from "@/test/reset-db";
 vi.mock("next/cache", () => ({ refresh: () => {}, revalidatePath: () => {} }));
 
 import {
-  applyAreaDelete,
-  applyAreaEdit,
-  applyAreaReparent,
-  applyClimbDelete,
-  applyClimbEdit,
-  applyClimbMerge,
-  applyClimbMove,
-  assertAreaDeletable,
-  assertClimbDeletable,
-  assertAreaReparentable,
-  assertClimbMergeable,
-  assertClimbMovable,
   changedFields,
   changeRequestCoverage,
   changeRequestScopeAreaIds,
   describeChangeRequest,
-  getReviewQueue,
+  getReviewQueueDetails,
   isAdminForAllAreas,
   isAdminForAnyArea,
   isAdminForArea,
-  recordChangeRequestApproval,
-  submitChangeRequest,
-} from "./moderation";
+} from "@/lib/moderation";
 
 let db: Database;
 
@@ -374,7 +376,7 @@ describe("changeRequestCoverage", () => {
   });
 });
 
-describe("getReviewQueue", () => {
+describe("getReviewQueueDetails", () => {
   it("only returns pending requests inside the admin's managed areas", async () => {
     await seedFixtureUser(db, { id: "visibility-admin" });
     await seedFixtureUser(db, { id: "visibility-requester" });
@@ -391,14 +393,14 @@ describe("getReviewQueue", () => {
       {},
     );
 
-    const queue = await getReviewQueue(db, {
+    const queue = await getReviewQueueDetails(db, {
       user: { id: "visibility-admin", role: "admin" },
     });
     const visibleIds = queue.map((q) => q.request.id);
     expect(visibleIds).toContain(inScopeId);
     expect(visibleIds).not.toContain(outOfScopeId);
     // The derived scope rides along for downstream coverage checks.
-    expect(queue.find((q) => q.request.id === inScopeId)?.scopeAreaIds).toEqual([4]);
+    expect(queue.find((q) => q.request.id === inScopeId)?.coverage.scopeAreaIds).toEqual([4]);
   });
 
   it("omits the admin's own requests — they can't review them anyway", async () => {
@@ -411,7 +413,7 @@ describe("getReviewQueue", () => {
       name: "My Own Rename",
     });
 
-    const queue = await getReviewQueue(db, {
+    const queue = await getReviewQueueDetails(db, {
       user: { id: "visibility-admin", role: "admin" },
     });
     expect(queue.map((q) => q.request.id)).toEqual([visibleId]);
@@ -428,7 +430,7 @@ describe("getReviewQueue", () => {
       newParentId: 5,
     });
 
-    const queue = await getReviewQueue(db, {
+    const queue = await getReviewQueueDetails(db, {
       user: { id: "destination-only-admin", role: "admin" },
     });
     expect(queue.map((q) => q.request.id)).toContain(id);
@@ -442,7 +444,7 @@ describe("getReviewQueue", () => {
     const id = await submitChangeRequest(db, "climb_delete", 999997, "zombie-requester", {});
     const visibleId = await submitChangeRequest(db, "climb_delete", 2, "zombie-requester", {});
 
-    const queue = await getReviewQueue(db, {
+    const queue = await getReviewQueueDetails(db, {
       user: { id: "zombie-viewer-admin", role: "admin" },
     });
     expect(queue.map((q) => q.request.id)).toEqual([visibleId]);
@@ -457,11 +459,11 @@ describe("getReviewQueue", () => {
       name: "Visible",
     });
     expect(
-      (await getReviewQueue(db, { user: { id: "non-admin-viewer", role: "admin" } })).map(
+      (await getReviewQueueDetails(db, { user: { id: "non-admin-viewer", role: "admin" } })).map(
         (q) => q.request.id,
       ),
     ).toEqual([visibleId]);
-    const queue = await getReviewQueue(db, {
+    const queue = await getReviewQueueDetails(db, {
       user: { id: "non-admin-viewer", role: null },
     });
     expect(queue).toEqual([]);

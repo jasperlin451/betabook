@@ -3,6 +3,23 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import {
+  recordChangeRequestApproval,
+  submitChangeRequest,
+  applyAreaEdit,
+  assertAreaDeletable,
+  applyAreaDelete,
+  assertAreaReparentable,
+  applyAreaReparent,
+  assertClimbMovable,
+  applyClimbMove,
+  applyClimbEdit,
+  assertClimbDeletable,
+  applyClimbDelete,
+  assertClimbMergeable,
+  applyClimbMerge,
+  type MutationDecision,
+} from "@/actions/moderation-apply";
 import type { Database } from "@/db/client";
 import { getDb } from "@/db/client";
 import { getArea, getChangeRequest, getClimb, getUser, type ChangeRequest } from "@/db/queries";
@@ -15,18 +32,6 @@ import {
 } from "@/lib/climbs";
 import { sendChangeRequestDecisionEmail } from "@/lib/email";
 import {
-  applyAreaDelete,
-  applyAreaEdit,
-  applyAreaReparent,
-  applyClimbDelete,
-  applyClimbEdit,
-  applyClimbMerge,
-  applyClimbMove,
-  assertAreaDeletable,
-  assertAreaReparentable,
-  assertClimbDeletable,
-  assertClimbMergeable,
-  assertClimbMovable,
   changedFields,
   changeRequestCoverage,
   changeRequestScopeAreaIds,
@@ -34,9 +39,6 @@ import {
   isAdminForAllAreas,
   isAdminForAnyArea,
   isAdminForArea,
-  recordAdminApply,
-  recordChangeRequestApproval,
-  submitChangeRequest,
   type ChangeRequestDescription,
   type ChangeRequestPayload,
   type ChangeRequestType,
@@ -46,9 +48,8 @@ import { parseId } from "@/lib/parse-id";
 import { isAdmin, requireAdmin, requireSession } from "@/lib/session";
 import { pickFormFields, requireTrimmed } from "@/lib/validation";
 
-// Descriptions are deliberately absent from both edit-request forms: editing
-// one is free and instant for any signed-in user (updateArea/updateClimb),
-// so it never needs a request.
+import { afterCommit } from "./post-commit";
+
 const CLIMB_EDIT_REQUEST_FIELDS = ["name", "type", "grade"] as const;
 
 function readClimbFormData(formData: FormData): RawClimbEditInput {
@@ -57,13 +58,8 @@ function readClimbFormData(formData: FormData): RawClimbEditInput {
 
 type Session = Awaited<ReturnType<typeof requireSession>>;
 
-/** The queue half of every gated action. When the requester is themselves an
- * admin (just not for every involved area — otherwise they'd have bypassed),
- * their submission doubles as their approval for whatever sides they *do*
- * manage: an admin covering the source of a move shouldn't have to approve
- * their own request from the queue, only the destination side still needs an
- * independent admin. Coverage is recomputed live at review time, so the
- * recorded approval only ever counts for areas they actually manage then. */
+/** An admin's submission also records their approval. Other affected areas
+ * still need coverage from their own admins. */
 async function queueChangeRequest<T extends ChangeRequestType>(
   db: Database,
   session: Session,
@@ -76,9 +72,6 @@ async function queueChangeRequest<T extends ChangeRequestType>(
   return { status: "pending" };
 }
 
-/** Requests a rename — the one gated area edit; updateArea covers the
- * description freely. The payload is the *delta* against the area's current
- * name, so a no-op rename is rejected up front. */
 export async function requestAreaEdit(
   areaId: number,
   formData: FormData,
@@ -95,8 +88,12 @@ export async function requestAreaEdit(
     if (Object.keys(delta).length === 0) throw new ActionError("No changes to submit");
 
     if (await isAdminForArea(db, session, areaId)) {
-      await applyAreaEdit(db, areaId, delta);
-      await recordAdminApply(db, "area_edit", areaId, delta, session.user.id);
+      await applyAreaEdit(db, areaId, delta, {
+        type: "area_edit",
+        entityId: areaId,
+        payload: delta,
+        reviewerId: session.user.id,
+      });
       return { status: "applied" };
     }
     return queueChangeRequest(db, session, "area_edit", areaId, delta);
@@ -111,8 +108,12 @@ export async function requestAreaDelete(areaId: number): Promise<ActionResult<Ga
     if (parseId(areaId) === null) throw new ActionError("Area not found");
 
     if (await isAdminForArea(db, session, areaId)) {
-      await applyAreaDelete(db, areaId);
-      await recordAdminApply(db, "area_delete", areaId, {}, session.user.id);
+      await applyAreaDelete(db, areaId, {
+        type: "area_delete",
+        entityId: areaId,
+        payload: {},
+        reviewerId: session.user.id,
+      });
       return { status: "applied" };
     }
 
@@ -121,9 +122,6 @@ export async function requestAreaDelete(areaId: number): Promise<ActionResult<Ga
   });
 }
 
-/** Requests a full edit (name/discipline/grade) — updateClimb covers the
- * description freely; this is the only path to the rest. Stores the delta,
- * like requestAreaEdit. */
 export async function requestClimbEdit(
   climbId: number,
   formData: FormData,
@@ -137,14 +135,25 @@ export async function requestClimbEdit(
 
     const input = validateClimbEditInput(existing, readClimbFormData(formData));
     const delta = changedFields(existing, input);
+    if (delta.type !== undefined) delta.grade = input.grade;
     if (Object.keys(delta).length === 0) throw new ActionError("No changes to submit");
 
+    const payload: ChangeRequestPayload["climb_edit"] = {
+      ...delta,
+      ...(delta.grade !== undefined || delta.type !== undefined
+        ? { expectedType: existing.type }
+        : {}),
+    };
     if (await isAdminForArea(db, session, existing.areaId)) {
-      await applyClimbEdit(db, climbId, delta);
-      await recordAdminApply(db, "climb_edit", climbId, delta, session.user.id);
+      await applyClimbEdit(db, climbId, payload, {
+        type: "climb_edit",
+        entityId: climbId,
+        payload,
+        reviewerId: session.user.id,
+      });
       return { status: "applied" };
     }
-    return queueChangeRequest(db, session, "climb_edit", climbId, delta);
+    return queueChangeRequest(db, session, "climb_edit", climbId, payload);
   });
 }
 
@@ -159,8 +168,12 @@ export async function requestClimbDelete(
     if (!existing) throw new ActionError("Climb not found");
 
     if (await isAdminForArea(db, session, existing.areaId)) {
-      await applyClimbDelete(db, climbId);
-      await recordAdminApply(db, "climb_delete", climbId, {}, session.user.id);
+      await applyClimbDelete(db, climbId, {
+        type: "climb_delete",
+        entityId: climbId,
+        payload: {},
+        reviewerId: session.user.id,
+      });
       return { status: "applied" };
     }
 
@@ -180,15 +193,14 @@ export async function requestAreaReparent(
     if (parseId(areaId) === null) throw new ActionError("Area not found");
     if (parseId(newParentId) === null) throw new ActionError("Parent area not found");
 
-    // Bypass needs both sides — managing only where the area is moving from
-    // or only where it's moving to doesn't get to push it across a boundary
-    // half out of scope. It still queues either way; approvals then
-    // accumulate until an admin has covered each side (see
-    // changeRequestCoverage), starting with the requester's own sides via
-    // queueChangeRequest.
+    // Immediate application requires authority over both source and destination.
     if (await isAdminForAllAreas(db, session, [areaId, newParentId])) {
-      await applyAreaReparent(db, areaId, newParentId);
-      await recordAdminApply(db, "area_reparent", areaId, { newParentId }, session.user.id);
+      await applyAreaReparent(db, areaId, newParentId, {
+        type: "area_reparent",
+        entityId: areaId,
+        payload: { newParentId },
+        reviewerId: session.user.id,
+      });
       return { status: "applied" };
     }
 
@@ -208,11 +220,14 @@ export async function requestClimbMove(
     if (parseId(climbId) === null) throw new ActionError("Climb not found");
     if (parseId(newAreaId) === null) throw new ActionError("Area not found");
 
-    // Same both-sides requirement as requestAreaReparent, above.
     const existing = await getClimb(db, climbId);
     if (existing && (await isAdminForAllAreas(db, session, [existing.areaId, newAreaId]))) {
-      await applyClimbMove(db, climbId, newAreaId);
-      await recordAdminApply(db, "climb_move", climbId, { newAreaId }, session.user.id);
+      await applyClimbMove(db, climbId, newAreaId, {
+        type: "climb_move",
+        entityId: climbId,
+        payload: { newAreaId },
+        reviewerId: session.user.id,
+      });
       return { status: "applied" };
     }
 
@@ -233,24 +248,17 @@ export async function requestClimbMerge(
     if (parseId(sourceClimbId) === null) throw new ActionError("Climb not found");
     if (parseId(targetClimbId) === null) throw new ActionError("Target climb not found");
 
-    // A merge rewrites the target too (its sends, and any overrides), so
-    // bypassing takes both the source's and the target's areas — the same
-    // both-sides rule as a move, of which a merge is the destructive cousin.
+    // A merge changes both climbs, so both areas must be covered.
     const { source, target } = await assertClimbMergeable(db, sourceClimbId, targetClimbId);
-    // `overrides` is client-shaped no matter what its TypeScript type says —
-    // whitelist and validate it before it's stored or applied. applyClimbMerge
-    // re-validates from scratch as defense in depth.
     const validated = validateClimbMergeOverrides(target, overrides);
 
     if (await isAdminForAllAreas(db, session, [source.areaId, target.areaId])) {
-      await applyClimbMerge(db, sourceClimbId, targetClimbId, validated);
-      await recordAdminApply(
-        db,
-        "climb_merge",
-        sourceClimbId,
-        { targetClimbId, overrides: validated },
-        session.user.id,
-      );
+      await applyClimbMerge(db, sourceClimbId, targetClimbId, validated, {
+        type: "climb_merge",
+        entityId: sourceClimbId,
+        payload: { targetClimbId, overrides: validated },
+        reviewerId: session.user.id,
+      });
       return { status: "applied" };
     }
 
@@ -261,22 +269,11 @@ export async function requestClimbMerge(
   });
 }
 
-// --- Review ------------------------------------------------------------------
-
-/** What an approval click did: applied the change (coverage complete) or
- * recorded the approval and left the request pending for an admin of the
- * remaining areas. */
+/** An awaiting decision records a vote but leaves the mutation pending. */
 export type ReviewDecision = { decision: "applied" | "awaiting" };
 
-/** Loads the request and re-checks reviewability for real — the queue page
- * already filters, but a second admin could have decided it (or the entity
- * could be gone) since that page loaded. Shared by approve and reject so the
- * two can't diverge on what "still reviewable" means. Reviewing your own
- * request is blocked outright (your submission already recorded your
- * coverage — see queueChangeRequest — and the queue doesn't list your own
- * rows). A gone entity is only reachable here through a race: the apply
- * functions auto-reject the requests an entity's deletion strands. Returns
- * the derived scope ids so coverage doesn't re-fetch the same entities. */
+/** Recheck status, ownership, and current scope at the action boundary;
+ * the queue may be stale when the reviewer clicks. */
 async function loadReviewableRequest(
   db: Database,
   session: Awaited<ReturnType<typeof requireAdmin>>,
@@ -300,49 +297,41 @@ async function loadReviewableRequest(
   return { request, scopeAreaIds };
 }
 
-// One applier per gated operation, dispatched by `request.type` — a plain
-// record instead of a switch so each case stays a one-liner and adding a
-// type can't accidentally fall through to another's branch. Payloads are
-// re-parsed JSON; applyClimbMerge re-validates its overrides from scratch,
-// and the others' apply functions re-assert every business rule.
 const CHANGE_REQUEST_APPLIERS: Record<
   ChangeRequestType,
-  (db: Database, request: ChangeRequest) => Promise<void>
+  (db: Database, request: ChangeRequest, decision: MutationDecision) => Promise<void>
 > = {
-  area_edit: (db, request) => applyAreaEdit(db, request.entityId, JSON.parse(request.payload)),
-  area_delete: (db, request) => applyAreaDelete(db, request.entityId),
-  area_reparent: (db, request) => {
+  area_edit: (db, request, decision) =>
+    applyAreaEdit(db, request.entityId, JSON.parse(request.payload), decision),
+  area_delete: (db, request, decision) => applyAreaDelete(db, request.entityId, decision),
+  area_reparent: (db, request, decision) => {
     const { newParentId } = JSON.parse(request.payload);
-    return applyAreaReparent(db, request.entityId, newParentId);
+    return applyAreaReparent(db, request.entityId, newParentId, decision);
   },
-  climb_edit: (db, request) => applyClimbEdit(db, request.entityId, JSON.parse(request.payload)),
-  climb_delete: (db, request) => applyClimbDelete(db, request.entityId),
-  climb_move: (db, request) => {
+  climb_edit: (db, request, decision) =>
+    applyClimbEdit(db, request.entityId, JSON.parse(request.payload), decision),
+  climb_delete: (db, request, decision) => applyClimbDelete(db, request.entityId, decision),
+  climb_move: (db, request, decision) => {
     const { newAreaId } = JSON.parse(request.payload);
-    return applyClimbMove(db, request.entityId, newAreaId);
+    return applyClimbMove(db, request.entityId, newAreaId, decision);
   },
-  climb_merge: (db, request) => {
+  climb_merge: (db, request, decision) => {
     const { targetClimbId, overrides } = JSON.parse(request.payload);
-    return applyClimbMerge(db, request.entityId, targetClimbId, overrides);
+    return applyClimbMerge(db, request.entityId, targetClimbId, overrides, decision);
   },
 };
 
-/** Flips pending → approved as a compare-and-set: whoever's UPDATE matches
- * the still-pending row wins; everyone else finds 0 rows changed and gets
- * "already reviewed". This is what makes concurrent reviews safe — claim
- * *before* applying, so the applier can never run twice (see
- * lib/welcome-email.ts for the same claim-first shape). */
+/** Reject only a still-pending request; concurrent decisions must not be overwritten. */
 async function claimDecision(
   db: Database,
   requestId: number,
   reviewerId: string,
-  decision: "approved" | "rejected",
   note: string | null,
 ): Promise<boolean> {
   const claimed = await db
     .update(changeRequests)
     .set({
-      status: decision,
+      status: "rejected",
       reviewedBy: reviewerId,
       reviewedAt: new Date(),
       reviewNote: note,
@@ -352,12 +341,7 @@ async function claimDecision(
   return claimed.length > 0;
 }
 
-/** Best-effort, after the decision already committed: a failed notification
- * shouldn't turn a successful review into a user-facing error the requester
- * has no way to retry. Everything — including the requester lookup — sits
- * inside the try, so a transient DB error here can't surface either. Skipped
- * when the reviewer is the requester (withdrawing your own request isn't
- * news) or the account is gone. */
+/** Notification failures must not turn a committed decision into an action error. */
 async function notifyRequester(
   db: Database,
   request: ChangeRequest,
@@ -372,9 +356,6 @@ async function notifyRequester(
     if (!requester) return;
     await sendChangeRequestDecisionEmail(requester.email, {
       name: requester.name,
-      // The requester's language — for a merge this says "mark as a
-      // duplicate", matching what they actually asked for, while the queue
-      // shows admins the mechanical merge (see ChangeRequestDescription).
       summary: description.requesterSummary,
       details: description.details,
       decision,
@@ -398,39 +379,20 @@ export async function approveChangeRequest(
 
     const coverage = await changeRequestCoverage(db, request, scopeAreaIds);
     if (!coverage.complete) {
-      // Recorded, but an admin for the missing side(s) still has to weigh
-      // in. The request stays pending; the queue page re-renders with the
-      // new approval via the revalidate below. No email either — the
-      // requester can only act on the final decision.
-      revalidatePath("/admin/requests");
+      // Notify the requester only after a final decision.
+      afterCommit(() => revalidatePath("/admin/requests"));
       return { decision: "awaiting" };
     }
 
-    // Captured before applying: for an edit, the details read as
-    // "current value → requested value" — after applying, the entity's
-    // current value already *is* the requested one and the "before" half of
-    // that framing is gone.
+    // Capture the before/after description before the mutation overwrites the old values.
     const description = await describeChangeRequest(db, request);
 
-    if (!(await claimDecision(db, requestId, session.user.id, "approved", null))) {
-      throw new ActionError("This request has already been reviewed");
-    }
-    try {
-      await CHANGE_REQUEST_APPLIERS[request.type](db, request);
-    } catch (err) {
-      // The claim won but the operation itself no longer holds (entity
-      // changed since the queue loaded) — put the request back so it stays
-      // reviewable instead of stranding an approved-but-unapplied row.
-      if (err instanceof ActionError) {
-        await db
-          .update(changeRequests)
-          .set({ status: "pending", reviewedBy: null, reviewedAt: null })
-          .where(eq(changeRequests.id, requestId));
-      }
-      throw err;
-    }
+    await CHANGE_REQUEST_APPLIERS[request.type](db, request, {
+      request,
+      reviewerId: session.user.id,
+    });
 
-    revalidatePath("/admin/requests");
+    afterCommit(() => revalidatePath("/admin/requests"));
     await notifyRequester(db, request, session.user.id, "approved", description, null);
     return { decision: "applied" };
   });
@@ -445,10 +407,10 @@ export async function rejectChangeRequest(requestId: number, note: unknown): Pro
     const trimmedNote = typeof note === "string" ? note.trim().slice(0, 2000) || null : null;
     const description = await describeChangeRequest(db, request);
 
-    if (!(await claimDecision(db, requestId, session.user.id, "rejected", trimmedNote))) {
+    if (!(await claimDecision(db, requestId, session.user.id, trimmedNote))) {
       throw new ActionError("This request has already been reviewed");
     }
-    revalidatePath("/admin/requests");
+    afterCommit(() => revalidatePath("/admin/requests"));
     await notifyRequester(db, request, session.user.id, "rejected", description, trimmedNote);
   });
 }

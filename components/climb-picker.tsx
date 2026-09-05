@@ -17,9 +17,7 @@ import { useClimbSearch } from "@/hooks/use-climb-search";
 import { formatCount } from "@/lib/format";
 import { formatGrade } from "@/lib/grades";
 
-/** Where a result sits, as plain text — these rows are buttons that pick a
- * climb, so the linked <AreaBreadcrumb> every other list uses can't go inside
- * one. Same root-first reading, no navigation. */
+/** Use plain text breadcrumbs because links cannot nest inside a result button. */
 function areaPath(climb: ClimbWithAreaName, areaBreadcrumbs: AreaBreadcrumbs): string {
   return [...(areaBreadcrumbs[climb.areaId] ?? []).map((a) => a.name), climb.areaName].join(" / ");
 }
@@ -38,7 +36,6 @@ function ClimbRow({
   sendCount: number;
   sent: boolean;
   allowSentClimbs: boolean;
-  /** False while these rows answer a superseded query — see ClimbPicker. */
   pickable: boolean;
   onPick: () => void;
 }) {
@@ -70,8 +67,6 @@ function ClimbRow({
     );
   }
 
-  // Not a button at all while stale: nothing to click beats a click that
-  // binds the wrong climb.
   if (!pickable) {
     return (
       <div aria-disabled className="flex w-full items-center justify-between gap-3 px-3 py-2.5">
@@ -94,9 +89,7 @@ function ClimbRow({
   );
 }
 
-/** Seeds for the new-climb form (see app/climbs/new). The discipline only
- * carries when one chip is selected — two or three describe a search, not a
- * climb, and picking one of them for the user would be a guess. */
+/** Only one selected discipline can seed a new climb's type. */
 function newClimbParams(name: string, areaName: string, disciplines: Discipline[]): string {
   const params = new URLSearchParams();
   if (name.trim()) params.set("name", name.trim());
@@ -105,21 +98,13 @@ function newClimbParams(name: string, areaName: string, disciplines: Discipline[
   return params.toString();
 }
 
-/** The total is what tells you a search is too broad to scroll, so past the
- * first page it says so outright rather than leaving "load more" as the only
- * hint that there's more behind it. */
 function resultSummary(matchCount: number, loaded: number): string {
   const matches = formatCount(matchCount, "match", "matches");
   if (matchCount <= loaded) return matches;
   return `${matches} — showing the first ${loaded}. Narrow by area if yours isn't here.`;
 }
 
-/** Binds the climb a send is written against, where the surrounding page
- * isn't about one. A paged result list rather than the `RouteSearchField`
- * typeahead the filters use: a popover's five suggestions have no way past
- * them, and free text isn't an option when the value has to resolve to one
- * specific route. Hence the area field (narrows, matching ancestors), the
- * match total (says when a search is too broad), and "load more". */
+/** Select a concrete climb ID from paginated results; free text cannot identify the send's climb. */
 export function ClimbPicker({
   onPick,
   sentClimbIds,
@@ -127,20 +112,14 @@ export function ClimbPicker({
   initialName = "",
   initialAreaName = "",
 }: {
-  /** `context` is what the result list knew about the row beyond the climb
-   * itself — its ancestor breadcrumbs and ascent count — for callers that
-   * keep the pick around as a described climb (the import wizard) rather
-   * than moving straight on to a form. */
+  /** Carry breadcrumbs and send counts for callers that keep a described selection. */
   onPick: (
     climb: ClimbWithAreaName,
     context: { ancestors: { id: number; name: string }[]; sendCount: number; sent: boolean },
   ) => void;
-  /** Every climb id the viewer has already logged, when known — those rows
-   * are marked and inert instead of failing on submit. */
+  /** Logged climbs are disabled unless allowSentClimbs is set. */
   sentClimbIds?: Set<number>;
   allowSentClimbs?: boolean;
-  /** Seeds for the search fields, where the caller already knows roughly
-   * what's being looked for (a CSV row's climb and area names). */
   initialName?: string;
   initialAreaName?: string;
 }) {
@@ -153,7 +132,6 @@ export function ClimbPicker({
     disciplines,
   });
 
-  // Whether the rows on screen answer the query on screen.
   const current = status === "answered";
 
   const message = {
@@ -196,8 +174,6 @@ export function ClimbPicker({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Route name…"
-            // search-combo-input for the magnifier, so this reads as the same
-            // kind of control as the area combobox beside it.
             className={`${FIELD_CLASS} w-full search-combo-input`}
           />
           <AreaSearchField
@@ -219,9 +195,6 @@ export function ClimbPicker({
         <EmptyState
           message="No climbs match that search."
           cta={
-            // A send needs a climb to hang off, so an unlisted route is a
-            // dead end here without this. The search that just failed seeds
-            // the form, since it's already a description of the climb.
             <AppLink
               href={`/climbs/new?${newClimbParams(name, areaName, disciplines)}`}
               className="text-sm"
@@ -234,9 +207,7 @@ export function ClimbPicker({
 
       {pages != null &&
         pages.climbs.length > 0 && (
-          // Until the new query is answered these rows describe the old one, so
-          // they go dim and inert: picking one would write a send against a
-          // climb the search no longer shows.
+          // Keep stale results inert until the current query is answered.
           <div className={clsx("flex flex-col gap-3", !current && "opacity-50")}>
             <div className="flex flex-col divide-y divide-separator">
               {pages.climbs.map((climb) => (

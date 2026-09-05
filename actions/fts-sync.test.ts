@@ -20,7 +20,7 @@ vi.mock("next/cache", () => ({
 }));
 
 // See mutations.test.ts — stub the session (the real one needs a Next
-// request) and point getDb/getDbAndContext at the test D1 binding.
+// request) and point getDb at the test D1 binding.
 vi.mock("@/lib/session", async () => {
   const { NotSignedInError } = await import("@/lib/action-result");
   return {
@@ -38,10 +38,6 @@ vi.mock("@/db/client", async (importOriginal) => {
   return {
     ...actual,
     getDb: async () => actual.createDb(env.DB),
-    getDbAndContext: async () => ({
-      db: actual.createDb(env.DB),
-      ctx: { waitUntil: () => {} } as unknown as ExecutionContext,
-    }),
   };
 });
 
