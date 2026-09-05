@@ -15,6 +15,7 @@ import {
 import { AppLink } from "@/components/ui/app-link";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import type { JournalEntry, SendableClimb } from "@/db/queries";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
 import { MAX_JOURNAL_BODY_LENGTH, type JournalKind } from "@/lib/journal";
 import type { AscentStyle, GradeFeel } from "@/lib/sends";
 
@@ -24,6 +25,7 @@ type JournalEntryFormProps = {
   hasPriorSend?: boolean;
   existingEntry?: JournalEntry;
   onDone?: () => void;
+  onPendingChange?: (pending: boolean) => void;
 };
 
 function describePendingEntry(input: {
@@ -63,6 +65,7 @@ export function JournalEntryForm({
   hasPriorSend = false,
   existingEntry,
   onDone,
+  onPendingChange,
 }: JournalEntryFormProps) {
   const today = new Intl.DateTimeFormat("en-CA").format(new Date());
 
@@ -86,6 +89,7 @@ export function JournalEntryForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
     setError(null);
 
     const formData = new FormData();
@@ -109,17 +113,24 @@ export function JournalEntryForm({
       formData.set("comment", body);
     }
 
+    onPendingChange?.(true);
     startTransition(async () => {
-      const result = existingEntry
-        ? await updateJournalEntry(existingEntry.id, formData)
-        : isUndatedSend
-          ? await createUndatedSend(formData)
-          : await createJournalEntry(formData);
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      try {
+        const result = existingEntry
+          ? await updateJournalEntry(existingEntry.id, formData)
+          : isUndatedSend
+            ? await createUndatedSend(formData)
+            : await createJournalEntry(formData);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        onDone?.();
+      } catch {
+        setError(GENERIC_ERROR_MESSAGE);
+      } finally {
+        onPendingChange?.(false);
       }
-      onDone?.();
     });
   }
 
@@ -204,7 +215,8 @@ export function JournalEntryForm({
 
         {(isAscent || existingEntry?.isAscent) && (
           <p className="text-xs text-muted">
-            This note also appears on your send and follows your profile privacy settings.
+            This note also appears on your send and follows your profile privacy settings, even if
+            your journal is private.
           </p>
         )}
         {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}

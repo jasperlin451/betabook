@@ -1,9 +1,8 @@
 import { cache } from "react";
 
 import { LogEntryButton } from "@/components/journal";
+import { ProfileHeading } from "@/components/profile-heading";
 import { ProfileTabs } from "@/components/profile-tabs";
-import { Eyebrow } from "@/components/ui/eyebrow";
-import { PageTitle } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
 import { getUser } from "@/db/queries";
 import { canViewJournal } from "@/lib/user-visibility";
@@ -32,20 +31,11 @@ export async function ProfileHeader({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <Eyebrow>Climber</Eyebrow>
-          <PageTitle>{user.name}</PageTitle>
-          <span className="mt-1 text-sm text-muted">
-            Active since {new Date(user.createdAt).getFullYear()}
-          </span>
-        </div>
-        {isOwner && (
-          <div className="sm:shrink-0">
-            <LogEntryButton />
-          </div>
-        )}
-      </div>
+      <ProfileHeading
+        name={user.name}
+        since={new Date(user.createdAt).getFullYear()}
+        action={isOwner ? <LogEntryButton /> : undefined}
+      />
 
       <ProfileTabs
         userId={user.id}

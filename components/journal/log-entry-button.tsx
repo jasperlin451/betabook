@@ -10,16 +10,24 @@ type LogEntryButtonProps = {
   climb?: SendableClimb & { name: string };
   sentClimbIds?: Set<number>;
   fullWidth?: boolean;
+  label?: string;
+  variant?: "outline";
 };
 
-export function LogEntryButton({ climb, sentClimbIds, fullWidth }: LogEntryButtonProps) {
+export function LogEntryButton({
+  climb,
+  sentClimbIds,
+  fullWidth,
+  label = "Log",
+  variant,
+}: LogEntryButtonProps) {
   const state = useOverlayState();
 
   return (
     <>
-      <Button fullWidth={fullWidth} onPress={state.open} className="gap-2">
+      <Button variant={variant} fullWidth={fullWidth} onPress={state.open} className="gap-2">
         <CirclePlus className="size-5" />
-        Log
+        {label}
       </Button>
       <JournalEntryDrawer climb={climb} sentClimbIds={sentClimbIds} state={state} />
     </>

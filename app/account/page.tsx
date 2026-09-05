@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { ExportSendsButton } from "@/components/export-sends-button";
 import { PrivacyControls } from "@/components/privacy-controls";
+import { ProductTour } from "@/components/product-tour";
 import { ResetPasswordButton } from "@/components/reset-password-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeSelect } from "@/components/theme-select";
@@ -106,6 +107,13 @@ export default async function AccountPage() {
             Import sends
           </AppLink>
           <ExportSendsButton userId={session.user.id} />
+        </AccountSection>
+
+        <AccountSection
+          title="Getting started"
+          description="Learn how sessions, sends, projects, and training fit together."
+        >
+          <ProductTour />
         </AccountSection>
 
         <AccountSection title="Security" description="Manage your password and current session.">
