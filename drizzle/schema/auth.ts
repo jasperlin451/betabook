@@ -24,6 +24,9 @@ export const user = sqliteTable("user", {
   journalVisibility: text("journal_visibility", { enum: ["private", "public"] })
     .default("private")
     .notNull(),
+  productTourReturning: integer("product_tour_returning", { mode: "boolean" })
+    .default(false)
+    .notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),
