@@ -18,14 +18,13 @@ const baseClimb: Climb = {
 };
 
 describe("validateClimbEditInput", () => {
-  const raw = { name: "Renamed", type: "sport", grade: "8", description: "New" };
+  const raw = { name: "Renamed", type: "sport", grade: "8" };
 
-  it("accepts a discipline change while the climb has no sends", () => {
+  it("accepts a discipline change while the climb has no sends — description isn't part of it", () => {
     expect(validateClimbEditInput(baseClimb, raw)).toEqual({
       name: "Renamed",
       type: "sport",
       grade: 8,
-      description: "New",
     });
   });
 
@@ -41,7 +40,14 @@ describe("validateClimbEditInput", () => {
         { ...baseClimb, sendCount: 2 },
         { ...raw, type: "boulder", grade: "5" },
       ),
-    ).toEqual({ name: "Renamed", type: "boulder", grade: 5, description: "New" });
+    ).toEqual({ name: "Renamed", type: "boulder", grade: 5 });
+  });
+
+  it("parses the grade against the requested discipline's scale", () => {
+    // Grade 20 exists for ropes (5.11a) but is out of range for boulders.
+    expect(() =>
+      validateClimbEditInput(baseClimb, { ...raw, type: "boulder", grade: "20" }),
+    ).toThrow("Invalid grade");
   });
 });
 

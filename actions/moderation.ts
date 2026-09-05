@@ -8,11 +8,10 @@ import { getDb } from "@/db/client";
 import { getArea, getChangeRequest, getClimb, type ChangeRequest } from "@/db/queries";
 import { changeRequests } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
-import { validateAreaInput, type RawAreaInput } from "@/lib/areas";
 import {
   validateClimbEditInput,
   validateClimbMergeOverrides,
-  type RawClimbInput,
+  type RawClimbEditInput,
 } from "@/lib/climbs";
 import {
   applyAreaDelete,
@@ -42,16 +41,14 @@ import {
 } from "@/lib/moderation";
 import { parseId } from "@/lib/parse-id";
 import { isAdmin, requireAdmin, requireSession } from "@/lib/session";
-import { pickFormFields } from "@/lib/validation";
+import { pickFormFields, requireTrimmed } from "@/lib/validation";
 
-const AREA_EDIT_REQUEST_FIELDS = ["name", "description"] as const;
-const CLIMB_EDIT_REQUEST_FIELDS = ["name", "type", "grade", "description"] as const;
+// Descriptions are deliberately absent from both edit-request forms: editing
+// one is free and instant for any signed-in user (updateArea/updateClimb),
+// so it never needs a request.
+const CLIMB_EDIT_REQUEST_FIELDS = ["name", "type", "grade"] as const;
 
-function readAreaFormData(formData: FormData): RawAreaInput {
-  return pickFormFields(formData, AREA_EDIT_REQUEST_FIELDS);
-}
-
-function readClimbFormData(formData: FormData): RawClimbInput {
+function readClimbFormData(formData: FormData): RawClimbEditInput {
   return pickFormFields(formData, CLIMB_EDIT_REQUEST_FIELDS);
 }
 
@@ -76,10 +73,9 @@ async function queueChangeRequest<T extends ChangeRequestType>(
   return { status: "pending" };
 }
 
-/** Requests a full edit (name/description for areas) — updateArea only ever
- * touches description; this is the only path to a rename. The payload is the
- * *delta* against the area's current fields, so approving later can't
- * clobber anything the request didn't mean to change. */
+/** Requests a rename — the one gated area edit; updateArea covers the
+ * description freely. The payload is the *delta* against the area's current
+ * name, so a no-op rename is rejected up front. */
 export async function requestAreaEdit(
   areaId: number,
   formData: FormData,
@@ -91,8 +87,8 @@ export async function requestAreaEdit(
     const existing = parseId(areaId) === null ? undefined : await getArea(db, areaId);
     if (!existing) throw new ActionError("Area not found");
 
-    const input = validateAreaInput(readAreaFormData(formData));
-    const delta = changedFields(existing, input);
+    const name = requireTrimmed(formData.get("name"), "Name");
+    const delta = changedFields(existing, { name });
     if (Object.keys(delta).length === 0) throw new ActionError("No changes to submit");
 
     if (await isAdminForArea(db, session, areaId)) {
@@ -122,9 +118,9 @@ export async function requestAreaDelete(areaId: number): Promise<ActionResult<Ga
   });
 }
 
-/** Requests a full edit (name/discipline/grade/description) — updateClimb
- * only ever touches description; this is the only path to the rest. Stores
- * the delta, like requestAreaEdit. */
+/** Requests a full edit (name/discipline/grade) — updateClimb covers the
+ * description freely; this is the only path to the rest. Stores the delta,
+ * like requestAreaEdit. */
 export async function requestClimbEdit(
   climbId: number,
   formData: FormData,
