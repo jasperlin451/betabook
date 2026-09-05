@@ -100,7 +100,8 @@ export function productTourPath(
   const query = new URLSearchParams();
   if (from === "account") query.set("from", "account");
   if (updates && from !== "account") query.set("mode", "updates");
-  return `/tutorial/${tourId}/${step.id}${query.size ? `?${query}` : ""}`;
+  const search = query.toString();
+  return `/tutorial/${tourId}/${step.id}${search ? `?${search}` : ""}`;
 }
 
 export function productTourExitPath(userId: string, from: string | null) {
