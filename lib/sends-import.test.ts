@@ -900,6 +900,98 @@ describe("normalizeImportRows", () => {
     ]);
   });
 
+  // An untouched import files comments reading "I&rsquo;ve" and names no climb
+  // in the database matches.
+  it("decodes HTML entities in the free-text columns", () => {
+    const { valid } = normalizeImportRows(
+      csv([
+        row({
+          Climb: "Salt &amp; Pepper",
+          Area: "Caf&eacute; Wall",
+          Country: "C&ocirc;te d&rsquo;Ivoire",
+          Comments: "6 try&rsquo;s in total &mdash; couldn&rsquo;t do the moves",
+        }),
+      ]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid[0]).toMatchObject({
+      climbName: "Salt & Pepper",
+      areaName: "Café Wall",
+      areaHints: ["Côte d’Ivoire"],
+      comment: "6 try’s in total — couldn’t do the moves",
+    });
+  });
+
+  // The cell is trimmed before decoding, so whitespace an entity turns into
+  // has to be trimmed again — "&nbsp;" survives foldClimbName (which strips
+  // ASCII spaces only, mirroring SQLite TRIM) and would miss the real climb.
+  it("trims whitespace that only appears once an entity is decoded", () => {
+    const { valid } = normalizeImportRows(
+      csv([
+        row({
+          Climb: "&nbsp;Salt &amp; Pepper&nbsp;",
+          Comments: "&#32;padded&#32;",
+        }),
+      ]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid[0]).toMatchObject({ climbName: "Salt & Pepper", comment: "padded" });
+  });
+
+  // A lone "&nbsp;" decodes to a non-breaking space, which is truthy — without
+  // the trim it passes the empty-name guard and proposes a climb named U+00A0.
+  it("rejects a climb name that is only an encoded space", () => {
+    const { valid, invalid } = normalizeImportRows(
+      csv([row({ Climb: "&nbsp;" })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid).toEqual([]);
+    expect(invalid[0].reason).toMatch(/missing climb name/i);
+  });
+
+  it("keeps the undecoded row for the failed-rows export", () => {
+    const source = row({ Climb: "", Comments: "I&rsquo;ve" });
+    const { invalid } = normalizeImportRows(
+      csv([source]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(invalid[0].raw).toEqual(source);
+  });
+
+  it("measures a comment against the length cap after decoding", () => {
+    const { valid, warnings } = normalizeImportRows(
+      csv([row({ Comments: "&amp;".repeat(MAX_COMMENT_LENGTH) })]),
+      FULL_MAPPING,
+      ASCENT_STYLE_MAPPING,
+      CLIMB_TYPE_MAPPING,
+      GRADE_FEEL_MAPPING,
+      "iso",
+      { today: TODAY },
+    );
+    expect(valid[0].comment).toBe("&".repeat(MAX_COMMENT_LENGTH));
+    expect(warnings).toEqual([]);
+  });
+
   // The area used to be required, which turned every row of an export with
   // no area column (KAYA's) into "Missing area name". It's now a filter the
   // match step applies when present and skips when not.

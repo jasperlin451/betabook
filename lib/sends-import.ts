@@ -2,6 +2,7 @@ import { format as formatDate, isValid, parse } from "date-fns";
 import Papa from "papaparse";
 
 import { parseGrade, type ClimbType } from "@/lib/grades";
+import { decodeHtmlEntities } from "@/lib/html-entities";
 import {
   ASCENT_STYLES,
   GRADE_FEEL_VALUES,
@@ -628,15 +629,19 @@ export function normalizeImportRows(
   for (const [rowIndex, row] of parsed.rows.entries()) {
     const fail = (reason: string) => invalid.push({ rowIndex, raw: row, reason });
     const cell = (column: string | null) => (column ? (row[column] ?? "").trim() : "");
+    /** Free-text only: a value-mapped cell is a key into a mapping built from
+     * the raw text, and `raw` must keep matching the source file. Trimmed
+     * again after decoding, since "&nbsp;" only becomes whitespace here. */
+    const textCell = (column: string | null) => decodeHtmlEntities(cell(column)).trim();
 
-    const climbName = cell(mapping.climbName);
+    const climbName = textCell(mapping.climbName);
     if (!climbName) {
       fail("Missing climb name");
       continue;
     }
 
-    const areaName = cell(mapping.areaName) || null;
-    const areaHints = mapping.areaHints.flatMap((column) => splitAreaHint(cell(column)));
+    const areaName = textCell(mapping.areaName) || null;
+    const areaHints = mapping.areaHints.flatMap((column) => splitAreaHint(textCell(column)));
 
     const rawAscentStyle = cell(mapping.ascentStyle);
     const mappedAscentStyle = rawAscentStyle ? ascentStyleMapping[rawAscentStyle] : undefined;
@@ -677,7 +682,7 @@ export function normalizeImportRows(
       warn("rating", rowIndex, `"${rawRating}"`);
     }
 
-    const rawComment = cell(mapping.comment);
+    const rawComment = textCell(mapping.comment);
     if (rawComment.length > MAX_COMMENT_LENGTH) {
       warn("comment", rowIndex, `${rawComment.length} characters`);
     }
