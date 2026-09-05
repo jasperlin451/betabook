@@ -37,6 +37,10 @@ import { areaHref, climbHref } from "@/lib/slug";
 
 export type ChangeRequestType = (typeof CHANGE_REQUEST_TYPES)[number];
 
+/** The success value of every gated action — lets the UI tell "your edit
+ * went live" apart from "an admin needs to approve it first". */
+export type GatedActionResult = { status: "applied" | "pending" };
+
 /** The validated, type-specific fields stored as `changeRequests.payload`
  * JSON. Edits store only the fields that *differ* from the entity at submit
  * time (see changedFields) — applying a delta can't clobber a field someone
@@ -709,6 +713,36 @@ export async function recordChangeRequestApproval(
   userId: string,
 ): Promise<void> {
   await db.insert(changeRequestApprovals).values({ requestId, userId }).onConflictDoNothing();
+}
+
+/** The audit trail for an admin's *direct* apply — the bypass path would
+ * otherwise be the one structural change with no record at all ("who deleted
+ * this area?" must stay answerable). Written as a pre-decided changeRequests
+ * row (requester, reviewer, and approver are all the acting admin), so the
+ * moderation table is the single history of every gated operation whether it
+ * queued or not. Status is never "pending", so the pending-dedup index and
+ * the review queue both ignore these rows. Recorded *after* the apply
+ * succeeds — the audit log only says what actually happened. */
+export async function recordAdminApply<T extends ChangeRequestType>(
+  db: Database,
+  type: T,
+  entityId: number,
+  payload: ChangeRequestPayload[T],
+  adminId: string,
+): Promise<void> {
+  const [{ id }] = await db
+    .insert(changeRequests)
+    .values({
+      type,
+      entityId,
+      payload: JSON.stringify(payload),
+      requestedBy: adminId,
+      status: "approved",
+      reviewedBy: adminId,
+      reviewedAt: new Date(),
+    })
+    .returning({ id: changeRequests.id });
+  await recordChangeRequestApproval(db, id, adminId);
 }
 
 export type ChangeRequestCoverage = {

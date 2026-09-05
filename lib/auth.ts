@@ -4,7 +4,7 @@ import { betterAuth } from "better-auth";
 
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
-import { deleteAccountSends } from "@/lib/account";
+import { deleteAccountPendingChangeRequests, deleteAccountSends } from "@/lib/account";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@/lib/email";
 import { sendWelcomeEmailOnce } from "@/lib/welcome-email";
 
@@ -87,6 +87,7 @@ async function authBuilder() {
         // as an explicit delete rather than via cascade.
         beforeDelete: async (deletedUser) => {
           await deleteAccountSends(db, deletedUser.id);
+          await deleteAccountPendingChangeRequests(db, deletedUser.id);
         },
       },
     },
