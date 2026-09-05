@@ -136,6 +136,25 @@ async function authBuilder() {
             }
           },
         },
+        update: {
+          // better-auth's built-in POST /update-user endpoint is always
+          // mounted (session-gated, values typed z.any()) and the UI never
+          // calls it — but without this hook it would accept a blank or
+          // over-long name and surface a duplicate as a raw D1 constraint
+          // error. Same rules as sign-up, excluding the caller's own name
+          // so a case-only change isn't rejected as taken.
+          before: async (data, ctx) => {
+            if (typeof data.name !== "string") return { data };
+            const name = data.name.trim();
+            const problem = displayNameProblem(name);
+            if (problem) throw new APIError("UNPROCESSABLE_ENTITY", { message: problem });
+            const holder = await getUserIdByName(db, name);
+            if (holder && holder !== ctx?.context.session?.user.id) {
+              throw new APIError("UNPROCESSABLE_ENTITY", { message: DISPLAY_NAME_TAKEN_MESSAGE });
+            }
+            return { data: { ...data, name } };
+          },
+        },
       },
     },
     onAPIError: {

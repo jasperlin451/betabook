@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { createDb, type Database } from "@/db/client";
 import { seedFixtureUser } from "@/test/fixtures";
 
-import { getUser, getUserIdByName } from "./users";
+import { getTakenNamesAround, getUser, getUserIdByName } from "./users";
 
 let db: Database;
 
@@ -32,6 +32,21 @@ describe("getUserIdByName", () => {
 
   it("returns null when nobody holds the name", async () => {
     expect(await getUserIdByName(db, "Nobody Here")).toBeNull();
+  });
+});
+
+describe("getTakenNamesAround", () => {
+  beforeAll(async () => {
+    await seedFixtureUser(db, { id: "test-user-3", name: "Alice Climber 2" });
+  });
+
+  it("collects the base and its suffix candidates, lowercased and case-insensitively", async () => {
+    const taken = await getTakenNamesAround(db, "ALICE CLIMBER", "ALICE CLIMBER");
+    expect(taken).toEqual(new Set(["alice climber", "alice climber 2"]));
+  });
+
+  it("returns an empty set when nothing collides", async () => {
+    expect(await getTakenNamesAround(db, "Nobody Here", "Nobody Here")).toEqual(new Set());
   });
 });
 

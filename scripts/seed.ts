@@ -271,13 +271,24 @@ function insertUsers(db: DatabaseSync, count: number, passwordHash: string): str
 
   // Anyone already here — the account upserted above — should get ticks too, so
   // their profile is not the one empty page in the app.
-  const existing = (db.prepare("select id from user").all() as { id: string }[]).map((r) => r.id);
+  const existingRows = db.prepare("select id, name from user").all() as {
+    id: string;
+    name: string;
+  }[];
+  const existing = existingRows.map((r) => r.id);
+  // Faker's name pool repeats well within a few hundred draws, and
+  // user_name_unique_idx compares NOCASE — suffix repeats with the loop
+  // index (unique per run) so seeding never trips the index.
+  const usedNames = new Set(existingRows.map((r) => r.name.toLowerCase()));
 
   for (let i = 0; i < count; i += 1) {
     const id = faker.string.uuid();
+    let name = faker.person.fullName();
+    if (usedNames.has(name.toLowerCase())) name = `${name} ${i + 1}`;
+    usedNames.add(name.toLowerCase());
     // Positional, not faker.internet.email(): unique by construction, and
     // `user.email` is unique under a case-sensitive collation.
-    insertUser.run(id, faker.person.fullName(), `climber${i + 1}@example.com`);
+    insertUser.run(id, name, `climber${i + 1}@example.com`);
     insertAccount.run(faker.string.uuid(), id, id, passwordHash);
     existing.push(id);
   }

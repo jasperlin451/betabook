@@ -19,6 +19,20 @@ export async function getUserIdByName(db: Database, name: string) {
   return row?.id ?? null;
 }
 
+/** Lowercased set of every display name that could collide with `base` or
+ * with uniqueDisplayName's "stem N" suffix candidates — one query instead of
+ * a round-trip per candidate. LIKE is ASCII-case-insensitive by default,
+ * agreeing with the ASCII-only folding of user_name_unique_idx; `%`/`_` in
+ * `stem` can only over-match, which merely widens the set. */
+export async function getTakenNamesAround(db: Database, base: string, stem: string) {
+  const rows = await db
+    .select({ name: user.name })
+    .from(user)
+    .where(sql`${user.name} = ${base} COLLATE NOCASE OR ${user.name} LIKE ${`${stem} %`}`)
+    .all();
+  return new Set(rows.map((row) => row.name.toLowerCase()));
+}
+
 /** Batch lookup for the review queue — one IN query for a page's worth of
  * requester names instead of one getUser round-trip per row. */
 export async function getUsersByIds(db: Database, ids: string[]) {

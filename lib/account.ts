@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
-import { getUserIdByName } from "@/db/queries";
+import { getTakenNamesAround } from "@/db/queries";
 import { changeRequests, sends } from "@/db/schema";
 import { MAX_DISPLAY_NAME_LENGTH } from "@/lib/display-name";
 
@@ -10,13 +10,20 @@ import { MAX_DISPLAY_NAME_LENGTH } from "@/lib/display-name";
  * whatever name Google supplies, and rejecting it would block the sign-in
  * itself — unlike the email form, where the user can just pick again.
  * Numeric suffixes keep the result recognizable; the random fallback exists
- * only so this terminates even if someone squats "Name 2"–"Name 99". */
+ * only so this terminates even if someone squats "Name 2"–"Name 99".
+ * One query up front covers the base and every suffix candidate — this runs
+ * inside the OAuth callback, where probing candidates one round-trip at a
+ * time would stall the sign-in. `toLowerCase()` folds more than the index's
+ * ASCII-only NOCASE, so at worst a candidate is skipped, never returned
+ * while taken. */
 export async function uniqueDisplayName(db: Database, base: string): Promise<string> {
   const trimmed = base.trim().slice(0, MAX_DISPLAY_NAME_LENGTH).trim() || "Climber";
-  if (!(await getUserIdByName(db, trimmed))) return trimmed;
+  const stem = trimmed.slice(0, MAX_DISPLAY_NAME_LENGTH - 3);
+  const taken = await getTakenNamesAround(db, trimmed, stem);
+  if (!taken.has(trimmed.toLowerCase())) return trimmed;
   for (let n = 2; n <= 99; n += 1) {
-    const candidate = `${trimmed.slice(0, MAX_DISPLAY_NAME_LENGTH - 3)} ${n}`;
-    if (!(await getUserIdByName(db, candidate))) return candidate;
+    const candidate = `${stem} ${n}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
   }
   return `${trimmed.slice(0, MAX_DISPLAY_NAME_LENGTH - 9)} ${crypto.randomUUID().slice(0, 8)}`;
 }

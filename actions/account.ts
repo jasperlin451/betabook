@@ -10,6 +10,7 @@ import { ActionError, toActionResult, type ActionResult } from "@/lib/action-res
 import { DISPLAY_NAME_TAKEN_MESSAGE, displayNameProblem } from "@/lib/display-name";
 import { parseJournalVisibility } from "@/lib/journal";
 import { requireSession } from "@/lib/session";
+import { requireTrimmed } from "@/lib/validation";
 
 function revalidateProfileSurfaces(userId: string) {
   revalidatePath(`/users/${userId}`);
@@ -42,8 +43,7 @@ export async function updateDisplayName(formData: FormData): Promise<ActionResul
     const session = await requireSession();
     const db = await getDb();
 
-    const raw = formData.get("name");
-    const name = typeof raw === "string" ? raw.trim() : "";
+    const name = requireTrimmed(formData.get("name"), "Display name");
     const problem = displayNameProblem(name);
     if (problem) throw new ActionError(problem);
 
