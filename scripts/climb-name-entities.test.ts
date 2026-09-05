@@ -29,6 +29,9 @@ describe("repairClimbName", () => {
     expect(repairClimbName("&ampersand")).toBe("&ampersand");
     expect(repairClimbName("Amphitheatre")).toBe("Amphitheatre");
     expect(repairClimbName("Vamp")).toBe("Vamp");
+    // A digit or underscore continues a token just as a letter does.
+    expect(repairClimbName("&amp3 Cracks")).toBe("&amp3 Cracks");
+    expect(repairClimbName("&amp_thing")).toBe("&amp_thing");
   });
 
   it("repairs &amp at the very end of a name", () => {
@@ -49,10 +52,28 @@ describe("hasUnhandledEntity", () => {
     expect(hasUnhandledEntity("It&#x27;s")).toBe(true);
   });
 
+  // The corruption in names drops the semicolon, so a detector that required
+  // one would be blind to the very shape this script exists for.
+  it("flags an unterminated entity, the shape the names are actually corrupted with", () => {
+    expect(hasUnhandledEntity("Caf&eacute Wall")).toBe(true);
+    expect(hasUnhandledEntity("Jekyll &rsquo Hyde")).toBe(true);
+    expect(hasUnhandledEntity("It&#39s")).toBe(true);
+  });
+
+  it("flags a name the repair only partly cleans", () => {
+    expect(hasUnhandledEntity("Salt &amp Caf&eacute Wall")).toBe(true);
+  });
+
   it("does not flag a name the repair fully cleans", () => {
     expect(hasUnhandledEntity("Jekyll &amp Hyde")).toBe(false);
     expect(hasUnhandledEntity("Salt &amp; Pepper")).toBe(false);
     expect(hasUnhandledEntity("Cams #3 & #4")).toBe(false);
     expect(hasUnhandledEntity("Titanic")).toBe(false);
+  });
+
+  it("does not flag a one-letter initialism around an ampersand", () => {
+    expect(hasUnhandledEntity("R&D")).toBe(false);
+    expect(hasUnhandledEntity("AT&T")).toBe(false);
+    expect(hasUnhandledEntity("Salt & Pepper")).toBe(false);
   });
 });
