@@ -337,8 +337,8 @@ function insertSends(db: DatabaseSync, userIds: string[], climbs: Climb[]): numb
 
 function insertJournalEntries(db: DatabaseSync, userIds: string[], climbs: Climb[]): number {
   const insert = db.prepare(
-    "insert into journal_entries (user_id, climb_id, kind, sent, entry_date, body, tags)" +
-      " values (?, ?, ?, ?, ?, ?, ?)",
+    "insert into journal_entries (user_id, climb_id, kind, sent, is_ascent, entry_date, body, tags)" +
+      " values (?, ?, ?, ?, ?, ?, ?, ?)",
   );
   const datedSends = db
     .prepare(
@@ -360,6 +360,7 @@ function insertJournalEntries(db: DatabaseSync, userIds: string[], climbs: Climb
     climbId = null,
     kind = "session",
     sent = false,
+    isAscent = false,
     entryDate,
     body = null,
     tags = null,
@@ -368,11 +369,21 @@ function insertJournalEntries(db: DatabaseSync, userIds: string[], climbs: Climb
     climbId?: number | null;
     kind?: "session" | "training";
     sent?: boolean;
+    isAscent?: boolean;
     entryDate: string;
     body?: string | null;
     tags?: string[] | null;
   }) => {
-    insert.run(userId, climbId, kind, Number(sent), entryDate, body, tags && JSON.stringify(tags));
+    insert.run(
+      userId,
+      climbId,
+      kind,
+      Number(sent),
+      Number(isAscent),
+      entryDate,
+      body,
+      tags && JSON.stringify(tags),
+    );
     total += 1;
   };
 
@@ -397,6 +408,7 @@ function insertJournalEntries(db: DatabaseSync, userIds: string[], climbs: Climb
       userId: send.userId,
       climbId: send.climbId,
       sent: true,
+      isAscent: true,
       entryDate: send.dateSent,
       body: send.comment,
       tags: climb ? journalTags(tagsForClimb(climb)) : null,

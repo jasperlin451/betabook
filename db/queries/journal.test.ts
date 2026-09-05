@@ -39,13 +39,19 @@ beforeAll(async () => {
   await seedFixtureUser(db, { id: OWNER.id, name: "Timeline Owner" });
   await seedFixtureUser(db, { id: "tl-other", name: "Someone Else" });
 
-  await seedFixtureSend(db, { userId: OWNER.id, climbId: HIGHBALL, dateSent: "2025-01-10" });
+  await seedFixtureSend(db, {
+    userId: OWNER.id,
+    climbId: HIGHBALL,
+    dateSent: "2025-01-10",
+    comment: "Finally. 100% effort under_score.",
+  });
 
   await seedFixtureJournalEntry(db, {
     userId: OWNER.id,
     climbId: HIGHBALL,
     entryDate: "2025-01-10",
     sent: true,
+    isAscent: true,
     body: "Finally. 100% effort under_score.",
   });
   await seedFixtureJournalEntry(db, {
@@ -241,7 +247,7 @@ describe("getJournalEntry", () => {
 });
 
 describe("getAscentEntryId", () => {
-  it("names the earliest sent session, not the latest", async () => {
+  it("returns the explicitly recorded ascent", async () => {
     const entries = await getJournalForClimb(db, OWNER, OWNER.id, HIGHBALL);
     const ascent = entries.find((e) => e.isAscent);
     expect(await getAscentEntryId(db, OWNER.id, HIGHBALL)).toBe(ascent?.id);

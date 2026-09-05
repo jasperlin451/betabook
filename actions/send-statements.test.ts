@@ -146,6 +146,7 @@ describe("journal synchronization statements", () => {
       entryDate: "2026-03-01",
       body: "Ascent",
       sent: true,
+      isAscent: true,
     });
     const ascent = await db
       .select({ id: journalEntries.id })

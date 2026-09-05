@@ -87,7 +87,11 @@ async function writeAscent(
 
   await db.batch([
     buildSendInsert(db, { userId, climbId: climb.id, climbType: climb.type, input: sendInput }),
-    buildSentJournalInsert(db, { ...entryValues(userId, input), climbId: climb.id }),
+    buildSentJournalInsert(db, {
+      ...entryValues(userId, input),
+      climbId: climb.id,
+      isAscent: true,
+    }),
   ]);
 
   revalidateJournalSurfaces({ userId, climbIds: [climb.id] });
@@ -114,19 +118,16 @@ export async function createJournalEntry(formData: FormData): Promise<ActionResu
       }
 
       const sentEntries = await getSentJournalEntries(db, session.user.id, [climb.id]);
-      if (sentEntries.length === 0) {
-        const dateSent = existingSend.dateSent ?? input.entryDate;
-        const comment = existingSend.dateSent === null ? input.body : existingSend.comment;
+      if (!sentEntries.some((entry) => entry.isAscent) && existingSend.dateSent !== null) {
+        const dateSent = existingSend.dateSent;
+        const comment = existingSend.comment;
         if (input.entryDate < dateSent) {
           throw new ActionError("A repeat can't be earlier than the recorded ascent");
         }
         const entry = { ...entryValues(session.user.id, input), climbId: climb.id };
         // A dated send can predate the journal rollout. Recover its ascent
         // before the repeat so the original date and note remain authoritative.
-        const entries =
-          existingSend.dateSent === null
-            ? [entry]
-            : [journalEntryFromSend(session.user.id, climb.id, dateSent, comment), entry];
+        const entries = [journalEntryFromSend(session.user.id, climb.id, dateSent, comment), entry];
         try {
           await db.batch([
             buildMirroredSendUpdate(db, {
@@ -275,8 +276,8 @@ export async function deleteJournalEntry(entryId: number): Promise<ActionResult>
             eq(sends.userId, session.user.id),
             eq(sends.climbId, climbId),
             sql`(SELECT j.id FROM journal_entries j
-            WHERE j.user_id = ${session.user.id} AND j.climb_id = ${climbId} AND j.sent = 1
-            ORDER BY j.entry_date, j.id LIMIT 1) = ${entryId}`,
+            WHERE j.user_id = ${session.user.id} AND j.climb_id = ${climbId} AND j.is_ascent = 1
+            LIMIT 1) = ${entryId}`,
           ),
         ),
         db.delete(journalEntries).where(eq(journalEntries.id, entryId)),

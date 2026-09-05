@@ -60,12 +60,6 @@ function toJournalEntry(row: JournalEntryRow): JournalEntry {
   };
 }
 
-const IS_ASCENT = sql`(j.sent = 1 AND NOT EXISTS (
-    SELECT 1 FROM journal_entries e
-    WHERE e.user_id = j.user_id AND e.climb_id = j.climb_id AND e.sent = 1
-      AND (e.entry_date, e.id) < (j.entry_date, j.id)
-  ))`;
-
 const IS_OPEN_PROJECT = sql`(j.kind = 'session' AND j.climb_id IS NOT NULL
     AND NOT EXISTS (
       SELECT 1 FROM sends s WHERE s.user_id = j.user_id AND s.climb_id = j.climb_id
@@ -127,7 +121,7 @@ const JOURNAL_ENTRY_SELECT = sql`
       climbs.grade AS climbGrade,
       climbs.area_id AS areaId,
       areas.name AS areaName,
-      ${IS_ASCENT} AS isAscent
+      j.is_ascent AS isAscent
     FROM journal_entries j
     LEFT JOIN climbs ON climbs.id = j.climb_id
     LEFT JOIN areas ON areas.id = climbs.area_id
@@ -196,8 +190,7 @@ export async function getAscentEntryId(
   const row = await db.get<{ id: number | null }>(sql`
     SELECT j.id AS id
     FROM journal_entries j
-    WHERE j.user_id = ${ownerId} AND j.climb_id = ${climbId} AND j.sent = 1
-    ORDER BY j.entry_date ASC, j.id ASC
+    WHERE j.user_id = ${ownerId} AND j.climb_id = ${climbId} AND j.is_ascent = 1
     LIMIT 1
   `);
   return row?.id ?? undefined;
