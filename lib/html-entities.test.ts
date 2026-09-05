@@ -33,19 +33,34 @@ describe("decodeHtmlEntities", () => {
     expect(decodeHtmlEntities("&ldquo;the crux&rdquo;")).toBe("“the crux”");
   });
 
+  it("decodes the wider sets a hand-written table would have to enumerate", () => {
+    expect(decodeHtmlEntities("&Delta; &alpha; &isin; &lceil; &hArr; &sum;")).toBe("Δ α ∈ ⌈ ⇔ ∑");
+  });
+
   it("decodes decimal and hex numeric references", () => {
     expect(decodeHtmlEntities("I&#039;ve &#8217;ve &#x27;ve &#X2019;ve")).toBe("I've ’ve 've ’ve");
     expect(decodeHtmlEntities("&#128512;")).toBe("😀");
+    // The HTML5 remap of the windows-1252 range, which a legacy export can carry.
+    expect(decodeHtmlEntities("&#128;")).toBe("€");
   });
 
-  it("leaves text that only looks like an entity alone", () => {
+  // The decisive reason this passes `scope: "strict"`. On the library's default
+  // (HTML5 parser) scope, legacy entities decode without their closing
+  // semicolon, so "&notit;" becomes "¬it;" and a climber's "Cams #3 & #4" is
+  // rewritten mid-sentence. Dropping the option would silently corrupt prose.
+  it("requires the closing semicolon, leaving prose that merely contains '&' alone", () => {
     expect(decodeHtmlEntities("Cams #3 & #4, R&D, 5 & 6")).toBe("Cams #3 & #4, R&D, 5 & 6");
     expect(decodeHtmlEntities("AT&T")).toBe("AT&T");
+    expect(decodeHtmlEntities("&notit; &amp without a semicolon")).toBe(
+      "&notit; &amp without a semicolon",
+    );
     expect(decodeHtmlEntities("&notanentity; &; &#; &#x;")).toBe("&notanentity; &; &#; &#x;");
   });
 
-  it("leaves a code point that has no character", () => {
-    expect(decodeHtmlEntities("&#0; &#xD800; &#1114112;")).toBe("&#0; &#xD800; &#1114112;");
+  it("replaces a numeric reference that names no character", () => {
+    // Per the HTML5 spec: NUL and out-of-range code points become U+FFFD.
+    expect(decodeHtmlEntities("&#0;").codePointAt(0)).toBe(0xfffd);
+    expect(decodeHtmlEntities("&#1114112;").codePointAt(0)).toBe(0xfffd);
   });
 
   it("unwraps text an exporter encoded twice", () => {
