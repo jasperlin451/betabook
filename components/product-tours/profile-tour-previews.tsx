@@ -4,10 +4,12 @@ import { Button, Checkbox, SearchField } from "@heroui/react";
 import { useState } from "react";
 
 import { StatTiles } from "@/components/analytics-stat-tiles";
+import { AscentStyle } from "@/components/ascent-style";
 import { ProgressionChart } from "@/components/progression-chart";
+import { SendGradeCell } from "@/components/send-grade-cell";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { ListRow } from "@/components/ui/list-row";
-import { nativeGradeArray } from "@/lib/grades";
+import { formatDate } from "@/lib/format-date";
 import {
   getTourDemoJournalPage,
   TOUR_DEMO_ANALYTICS,
@@ -186,13 +188,21 @@ export function DemoSends() {
           <ListRow
             key={send.climbId}
             title={send.climbName}
-            subtitle={`${send.dateSent} · ${send.ascentStyle}`}
+            subtitle={send.areaName}
             comment={send.note}
-            meta={nativeGradeArray("boulder")[send.suggestedGrade]}
             trailing={
-              <span className="text-sm" aria-label={`${send.rating} out of 5 stars`}>
-                {send.rating} ★
-              </span>
+              <div className="flex flex-col items-end gap-1 text-sm">
+                <SendGradeCell
+                  type={send.climbType}
+                  grade={send.suggestedGrade}
+                  gradeFeel="solid"
+                  rating={send.rating}
+                />
+                <AscentStyle type={send.ascentStyle} />
+                <time dateTime={send.dateSent} className="text-xs text-muted">
+                  {formatDate(send.dateSent)}
+                </time>
+              </div>
             }
           />
         ))}
