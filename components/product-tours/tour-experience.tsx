@@ -8,6 +8,7 @@ import { saveProductTourStatus } from "@/actions";
 import { PRODUCT_TOUR_LOADERS } from "@/components/product-tours/registry";
 import { TourOverlay } from "@/components/product-tours/tour-overlay";
 import type { ProductTourPage } from "@/components/product-tours/types";
+import { useTourFrame } from "@/components/product-tours/use-tour-frame";
 import { AppLink } from "@/components/ui/app-link";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
 import { suspendMobileHelper } from "@/lib/mobile-helper-suspension";
@@ -17,6 +18,8 @@ import {
   productTourExitPath,
   productTourPath,
 } from "@/lib/product-tour-navigation";
+
+import styles from "@/components/product-tours/tour-layout.module.css";
 
 export function TourExperience({
   userId,
@@ -38,6 +41,8 @@ export function TourExperience({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const page = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
+  const height = useTourFrame(frame);
   const exitPath = productTourExitPath(userId, from);
   const exit = useCallback(() => router.replace(exitPath), [router, exitPath]);
   const href = useCallback((id: string) => productTourPath(tour.id, id, from), [tour.id, from]);
@@ -76,8 +81,8 @@ export function TourExperience({
 
   if (index < 0) return children;
   return (
-    <div className="flex flex-col gap-6 pb-[60vh]">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-secondary px-4 py-3 text-sm">
+    <div ref={frame} style={{ height }} className="flex h-[80dvh] flex-col gap-4">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-secondary px-4 py-3 text-sm">
         <span className="font-medium">Demo account · Product tour</span>
         <AppLink href={exitPath} className="text-foreground underline">
           Exit tour
@@ -96,11 +101,21 @@ export function TourExperience({
           </Button>
         </div>
       ) : Page ? (
-        <>
-          <div ref={page}>
+        <div className={styles.layout}>
+          {/* The scroll region needs a tab stop so keyboard users can scroll the demo. */}
+          {/* oxlint-disable jsx-a11y/no-noninteractive-tabindex */}
+          <div
+            ref={page}
+            role="region"
+            aria-label="Demo profile"
+            tabIndex={0}
+            className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain rounded-lg p-2 focus-visible:status-focused"
+          >
             <Page key={steps[index].section} section={steps[index].section} href={href} />
           </div>
+          {/* oxlint-enable jsx-a11y/no-noninteractive-tabindex */}
           <TourOverlay
+            key={steps[index].id}
             steps={steps}
             index={index}
             page={page}
@@ -110,7 +125,7 @@ export function TourExperience({
             pending={pending}
             error={error}
           />
-        </>
+        </div>
       ) : (
         <p role="status">Loading your tour…</p>
       )}

@@ -1,47 +1,22 @@
 export type TourRect = { left: number; top: number; width: number; height: number };
-export type TourViewport = { width: number; height: number; top: number };
 
-const EDGE = 12;
-const GAP = 20;
-
-/** Clamp callouts to the usable viewport, including when the mobile keyboard is open. */
-export function positionTourCard(
-  target: TourRect | null,
-  viewport: TourViewport,
-  cardHeight: number,
-) {
-  const availableWidth = Math.max(0, viewport.width - EDGE * 2);
-  const width = Math.min(344, availableWidth);
-  const bottom = viewport.top + viewport.height - cardHeight - EDGE;
-  if (viewport.width < 768 || !target) {
-    return {
-      left: viewport.width < 768 ? EDGE : (viewport.width - width) / 2,
-      top: Math.max(viewport.top + EDGE, bottom),
-      width: viewport.width < 768 ? availableWidth : width,
-    };
-  }
-  const maxLeft = viewport.width - width - EDGE;
-  const top = Math.max(viewport.top + EDGE, Math.min(target.top, bottom));
-  if (target.left + target.width + GAP <= maxLeft)
-    return { left: target.left + target.width + GAP, top, width };
-  if (target.left - GAP - width >= EDGE) return { left: target.left - GAP - width, top, width };
-  const left = Math.max(EDGE, Math.min(target.left, maxLeft));
-  const below = target.top + target.height + GAP;
-  if (below <= bottom) return { left, top: below, width };
-  return {
-    left,
-    top: Math.max(viewport.top + EDGE, Math.min(target.top - cardHeight - GAP, bottom)),
-    width,
-  };
+/** Keep the highlight inside the demo's scroll area, away from the guide and app shell. */
+export function clipTourTarget(target: TourRect, viewport: TourRect): TourRect | null {
+  const left = Math.max(target.left - 6, viewport.left);
+  const top = Math.max(target.top - 6, viewport.top);
+  const right = Math.min(target.left + target.width + 6, viewport.left + viewport.width);
+  const bottom = Math.min(target.top + target.height + 6, viewport.top + viewport.height);
+  return right > left && bottom > top
+    ? { left, top, width: right - left, height: bottom - top }
+    : null;
 }
 
-export function tourTargetScrollDelta(
-  target: TourRect,
-  viewport: TourViewport,
-  cardHeight: number,
-) {
-  const usableHeight =
-    viewport.height - (viewport.width < 768 ? cardHeight + GAP + EDGE : EDGE * 2);
-  const desiredTop = viewport.top + EDGE + Math.max(0, (usableHeight - target.height) / 2);
-  return target.top - desiredTop;
+/** Scroll only as far as needed; preserve the surrounding page context when it already fits. */
+export function tourTargetScrollDelta(target: TourRect, viewport: TourRect, introduce = false) {
+  const top = viewport.top + 12;
+  const bottom = viewport.top + viewport.height - 12;
+  if (introduce) return target.top - top - Math.max(0, (bottom - top - target.height) / 3);
+  if (target.top < top || target.height > bottom - top) return target.top - top;
+  if (target.top + target.height > bottom) return target.top + target.height - bottom;
+  return 0;
 }

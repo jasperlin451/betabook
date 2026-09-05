@@ -2,14 +2,15 @@
 
 import { Button, buttonVariants } from "@heroui/react";
 import { ArrowLeft, X } from "lucide-react";
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { useTourTarget } from "@/components/product-tours/use-tour-target";
 import { AppLink } from "@/components/ui/app-link";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
 import type { ProductTourStepDefinition } from "@/lib/product-tour-navigation";
-import { positionTourCard } from "@/lib/product-tour-position";
 import { signInUrl } from "@/lib/sign-in-redirect";
+
+import styles from "@/components/product-tours/tour-layout.module.css";
 
 type TourOverlayProps = {
   steps: readonly ProductTourStepDefinition[];
@@ -32,17 +33,14 @@ export function TourOverlay({
   pending,
   error,
 }: TourOverlayProps) {
-  const card = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
-  const menu = useRef<HTMLDetailsElement>(null);
+  const [showSteps, setShowSteps] = useState(false);
   const step = steps[index];
-  const { rect, viewport, cardHeight } = useTourTarget(step.target, page, card);
-  const position = positionTourCard(rect, viewport, cardHeight);
-  const ready = viewport.width > 0;
+  const rect = useTourTarget(step.target, page);
   useEffect(() => {
-    if (ready) heading.current?.focus({ preventScroll: true });
-    if (menu.current) menu.current.open = false;
-  }, [step.id, ready]);
+    heading.current?.focus({ preventScroll: true });
+  }, [step.id]);
   useEffect(() => {
     function escape(event: KeyboardEvent) {
       if (event.key === "Escape" && !event.defaultPrevented && !pending) {
@@ -55,33 +53,38 @@ export function TourOverlay({
   }, [exit, pending]);
   return (
     <>
-      {rect && viewport.width > 0 && (
+      {rect && (
         <div
           aria-hidden
-          className="pointer-events-none fixed z-40 rounded-xl border-2 border-accent shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
-          style={{
-            left: rect.left - 6,
-            top: rect.top - 6,
-            width: rect.width + 12,
-            height: rect.height + 12,
-          }}
+          className="pointer-events-none fixed z-20 rounded-xl border-2 border-accent"
+          style={rect}
         />
       )}
       <div
-        ref={card}
         role="region"
         aria-label="Product tour"
-        className="fixed z-50 flex flex-col gap-3 overflow-y-auto rounded-xl border border-foreground/30 bg-surface p-4 text-foreground shadow-xl"
-        style={{
-          ...position,
-          maxHeight: viewport.height ? Math.max(120, viewport.height - 24) : undefined,
-          visibility: viewport.width ? "visible" : "hidden",
-        }}
+        className={`${styles.guide} ${showSteps ? styles.chooser : ""} flex shrink-0 flex-col gap-3 rounded-xl border border-foreground/30 bg-surface p-3 text-foreground ${collapsed && !showSteps ? "min-h-0" : "min-h-40"}`}
       >
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-xs font-medium text-muted">
-            {index + 1} of {steps.length} · {step.section}
-          </span>
+        <div className="flex shrink-0 items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <span className="text-xs text-muted">
+              {index + 1} of {steps.length} · {step.section}
+            </span>
+            <h2 ref={heading} tabIndex={-1} className="mt-1 text-base font-semibold outline-none">
+              {step.title}
+            </h2>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            aria-expanded={!collapsed}
+            onPress={() => {
+              setCollapsed(!collapsed);
+              setShowSteps(false);
+            }}
+          >
+            {collapsed ? "Show tip" : "Hide tip"}
+          </Button>
           <Button
             isIconOnly
             size="sm"
@@ -93,11 +96,38 @@ export function TourOverlay({
             <X aria-hidden className="size-4" />
           </Button>
         </div>
-        <h2 ref={heading} tabIndex={-1} className="text-lg font-semibold outline-none">
-          {step.title}
-        </h2>
-        <p className="text-sm leading-relaxed">{step.description}</p>
-        <div className="flex items-center justify-between gap-3">
+        {(!collapsed || showSteps || error) && (
+          <div className="min-h-0 overflow-y-auto">
+            {!collapsed && !showSteps && (
+              <p className="text-sm leading-relaxed">{step.description}</p>
+            )}
+            {showSteps && (
+              <nav aria-label="Tutorial steps" className="mt-2 flex flex-col gap-1">
+                {steps.map((entry, i) => (
+                  <AppLink
+                    key={entry.id}
+                    href={href(entry.id)}
+                    aria-current={entry.id === step.id ? "step" : undefined}
+                    className="rounded-md px-2 py-2 text-sm text-foreground hover:bg-surface-secondary"
+                  >
+                    {i + 1}. {entry.title}
+                  </AppLink>
+                ))}
+              </nav>
+            )}
+            {error && (
+              <div role="alert" className="mt-2 flex flex-col gap-2 text-sm">
+                <p className="text-danger">{error}</p>
+                {error === SESSION_EXPIRED_MESSAGE ? (
+                  <AppLink href={signInUrl(href(step.id))}>Sign in to finish</AppLink>
+                ) : (
+                  <p>Try finishing again.</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        <div className="flex shrink-0 items-center justify-between gap-2">
           {index > 0 ? (
             <AppLink
               href={href(steps[index - 1].id)}
@@ -110,6 +140,14 @@ export function TourOverlay({
           ) : (
             <span />
           )}
+          <Button
+            size="sm"
+            variant="secondary"
+            aria-expanded={showSteps}
+            onPress={() => setShowSteps(!showSteps)}
+          >
+            All tutorials
+          </Button>
           {index === steps.length - 1 ? (
             <Button onPress={finish} isDisabled={pending}>
               {pending ? "Finishing…" : "Finish tour"}
@@ -124,33 +162,6 @@ export function TourOverlay({
             </AppLink>
           )}
         </div>
-        {error && (
-          <div role="alert" className="flex flex-col gap-2 text-sm">
-            <p className="text-danger">{error}</p>
-            {error === SESSION_EXPIRED_MESSAGE ? (
-              <AppLink href={signInUrl(href(step.id))}>Sign in to finish</AppLink>
-            ) : (
-              <p>Try finishing again.</p>
-            )}
-          </div>
-        )}
-        <details ref={menu} className="border-t border-border pt-2">
-          <summary className="w-fit cursor-pointer rounded-full border border-foreground/30 bg-default px-3 py-2 text-xs font-medium focus-visible:status-focused">
-            All tutorials
-          </summary>
-          <nav aria-label="Tutorial steps" className="mt-2 flex flex-col gap-1">
-            {steps.map((entry, i) => (
-              <AppLink
-                key={entry.id}
-                href={href(entry.id)}
-                aria-current={entry.id === step.id ? "step" : undefined}
-                className="rounded-md px-2 py-2 text-sm text-foreground hover:bg-surface-secondary"
-              >
-                {i + 1}. {entry.title}
-              </AppLink>
-            ))}
-          </nav>
-        </details>
       </div>
     </>
   );

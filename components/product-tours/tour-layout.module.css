@@ -1,0 +1,30 @@
+.layout {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.guide {
+  max-height: 45%;
+}
+
+.chooser {
+  max-height: 70%;
+}
+
+/* Landscape phones need the vertical space for the demo, just like wide desktops. */
+@media (min-width: 1280px), (min-width: 768px) and (max-height: 500px) {
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 20rem;
+    gap: 1.25rem;
+  }
+
+  .guide {
+    max-height: 100%;
+    align-self: start;
+    padding: 1rem;
+  }
+}
