@@ -16,13 +16,14 @@ export async function requireSession() {
 
 type SessionResult = Awaited<ReturnType<typeof requireSession>>;
 
-/** `session.user.role` comes from the admin plugin (lib/auth.ts) — a plain
- * string with no enum in the schema, so "admin" is the one value this app
- * ever grants (see scripts/promote-admin.ts) and checks for. Exported so
- * gated actions can branch on it directly (`isAdmin(session) ? apply : queue`)
- * without needing a second session read through requireAdmin. Takes just the
- * `role` field it needs rather than the full session shape, so callers (and
- * tests) don't have to construct one. */
+/** `session.user.role` is our own column, surfaced via
+ * user.additionalFields (lib/auth.ts) — a plain string with no enum in the
+ * schema, so "admin" is the one value this app ever grants (see
+ * scripts/promote-admin.ts) and checks for. Exported so gated actions can
+ * branch on it directly (`isAdmin(session) ? apply : queue`) without needing
+ * a second session read through requireAdmin. Takes just the `role` field it
+ * needs rather than the full session shape, so callers (and tests) don't
+ * have to construct one. */
 export function isAdmin(session: { user: { role?: string | null } }): boolean {
   return session.user.role === "admin";
 }
