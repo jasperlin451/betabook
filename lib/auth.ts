@@ -1,10 +1,17 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 
 import { getDb } from "@/db/client";
+import { getUserIdByName } from "@/db/queries";
 import * as schema from "@/db/schema";
-import { deleteAccountPendingChangeRequests, deleteAccountSends } from "@/lib/account";
+import {
+  deleteAccountPendingChangeRequests,
+  deleteAccountSends,
+  uniqueDisplayName,
+} from "@/lib/account";
+import { DISPLAY_NAME_TAKEN_MESSAGE, displayNameProblem } from "@/lib/display-name";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@/lib/email";
 import { sendWelcomeEmailOnce } from "@/lib/welcome-email";
 
@@ -94,6 +101,27 @@ async function authBuilder() {
     databaseHooks: {
       user: {
         create: {
+          // Display names are unique (user_name_unique_idx, migration 0034);
+          // without this hook a collision would surface as a raw D1
+          // constraint error. On the email form the user can pick again, so
+          // reject with a message the form shows verbatim. Every other
+          // creation path (Google OAuth) arrives with a name the user never
+          // chose — failing would block the sign-in itself, so suffix the
+          // name into uniqueness instead; it can be changed on /account.
+          before: async (newUser, ctx) => {
+            if (ctx?.path === "/sign-up/email") {
+              const name = newUser.name.trim();
+              const problem = displayNameProblem(name);
+              if (problem) throw new APIError("UNPROCESSABLE_ENTITY", { message: problem });
+              if (await getUserIdByName(db, name)) {
+                throw new APIError("UNPROCESSABLE_ENTITY", {
+                  message: DISPLAY_NAME_TAKEN_MESSAGE,
+                });
+              }
+              return { data: { ...newUser, name } };
+            }
+            return { data: { ...newUser, name: await uniqueDisplayName(db, newUser.name) } };
+          },
           after: async (createdUser) => {
             // OAuth users register with emailVerified: true immediately,
             // bypassing emailVerification.afterEmailVerification. Send the welcome
@@ -106,6 +134,25 @@ async function authBuilder() {
                 console.error("welcome email failed", err);
               }
             }
+          },
+        },
+        update: {
+          // better-auth's built-in POST /update-user endpoint is always
+          // mounted (session-gated, values typed z.any()) and the UI never
+          // calls it — but without this hook it would accept a blank or
+          // over-long name and surface a duplicate as a raw D1 constraint
+          // error. Same rules as sign-up, excluding the caller's own name
+          // so a case-only change isn't rejected as taken.
+          before: async (data, ctx) => {
+            if (typeof data.name !== "string") return { data };
+            const name = data.name.trim();
+            const problem = displayNameProblem(name);
+            if (problem) throw new APIError("UNPROCESSABLE_ENTITY", { message: problem });
+            const holder = await getUserIdByName(db, name);
+            if (holder && holder !== ctx?.context.session?.user.id) {
+              throw new APIError("UNPROCESSABLE_ENTITY", { message: DISPLAY_NAME_TAKEN_MESSAGE });
+            }
+            return { data: { ...data, name } };
           },
         },
       },
