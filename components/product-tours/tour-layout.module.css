@@ -14,8 +14,8 @@
   max-height: 70%;
 }
 
-/* Landscape phones need the vertical space for the demo, just like wide desktops. */
-@media (min-width: 1280px), (min-width: 768px) and (max-height: 500px) {
+/* Match the app's desktop navigation breakpoint, including smaller desktop windows. */
+@media (min-width: 768px) {
   .layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 18rem;
