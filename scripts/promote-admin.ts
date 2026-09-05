@@ -12,7 +12,9 @@ import { DatabaseSync } from "node:sqlite";
  */
 import { requireLocalDb } from "./d1-local.ts";
 
-const email = process.argv[2];
+// better-auth lowercases emails at sign-up, so match the same way — a
+// mixed-case argument would otherwise miss an existing account.
+const email = process.argv[2]?.trim().toLowerCase();
 if (!email) throw new Error("Usage: pnpm promote-admin <email>");
 
 const db = new DatabaseSync(requireLocalDb());
