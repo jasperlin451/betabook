@@ -1,9 +1,9 @@
 "use client";
 
-import { Checkbox } from "@heroui/react";
 import { useState, useTransition } from "react";
 
 import { setJournalVisibility, setUserPrivate } from "@/actions";
+import { PrivacyFields } from "@/components/privacy-fields";
 import type { JournalVisibility } from "@/lib/journal";
 
 export function PrivacyControls({
@@ -47,43 +47,20 @@ export function PrivacyControls({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <Checkbox isDisabled={isPending} isSelected={isPrivate} onChange={handleProfileChange}>
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            Private profile
-          </Checkbox.Content>
-        </Checkbox>
-        <p className="text-xs text-muted">
-          Hides your profile, sends, journal, and analytics from everyone but you. Sends still count
-          toward community ratings and suggested grades.
-        </p>
-        {profileError && <p className="text-sm text-danger">{profileError}</p>}
-      </div>
-
-      <div className="flex flex-col gap-1 border-t border-border pt-4">
-        <Checkbox
-          isDisabled={isPrivate || isPending}
-          isSelected={journalVisibility === "public"}
-          onChange={handleJournalChange}
-        >
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            Public journal
-          </Checkbox.Content>
-        </Checkbox>
-        <p className="text-xs text-muted">
-          {isPrivate
-            ? "Your private profile keeps both your journal and sends hidden. Make the profile public to share your journal."
-            : "Lets anyone who can view your profile read your journal. Logging and editing stay private to you."}
-        </p>
-        {journalError && <p className="text-sm text-danger">{journalError}</p>}
-      </div>
-    </div>
+    <PrivacyFields
+      isPrivate={isPrivate}
+      publicJournal={journalVisibility === "public"}
+      onProfileChange={handleProfileChange}
+      onJournalChange={handleJournalChange}
+      isPending={isPending}
+      profileError={profileError}
+      journalError={journalError}
+      profileDescription="Hides your profile, sends, journal, and analytics from everyone but you. Sends still count toward community ratings and suggested grades."
+      journalDescription={
+        isPrivate
+          ? "Your private profile keeps both your journal and sends hidden. Make the profile public to share your journal."
+          : "Lets anyone who can view your profile read your journal. Logging and editing stay private to you."
+      }
+    />
   );
 }

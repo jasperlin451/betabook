@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a8091e3f-e0b9-4d87-9d55-dad45eaea4fa",
-  "prevId": "ab3fd56e-8236-4b18-b3a6-3793fe497455",
+  "id": "21def0ce-c832-45b1-9188-3ea220892530",
+  "prevId": "a8091e3f-e0b9-4d87-9d55-dad45eaea4fa",
   "tables": {
     "areas": {
       "name": "areas",
@@ -435,6 +435,13 @@
         },
         "image": {
           "name": "image",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

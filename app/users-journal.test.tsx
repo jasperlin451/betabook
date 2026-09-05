@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import UserPage from "@/app/users/[id]/page";
 import UserProjectsPage from "@/app/users/[id]/projects/page";
-import { ProfileTabs } from "@/components/profile-tabs";
+import { ProfileSectionNav, ProfileTabs } from "@/components/profile-tabs";
 
 const state = vi.hoisted(() => ({
   pathname: "/users/journal-owner",
@@ -125,7 +125,9 @@ describe("ProfileTabs", () => {
       showJournal: false,
       showProjects: false,
     });
-    const container = result.props.children as ReactElement<{ children: ReactNode }>;
+    const container = ProfileSectionNav(result.props).props.children as ReactElement<{
+      children: ReactNode;
+    }>;
     const tabs = container.props.children as ReactElement<{ href: string }>[];
 
     expect(tabs.map((tab) => tab.props.href)).toEqual([
@@ -141,7 +143,9 @@ describe("ProfileTabs", () => {
       showJournal: true,
       showProjects: true,
     });
-    const container = result.props.children as ReactElement<{ children: ReactNode }>;
+    const container = ProfileSectionNav(result.props).props.children as ReactElement<{
+      children: ReactNode;
+    }>;
     const tabs = container.props.children as ReactElement<{
       href: string;
       "aria-current"?: string;
