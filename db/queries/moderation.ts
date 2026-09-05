@@ -1,10 +1,26 @@
 import { eq } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
-import { changeRequests, changeRequestApprovals } from "@/db/schema";
+import type { Area } from "@/db/queries/areas";
+import { adminAreaScopes, areas, changeRequests, changeRequestApprovals } from "@/db/schema";
 
 export type ChangeRequest = typeof changeRequests.$inferSelect;
 export type ChangeRequestApproval = typeof changeRequestApprovals.$inferSelect;
+
+/** The areas an admin was granted directly (each grant covers its whole
+ * subtree — see isAdminForArea in lib/moderation.ts). Just the granted rows,
+ * not the expanded tree: this feeds the "areas you moderate" line on the
+ * review queue. */
+export async function getManagedAreas(db: Database, userId: string): Promise<Area[]> {
+  const rows = await db
+    .select({ area: areas })
+    .from(adminAreaScopes)
+    .innerJoin(areas, eq(areas.id, adminAreaScopes.areaId))
+    .where(eq(adminAreaScopes.userId, userId))
+    .orderBy(areas.name)
+    .all();
+  return rows.map((row) => row.area);
+}
 
 export async function getChangeRequest(
   db: Database,

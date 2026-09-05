@@ -1,5 +1,5 @@
 import { buttonVariants } from "@heroui/react";
-import { Upload } from "lucide-react";
+import { ShieldCheck, Upload } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
@@ -17,7 +17,7 @@ import { PageTitle, SectionHeading } from "@/components/ui/typography";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getDb } from "@/db/client";
 import { getUser } from "@/db/queries";
-import { getSession } from "@/lib/session";
+import { getSession, isAdmin } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
@@ -120,6 +120,21 @@ export default async function AccountPage() {
           <ResetPasswordButton email={session.user.email} />
           <SignOutButton />
         </AccountSection>
+
+        {isAdmin({ user: { role: user?.role } }) && (
+          <AccountSection
+            title="Moderation"
+            description="Review change requests for the areas you moderate."
+          >
+            <AppLink
+              href="/admin/requests"
+              className={`${buttonVariants({ variant: "outline", fullWidth: true })} gap-2 text-foreground`}
+            >
+              <ShieldCheck className="size-4" />
+              Review requests
+            </AppLink>
+          </AccountSection>
+        )}
       </div>
 
       <section className="flex flex-col gap-4 rounded-xl border border-danger/30 bg-danger/5 p-6">

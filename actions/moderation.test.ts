@@ -3,6 +3,8 @@ import { and, eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  approveChangeRequest,
+  rejectChangeRequest,
   requestAreaDelete,
   requestAreaEdit,
   requestAreaReparent,
@@ -546,5 +548,318 @@ describe("requestClimbMerge", () => {
       error: "Can't mark a climb as a duplicate of a different discipline",
     });
     expect(await requestsFor("climb_merge", 954)).toHaveLength(0);
+  });
+});
+
+describe("approveChangeRequest", () => {
+  beforeAll(async () => {
+    // Coverage recomputes each approver's role and scopes from the DB (not
+    // the session), so reviewers need real role: "admin" rows.
+    await seedFixtureUser(db, { id: "reviewer-root", role: "admin" });
+    await seedFixtureUser(db, { id: "review-requester" });
+    await db.insert(adminAreaScopes).values({ userId: "reviewer-root", areaId: 1 });
+  });
+
+  it("applies a fully-covered request and marks it approved", async () => {
+    sessionState.userId = "reviewer-root";
+    sessionState.role = "admin";
+
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "area_edit",
+        entityId: 3,
+        payload: JSON.stringify({ name: "Approved Rename" }),
+        requestedBy: "review-requester",
+      })
+      .returning({ id: changeRequests.id });
+
+    expect(await approveChangeRequest(requestId)).toEqual({
+      ok: true,
+      value: { decision: "applied" },
+    });
+
+    expect((await db.select().from(areas).where(eq(areas.id, 3)).get())?.name).toBe(
+      "Approved Rename",
+    );
+    const row = (await db.select().from(changeRequests).where(eq(changeRequests.id, requestId))).at(
+      0,
+    )!;
+    expect(row.status).toBe("approved");
+    expect(row.reviewedBy).toBe("reviewer-root");
+    expect(row.reviewedAt).toBeInstanceOf(Date);
+  });
+
+  it("accumulates approvals across admins until every area is covered", async () => {
+    await db.insert(areas).values([
+      { id: 700, parentId: null, name: "Coverage Source Root" },
+      { id: 701, parentId: null, name: "Coverage Destination Root" },
+      { id: 702, parentId: 700, name: "Coverage Moving Area" },
+    ]);
+    await seedFixtureUser(db, { id: "coverage-approver-a", role: "admin" });
+    await seedFixtureUser(db, { id: "coverage-approver-b", role: "admin" });
+    await db.insert(adminAreaScopes).values([
+      { userId: "coverage-approver-a", areaId: 700 },
+      { userId: "coverage-approver-b", areaId: 701 },
+    ]);
+
+    // A plain user asks to move area 702 (under root 700) beneath root 701.
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "area_reparent",
+        entityId: 702,
+        payload: JSON.stringify({ newParentId: 701 }),
+        requestedBy: "moderation-user",
+      })
+      .returning({ id: changeRequests.id });
+
+    sessionState.userId = "coverage-approver-a";
+    sessionState.role = "admin";
+    expect(await approveChangeRequest(requestId)).toEqual({
+      ok: true,
+      value: { decision: "awaiting" },
+    });
+    // Half-covered: still pending, nothing moved.
+    expect(
+      (await db.select().from(changeRequests).where(eq(changeRequests.id, requestId)).get())
+        ?.status,
+    ).toBe("pending");
+    expect((await db.select().from(areas).where(eq(areas.id, 702)).get())?.parentId).toBe(700);
+
+    sessionState.userId = "coverage-approver-b";
+    expect(await approveChangeRequest(requestId)).toEqual({
+      ok: true,
+      value: { decision: "applied" },
+    });
+    expect((await db.select().from(areas).where(eq(areas.id, 702)).get())?.parentId).toBe(701);
+    const row = await db
+      .select()
+      .from(changeRequests)
+      .where(eq(changeRequests.id, requestId))
+      .get();
+    expect(row?.status).toBe("approved");
+    expect(row?.reviewedBy).toBe("coverage-approver-b");
+  });
+
+  it("blocks reviewing your own request", async () => {
+    sessionState.userId = "reviewer-root";
+    sessionState.role = "admin";
+
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "area_edit",
+        entityId: 3,
+        payload: JSON.stringify({ name: "Self Serve" }),
+        requestedBy: "reviewer-root",
+      })
+      .returning({ id: changeRequests.id });
+
+    expect(await approveChangeRequest(requestId)).toEqual({
+      ok: false,
+      error: "You can't review your own request",
+    });
+  });
+
+  it("returns Admins only for a signed-in non-admin", async () => {
+    sessionState.userId = "moderation-user";
+    sessionState.role = null;
+
+    expect(await approveChangeRequest(1)).toEqual({ ok: false, error: "Admins only." });
+  });
+
+  it("rejects reviewing an unknown request", async () => {
+    sessionState.userId = "reviewer-root";
+    sessionState.role = "admin";
+    expect(await approveChangeRequest(999999)).toEqual({ ok: false, error: "Request not found" });
+  });
+
+  it("rejects reviewing an already-decided request", async () => {
+    sessionState.userId = "reviewer-root";
+    sessionState.role = "admin";
+
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "area_edit",
+        entityId: 3,
+        payload: JSON.stringify({ name: "Whatever" }),
+        requestedBy: "moderation-user",
+        status: "approved",
+      })
+      .returning({ id: changeRequests.id });
+
+    expect(await approveChangeRequest(requestId)).toEqual({
+      ok: false,
+      error: "This request has already been reviewed",
+    });
+  });
+
+  it("rejects a request outside the admin's managed areas", async () => {
+    await db.insert(areas).values({ id: 500, parentId: null, name: "Unmanaged Continent" });
+    await seedFixtureUser(db, { id: "elsewhere-admin", role: "admin" });
+    await db.insert(adminAreaScopes).values({ userId: "elsewhere-admin", areaId: 500 });
+
+    sessionState.userId = "elsewhere-admin";
+    sessionState.role = "admin";
+
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "area_edit",
+        entityId: 3,
+        payload: JSON.stringify({ name: "Whatever" }),
+        requestedBy: "review-requester",
+      })
+      .returning({ id: changeRequests.id });
+
+    expect(await approveChangeRequest(requestId)).toEqual({
+      ok: false,
+      error: "You don't manage this area",
+    });
+  });
+
+  it("blocks approving a request whose entity is gone, but lets any admin reject it", async () => {
+    await db
+      .insert(climbs)
+      .values({ id: 970, areaId: 3, name: "Soon Gone", type: "boulder", grade: 3 });
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "climb_edit",
+        entityId: 970,
+        payload: JSON.stringify({ name: "Too Late" }),
+        requestedBy: "moderation-user",
+      })
+      .returning({ id: changeRequests.id });
+    await db.delete(climbs).where(eq(climbs.id, 970));
+
+    // The entity vanished via a raw DB delete (not applyClimbDelete, which
+    // would have auto-rejected this request) — nobody can review the
+    // leftover either way.
+    sessionState.userId = "elsewhere-admin";
+    sessionState.role = "admin";
+    expect(await approveChangeRequest(requestId)).toEqual({
+      ok: false,
+      error: "The area or climb this request affects is gone",
+    });
+    expect(await rejectChangeRequest(requestId, "target vanished")).toEqual({
+      ok: false,
+      error: "The area or climb this request affects is gone",
+    });
+  });
+
+  it("puts the request back to pending when the apply fails a business rule", async () => {
+    await db
+      .insert(climbs)
+      .values({ id: 971, areaId: 3, name: "Delete Race", type: "boulder", grade: 3 });
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "climb_delete",
+        entityId: 971,
+        payload: "{}",
+        requestedBy: "moderation-user",
+      })
+      .returning({ id: changeRequests.id });
+    // A send lands between queue time and review time.
+    await seedFixtureUser(db, { id: "race-sender" });
+    await seedFixtureSend(db, { userId: "race-sender", climbId: 971, dateSent: "2026-02-01" });
+
+    sessionState.userId = "reviewer-root";
+    sessionState.role = "admin";
+    expect(await approveChangeRequest(requestId)).toEqual({
+      ok: false,
+      error: "Can't delete a climb with logged sends",
+    });
+
+    const row = await db
+      .select()
+      .from(changeRequests)
+      .where(eq(changeRequests.id, requestId))
+      .get();
+    expect(row?.status).toBe("pending");
+    expect(row?.reviewedBy).toBeNull();
+    expect(await db.select().from(climbs).where(eq(climbs.id, 971)).get()).toBeDefined();
+  });
+});
+
+describe("rejectChangeRequest", () => {
+  it("marks the request rejected with a note, without mutating anything", async () => {
+    sessionState.userId = "reviewer-root";
+    sessionState.role = "admin";
+
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "climb_delete",
+        entityId: 2,
+        payload: "{}",
+        requestedBy: "review-requester",
+      })
+      .returning({ id: changeRequests.id });
+
+    expect(await rejectChangeRequest(requestId, "Not a duplicate after all")).toEqual({
+      ok: true,
+      value: undefined,
+    });
+
+    expect(await db.select().from(climbs).where(eq(climbs.id, 2)).get()).toBeDefined();
+    const row = (await db.select().from(changeRequests).where(eq(changeRequests.id, requestId))).at(
+      0,
+    )!;
+    expect(row.status).toBe("rejected");
+    expect(row.reviewNote).toBe("Not a duplicate after all");
+    expect(row.reviewedBy).toBe("reviewer-root");
+  });
+
+  it("blocks rejecting your own request too — reviews come from someone else", async () => {
+    sessionState.userId = "reviewer-root";
+    sessionState.role = "admin";
+
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "area_edit",
+        entityId: 4,
+        payload: JSON.stringify({ name: "Changed My Mind" }),
+        requestedBy: "reviewer-root",
+      })
+      .returning({ id: changeRequests.id });
+
+    expect(await rejectChangeRequest(requestId, "")).toEqual({
+      ok: false,
+      error: "You can't review your own request",
+    });
+    expect(
+      (await db.select().from(changeRequests).where(eq(changeRequests.id, requestId)).get())
+        ?.status,
+    ).toBe("pending");
+  });
+
+  it("refuses a second decision on the same request", async () => {
+    sessionState.userId = "reviewer-root";
+    sessionState.role = "admin";
+
+    const [{ id: requestId }] = await db
+      .insert(changeRequests)
+      .values({
+        type: "area_edit",
+        entityId: 5,
+        payload: JSON.stringify({ name: "Once Only" }),
+        requestedBy: "review-requester",
+      })
+      .returning({ id: changeRequests.id });
+
+    expect(await rejectChangeRequest(requestId, "first")).toEqual({ ok: true, value: undefined });
+    expect(await rejectChangeRequest(requestId, "second")).toEqual({
+      ok: false,
+      error: "This request has already been reviewed",
+    });
+    expect(await approveChangeRequest(requestId)).toEqual({
+      ok: false,
+      error: "This request has already been reviewed",
+    });
   });
 });
