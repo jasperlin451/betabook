@@ -1,141 +1,113 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Betabook
 
-## Getting Started
+[Betabook](https://betabook.ca) is a climbing logbook and community crag database for bouldering, sport, and trad climbing.
 
-```bash
-pnpm install
-pnpm setup             # .dev.vars, local database, dev user — idempotent
-```
+- Search climbs and explore the area hierarchy, with community ratings and suggested grades.
+- Log ascents, repeats, climb sessions, and training in a journal with notes and tags.
+- Track open projects and view send history, grade progression, and activity analytics.
+- Import and export sends as CSV, and control profile and journal visibility separately.
+- Contribute areas, climbs, and descriptions; structural changes go through moderation by admins assigned to the affected areas.
+- Learn the logging workflow through an interactive Journal tutorial.
 
-`pnpm setup` is idempotent and equivalent to:
+Built with Next.js 16 App Router, React 19, TypeScript, HeroUI, and Tailwind CSS. OpenNext runs the app on Cloudflare Workers; Cloudflare D1 stores data through Drizzle ORM. Better Auth handles email/password and optional Google sign-in, and Resend delivers email.
 
-```bash
-cp .dev.vars.example .dev.vars
-pnpm db:migrate:local
-pnpm seed
-pnpm cf-typegen        # optional: audit the full generated Workers type surface
-```
+## Local development
 
-Keep the small, checked-in `cloudflare-env.d.ts` binding contract in sync when
-changing `wrangler.jsonc` or adding an application environment variable.
-
-Then run the development server:
+Use **Node.js 24** (also used in CI) and the pnpm version pinned in [`package.json`](package.json). The local scripts use Node's TypeScript support and `node:sqlite`.
 
 ```bash
+pnpm install --frozen-lockfile
+pnpm setup
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [localhost:3000](http://localhost:3000). Sign in with **`dev@example.com` / `password`** to try the journal, imports, and account settings.
 
-### Local environment variables
+`pnpm setup` copies `.dev.vars.example` if `.dev.vars` is missing, migrates a new local database, and runs the seed script. It preserves an existing environment file and existing climbs, but resets the default development account's name and password on every run.
 
-`@opennextjs/cloudflare` layers `.dev.vars` (gitignored) over the `vars` block
-in `wrangler.jsonc`. `.dev.vars` is not optional for auth work: without it
-`BETTER_AUTH_URL` falls back to the production `https://betabook.ca`, so
-verification and password-reset links generated locally point at the deployed
-site. See `.dev.vars.example` for the keys.
-
-### Signing in locally
-
-Anonymous browsing needs no setup. To exercise the signed-in surfaces
-(`/account`, logging sends, imports), seed a pre-verified user:
+**For an existing checkout, apply new migrations explicitly:** setup skips the migration step when a local database already exists.
 
 ```bash
-pnpm seed                                              # dev@example.com / password
-pnpm seed --email me@example.com --password hunter2x   # or pick your own
+pnpm db:migrate:local
 ```
 
-Then sign in at [/sign-in](http://localhost:3000/sign-in). Re-running against
-an existing email resets that user's password and name but keeps their id, and
-so their sends. Emails are lowercased — better-auth lowercases them on lookup,
-but `user.email` is unique under a case-sensitive collation, so a row stored
-with capitals could never be signed into.
+Stop the dev server before running local database scripts and restart it afterwards so it sees the updated data. Local D1 state lives under `.wrangler/state/` and is separate from production.
 
-Restart `pnpm dev` after seeding. The dev server holds its D1 handle open and
-won't see rows written by a separate `wrangler` process.
+### Environment and authentication
 
-Signing up at [/sign-up](http://localhost:3000/sign-up) works too, but
-`lib/auth.ts` sets `requireEmailVerification: true`, so you then have to open
-the verification link that `lib/email.ts` logs to the `next dev` console.
+[`next.config.ts`](next.config.ts) initializes local Cloudflare bindings for `next dev`. [`.dev.vars.example`](.dev.vars.example) documents the local overrides for [`wrangler.jsonc`](wrangler.jsonc):
 
-### New worktrees
+- `BETTER_AUTH_URL` must match the local server URL, including its port. Without the override, auth links use the production URL.
+- `BETTER_AUTH_SECRET` signs sessions; the example value is for local development.
+- Leave `RESEND_API_KEY` empty to print verification and password-reset links in the dev server console. Email/password sign-up requires verification; seeded accounts are already verified.
+- Google sign-in is enabled only when both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set. The example file lists callback URLs.
 
-`.husky/post-checkout` runs `pnpm install` and `pnpm setup` in a new worktree,
-so this alone leaves you ready to work, in about ten seconds:
-
-```bash
-git worktree add ../betabook-my-branch -b my-branch
-```
-
-It fires only for a checkout with no previous HEAD, so branch switches cost
-nothing. `CI` and `BETABOOK_SKIP_BOOTSTRAP=1` opt out. The hook is found even
-before the worktree installs anything, because git resolves `core.hooksPath`
-against the main checkout.
+[`cloudflare-env.d.ts`](cloudflare-env.d.ts) is the checked-in application binding contract. Keep it aligned with binding and environment changes. `pnpm cf-typegen` generates the full Workers types for inspection; builds and tests do not depend on that gitignored output.
 
 ### Sample data
 
-`pnpm seed` fills an empty database with a sign-in account plus synthetic areas, climbs,
-climbers, ticks, and journal entries — 400 areas, 5,000 climbs, 50 synthetic climbers and
-~16,000 ticks by default. Journal history includes ascents, repeats, open projects,
-outdoor sessions, training, notes, and tags. The result is deterministic for a given
-`--seed`, so two checkouts asked for the same numbers hold the same rows:
+`pnpm seed` creates 400 areas, 5,000 climbs, and 50 synthetic climbers by default, plus sends and journal history covering ascents, repeats, projects, and training. Synthetic accounts start at `climber1@example.com` and use `password` unless a different password is supplied when generating them.
 
 ```bash
-pnpm seed --areas 50 --climbs 500 --users 3
-pnpm seed --force                   # regenerate climbs that already exist
+pnpm seed --email me@example.com --password local-password --name "Local Climber"
+pnpm seed --areas 50 --climbs 500 --users 3 --seed 7 --force
 ```
 
-Synthetic climbers are `climber1@example.com` upward, verified, and sign in
-with the password `password`, and tick counts are long-tailed so profiles
-differ. The account it upserts gets ticks too. Ticks land through the real aggregate triggers, so send counts
-and ratings are populated the way the app populates them.
+The account is upserted on every run, preserving its ID. Sample data is generated only when there are no climbs or when `--force` is passed. **`--force` clears local areas, climbs, sends, journal entries, and synthetic climbers before reseeding**, including logs on the development account. A fixed seed and size reproduce the same sample history.
 
-Scale it up when you need realistic volume — 141,000 climbs takes about ten
-seconds:
+To exercise moderation, grant the local admin role:
 
 ```bash
-pnpm seed --areas 10237 --climbs 141187 --force
+pnpm promote-admin dev@example.com
 ```
 
-Restart `pnpm dev` afterwards; it holds its D1 handle open.
+The role alone grants no area access. Admins also need rows in `admin_area_scopes`, each covering an area and its descendants. There is no assignment UI; grants are inserted directly into the local database. See the [moderation schema](drizzle/schema/moderation.ts) and [scope checks](lib/moderation.ts). The review queue is at `/admin/requests`.
 
-## Tests
+### Worktrees
+
+Once Husky hooks are installed, [`.husky/post-checkout`](.husky/post-checkout) runs dependency installation and setup for a new worktree. It skips ordinary branch switches and environments with `CI` or `BETABOOK_SKIP_BOOTSTRAP` set. If bootstrap fails, run the local development commands above in that worktree.
+
+## Development checks
 
 ```bash
-pnpm test
-pnpm check         # lint, format:check, deadcode, typecheck, vitest
+pnpm check                                # lint, formatting, dead code, types, tests
+pnpm test -- lib/journal.test.ts           # focused test run
+pnpm exec opennextjs-cloudflare build      # production Workers build used by CI
 ```
 
-The test pool uses `test/worker.ts`, so tests run on a fresh checkout without
-first generating the production `.open-next` worker bundle. Pull requests run
-this full verification suite and the production build automatically via
-`.github/workflows/deploy.yml`.
+Tests are colocated with the code in `actions/`, `app/`, `components/`, `db/`, and `lib/`. Vitest runs in the Cloudflare Workers pool and applies all D1 migrations through [`test/apply-migrations.ts`](test/apply-migrations.ts). Its entrypoint is [`test/worker.ts`](test/worker.ts), so tests need neither seeded local data nor a production build.
 
-## Learn More
+| Command                             | Purpose                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------- |
+| `pnpm lint` / `pnpm lint:fix`       | Type-aware Oxlint checks / automatic fixes                                    |
+| `pnpm format` / `pnpm format:check` | Oxfmt formatting / verification                                               |
+| `pnpm deadcode`                     | Knip unused code and dependency checks                                        |
+| `pnpm deadcode:prod`                | Extra audit excluding test and development entrypoints; separate from `check` |
+| `pnpm typecheck`                    | Next route type generation and TypeScript checking                            |
+| `pnpm test`                         | Full Vitest suite                                                             |
+| `pnpm db:generate`                  | Generate migrations from `drizzle/schema/`                                    |
+| `pnpm db:migrate:local`             | Apply migrations to local D1                                                  |
+| `pnpm preview`                      | Build and preview the Cloudflare Workers bundle locally                       |
 
-To learn more about Next.js, take a look at the following resources:
+The pre-commit hook formats staged files; the pre-push hook runs `pnpm check`. See [AGENTS.md](AGENTS.md) for architecture, data invariants, and the required red–green test workflow. Tutorial implementation guidance lives in [docs/product-tours.md](docs/product-tours.md).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) runs the checks and a Cloudflare production build on pull requests. Pushes to `main`, or manual workflow runs on `main`, also apply remote D1 migrations and deploy in the `smwoo/betabook` repository.
 
-## Deploy
-
-Deployed to Cloudflare Workers via `@opennextjs/cloudflare`:
+For a manual deployment, mirror the build–migrate–deploy order:
 
 ```bash
-pnpm preview   # build and run the Workers bundle locally
-pnpm deploy    # build and deploy
+pnpm check
+pnpm exec opennextjs-cloudflare build
+pnpm db:migrate:remote
+pnpm exec opennextjs-cloudflare deploy
 ```
 
-Merging to `main` does the same thing automatically
-(`.github/workflows/deploy.yml`): lint, build, apply D1 migrations, deploy.
-Migrations run before the worker does, so the live worker briefly sees the new
-schema — keep each one backward-compatible. `workflow_dispatch` re-runs a
-deploy without a commit, and `pnpm exec wrangler rollback` reverts one.
+`pnpm deploy` is a build-and-deploy shortcut; it does **not** apply migrations. Migrations must stay compatible with the currently deployed worker because the schema changes before the new worker is live.
 
-The workflow needs two repository secrets, `CLOUDFLARE_API_TOKEN` (scoped to
-Workers Scripts:Edit and D1:Edit) and `CLOUDFLARE_ACCOUNT_ID`. Runtime secrets
-like `BETTER_AUTH_SECRET` and `RESEND_API_KEY` stay Worker secrets set with
-`wrangler secret put`; deploying does not touch them.
+CI deployment uses the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Runtime credentials (`BETTER_AUTH_SECRET`, `RESEND_API_KEY`, and optional Google OAuth credentials) are Worker secrets configured with `pnpm exec wrangler secret put <NAME>`. Hosting, D1, rate-limit bindings, and the public auth URL are configured in [`wrangler.jsonc`](wrangler.jsonc); use your own Cloudflare resources when hosting a fork.
+
+## License
+
+[MIT](LICENSE).
