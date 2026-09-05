@@ -36,7 +36,7 @@ export function TourOverlay({
   const heading = useRef<HTMLHeadingElement>(null);
   const [showSteps, setShowSteps] = useState(false);
   const step = steps[index];
-  const rect = useTourTarget(step.target, page);
+  const highlight = useTourTarget(step.target, page);
   useEffect(() => {
     heading.current?.focus({ preventScroll: true });
   }, [step.id]);
@@ -52,12 +52,27 @@ export function TourOverlay({
   }, [exit, pending]);
   return (
     <>
-      {rect && (
+      {highlight && (
         <div
           aria-hidden
-          className="pointer-events-none fixed z-20 rounded-xl border-2 border-accent"
-          style={rect}
-        />
+          className="pointer-events-none fixed z-20 overflow-hidden rounded-lg"
+          style={{
+            left: highlight.viewport.left,
+            top: highlight.viewport.top,
+            width: highlight.viewport.width,
+            height: highlight.viewport.height,
+          }}
+        >
+          <div
+            className="absolute rounded-xl border-2 border-accent shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]"
+            style={{
+              left: highlight.rect.left - highlight.viewport.left,
+              top: highlight.rect.top - highlight.viewport.top,
+              width: highlight.rect.width,
+              height: highlight.rect.height,
+            }}
+          />
+        </div>
       )}
       <div
         role="region"

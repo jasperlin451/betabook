@@ -1,6 +1,6 @@
 # In-page product tours
 
-Tours run at `/tutorial/[tourId]/[stepId]` inside the app shell. The page uses Alex Morgan's sample data and the same profile heading, tabs, sidebar layouts, list rows, and charts as the app. An outline identifies one control. The short guide has its own column on wide screens and its own row below the demo on smaller screens. It must never cover the demo or dim its content.
+Tours run at `/tutorial/[tourId]/[stepId]` inside the app shell. The page uses Alex Morgan's sample data and the same profile heading, tabs, sidebar layouts, list rows, and charts as the app. A spotlight outlines one control and dims the surrounding demo content. The short guide has its own column at the app's desktop breakpoint and its own row below the demo on smaller screens. It must never cover the demo; spotlight dimming must stay inside the demo pane.
 
 ## Add a step or feature
 
@@ -9,7 +9,7 @@ Tours run at `/tutorial/[tourId]/[stepId]` inside the app shell. The page uses A
 3. Render the section in the feature's page component. `ProductTourPageProps` supplies its section and `href(stepId)` for links that preserve the replay destination. Reuse the app's layouts and display components. Keep demo controls local and never pass sample IDs to real links or mutation components.
 4. For a separate tour, register its metadata in `lib/product-tour.ts`, steps in `PRODUCT_TOUR_STEPS`, and a lazy page loader in `components/product-tours/registry.ts`. The existing route layout handles the rest. An optional quick action beside the invitation belongs in `quick-actions.tsx`.
 
-The Journal tour covers Log, journal filters, Sends sorting, project history, Analytics, and privacy. The sample Log control explains the entry types without opening a real mutation form. Users can log real entries from the invitation's ordinary Log button or their own Journal after leaving the tour.
+The Journal tour covers Log, journal filters, Sends sorting, project history, Analytics, and privacy. The sample Log control is a visual reference for the first step, with no click action or popover. Users can log real entries from the invitation's ordinary Log button or their own Journal after leaving the tour.
 
 ## Navigation and overlays
 
@@ -17,7 +17,7 @@ The URL owns the current step. Next, Back, profile tabs, the All tutorials menu,
 
 The guide and demo are separate, nonmodal regions. The demo scrolls independently and has a tab stop for keyboard scrolling. The step heading receives focus, Escape exits, and the close button is always available. Each step shows its explanation directly. Back, Next, and All tutorials stay outside the guide's scrolling text area.
 
-The frame fits below the app header and responds to changes in the visual viewport. New targets scroll into view with space for nearby results. Expanded controls are revealed with the smallest necessary scroll. The target outline follows scrolling and is clipped to the demo pane, so it cannot draw over the guide or app navigation. Missing or offscreen targets hide the outline while the guide stays usable.
+The frame fits below the app header and responds to changes in the visual viewport. New targets scroll into view with space for nearby results. Expanded controls are revealed with the smallest necessary scroll. The target outline and dimming follow scrolling and are clipped to the demo pane, so they cannot draw over the guide or app navigation. The spotlight does not intercept clicks. Missing or offscreen targets hide the spotlight while the guide stays usable.
 
 Exit returns to Account for Account replay and otherwise to the user's Journal. These destinations are derived from the authenticated account, not arbitrary return URLs. Finishing saves completion and opens the user's Journal. The route is authenticated, rejects unknown tour/step IDs, and is not indexable.
 

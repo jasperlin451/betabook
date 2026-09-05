@@ -27,22 +27,16 @@ import {
 
 const SECTIONS = ["Journal", "Sends", "Projects", "Analytics", "Account"];
 
-/** A small read-only example of the Log choices, never a mutation form. */
+/** A visual reference to the app's entry point, without a demo action. */
 function DemoLog() {
   return (
-    <details data-tour-target="journal-log" className="relative w-fit">
-      <summary className={`${buttonVariants()} cursor-pointer list-none gap-2`}>
-        <CirclePlus aria-hidden className="size-5" />
-        Log
-      </summary>
-      <div className="mt-2 w-64 rounded-xl border border-border bg-surface p-4 text-sm shadow-lg">
-        <p className="mb-3 text-xs text-muted">Example logging choices</p>
-        <p className="font-medium">Outdoor session</p>
-        <p className="mb-3 text-muted">One climb per entry, including attempts and repeats.</p>
-        <p className="font-medium">Training</p>
-        <p className="text-muted">Indoor climbing, drills, or strength work.</p>
-      </div>
-    </details>
+    <span
+      data-tour-target="journal-log"
+      className={`${buttonVariants()} w-fit cursor-default gap-2`}
+    >
+      <CirclePlus aria-hidden className="size-5" />
+      Log
+    </span>
   );
 }
 

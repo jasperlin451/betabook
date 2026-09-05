@@ -5,7 +5,7 @@ import { useEffect, useState, type RefObject } from "react";
 import { clipTourTarget, tourTargetScrollDelta, type TourRect } from "@/lib/product-tour-position";
 
 export function useTourTarget(target: string, page: RefObject<HTMLDivElement | null>) {
-  const [rect, setRect] = useState<TourRect | null>(null);
+  const [highlight, setHighlight] = useState<{ rect: TourRect; viewport: TourRect } | null>(null);
   useEffect(() => {
     let frame = 0;
     let observed: HTMLElement | null = null;
@@ -30,12 +30,12 @@ export function useTourTarget(target: string, page: RefObject<HTMLDivElement | n
         introduce = true;
       }
       if (!element) {
-        setRect(null);
+        setHighlight(null);
         return;
       }
       const bounds = element.getBoundingClientRect();
       if (bounds.width <= 0 || bounds.height <= 0) {
-        setRect(null);
+        setHighlight(null);
         return;
       }
       const viewport = container.getBoundingClientRect();
@@ -45,7 +45,8 @@ export function useTourTarget(target: string, page: RefObject<HTMLDivElement | n
         introduce = false;
         if (Math.abs(delta) > 1) container.scrollBy({ top: delta, behavior: "instant" });
       }
-      setRect(clipTourTarget(element.getBoundingClientRect(), viewport));
+      const rect = clipTourTarget(element.getBoundingClientRect(), viewport);
+      setHighlight(rect ? { rect, viewport } : null);
     }
     function schedule() {
       cancelAnimationFrame(frame);
@@ -64,5 +65,5 @@ export function useTourTarget(target: string, page: RefObject<HTMLDivElement | n
       window.removeEventListener("resize", schedule);
     };
   }, [target, page]);
-  return rect;
+  return highlight;
 }
