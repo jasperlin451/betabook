@@ -34,6 +34,7 @@ betabook/
 ├── components/         # React UI Components
 │   ├── ui/             # Design tokens & generic primitives (buttons, modals, fields)
 │   ├── import/         # CSV import wizard subsystem (steps, drawers, matchers)
+│   ├── product-tours/  # Lazy-loaded tutorials and interactive demo previews
 │   └── *.tsx           # Domain feature components (areas, climbs, sends, auth)
 ├── db/                 # Database & Persistence Layer
 │   ├── client.ts       # Cloudflare D1 / Drizzle client factory
@@ -78,6 +79,18 @@ Strict boundaries are codified in `oxlint.config.ts` via `typescript/no-restrict
 
 5. **Import Safety Suite**:
    - Oxlint enforces cycle-free (`import/no-cycle`), duplicate-free (`import/no-duplicates`), and relative-parent-free (`import/no-relative-parent-imports`) imports across all modules.
+
+## Product Tutorials & Feature Discovery
+
+When planning a new user-facing feature or changing an existing workflow, explicitly decide whether to update an existing tutorial step, add a step, create a separate feature tour, or make no tutorial change. Record the decision and a brief reason in the implementation plan or PR description. Internal changes and self-explanatory controls may need no tutorial; unfamiliar workflows, new sections, and changes to logging or visibility usually benefit from one. Keep existing explanations accurate whenever their feature changes.
+
+Read [docs/product-tours.md](docs/product-tours.md) before implementing tutorial changes. Use the existing tour system:
+
+- **Extend a related tutorial** when the feature fits its current story. Profile section steps and their chooser live in `components/product-tours/profile-tour-pages.tsx`; interactive examples live in `profile-tour-previews.tsx` alongside it.
+- **Add a separate tour** for an independent feature or component showcase. Register metadata in `lib/product-tour.ts` and a lazy loader in `components/product-tours/registry.ts`. Reuse shared navigation, focus handling, completion, and Account replay.
+- **Demonstrate with connected data.** Extend the fictional climber in `lib/product-tour-demo.ts` and reuse production display components and domain calculations. Keep related examples consistent across sections. Preview controls use local state; never persist sample data or pass demo IDs to real links or mutations.
+- **Decide whether returning users need another invitation.** A new tour ID has independent progress; increment an existing tour's version only when its changed content warrants resurfacing. Copy corrections do not normally need a version bump.
+- **Verify the learning flow.** Check navigation, replay, keyboard focus, phone layout, and interactive examples. Extend relevant behavior and demo-consistency tests, and confirm previews leave the user's data unchanged.
 
 ## SEO & Metadata
 
