@@ -475,7 +475,9 @@ describe("assertClimbMovable", () => {
 
 describe("assertClimbMergeable", () => {
   it("rejects merging a climb into itself", async () => {
-    await expect(assertClimbMergeable(db, 1, 1)).rejects.toThrow("Can't merge a climb into itself");
+    await expect(assertClimbMergeable(db, 1, 1)).rejects.toThrow(
+      "Can't mark a climb as a duplicate of itself",
+    );
   });
 
   it("rejects an unknown source climb", async () => {
@@ -489,7 +491,7 @@ describe("assertClimbMergeable", () => {
   it("rejects merging climbs of different disciplines", async () => {
     // Climb 1 is a boulder, climb 3 is sport.
     await expect(assertClimbMergeable(db, 1, 3)).rejects.toThrow(
-      "Can't merge climbs of different disciplines",
+      "Can't mark a climb as a duplicate of a different discipline",
     );
   });
 
@@ -661,7 +663,7 @@ describe("applyClimbMerge", () => {
     ]);
 
     await expect(applyClimbMerge(db, 900, 901)).rejects.toThrow(
-      "Can't merge climbs of different disciplines",
+      "Can't mark a climb as a duplicate of a different discipline",
     );
     expect(await db.select().from(climbs).where(eq(climbs.id, 900)).get()).toBeDefined();
     expect(await db.select().from(climbs).where(eq(climbs.id, 901)).get()).toBeDefined();
