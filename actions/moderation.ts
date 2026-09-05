@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import type { Database } from "@/db/client";
 import { getDb } from "@/db/client";
-import { getArea, getChangeRequest, getClimb, type ChangeRequest } from "@/db/queries";
+import { getArea, getChangeRequest, getClimb, getUser, type ChangeRequest } from "@/db/queries";
 import { changeRequests } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import {
@@ -13,6 +13,7 @@ import {
   validateClimbMergeOverrides,
   type RawClimbEditInput,
 } from "@/lib/climbs";
+import { sendChangeRequestDecisionEmail } from "@/lib/email";
 import {
   applyAreaDelete,
   applyAreaEdit,
@@ -29,12 +30,14 @@ import {
   changedFields,
   changeRequestCoverage,
   changeRequestScopeAreaIds,
+  describeChangeRequest,
   isAdminForAllAreas,
   isAdminForAnyArea,
   isAdminForArea,
   recordAdminApply,
   recordChangeRequestApproval,
   submitChangeRequest,
+  type ChangeRequestDescription,
   type ChangeRequestPayload,
   type ChangeRequestType,
   type GatedActionResult,
@@ -349,6 +352,40 @@ async function claimDecision(
   return claimed.length > 0;
 }
 
+/** Best-effort, after the decision already committed: a failed notification
+ * shouldn't turn a successful review into a user-facing error the requester
+ * has no way to retry. Everything — including the requester lookup — sits
+ * inside the try, so a transient DB error here can't surface either. Skipped
+ * when the reviewer is the requester (withdrawing your own request isn't
+ * news) or the account is gone. */
+async function notifyRequester(
+  db: Database,
+  request: ChangeRequest,
+  reviewerId: string,
+  decision: "approved" | "rejected",
+  description: ChangeRequestDescription,
+  note: string | null,
+) {
+  if (!request.requestedBy || request.requestedBy === reviewerId) return;
+  try {
+    const requester = await getUser(db, request.requestedBy);
+    if (!requester) return;
+    await sendChangeRequestDecisionEmail(requester.email, {
+      name: requester.name,
+      // The requester's language — for a merge this says "mark as a
+      // duplicate", matching what they actually asked for, while the queue
+      // shows admins the mechanical merge (see ChangeRequestDescription).
+      summary: description.requesterSummary,
+      details: description.details,
+      decision,
+      note,
+      href: description.href,
+    });
+  } catch (err) {
+    console.error("change request decision email failed", err);
+  }
+}
+
 export async function approveChangeRequest(
   requestId: number,
 ): Promise<ActionResult<ReviewDecision>> {
@@ -363,10 +400,17 @@ export async function approveChangeRequest(
     if (!coverage.complete) {
       // Recorded, but an admin for the missing side(s) still has to weigh
       // in. The request stays pending; the queue page re-renders with the
-      // new approval via the revalidate below.
+      // new approval via the revalidate below. No email either — the
+      // requester can only act on the final decision.
       revalidatePath("/admin/requests");
       return { decision: "awaiting" };
     }
+
+    // Captured before applying: for an edit, the details read as
+    // "current value → requested value" — after applying, the entity's
+    // current value already *is* the requested one and the "before" half of
+    // that framing is gone.
+    const description = await describeChangeRequest(db, request);
 
     if (!(await claimDecision(db, requestId, session.user.id, "approved", null))) {
       throw new ActionError("This request has already been reviewed");
@@ -387,6 +431,7 @@ export async function approveChangeRequest(
     }
 
     revalidatePath("/admin/requests");
+    await notifyRequester(db, request, session.user.id, "approved", description, null);
     return { decision: "applied" };
   });
 }
@@ -396,12 +441,14 @@ export async function rejectChangeRequest(requestId: number, note: unknown): Pro
     const session = await requireAdmin();
     const db = await getDb();
 
-    await loadReviewableRequest(db, session, requestId);
+    const { request } = await loadReviewableRequest(db, session, requestId);
     const trimmedNote = typeof note === "string" ? note.trim().slice(0, 2000) || null : null;
+    const description = await describeChangeRequest(db, request);
 
     if (!(await claimDecision(db, requestId, session.user.id, "rejected", trimmedNote))) {
       throw new ActionError("This request has already been reviewed");
     }
     revalidatePath("/admin/requests");
+    await notifyRequester(db, request, session.user.id, "rejected", description, trimmedNote);
   });
 }
