@@ -379,7 +379,10 @@ async function notifyRequester(
     if (!requester) return;
     await sendChangeRequestDecisionEmail(requester.email, {
       name: requester.name,
-      summary: description.summary,
+      // The requester's language — for a merge this says "mark as a
+      // duplicate", matching what they actually asked for, while the queue
+      // shows admins the mechanical merge (see ChangeRequestDescription).
+      summary: description.requesterSummary,
       details: description.details,
       decision,
       note,
