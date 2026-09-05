@@ -114,9 +114,6 @@ function PageTutorial({
             </div>
           </div>
           <div className="p-3 sm:p-4">{demo}</div>
-          <p className="border-t border-border px-4 py-3 text-xs text-muted">
-            These examples won't change your account.
-          </p>
         </section>
         <div className="flex flex-col gap-4 text-sm leading-relaxed">
           {children}
