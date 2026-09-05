@@ -7,9 +7,9 @@ import { seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
 import {
   getChangeRequest,
-  getChangeRequestApprovals,
+  getApprovalCoverageRows,
   getManagedAreas,
-  getPendingChangeRequests,
+  getScopedPendingRequests,
 } from "./moderation";
 
 let db: Database;
@@ -18,10 +18,27 @@ beforeAll(async () => {
   db = createDb(env.DB);
   await seedFixtureTree(db);
   await seedFixtureUser(db, { id: "queries-requester" });
+  await seedFixtureUser(db, { id: "queue-reviewer", role: "admin" });
+  const { adminAreaScopes } = await import("@/db/schema");
+  await db.insert(adminAreaScopes).values({ userId: "queue-reviewer", areaId: 1 });
 
   await db.insert(changeRequests).values([
-    { id: 101, type: "area_edit", entityId: 1, payload: "{}", requestedBy: "queries-requester" },
-    { id: 102, type: "climb_delete", entityId: 1, payload: "{}", requestedBy: "queries-requester" },
+    {
+      id: 101,
+      type: "area_edit",
+      entityId: 1,
+      payload: "{}",
+      requestedBy: "queries-requester",
+      requestedAt: new Date(2000),
+    },
+    {
+      id: 102,
+      type: "climb_delete",
+      entityId: 1,
+      payload: "{}",
+      requestedBy: "queries-requester",
+      requestedAt: new Date(1000),
+    },
     {
       id: 103,
       type: "climb_delete",
@@ -45,33 +62,36 @@ describe("getChangeRequest", () => {
   });
 });
 
-describe("getPendingChangeRequests", () => {
+describe("getScopedPendingRequests", () => {
   it("only returns pending requests, oldest first", async () => {
-    const pending = await getPendingChangeRequests(db);
-    const ids = pending.map((r) => r.id);
-    expect(ids).toContain(101);
-    expect(ids).toContain(102);
-    expect(ids).not.toContain(103);
-    expect(ids.indexOf(101)).toBeLessThan(ids.indexOf(102));
+    const pending = await getScopedPendingRequests(db, "queue-reviewer");
+    const ids = pending.map((r) => r.request.id);
+    expect(ids).toEqual([102, 101]);
   });
 });
 
-describe("getChangeRequestApprovals", () => {
+describe("getApprovalCoverageRows", () => {
   it("returns approvals for the request, oldest first", async () => {
     const { changeRequestApprovals } = await import("@/db/schema");
     await seedFixtureUser(db, { id: "queries-approver-a" });
     await seedFixtureUser(db, { id: "queries-approver-b" });
     await db.insert(changeRequestApprovals).values([
-      { requestId: 101, userId: "queries-approver-a", createdAt: new Date(1000) },
-      { requestId: 101, userId: "queries-approver-b", createdAt: new Date(2000) },
+      { requestId: 101, userId: "queries-approver-a", createdAt: new Date(2000) },
+      { requestId: 101, userId: "queries-approver-b", createdAt: new Date(1000) },
     ]);
 
-    const approvals = await getChangeRequestApprovals(db, 101);
-    expect(approvals.map((a) => a.userId)).toEqual(["queries-approver-a", "queries-approver-b"]);
+    const approvals = await getApprovalCoverageRows(db, [
+      { request: (await getChangeRequest(db, 101))!, scopeAreaIds: [1] },
+    ]);
+    expect(approvals.map((a) => a.userId)).toEqual(["queries-approver-b", "queries-approver-a"]);
   });
 
   it("is empty for a request with no approvals", async () => {
-    expect(await getChangeRequestApprovals(db, 102)).toEqual([]);
+    expect(
+      await getApprovalCoverageRows(db, [
+        { request: (await getChangeRequest(db, 102))!, scopeAreaIds: [4] },
+      ]),
+    ).toEqual([]);
   });
 });
 

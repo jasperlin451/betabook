@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   detectMobileBrowser,
@@ -140,6 +140,23 @@ describe("localStorage dismissal helpers", () => {
     vi.stubGlobal("localStorage", mockStorage);
   });
 
+  it("tolerates storage access being unavailable", () => {
+    vi.stubGlobal("localStorage", {
+      getItem() {
+        throw new Error("Storage denied");
+      },
+      setItem() {
+        throw new Error("Storage denied");
+      },
+      removeItem() {
+        throw new Error("Storage denied");
+      },
+    });
+    expect(isMobileHelperDismissed()).toBe(false);
+    expect(() => setMobileHelperDismissed(true)).not.toThrow();
+    expect(() => setMobileHelperDismissed(false)).not.toThrow();
+  });
+
   it("reads and sets dismissed state", () => {
     expect(isMobileHelperDismissed()).toBe(false);
     setMobileHelperDismissed(true);
@@ -147,4 +164,8 @@ describe("localStorage dismissal helpers", () => {
     setMobileHelperDismissed(false);
     expect(isMobileHelperDismissed()).toBe(false);
   });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });

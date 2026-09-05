@@ -1,7 +1,23 @@
 import { env } from "cloudflare:test";
 import { eq, and } from "drizzle-orm";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  recordChangeRequestApproval,
+  submitChangeRequest,
+  applyAreaEdit,
+  assertAreaDeletable,
+  applyAreaDelete,
+  assertAreaReparentable,
+  applyAreaReparent,
+  assertClimbMovable,
+  applyClimbMove,
+  applyClimbEdit,
+  assertClimbDeletable,
+  applyClimbDelete,
+  assertClimbMergeable,
+  applyClimbMerge,
+} from "@/actions/moderation-apply";
 import { createDb, type Database } from "@/db/client";
 import { getChangeRequest } from "@/db/queries";
 import { adminAreaScopes, areas, changeRequests, climbs, journalEntries, sends } from "@/db/schema";
@@ -12,33 +28,20 @@ import {
   seedFixtureTree,
   seedFixtureUser,
 } from "@/test/fixtures";
+import { resetDb } from "@/test/reset-db";
 
 vi.mock("next/cache", () => ({ refresh: () => {}, revalidatePath: () => {} }));
 
 import {
-  applyAreaDelete,
-  applyAreaEdit,
-  applyAreaReparent,
-  applyClimbDelete,
-  applyClimbEdit,
-  applyClimbMerge,
-  applyClimbMove,
-  assertAreaDeletable,
-  assertClimbDeletable,
-  assertAreaReparentable,
-  assertClimbMergeable,
-  assertClimbMovable,
   changedFields,
   changeRequestCoverage,
   changeRequestScopeAreaIds,
   describeChangeRequest,
-  getReviewQueue,
+  getReviewQueueDetails,
   isAdminForAllAreas,
   isAdminForAnyArea,
   isAdminForArea,
-  recordChangeRequestApproval,
-  submitChangeRequest,
-} from "./moderation";
+} from "@/lib/moderation";
 
 let db: Database;
 
@@ -54,8 +57,9 @@ async function coverageFor(request: Awaited<ReturnType<typeof loadRequest>>) {
   return changeRequestCoverage(db, request, await changeRequestScopeAreaIds(db, request));
 }
 
-beforeAll(async () => {
+beforeEach(async () => {
   db = createDb(env.DB);
+  await resetDb(db);
   await seedFixtureTree(db);
   await seedFixtureUser(db, { id: "moderation-requester" });
 });
@@ -91,12 +95,14 @@ describe("submitChangeRequest", () => {
   });
 
   it("rejects a duplicate pending request for the same entity and requester", async () => {
+    await submitChangeRequest(db, "area_edit", 1, "moderation-requester", { name: "First" });
     await expect(
       submitChangeRequest(db, "area_edit", 1, "moderation-requester", { name: "Again" }),
     ).rejects.toThrow("You already have a pending request for this");
   });
 
   it("allows the same request from a different requester", async () => {
+    await submitChangeRequest(db, "area_edit", 1, "moderation-requester", { name: "First" });
     await seedFixtureUser(db, { id: "second-requester" });
     await expect(
       submitChangeRequest(db, "area_edit", 1, "second-requester", { name: "Renamed Crag" }),
@@ -125,7 +131,7 @@ describe("submitChangeRequest", () => {
 // Fixture tree: Test Crag (1) > Test Boulders (2) > {Test Highball Alcove (4),
 // Test Slab Area (5)}, and Test Crag (1) > Test Sport Wall (3).
 describe("isAdminForArea", () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     await seedFixtureUser(db, { id: "scope-admin" });
     await seedFixtureUser(db, { id: "roleless-scope-admin" });
     await db.insert(adminAreaScopes).values({ userId: "scope-admin", areaId: 2 });
@@ -157,7 +163,7 @@ describe("isAdminForArea", () => {
 });
 
 describe("changeRequestScopeAreaIds", () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     await seedFixtureUser(db, { id: "scope-requester" });
   });
 
@@ -267,7 +273,7 @@ describe("isAdminForAllAreas", () => {
 });
 
 describe("changeRequestCoverage", () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     // Roles live on the user row here (not a session object) because
     // coverage re-reads each approver's current role at decision time.
     await seedFixtureUser(db, { id: "coverage-admin-a", role: "admin" });
@@ -370,7 +376,7 @@ describe("changeRequestCoverage", () => {
   });
 });
 
-describe("getReviewQueue", () => {
+describe("getReviewQueueDetails", () => {
   it("only returns pending requests inside the admin's managed areas", async () => {
     await seedFixtureUser(db, { id: "visibility-admin" });
     await seedFixtureUser(db, { id: "visibility-requester" });
@@ -387,25 +393,31 @@ describe("getReviewQueue", () => {
       {},
     );
 
-    const queue = await getReviewQueue(db, {
+    const queue = await getReviewQueueDetails(db, {
       user: { id: "visibility-admin", role: "admin" },
     });
     const visibleIds = queue.map((q) => q.request.id);
     expect(visibleIds).toContain(inScopeId);
     expect(visibleIds).not.toContain(outOfScopeId);
     // The derived scope rides along for downstream coverage checks.
-    expect(queue.find((q) => q.request.id === inScopeId)?.scopeAreaIds).toEqual([4]);
+    expect(queue.find((q) => q.request.id === inScopeId)?.coverage.scopeAreaIds).toEqual([4]);
   });
 
   it("omits the admin's own requests — they can't review them anyway", async () => {
+    await seedFixtureUser(db, { id: "visibility-admin" });
+    await db.insert(adminAreaScopes).values({ userId: "visibility-admin", areaId: 2 });
+    const visibleId = await submitChangeRequest(db, "area_edit", 4, "moderation-requester", {
+      name: "Visible",
+    });
     const ownId = await submitChangeRequest(db, "area_edit", 5, "visibility-admin", {
       name: "My Own Rename",
     });
 
-    const queue = await getReviewQueue(db, {
+    const queue = await getReviewQueueDetails(db, {
       user: { id: "visibility-admin", role: "admin" },
     });
-    expect(queue.map((q) => q.request.id)).not.toContain(ownId);
+    expect(queue.map((q) => q.request.id)).toEqual([visibleId]);
+    expect(visibleId).not.toBe(ownId);
   });
 
   it("shows a reparent request to an admin managing only the destination side", async () => {
@@ -418,7 +430,7 @@ describe("getReviewQueue", () => {
       newParentId: 5,
     });
 
-    const queue = await getReviewQueue(db, {
+    const queue = await getReviewQueueDetails(db, {
       user: { id: "destination-only-admin", role: "admin" },
     });
     expect(queue.map((q) => q.request.id)).toContain(id);
@@ -430,18 +442,28 @@ describe("getReviewQueue", () => {
     await db.insert(adminAreaScopes).values({ userId: "zombie-viewer-admin", areaId: 5 });
 
     const id = await submitChangeRequest(db, "climb_delete", 999997, "zombie-requester", {});
+    const visibleId = await submitChangeRequest(db, "climb_delete", 2, "zombie-requester", {});
 
-    const queue = await getReviewQueue(db, {
+    const queue = await getReviewQueueDetails(db, {
       user: { id: "zombie-viewer-admin", role: "admin" },
     });
-    expect(queue.map((q) => q.request.id)).not.toContain(id);
+    expect(queue.map((q) => q.request.id)).toEqual([visibleId]);
+    expect(visibleId).not.toBe(id);
   });
 
   it("returns nothing for a non-admin session", async () => {
     await seedFixtureUser(db, { id: "non-admin-viewer" });
     await db.insert(adminAreaScopes).values({ userId: "non-admin-viewer", areaId: 1 });
 
-    const queue = await getReviewQueue(db, {
+    const visibleId = await submitChangeRequest(db, "area_edit", 1, "moderation-requester", {
+      name: "Visible",
+    });
+    expect(
+      (await getReviewQueueDetails(db, { user: { id: "non-admin-viewer", role: "admin" } })).map(
+        (q) => q.request.id,
+      ),
+    ).toEqual([visibleId]);
+    const queue = await getReviewQueueDetails(db, {
       user: { id: "non-admin-viewer", role: null },
     });
     expect(queue).toEqual([]);
@@ -574,6 +596,11 @@ describe("applyClimbEdit", () => {
   });
 
   it("blocks a discipline change once the climb has sends", async () => {
+    await seedFixtureUser(db, { id: "edit-sender" });
+    await db
+      .insert(climbs)
+      .values({ id: 941, areaId: 3, name: "Edit Sent", type: "boulder", grade: 3 });
+    await seedFixtureSend(db, { userId: "edit-sender", climbId: 941, dateSent: "2026-01-01" });
     await expect(applyClimbEdit(db, 941, { type: "sport" })).rejects.toThrow(
       "Can't change discipline once a climb has logged sends",
     );
@@ -966,7 +993,7 @@ describe("applyClimbMerge", () => {
 });
 
 describe("orphaned request auto-rejection", () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     await seedFixtureUser(db, { id: "orphan-requester" });
   });
 
@@ -1014,6 +1041,9 @@ describe("orphaned request auto-rejection", () => {
       newAreaId: 872,
     });
 
+    const untouchedId = await submitChangeRequest(db, "area_edit", 1, "orphan-requester", {
+      name: "Still pending",
+    });
     await applyAreaDelete(db, 872);
 
     expect((await loadRequest(reparentId)).status).toBe("rejected");
@@ -1023,12 +1053,12 @@ describe("orphaned request auto-rejection", () => {
       .select()
       .from(changeRequests)
       .where(and(eq(changeRequests.status, "pending"), eq(changeRequests.type, "area_edit")));
-    expect(untouched.length).toBeGreaterThan(0);
+    expect(untouched.map((row) => row.id)).toEqual([untouchedId]);
   });
 });
 
 describe("describeChangeRequest", () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     await seedFixtureUser(db, { id: "describe-requester" });
   });
 

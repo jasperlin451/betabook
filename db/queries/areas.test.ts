@@ -11,7 +11,6 @@ import {
   getAncestors,
   getArea,
   getAreaBreadcrumbs,
-  getNearestAncestors,
   getSubareas,
   searchAreas,
 } from "./areas";
@@ -87,28 +86,8 @@ describe("getAncestors", () => {
   });
 });
 
-describe("getNearestAncestors", () => {
-  it("returns the full chain when it's shorter than depth", async () => {
-    const alcove = await getArea(db, 4);
-    const ancestors = await getNearestAncestors(db, alcove!, 2);
-    expect(ancestors.map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
-  });
-
-  it("keeps only the nearest `depth` ancestors, root-first among themselves", async () => {
-    const alcove = await getArea(db, 4);
-    const ancestors = await getNearestAncestors(db, alcove!, 1);
-    expect(ancestors.map((a) => a.name)).toEqual(["Test Boulders"]);
-  });
-
-  it("returns an empty array for the root area", async () => {
-    const root = await getArea(db, 1);
-    const ancestors = await getNearestAncestors(db, root!, 2);
-    expect(ancestors).toEqual([]);
-  });
-});
-
 describe("getAreaBreadcrumbs", () => {
-  it("returns nearest-ancestor breadcrumbs keyed by area id, one lookup per distinct id", async () => {
+  it("returns nearest-ancestor breadcrumbs keyed by distinct area ids", async () => {
     const breadcrumbs = await getAreaBreadcrumbs(db, [4, 3, 4]);
     expect(breadcrumbs[4].map((a) => a.name)).toEqual(["Test Crag", "Test Boulders"]);
     expect(breadcrumbs[3].map((a) => a.name)).toEqual(["Test Crag"]);

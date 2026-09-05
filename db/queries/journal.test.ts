@@ -1,6 +1,5 @@
 import { env } from "cloudflare:test";
-import { sql } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createDb, type Database } from "@/db/client";
 import {
@@ -20,6 +19,8 @@ import {
   seedFixtureTree,
   seedFixtureUser,
 } from "@/test/fixtures";
+import { explainQueries } from "@/test/query-plans";
+import { resetDb } from "@/test/reset-db";
 
 let db: Database;
 
@@ -33,8 +34,9 @@ function filter(overrides: Partial<JournalFilter> = {}): JournalFilter {
   return { ...DEFAULT_JOURNAL_FILTER, ...overrides };
 }
 
-beforeAll(async () => {
+beforeEach(async () => {
   db = createDb(env.DB);
+  await resetDb(db);
   await seedFixtureTree(db);
   await seedFixtureUser(db, { id: OWNER.id, name: "Timeline Owner" });
   await seedFixtureUser(db, { id: "tl-other", name: "Someone Else" });
@@ -190,13 +192,27 @@ describe("getJournalPage", () => {
   });
 
   it("pages by cursor without repeating or skipping a same-day pair", async () => {
-    const first = await getJournalPage(db, OWNER, OWNER.id, filter(), null, 4);
+    const first = await getJournalPage(db, OWNER, OWNER.id, filter(), null, 5);
     expect(first.hasMore).toBe(true);
-    expect(first.nextCursor).toEqual({ entryDate: "2025-03-05", id: first.entries[3].id });
+    expect(first.nextCursor).toEqual({ entryDate: "2025-02-02", id: first.entries[4].id });
 
-    const second = await getJournalPage(db, OWNER, OWNER.id, filter(), first.nextCursor, 4);
+    const second = await getJournalPage(db, OWNER, OWNER.id, filter(), first.nextCursor, 5);
     const ids = [...first.entries, ...second.entries].map((e) => e.id);
+    expect(first.entries.map((e) => [e.entryDate, e.sent])).toEqual([
+      ["2026-01-15", false],
+      ["2025-04-01", false],
+      ["2025-03-06", false],
+      ["2025-03-05", false],
+      ["2025-02-02", false],
+    ]);
+    expect(second.entries.map((e) => [e.entryDate, e.sent])).toEqual([
+      ["2025-02-02", true],
+      ["2025-01-10", true],
+    ]);
+    expect(ids).toHaveLength(7);
     expect(new Set(ids).size).toBe(7);
+    expect(ids).toEqual([...ids].sort((a, b) => b - a));
+    expect(second.nextCursor).toBeNull();
     expect(second.hasMore).toBe(false);
   });
 
@@ -367,13 +383,11 @@ describe("getOpenProjects", () => {
 
 describe("the timeline's query plan", () => {
   it("seeks journal_user_date_idx and does not sort", async () => {
-    const plan = await db.all<{ detail: string }>(sql`
-      EXPLAIN QUERY PLAN
-      SELECT j.id FROM journal_entries j
-      WHERE j.user_id = ${OWNER.id} AND (j.entry_date, j.id) < ('2026-01-01', 1)
-      ORDER BY j.entry_date DESC, j.id DESC
-      LIMIT 21
-    `);
+    const plans = await explainQueries(db, async () =>
+      getJournalPage(db, OWNER, OWNER.id, filter(), { entryDate: "2026-01-01", id: 1 }),
+    );
+    expect(plans).toHaveLength(1);
+    const [plan] = plans;
     const detail = plan.map((row) => row.detail).join("\n");
     expect(detail).toContain("journal_user_date_idx");
     expect(detail).not.toContain("TEMP B-TREE");

@@ -1,3 +1,7 @@
+import { sql, type SQL } from "drizzle-orm";
+
+import type { Discipline } from "@/lib/grades";
+
 export const PAGE_SIZE = 50;
 
 /**
@@ -14,4 +18,15 @@ export function toFtsPrefixQuery(raw: string): string {
     .filter(Boolean)
     .map((word) => `"${word}"*`)
     .join(" ");
+}
+
+/** A full range includes ungraded climbs; a narrowed range excludes them. */
+export function disciplineGradeCondition(
+  type: Discipline,
+  range: [number, number],
+  fullRange: [number, number],
+): SQL {
+  const [min, max] = range;
+  if (min <= fullRange[0] && max >= fullRange[1]) return sql`climbs.type = ${type}`;
+  return sql`(climbs.type = ${type} AND climbs.grade BETWEEN ${min} AND ${max})`;
 }

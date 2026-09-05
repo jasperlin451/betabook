@@ -273,12 +273,15 @@ describe("unknown-date sends", () => {
 
 describe("createJournalEntry", () => {
   it("writes a session and no send", async () => {
+    await seedFixtureSend(db, { userId: "j-user", climbId: SLAB, dateSent: null, rating: 4 });
+    const sendsBefore = await db.select().from(sends).orderBy(sends.id);
     const result = await createJournalEntry(entryFormData());
     expect(result).toEqual({ ok: true, value: undefined });
 
     const entries = await entriesFor("j-user");
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ kind: "session", sent: false, climbId: HIGHBALL });
+    expect(await db.select().from(sends).orderBy(sends.id)).toEqual(sendsBefore);
   });
 
   it("stores normalized tags", async () => {
@@ -507,6 +510,7 @@ describe("updateJournalEntry", () => {
       ok: false,
       error: "Entry not found",
     });
+    expect(await entriesFor("j-user")).toEqual([entry]);
   });
 
   it("won't turn a session into a send", async () => {
@@ -517,12 +521,14 @@ describe("updateJournalEntry", () => {
     );
     expect(result.ok).toBe(false);
     expect(await sendFor("j-user", SLAB)).toBeUndefined();
+    expect(await entriesFor("j-user")).toEqual([entry]);
   });
 
   it("won't move an entry to another climb", async () => {
     const entry = await seedOwn({ climbId: SLAB });
     const result = await updateJournalEntry(entry.id, entryFormData({ climbId: String(HIGHBALL) }));
     expect(result.ok).toBe(false);
+    expect(await entriesFor("j-user")).toEqual([entry]);
   });
 
   it("won't backdate a repeat ahead of the ascent", async () => {
@@ -631,6 +637,8 @@ describe("deleteJournalEntry", () => {
   });
 
   it("deletes a plain session without touching sends", async () => {
+    await seedFixtureSend(db, { userId: "j-user", climbId: SLAB, dateSent: null, rating: 4 });
+    const sendsBefore = await db.select().from(sends).orderBy(sends.id);
     await seedFixtureJournalEntry(db, {
       userId: "j-user",
       entryDate: "2026-03-01",
@@ -639,6 +647,7 @@ describe("deleteJournalEntry", () => {
     const [entry] = await entriesFor("j-user");
     expect((await deleteJournalEntry(entry.id)).ok).toBe(true);
     expect(await entriesFor("j-user")).toEqual([]);
+    expect(await db.select().from(sends).orderBy(sends.id)).toEqual(sendsBefore);
   });
 
   it("refuses somebody else's entry", async () => {

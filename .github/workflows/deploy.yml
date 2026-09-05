@@ -23,14 +23,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
+      # Installs pnpm, Node, and the dependencies, so there is no separate
+      # install step. Caches the store and pnpm's minimumReleaseAge verdict.
+      # Not @v2 -- that tag still resolves to v2.0.2, which has neither the
+      # verdict cache nor require-lockfile, and only warns on the latter.
+      - uses: pnpm/setup@v2.1.0
         with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
+          runtime: node@24
+          cache: true
+          require-lockfile: true
 
       # worker-configuration.d.ts is gitignored and `wrangler types` derives it
       # from wrangler.jsonc *and* .dev.vars. Without this copy CloudflareEnv
@@ -74,14 +75,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
+      # Installs pnpm, Node, and the dependencies, so there is no separate
+      # install step. Caches the store and pnpm's minimumReleaseAge verdict.
+      # Not @v2 -- that tag still resolves to v2.0.2, which has neither the
+      # verdict cache nor require-lockfile, and only warns on the latter.
+      - uses: pnpm/setup@v2.1.0
         with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
+          runtime: node@24
+          cache: true
+          require-lockfile: true
 
       # worker-configuration.d.ts is gitignored and `wrangler types` derives it
       # from wrangler.jsonc *and* .dev.vars. Without this copy CloudflareEnv

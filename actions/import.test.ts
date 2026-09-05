@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { importSends, resolveImportClimbs, resolveImportClimbsInAreas } from "@/actions";
@@ -92,10 +92,7 @@ function bulkRows(from: number, to: number): ImportSendRow[] {
   return Array.from({ length: to - from + 1 }, (_, i) => importRow(100 + from + i));
 }
 
-// Seeded once for the whole file (matching the other DB suites); each test
-// below uses its own user and its own slice of the bulk climbs, so no test
-// depends on another's writes. noop-user's pre-logged send on climb 2 backs
-// the already-logged case.
+// Stable catalogue; each test rebuilds its own send and journal state.
 beforeAll(async () => {
   await seedFixtureTree(db);
   await seedManyClimbs(db, 5, 60, 100);
@@ -115,13 +112,15 @@ beforeAll(async () => {
   ]) {
     await seedFixtureUser(db, { id });
   }
-  await seedFixtureSend(db, { userId: "noop-user", climbId: 2, dateSent: null });
 });
 
 // Every call uses skip mode except the overwrite suite at the bottom.
 const IMPORT_OPTIONS = { gradeScale: "native", onConflict: "skip" } as const;
 
-beforeEach(() => {
+beforeEach(async () => {
+  await db.delete(journalEntries);
+  await db.delete(sends);
+  await seedFixtureSend(db, { userId: "noop-user", climbId: 2, dateSent: null });
   sessionState.userId = "import-user";
   batchCalls.count = 0;
   cacheMocks.revalidatePath.mockClear();
@@ -171,23 +170,44 @@ describe("importSends atomic commit", () => {
   });
 
   it("commits nothing when the batch fails partway (no partial import)", async () => {
-    // A session user with no `user` row: climb resolution succeeds, then the
-    // sends insert violates the user_id foreign key — the kind of failure
-    // that used to leave earlier chunks committed while the action reported
-    // total failure.
-    sessionState.userId = "ghost-user";
-    const result = await importSends(bulkRows(25, 36), IMPORT_OPTIONS);
+    // A real user lets the first INSERT chunk succeed. Reject the last row
+    // in a later chunk, so sequential execution would leave partial data.
+    sessionState.userId = "import-user";
+    await db.run(sql`CREATE TRIGGER test_import_late_failure BEFORE INSERT ON sends
+      WHEN NEW.climb_id = 136
+      BEGIN SELECT RAISE(ABORT, 'test import late failure'); END`);
+    let result;
+    try {
+      result = await importSends(
+        bulkRows(25, 36).map((row) => ({ ...row, rating: 4 })),
+        IMPORT_OPTIONS,
+      );
+    } finally {
+      await db.run(sql`DROP TRIGGER test_import_late_failure`);
+    }
 
     expect(result).toEqual({ ok: false, error: GENERIC_ERROR_MESSAGE });
-    expect(await db.select().from(sends).where(eq(sends.userId, "ghost-user")).all()).toHaveLength(
+    expect(await db.select().from(sends).where(eq(sends.userId, "import-user")).all()).toHaveLength(
       0,
     );
     expect(
-      await db.select().from(journalEntries).where(eq(journalEntries.userId, "ghost-user")).all(),
+      await db.select().from(journalEntries).where(eq(journalEntries.userId, "import-user")).all(),
     ).toHaveLength(0);
     const bulkIds = Array.from({ length: 12 }, (_, i) => 125 + i);
     const touched = await db.select().from(climbs).where(inArray(climbs.id, bulkIds)).all();
-    expect(touched.every((c) => c.sendCount === 0)).toBe(true);
+    expect(
+      touched
+        .map((c) => ({
+          id: c.id,
+          sendCount: c.sendCount,
+          ratingSum: c.ratingSum,
+          ratingCount: c.ratingCount,
+          avgRating: c.avgRating,
+        }))
+        .sort((a, b) => a.id - b.id),
+    ).toEqual(
+      bulkIds.map((id) => ({ id, sendCount: 0, ratingSum: 0, ratingCount: 0, avgRating: null })),
+    );
     // Nothing committed, so nothing to revalidate.
     expect(cacheMocks.revalidatePath).not.toHaveBeenCalled();
     expect(cacheMocks.refresh).not.toHaveBeenCalled();

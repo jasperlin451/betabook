@@ -41,10 +41,6 @@ vi.mock("@/db/client", async (importOriginal) => {
   return {
     ...actual,
     getDb: async () => actual.createDb(env.DB),
-    getDbAndContext: async () => ({
-      db: actual.createDb(env.DB),
-      ctx: { waitUntil: () => {} } as unknown as ExecutionContext,
-    }),
   };
 });
 
@@ -145,8 +141,12 @@ describe("creating an area doesn't rewrite the rest of the tree", () => {
     };
 
     const created = await createArea(TEST_BOULDERS, areaForm("Test Untouched Bay"));
-    const newAreaId = created.ok ? created.value : 0;
-    await createClimb(newAreaId, climbForm("Test Untouched Problem"));
+    expect(created.ok).toBe(true);
+    if (!created.ok) throw new Error(created.error);
+    const newAreaId = created.value;
+    const climb = await createClimb(newAreaId, climbForm("Test Untouched Problem"));
+    expect(climb.ok).toBe(true);
+    expect(await climbNamesUnder(newAreaId)).toEqual(["Test Untouched Problem"]);
 
     const after = {
       areas: (await db.all<{ id: number }>(sqlAllAreas())).filter((r) => r.id !== newAreaId),

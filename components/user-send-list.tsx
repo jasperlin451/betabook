@@ -24,9 +24,6 @@ import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 
-/** Ascent-style checkboxes for the user sends filter — same structure as
- * DisciplinesFields in send-filter-form.tsx, but not shared there since it's
- * specific to sends, not disciplines/grades. */
 function AscentStyleFields({
   value,
   onChange,
@@ -82,12 +79,8 @@ type UserSendListProps = {
   initialSends: UserSendRow[];
   initialHasMore: boolean;
   initialAreaBreadcrumbs: AreaBreadcrumbs;
-  /** Whether the user has any sends at all, regardless of the current
-   * filter — distinguishes "no sends logged yet" from "none match". */
+  /** Distinguishes an empty logbook from a filter with no matches. */
   hasAnySends: boolean;
-  /** The signed-in viewer's own user id, if any — every row here belongs
-   * to `userId` (whose profile this is), so the actions menu shows on every
-   * row when the viewer is that same user, none otherwise. */
   currentUserId?: string | null;
 };
 
@@ -99,29 +92,14 @@ const SORT_FIELDS: { id: SortField; label: string }[] = [
   { id: "rating", label: "Rating" },
 ];
 
-// Latest/hardest/highest-rated first by default when a field is picked
-// fresh — direction only flips via the separate arrow button once a field
-// is already active.
 const DEFAULT_DIRECTION: Record<SortField, "asc" | "desc"> = {
   date: "desc",
   grade: "desc",
   rating: "desc",
 };
 
-/** A user's send-history filters, in the same one-row toolbar the area page
- * uses above its climb table — search, discipline chips, "More filters", and
- * the sort control pushed right — rather than a sidebar card. Debounces
- * every field change into a single navigation, same as every other filter
- * surface.
- *
- * Sort lives here rather than beside the "Sends" heading so that all four
- * ways of narrowing the list sit in one control instead of two.
- *
- * The caller must NOT key this on the filter: keying would remount it (and
- * its <input>s) right when the debounce lands — exactly when the user pauses
- * typing — yanking focus out from under them. External URL changes
- * (back/forward) are instead adopted as values by useFilterFormNavigation,
- * which leaves the mounted inputs alone. */
+/** Do not key the toolbar by filters: remounting loses input focus when a
+ * debounced navigation lands. The hook adopts external URL changes in place. */
 export function UserSendsFilterToolbar({
   filter,
   basePath,
@@ -150,10 +128,6 @@ export function UserSendsFilterToolbar({
     initialName: filter.name ?? "",
     initialAreaName: filter.areaName ?? "",
     defaultFilter: DEFAULT_USER_SENDS_FILTER,
-    // Sort lives in the URL beside the filter; threading it through the
-    // hook keeps a non-default sort across filter edits (a filter change
-    // used to silently snap the list back to date_desc) while Reset
-    // Filters still restores the default.
     sort: filter.sort,
     defaultSort: DEFAULT_USER_SENDS_FILTER.sort,
     buildHref: (disciplineFilter, name, areaName, sort) =>
@@ -166,9 +140,6 @@ export function UserSendsFilterToolbar({
       onChange={setDisciplineFilter}
       onReset={reset}
       search={
-        // One field on the bar: the stats sidebar takes a third of the
-        // width, leaving no room for a second. Area scope lives in "More
-        // filters" with the rest of the secondary filters.
         <RouteSearchField
           value={name}
           onChange={setName}
@@ -179,8 +150,6 @@ export function UserSendsFilterToolbar({
       }
       sortControl={
         <SortSelect
-          // The URL may omit sort entirely; the control still needs a
-          // concrete field+direction to show.
           sort={filter.sort ?? "date_desc"}
           fields={SORT_FIELDS}
           defaultField="date"
@@ -225,19 +194,8 @@ type UserSendsPageResponse = {
   areaBreadcrumbs: AreaBreadcrumbs;
 };
 
-/** A user's send history: server-rendered first page, filters that navigate
- * (so the server can re-filter with real SQL), and a "load more" button
- * that fetches subsequent pages from /api/users/[id]/sends — a user's send
- * count can run into the thousands, so this never holds more in memory or
- * transfers more over the wire than what's actually been scrolled to.
- *
- * The caller keys this component on the filter (see app/users/[id]/page.tsx)
- * so a filter change remounts it with fresh initial state, rather than this
- * component syncing local state to changed props via an effect. A server
- * re-render under the SAME key (a send was deleted/edited via a row's
- * actions menu — the server action refresh()es the route) instead arrives
- * as a new `initialSends` prop identity, which resets the accumulated list
- * to the server's fresh first page. */
+/** Key the list by filters. Same-key refreshes supply a new initialSends
+ * identity, resetting loaded pages after send edits or deletion. */
 export function UserSendList({
   userId,
   filter,

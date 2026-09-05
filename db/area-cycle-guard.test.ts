@@ -130,8 +130,9 @@ describe("the guard only blocks cycles, not ordinary tree writes", () => {
   it("does not fire on updates that leave parent_id alone", async () => {
     // The UPDATE trigger is scoped to `UPDATE OF parent_id`, so a rename
     // doesn't pay for an ancestor walk.
-    await db.update(areas).set({ name: "Guard Child Renamed" }).where(eq(areas.id, 9010));
-    const row = await db.select().from(areas).where(eq(areas.id, 9010)).get();
+    await db.insert(areas).values({ id: 9013, parentId: TEST_SPORT_WALL, name: "Guard Rename" });
+    await db.update(areas).set({ name: "Guard Child Renamed" }).where(eq(areas.id, 9013));
+    const row = await db.select().from(areas).where(eq(areas.id, 9013)).get();
     expect(row?.name).toBe("Guard Child Renamed");
   });
 });

@@ -8,110 +8,72 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# Betabook Architecture & Code Layout
+# Working on Betabook
 
-Betabook is a climbing logbook application built with Next.js 16 (App Router), React 19, Cloudflare Workers (`@opennextjs/cloudflare`), Cloudflare D1 (SQLite via Drizzle ORM), and Better Auth.
+Betabook is a climbing logbook and crag database built with Next.js 16 App Router, React 19, HeroUI, Tailwind CSS, Cloudflare Workers/OpenNext, D1/Drizzle, and Better Auth. Read [README.md](README.md) for setup, local accounts, scripts, and deployment. `package.json` and the config files are the source of truth for tooling.
 
-## Directory Layout
+## Code map
 
-```
-betabook/
-├── actions/            # Next.js Server Actions ("use server")
-│   ├── areas.ts        # Area creation, updates, and deletion
-│   ├── climbs.ts       # Climb creation, updates, and deletion
-│   ├── sends.ts        # Send logging, editing, and deletion
-│   ├── import.ts       # Batch send import execution & resolution
-│   ├── revalidation.ts # Next.js cache revalidation helpers
-│   └── index.ts        # Re-export barrel for server actions
-├── app/                # Next.js App Router (pages, layouts, route handlers)
-│   ├── (auth pages)    # /sign-in, /sign-up, /forgot-password, /reset-password
-│   ├── account/        # User account & /account/import wizard page
-│   ├── areas/[id]/     # Area exploration, tree view, and climb listings
-│   ├── climbs/[id]/    # Climb details & send history
-│   ├── users/[id]/     # User profile, send logbook, and analytics
-│   ├── sitemap.ts      # Sharded sitemap (+ sitemap-index.xml route); opengraph-image.tsx
-│   └── api/            # Route handlers (auth, feed, search, exports)
-├── components/         # React UI Components
-│   ├── ui/             # Design tokens & generic primitives (buttons, modals, fields)
-│   ├── import/         # CSV import wizard subsystem (steps, drawers, matchers)
-│   ├── product-tours/  # Lazy-loaded tutorials and interactive demo previews
-│   └── *.tsx           # Domain feature components (areas, climbs, sends, auth)
-├── db/                 # Database & Persistence Layer
-│   ├── client.ts       # Cloudflare D1 / Drizzle client factory
-│   ├── schema.ts       # Drizzle table definitions & relations
-│   └── queries/        # Pure read queries (getArea, searchClimbs, getSubareas, etc.)
-├── drizzle/            # Database migrations and migration schemas
-├── hooks/              # Reusable React hooks (useMounted, useTypeahead, etc.)
-├── lib/                # Pure domain logic & utilities (no UI or Action dependencies)
-│   ├── grades.ts       # Grade systems, scales (Hueco, YDS, Font), and Discipline types
-│   ├── discipline-filter.ts # Multi-discipline filter contracts and parsing
-│   ├── sends-import.ts # CSV parsing, column mapping, and value detection
-│   ├── import-matching.ts # Candidate matching algorithms for climb imports
-│   ├── action-result.ts # Standardized ActionResult & ActionError types
-│   ├── session.ts      # Authentication & session validation helpers
-│   ├── site.ts         # Canonical origin, site name, OG image constants
-│   └── seo.ts          # Pure title / description / JSON-LD builders + pageMetadata()
-└── test/               # Test setup, fixtures, and Cloudflare Worker test pool
-```
+| Location                                                      | Responsibility                                                                                                     |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `app/`                                                        | Server page loaders, metadata, layouts, and API route handlers                                                     |
+| `app/areas/[id]/[[...slug]]/`, `app/climbs/[id]/[[...slug]]/` | Entity pages with canonical name slugs                                                                             |
+| `app/users/[id]/`                                             | Profile, Journal, Sends, Projects, and Analytics views                                                             |
+| `app/account/`, `app/admin/requests/`, `app/tutorial/`        | Account/import, moderation queue, and guided tutorials                                                             |
+| `actions/`                                                    | Account, area, climb, send, journal, import, moderation, and tour mutations; shared write/revalidation helpers     |
+| `components/`                                                 | Feature UI; `ui/` holds primitives, with `journal/`, `import/`, `admin/`, and `product-tours/` for larger features |
+| `hooks/`                                                      | Reusable client hooks for navigation, filtering, pagination, and platform behavior                                 |
+| `db/client.ts`, `db/queries/`                                 | D1 client factory and read queries                                                                                 |
+| `drizzle/schema/`, `drizzle/migrations/`                      | Schema definitions and SQL migrations; `db/schema.ts` re-exports the schema                                        |
+| `lib/`                                                        | Domain validation/calculations and shared server services, including auth, email, and moderation                   |
+| `scripts/`                                                    | Local setup, seeding, database discovery, and admin promotion                                                      |
+| `test/`                                                       | Workers test entrypoint, migrations, fixtures, and reset helpers; tests live beside the code                       |
 
-## Architectural Boundaries & Layering
+## Boundaries and conventions
 
-Strict boundaries are codified in `oxlint.config.ts` via `typescript/no-restricted-imports` and enforced automatically in CI:
+- Pages and route handlers load data through `db/queries`; components receive it as props or fetch the app's API routes. Components must not import database clients, queries, or schemas at runtime. Type-only imports are allowed.
+- User mutations normally enter through `"use server"` modules in `actions/`, exported through `@/actions`. Validate inputs, authenticate with `requireSession()`, enforce ownership/permissions, and return `Promise<ActionResult<T>>` via `toActionResult`. Internal helpers may throw `ActionError`; unexpected errors must stay generic to the client. Navigate on the client after success rather than throwing `redirect`/`notFound` inside that wrapper.
+- `lib/contact-action.ts` is the existing public, unauthenticated action; it uses bot checks and a rate limiter. Better Auth owns its own API mutations. Do not assume every write is in `actions/` or requires a session.
+- `actions/` must not depend on `app/` or `components/`. `db/` and `lib/` must not depend on `app/`, `components/`, or `actions/`. `lib/` is not entirely pure: auth, email, account cleanup, and moderation helpers perform server work. Keep pure calculations separate from those services.
+- `components/ui/` must not import feature components. Reuse its primitives and the existing HeroUI/Tailwind tokens in `app/globals.css`.
+- Import boundaries, cycles, duplicates, and relative-parent imports are checked by [`oxlint.config.ts`](oxlint.config.ts). Use `@/` for cross-directory imports; sibling imports are allowed.
+- Keep `middleware.ts` on the edge runtime: its comment documents why renaming it to `proxy.ts` breaks the current OpenNext build. Its cookie check is only a navigation shortcut; pages, API routes, and actions still need real authorization.
+- Respect the browser targets in `package.json` and the library baseline in `tsconfig.json`. New built-in JavaScript APIs are not automatically polyfilled.
 
-1. **Server Actions (`actions/`)**:
-   - Contain `"use server"` handlers for all user mutations.
-   - Handle form input validation, session checks (`requireSession()`), D1 database writes, and Next.js cache revalidation (`revalidatePath()`).
-   - Must return structured `Promise<ActionResult>`.
-   - **Restriction**: Must never import from `components/**` or `app/**`.
+## Data rules to preserve
 
-2. **Components (`components/`)**:
-   - Client components (`"use client"`) invoke Server Actions via `@/actions`.
-   - **Restriction**: Forbidden from importing `@/db/client`, `@/db/queries`, or `@/db/schema` at runtime. Data reads happen via server components / page loaders, and writes happen via Server Actions. Type-only imports (e.g. `import type { Area } from "@/db/queries"`) are permitted.
-   - **UI Primitives (`components/ui/`)**: Generic primitives and design tokens must never import from other components (`@/components/**` outside `components/ui/`).
+- **Sends and journal entries:** `sends` has one row per user/climb, including undated sends. `journal_entries` records climb sessions and training; `isAscent` distinguishes the original dated ascent from repeats. The original ascent mirrors the send's date and comment, while repeats do not add another send or rating. Keep writes consistent through `actions/journal-sync.ts`, `actions/send-statements.ts`, and atomic D1 batches. Check the SQL guards and `db/journal-send-sync.test.ts` when changing logging, imports, or merges.
+- **Privacy:** use `canViewUser` and `canViewJournal` from `lib/user-visibility.ts`. A private profile is visible only to its owner; journal visibility is an additional restriction. Projects are owner-only. Apply the same rules to pages, metadata, API pagination, exports, and analytics. Private sends still contribute to anonymous climb aggregates, but their individual rows must not leak.
+- **Moderation:** signed-in users can create areas/climbs and edit descriptions immediately. Names, climb discipline/grade, deletion, moves, reparenting, and merges use `actions/moderation.ts` and `lib/moderation.ts`. Admin role alone is insufficient: grants in `admin_area_scopes` cover subtrees, and operations spanning areas need coverage for every affected area. Preserve scope checks, self-review restrictions, and validation at application time.
+- **Database-managed state:** migrations own FTS synchronization, send aggregates, area cycle guards, and journal/send invariants. Do not replace these with partial application-side updates. Account deletion has explicit cleanup in `lib/account.ts` to preserve aggregates. Use the existing revalidation helpers in `actions/revalidation.ts` for affected send and journal views.
 
-3. **Domain Logic (`lib/`)**:
-   - Pure domain logic, validation, formatters, and mathematical utilities.
-   - **Restriction**: Must never import from `components/**`, `app/**`, or `actions/**`.
+Edit schema definitions in `drizzle/schema/`, then use `pnpm db:generate` and inspect the SQL. Some indexes and triggers exist only in handwritten migrations, so the TypeScript schema is not a complete description of the database. Add new migrations under `drizzle/migrations/` and keep them compatible with the running worker; CI applies them before deployment. Run `pnpm db:migrate:local` after pulling or adding migrations: `pnpm setup` does not migrate an existing database.
 
-4. **Persistence Layer (`db/`)**:
-   - Contains D1 client initialization, schema definitions, and read-only query functions.
-   - **Restriction**: Must never import from `components/**`, `app/**`, or `actions/**`.
+Keep `wrangler.jsonc`, `.dev.vars.example`, and the checked-in `cloudflare-env.d.ts` aligned when changing bindings or environment variables. Generated `worker-configuration.d.ts` is optional for local validation and must not become a build prerequisite.
 
-5. **Import Safety Suite**:
-   - Oxlint enforces cycle-free (`import/no-cycle`), duplicate-free (`import/no-duplicates`), and relative-parent-free (`import/no-relative-parent-imports`) imports across all modules.
+## Routes and metadata
 
-## Product Tutorials
+- Build entity links with `areaHref` / `climbHref` from `lib/slug.ts`; IDs identify records and the optional slug is normalized by the route.
+- Decide whether each new page should be indexable. Use `pageMetadata` and the title/description builders in `lib/seo.ts` for indexable pages so canonical, Open Graph, and Twitter metadata stay complete.
+- Auth pages, new-entry forms, session-gated routes, and all user-profile views must be `robots: { index: false }`. Filter/search variants of otherwise indexable pages should be noindex when query parameters are present, as on `app/page.tsx`.
+- Entity pages render `JsonLd` with at least breadcrumbs, using the builders in `lib/seo.ts`. Do not add `AggregateRating` or `Review` markup. Extend `lib/seo.test.ts` for new builders.
+- Add new crawlable entity types to `app/sitemap.ts` with count and paginated query helpers. The sitemap index route is `/sitemap-index.xml`. API responses get `X-Robots-Tag: noindex` from `next.config.ts`; `robots.txt` is managed outside the repo at Cloudflare.
 
-For each new user-facing feature or workflow change, decide whether to update a tutorial, add a step, create a separate tour, or leave tutorials unchanged. Note the choice and why in the plan or PR. New sections and changes to logging or privacy often need an explanation; internal changes and obvious controls may not. Update any existing tutorial that becomes inaccurate.
+## Product tutorials
 
-Read [docs/product-tours.md](docs/product-tours.md) before changing a tutorial.
+For each user-facing feature or workflow change, decide whether to update an existing lesson, add a step, create a tour, or leave tutorials unchanged. Record the choice and reason in the plan or PR, and fix any lesson made inaccurate by the change.
 
-- Add related steps in `lib/product-tour-navigation.ts` with a stable ID, section, title, short description, and `data-tour-target`. Add the target to the page component and reuse the app's layouts and display components for demo views. For a separate feature tour, register metadata in `lib/product-tour.ts`, its steps in `PRODUCT_TOUR_STEPS`, and a lazy page loader in `components/product-tours/registry.ts`. `/tutorial/[tourId]/[stepId]` handles navigation, callout positioning, keyboard focus, progress, and replay. Keep each callout to one short explanation; do not rebuild the tour as a drawer or repeat instructions inside the example.
-- Use the sample climber in `lib/product-tour-demo.ts`. Reuse display components and calculations from the app, and keep the examples consistent across pages. Demo controls use local state. Never save sample data or use demo IDs in real links or writes.
-- For new lessons after release, bump the tour version and set each new step's `introducedInVersion`. Set `updatedInVersion` when an existing lesson needs to be shown again after a substantial change. Returning users are offered only steps changed since their dismissed/completed version; Account replay always shows the full tour. Copy edits do not need a bump. Use the supplied active `steps` for demo section links so update navigation stays within its subset. A new tour ID tracks progress separately.
-- Keep the guide in its own space beside or below the scrollable demo. Never cover controls or results with tutorial text. Confine spotlight dimming to the demo pane, leaving the highlighted control, guide, and app navigation clear. Check navigation, replay, keyboard focus, mobile layout, and the example controls. Update tests for changed behavior and sample data, and check that demos don't change the user's account.
+Read [docs/product-tours.md](docs/product-tours.md) before changing a tutorial. It covers registration, stable step IDs and targets, versioned updates, navigation, layout, and verification. Reuse the app's display components and `lib/product-tour-demo.ts` fixtures; sample controls stay local and sample IDs must never reach real links or writes. Keep the guide separate from the demo and confine spotlight dimming to the demo pane. Verify navigation/replay, keyboard focus, mobile layout, and that demo interactions do not change account data.
 
-## SEO & Metadata
+## Testing and validation
 
-`robots.txt` is managed at Cloudflare (not in-repo). LLM/AI crawlers are blocked there; Google/Bing indexing is controlled **per page** in code. When adding a route under `app/`, decide up front whether it should be indexable:
+- Follow red–green for behavior changes: write a focused test, observe a failure caused by the missing/incorrect behavior, implement the fix, then confirm green. Syntax, import, setup, and unrelated failures do not count as red.
+- When adding or strengthening tests for existing behavior, temporarily introduce a targeted production regression and observe the expected failure, then restore the code and confirm green. Never leave the deliberate regression in the diff.
+- Exercise real behavior and assert specific results, identities, state changes, or required side effects. Avoid fixture-only assertions, implementation copies, source-text checks, and mocks that replace the subject. Collection assertions must establish the expected records are present; empty loops or `every()` are insufficient.
+- Cover relevant boundaries and failures, especially authorization, privacy, and persistence. Await asynchronous work and verify rejected writes leave state unchanged. Keep mocks at external boundaries and each test independent with its own preconditions; use `test/fixtures.ts` and `test/reset-db.ts` where appropriate.
+- Tests run in the Cloudflare Workers pool with real migrated D1 through `test/worker.ts` and `test/apply-migrations.ts`. No production bundle or local seed is required. Run a focused file with `pnpm test -- path/to/file.test.ts`.
+- Record the focused red and green commands and outcomes in the work summary or PR. Do not claim red–green from a passing-only run. Documentation-only edits need formatting and reference checks, not artificial runtime tests.
 
-- **Indexable** (an entity page, a landing/marketing page): export `generateMetadata` returning `pageMetadata({ title, description, path, ogType? })` from `@/lib/seo`. It sets the per-page title, a synthesized `description`, a self-referential canonical, and a **complete** `openGraph`/`twitter` block — Next _overwrites_ (not merges) those objects, so never hand-roll a partial one. Compose the title/description strings with the builders in `@/lib/seo` (e.g. `climbTitle`, `areaDescription`).
-- **Not indexable** (auth pages, `*/new` forms, anything session-gated, `users/[id]` + `users/[id]/analytics`): add `robots: { index: false }` to the page's `metadata`/`generateMetadata`. For an otherwise-indexable page whose query params spawn infinite filter/search states, `noindex` when any param is present (see `app/page.tsx`).
-- **Entity detail pages** (climb, area, and future equivalents): also render `<JsonLd data={…} />` (`@/components/ui/json-ld`) with at least a `BreadcrumbList`. JSON-LD builders live in `@/lib/seo`; don't emit `AggregateRating`/`Review` markup (manual-action risk for types Google doesn't support).
-- **A new crawlable entity type** must be added to `app/sitemap.ts` as a shard, backed by `countX` + `getXIdsPage` queries in `db/queries`. The submittable sitemap URL is `app/sitemap-index.xml` — Next emits the numbered shards but no index. API/JSON routes get `X-Robots-Tag: noindex` via `next.config.ts` `headers()`.
+Before committing, run `pnpm check` (lint, format check, dead code, typecheck, and tests). `pnpm deadcode:prod` is a separate audit for exports retained only by development/test entrypoints. Use `pnpm format` to fix formatting. The pre-commit hook formats staged files and the pre-push hook runs `pnpm check`.
 
-Site identity constants (canonical origin, name, OG image) live in `@/lib/site`. `lib/seo.ts` is pure and unit-tested (`lib/seo.test.ts`) — extend the tests when you add builders.
-
-## Validation Commands
-
-Before committing, run the full validation suite:
-
-```bash
-pnpm check         # Runs lint, format:check, deadcode, typecheck, and vitest
-pnpm lint          # Oxlint with type-aware analysis and import boundaries
-pnpm format        # Oxfmt code and import auto-formatter
-pnpm deadcode      # Knip dead code and unused export detection
-pnpm deadcode:prod # Knip minus dev entrypoints: exports kept alive only by tests
-pnpm typecheck     # Next.js route typegen + tsc --noEmit
-pnpm test          # Vitest test suite via Cloudflare Workers pool
-```
+For changes affecting runtime code, dependencies, routes, or Cloudflare configuration, also verify `pnpm exec opennextjs-cloudflare build`, which CI runs after its checks. Use `pnpm preview` when the behavior needs testing in the built Workers bundle. See [README.md](README.md) for the complete command guide.

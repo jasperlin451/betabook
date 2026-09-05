@@ -1,4 +1,4 @@
-import { eq, inArray, sql, type SQL } from "drizzle-orm";
+import { eq, sql, type SQL } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
 import { areas } from "@/db/schema";
@@ -12,7 +12,6 @@ export async function getArea(db: Database, id: number): Promise<Area | undefine
   return db.select().from(areas).where(eq(areas.id, id)).get();
 }
 
-/** Total area rows — sizes the sitemap shard count (see app/sitemap.ts). */
 export async function countAreas(db: Database): Promise<number> {
   const row = await db
     .select({ count: sql<number>`count(*)` })
@@ -21,8 +20,6 @@ export async function countAreas(db: Database): Promise<number> {
   return row?.count ?? 0;
 }
 
-/** One page of area id + name rows in id order — a sitemap shard. The name
- * builds the URL slug. */
 export async function getAreaSitemapRows(
   db: Database,
   limit: number,
@@ -37,14 +34,8 @@ export async function getAreaSitemapRows(
     .all();
 }
 
-/** The area a subarea-scoped climb list should actually query: the given
- * sub-area when it really descends from `area`, otherwise `area` itself —
- * guarding a forged or stale id from the URL, which would otherwise scope
- * the list to an area the page isn't showing.
- *
- * Walks `parentId` upward from the candidate rather than testing a stored
- * range: an ancestor chain is bounded by tree depth (a handful of levels),
- * so this stays a few index seeks no matter how large either subtree is. */
+/** Use the candidate only if it descends from the displayed area. Walking upward
+ * keeps validation proportional to tree depth rather than subtree size. */
 export async function resolveSubareaScope(
   db: Database,
   area: Area,
@@ -67,36 +58,14 @@ export async function resolveSubareaScope(
   return row ? sub : area;
 }
 
-/** Direct children, name-sorted.
- *
- * Sorted in JS with localeCompare rather than by SQL ORDER BY, because
- * neither collation SQLite offers gets this right for a worldwide area list.
- * BINARY drops every lowercase-initial name below every uppercase one, and
- * NOCASE only case-folds ASCII A-Z — so it sorts every accented name after
- * `Z`, burying "Çitdibi" under Antalya and "Črni kal" under Slovenia at the
- * bottom of their sibling lists. Measured against the previous ordering,
- * NOCASE moved 2,623 of 10,230 areas and BINARY moved 3,436; localeCompare
- * moves none, because it is what computeAreaBounds used to bake into
- * areas.lft. D1 has no ICU collation to reach for instead.
- *
- * Affordable because this is one area's direct children — 1,749 at the very
- * widest, typically under a hundred — fetched through areas_parent_idx.
- *
- * Sorting at read time rather than reading a stored position also means a
- * rename takes effect immediately; lft only moved when a full tree recompute
- * ran, which updateArea never triggered. */
+/** Sort direct children with localeCompare: SQLite NOCASE only folds ASCII,
+ * which puts accented names after Z. */
 export async function getSubareas(db: Database, areaId: number): Promise<Area[]> {
   const rows = await db.select().from(areas).where(eq(areas.parentId, areaId));
   return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Root-first, immediate-parent-last. Does not include `area` itself.
- *
- * Walks `parentId` upward via a recursive CTE. Unlike subtree/descendant
- * enumeration (getSubtreeClimbs, areaNameCondition), which can fan out over
- * tens of thousands of areas, an ancestor chain is bounded by tree depth (a
- * handful of levels) regardless of subtree size, so the walk stays cheap
- * without any index beyond the areas primary key. */
+/** Root-first ancestors, excluding the area itself. */
 export async function getAncestors(db: Database, area: Area): Promise<Area[]> {
   if (area.parentId == null) return [];
 
@@ -117,38 +86,9 @@ export async function getAncestors(db: Database, area: Area): Promise<Area[]> {
   `);
 }
 
-/** The `depth` ancestors closest to `area` (root-first among themselves), for
- * a short breadcrumb rather than the full ancestor chain. */
-export async function getNearestAncestors(
-  db: Database,
-  area: Area,
-  depth: number,
-): Promise<Area[]> {
-  const ancestors = await getAncestors(db, area);
-  return ancestors.slice(-depth);
-}
-
-/** SQL condition for "this row's area equals or descends from an area whose
- * name matches (FTS prefix match)" — shared by any query that scopes rows
- * to an area name or its subtree (climb search, a user's send history).
- *
- * Built as a single non-correlated `IN` set, deliberately: the previous
- * correlated `EXISTS` re-ran the containment test once per candidate row, so
- * its cost was O(rows x matched_areas) and a broad name blew up — measured at
- * 11.6s for a name matching 779 areas (0.4s fixed + ~14ms per matched area),
- * against D1's 30-second statement cap. Evaluating the descendant set once
- * instead is ~13ms for the same query and the same results.
- *
- * Still O(1) bound parameters no matter how many areas match — an area name
- * can match hundreds (a common word, a broad region), and one clause per
- * match would blow past SQLite's bound-parameter limit.
- *
- * Callers must
- * have their row's own area joined in as `areas` — the same alias
- * `searchClimbs`/`getSendsForUserPage` already use. Returns `null` when
- * there's no name to filter by (filter inactive); `sql\`0\`` when the name
- * has no matchable tokens (matches nothing) — the caller can just always
- * push a non-null result onto its condition list. */
+/** Match named areas and their descendants once, avoiding a correlated tree walk
+ * per result row. Callers must join the row's area as `areas`.
+ * Returns null for no filter and sql`0` for a name with no matchable tokens. */
 export function areaNameCondition(areaName: string | undefined): SQL | null {
   if (!areaName) return null;
   const query = toFtsPrefixQuery(areaName);
@@ -176,15 +116,8 @@ type BreadcrumbRow = {
   ancestorName: string | null;
 };
 
-/** Up to `depth` ancestors for each of `areaIds`, keyed by area id — one
- * query for the whole batch, not one round trip per distinct area.
- *
- * Walks `parentId` via a recursive CTE (see getAncestors's doc comment),
- * capped at `depth` levels per target, batched across every requested id in
- * one query. A LEFT JOIN back to the target-id list keeps
- * one row per target even when it has zero (nearby) ancestors, which is
- * what lets an existing root-level area come back as `[]` rather than
- * being silently omitted like a nonexistent id is. */
+/** Batch up to `depth` ancestors per area. Existing root areas map to [];
+ * nonexistent IDs are omitted. */
 export async function getAreaBreadcrumbs(
   db: Database,
   areaIds: number[],
@@ -193,10 +126,7 @@ export async function getAreaBreadcrumbs(
   const ids = [...new Set(areaIds)];
   if (ids.length === 0) return {};
 
-  // D1 permits at most 100 bound parameters per statement. Passing the ids
-  // as one JSON value keeps this query at two bindings (ids + depth), even
-  // for the 200-row send-export batches that consume it. Binding each id in
-  // both the seed and target lists used to fail at only 50 distinct areas.
+  // One JSON binding for IDs keeps large export batches under D1's parameter limit.
   const rows = await db.all<BreadcrumbRow>(sql`
     WITH RECURSIVE requested(id) AS (
       SELECT CAST(value AS INTEGER) FROM json_each(${JSON.stringify(ids)})
@@ -230,25 +160,11 @@ export async function getAreaBreadcrumbs(
 
 export type AreaWithAncestorPath = Area & { ancestorPath: string | null };
 
-/** Same page size as climb search (see SEARCH_PAGE_SIZE in climbs.ts) — kept
- * as its own constant here to avoid a circular import between the two query
- * modules. */
 export { AREA_SEARCH_PAGE_SIZE };
 
 export type SearchAreasPage = { areas: AreaWithAncestorPath[]; hasNextPage: boolean };
 
-/** `ancestorPath` reads root-first, e.g. "Canada > British Columbia > Squamish"
- * — the same outside-in reading as `AreaBreadcrumb`, so a suggestion row and
- * a result row place a crag identically. Ordering is pinned by the subquery
- * the concat reads from; see the note in the SQL.
- *
- * Walks `parentId` via a recursive CTE (see getAncestors's doc comment)
- * rather than a stored position, so a freshly created area's ancestor path
- * is correct immediately.
- *
- * Ordered by FTS rank with `areas.id` as the deterministic tie-breaker —
- * near-identical names share a bm25 score, and without a unique final key
- * OFFSET pagination can duplicate or skip rows across pages. */
+/** Returns root-first ancestor paths. ID breaks tied FTS ranks for stable pagination. */
 export async function searchAreas(
   db: Database,
   name: string,
@@ -258,7 +174,6 @@ export async function searchAreas(
   const query = toFtsPrefixQuery(name);
   if (!query) return { areas: [], hasNextPage: false };
 
-  // Fetch one extra row to detect a next page without a separate COUNT query.
   const rows = await db.all<AreaWithAncestorPath>(sql`
     WITH RECURSIVE matched(area_id, score) AS (
       SELECT areas.id, bm25(areas_fts)
@@ -304,11 +219,7 @@ export async function searchAreas(
   };
 }
 
-/** Exact match count for the same FTS predicate as `searchAreas` — no
- * ancestor-path CTE, so it's cheaper than the page query it accompanies.
- * Keeps `searchAreas`'s join to `areas` (a PK seek per match) rather than
- * counting FTS rows alone, so the two can never disagree about what a match
- * is and caption a list with a number it cannot reach. */
+/** Count the same joined matches as searchAreas, without constructing ancestor paths. */
 export async function countSearchAreas(db: Database, name: string): Promise<number> {
   const query = toFtsPrefixQuery(name);
   if (!query) return 0;
@@ -322,9 +233,13 @@ export async function countSearchAreas(db: Database, name: string): Promise<numb
   return row?.count ?? 0;
 }
 
-/** Batch lookup for the review queue — one IN query for the areas still
- * needing an approver, instead of one getArea round-trip per row. */
 export async function getAreasByIds(db: Database, ids: number[]): Promise<Area[]> {
   if (ids.length === 0) return [];
-  return db.select().from(areas).where(inArray(areas.id, ids)).all();
+  return db
+    .select()
+    .from(areas)
+    .where(
+      sql`${areas.id} IN (SELECT CAST(value AS INTEGER) FROM json_each(${JSON.stringify(ids)}))`,
+    )
+    .all();
 }

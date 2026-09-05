@@ -104,6 +104,7 @@ describe("submitContactMessage", () => {
     const result = await submitContactMessage(contactFormData({ email: "not-an-address" }));
 
     expect(result).toEqual({ ok: false, error: "Enter a valid email address" });
+    expect(allowContactSubmission).not.toHaveBeenCalled();
     expect(sendContactEmail).not.toHaveBeenCalled();
   });
 

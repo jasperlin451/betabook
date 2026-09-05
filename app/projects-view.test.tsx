@@ -28,21 +28,24 @@ const owner = {
 };
 
 describe("ProjectsView", () => {
-  it("caps the rendered list and reports more projects", async () => {
-    const projects = Array.from({ length: 101 }, (_, index) => ({ climbId: index + 1 }));
-    mocks.getOpenProjects.mockResolvedValue(projects);
+  it.each([0, 3, 100, 101])(
+    "renders the correct prefix and overflow flag for %i projects",
+    async (count) => {
+      const projects = Array.from({ length: count }, (_, index) => ({ climbId: index + 1 }));
+      mocks.getOpenProjects.mockResolvedValue(projects);
 
-    const result = (await ProjectsView({ owner })) as ReactElement<{ children: ReactNode }>;
-    const children = result.props.children as ReactNode[];
-    const list = children.find(
-      (child) => isValidElement(child) && child.type === mocks.OpenProjectList,
-    );
+      const result = (await ProjectsView({ owner })) as ReactElement<{ children: ReactNode }>;
+      const children = result.props.children as ReactNode[];
+      const list = children.find(
+        (child) => isValidElement(child) && child.type === mocks.OpenProjectList,
+      );
 
-    expect(
-      isValidElement<{ projects: unknown[]; hasMore: boolean }>(list) && list.props.projects,
-    ).toHaveLength(100);
-    expect(
-      isValidElement<{ projects: unknown[]; hasMore: boolean }>(list) && list.props.hasMore,
-    ).toBe(true);
-  });
+      expect(
+        isValidElement<{ projects: unknown[]; hasMore: boolean }>(list) && list.props.projects,
+      ).toEqual(projects.slice(0, 100));
+      expect(
+        isValidElement<{ projects: unknown[]; hasMore: boolean }>(list) && list.props.hasMore,
+      ).toBe(count > 100);
+    },
+  );
 });

@@ -1,24 +1,29 @@
 "use server";
 
 import { eq } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 import { refresh } from "next/cache";
 
-import { getDb } from "@/db/client";
+import { getDb, type Database } from "@/db/client";
 import {
   findClimbCandidatesByNames,
   findClimbCandidatesInAreas,
   getClimbsByIds,
+  getImportBatchReceipt,
   getUserSentClimbIds,
   type ClimbCandidate,
 } from "@/db/queries";
-import { journalEntries, sends } from "@/db/schema";
+import { importBatches, journalEntries, sends } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { parseGrade } from "@/lib/grades";
+import type { ImportBatchResponse } from "@/lib/import-execution";
 import {
   IMPORT_BATCH_SIZE,
   RESOLVE_BATCH_SIZE,
   validateImportSendValues,
   type ImportSendRow,
+  type ImportResult,
+  type ImportOptions,
 } from "@/lib/sends";
 import { requireSession } from "@/lib/session";
 
@@ -30,44 +35,21 @@ import {
   journalEntryFromSend,
   rethrowJournalSendInvariant,
 } from "./journal-sync";
+import { afterCommit } from "./post-commit";
 import { revalidateJournalSurfaces, revalidateSendSurfaces } from "./revalidation";
 import { buildMirroredSendUpdate } from "./send-statements";
 
-export type ImportResult = {
-  imported: number;
-  overwritten: number;
-  alreadyLogged: number;
-  /** Positions (within this call's `rows`) whose climb no longer exists —
-   * deleted between the wizard's match step and this commit. */
-  missing: number[];
-};
+export type { ImportResult, ImportOptions } from "@/lib/sends";
 
-export type ImportOptions = {
-  gradeScale: "native" | "converted";
-  /** What to do with a row whose climb the user has already logged: keep the
-   * existing send, or replace it wholesale with the CSV row. */
-  onConflict: "skip" | "overwrite";
-};
-
-/** The columns an import row writes — everything on a send except the keys
- * and the timestamps. Shared by the insert and overwrite paths. */
 type SendValues = Omit<
   typeof sends.$inferInsert,
   "id" | "userId" | "climbId" | "dateSent" | "comment" | "createdAt" | "updatedAt"
 > & { dateSent: string | null; comment: string | null };
 
-// How many rows each insert statement carries. D1 caps a statement at 100
-// bound parameters, and each inserted sends row binds 8 values (userId,
-// climbId, ascentStyle, dateSent, comment, rating, suggestedGrade, gradeFeel
-// — id is auto-increment, createdAt/updatedAt use SQL defaults, so those
-// aren't bound). 10 rows × 8 = 80, safely under 100. Overwrites need no such
-// chunking: an update is one statement per row either way.
+// Ten rows bind 80 values, below D1's 100-parameter limit.
 const INSERT_CHUNK_SIZE = 10;
 
-/** Every climb sharing one of `names`, for the import wizard's match step.
- * Read-only, but signed-in only: up to 25 climbs per name for 100 names a
- * call is a bulk shape no anonymous surface needs. The wizard groups the
- * flat list by `key` (lib/import-matching's indexCandidates). */
+/** Authenticated batch lookup for the import wizard; results are capped per name. */
 export async function resolveImportClimbs(
   names: string[],
 ): Promise<ActionResult<ClimbCandidate[]>> {
@@ -86,9 +68,7 @@ export async function resolveImportClimbs(
   });
 }
 
-/** Every climb named one of `pairs`' names inside its paired area, for the
- * rows whose name was cut to the per-name cap above (see areaLookupsNeeded).
- * Same access rule as resolveImportClimbs. */
+/** Resolve rows omitted by the name-only cap using their area hints. */
 export async function resolveImportClimbsInAreas(
   pairs: { name: string; areaName: string }[],
 ): Promise<ActionResult<ClimbCandidate[]>> {
@@ -112,9 +92,6 @@ export async function resolveImportClimbsInAreas(
   });
 }
 
-/** `rows` arrives over HTTP, so its type is a claim rather than a guarantee;
- * the send values are re-validated by validateImportSendValues below, and
- * this checks the part that isn't a send value. */
 function parseClimbId(value: unknown): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
     throw new ActionError("Invalid import rows");
@@ -122,26 +99,69 @@ function parseClimbId(value: unknown): number {
   return value;
 }
 
-/** Imports one wizard batch of rows as the signed-in user's sends. Each row
- * names its climb by id — resolved beforehand in the wizard's match step via
- * resolveImportClimbs — so this call's work doesn't scale with row count
- * beyond the writes themselves (see IMPORT_BATCH_SIZE).
- *
- * Commit contract: each call is all-or-nothing. Every insert and overwrite
- * rides in ONE db.batch, which D1 executes as a single transaction (the
- * climbs-aggregate triggers fire inside it too) — so `{ ok: true }` means
- * every counted row committed and `{ ok: false }` means none did.
- *
- * The wizard relies on this to report truthful imported/failed counts and
- * to make retries safe: re-running a failed batch can't duplicate rows
- * (nothing committed), and re-running a successful one is caught by the
- * user+climb duplicate check below (with the sends_user_climb_unique index
- * as the hard backstop). */
+function validateImportOptions(options: ImportOptions) {
+  if (
+    !options ||
+    !["skip", "overwrite"].includes(options.onConflict) ||
+    !["native", "converted"].includes(options.gradeScale) ||
+    (options.batchId !== undefined &&
+      (typeof options.batchId !== "string" ||
+        options.batchId.length === 0 ||
+        options.batchId.length > 128))
+  ) {
+    throw new ActionError("Invalid import options");
+  }
+  return options.batchId ?? crypto.randomUUID();
+}
+
+type ImportReceipt = typeof importBatches.$inferInsert;
+
+async function readImportReceipt(db: Database, identity: Omit<ImportReceipt, "result">) {
+  const receipt = await getImportBatchReceipt(db, identity.userId, identity.batchId);
+  if (receipt && receipt.requestHash !== identity.requestHash) {
+    throw new ActionError("This import batch ID was already used for different rows");
+  }
+  return receipt?.result;
+}
+
+async function commitImportBatch(
+  db: Database,
+  receipt: ImportReceipt,
+  statements: BatchItem<"sqlite">[],
+): Promise<ImportResult | null> {
+  try {
+    await db.batch([db.insert(importBatches).values(receipt), ...statements]);
+    return receipt.result;
+  } catch (error) {
+    // A concurrent retry may have committed this receipt first.
+    try {
+      const committed = await readImportReceipt(db, receipt);
+      if (committed) return committed;
+    } catch (lookupError) {
+      if (lookupError instanceof ActionError) throw lookupError;
+      return null;
+    }
+    // SQLite errors confirm rollback. A lost database response does not.
+    for (let cause = error; cause instanceof Error; cause = cause.cause) {
+      if (cause.message.includes("SQLITE_")) {
+        rethrowJournalSendInvariant(
+          error,
+          "The journal changed while these sends were being imported — try again",
+        );
+      }
+    }
+    return null;
+  }
+}
+
+/** The receipt commits with the sends. Retrying the same batch ID returns
+ * its original result, including in overwrite mode after a lost response. */
 export async function importSends(
   rows: ImportSendRow[],
   options: ImportOptions,
-): Promise<ActionResult<ImportResult>> {
-  return toActionResult(async () => {
+): Promise<ImportBatchResponse> {
+  let outcomeUnknown = false;
+  const response = await toActionResult(async () => {
     const session = await requireSession();
 
     if (!Array.isArray(rows)) throw new ActionError("Invalid import rows");
@@ -149,18 +169,28 @@ export async function importSends(
       throw new ActionError(`An import batch can carry at most ${IMPORT_BATCH_SIZE} rows`);
     }
     const climbIds = rows.map((row) => parseClimbId(row?.climbId));
+    const batchId = validateImportOptions(options);
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(
+        JSON.stringify({ rows, gradeScale: options.gradeScale, onConflict: options.onConflict }),
+      ),
+    );
+    const requestHash = Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
 
     const db = await getDb();
+    const identity = { userId: session.user.id, batchId, requestHash };
+    const receipt = await readImportReceipt(db, identity);
+    if (receipt) return receipt;
     const [climbList, alreadySent] = await Promise.all([
       getClimbsByIds(db, climbIds),
       getUserSentClimbIds(db, session.user.id, climbIds),
     ]);
     const climbsById = new Map(climbList.map((climb) => [climb.id, climb]));
 
-    // Climbs this call has already acted on. Kept separate from alreadySent
-    // (which is "already in the DB") so a second CSV row for the same climb
-    // is a no-op either way: in overwrite mode it would otherwise issue two
-    // UPDATEs to the same row in one batch. First row for a climb wins.
+    // First row per climb wins, including in overwrite mode.
     const processed = new Set<number>();
     const toInsert: Array<SendValues & { userId: string; climbId: number }> = [];
     const toUpdate: Array<{ climbId: number; values: SendValues }> = [];
@@ -185,21 +215,12 @@ export async function importSends(
         continue;
       }
 
-      // Identical for both branches apart from userId/climbId — which is what
-      // makes an overwrite a whole-row replacement: the send ends up as
-      // exactly what the CSV row normalizes to, cleared fields included.
-      // normalizeImportRows applied these same rules in the browser;
-      // validateImportSendValues is what makes them true of every caller.
+      // Overwrites replace every imported field, including fields the CSV clears.
       const gradeText = typeof row.gradeText === "string" ? row.gradeText : null;
       const values: SendValues = {
         ...validateImportSendValues(row),
-        // Server-derived, so it skips that check — parseGrade only ever
-        // returns an index into a fixed table. With no grade text, the
-        // fallback depends on which column it would have come from: a mapped
-        // Suggested Grade column with a blank cell means the send genuinely
-        // has no suggestion (betabook exports round-trip losslessly), while a
-        // Grade-column-only mapping keeps the old fallback to the climb's
-        // posted grade. See NormalizedImportRow.blankGradeMeans.
+        // A blank Suggested Grade stays null; a Grade-only mapping falls back
+        // to the posted grade. See NormalizedImportRow.blankGradeMeans.
         suggestedGrade: gradeText
           ? parseGrade(climb.type, gradeText, options.gradeScale)
           : row.blankGradeMeans === "no-suggestion"
@@ -292,38 +313,38 @@ export async function importSends(
       ...journalInsertStatements(existingSendJournalInserts),
     ];
 
-    if (statements.length > 0) {
-      try {
-        await db.batch(statements as [(typeof statements)[number], ...typeof statements]);
-      } catch (error) {
-        rethrowJournalSendInvariant(
-          error,
-          "The journal changed while these sends were being imported — try again",
-        );
-      }
-
-      const affectedClimbIds = [
-        ...toInsert.map((row) => row.climbId),
-        ...toUpdate.map(({ climbId }) => climbId),
-      ];
-      revalidateSendSurfaces({
-        userIds: [session.user.id],
-        climbIds: affectedClimbIds,
-        areaIds: affectedAreaIds,
-      });
-      const journalWriteCount =
-        newSendJournalInserts.length + existingSendJournalInserts.length + journalUpdates.length;
-      if (journalWriteCount > 0) {
-        revalidateJournalSurfaces({ userId: session.user.id, climbIds: affectedClimbIds });
-      }
-      refresh();
-    }
-
-    return {
+    const result: ImportResult = {
       imported: toInsert.length,
       overwritten: toUpdate.length,
       alreadyLogged,
       missing,
     };
+    const committed = await commitImportBatch(db, { ...identity, result }, statements);
+    if (!committed) {
+      outcomeUnknown = true;
+      throw new ActionError("The import result could not be confirmed");
+    }
+
+    if (statements.length > 0)
+      afterCommit(() => {
+        const affectedClimbIds = [
+          ...toInsert.map((row) => row.climbId),
+          ...toUpdate.map(({ climbId }) => climbId),
+        ];
+        revalidateSendSurfaces({
+          userIds: [session.user.id],
+          climbIds: affectedClimbIds,
+          areaIds: affectedAreaIds,
+        });
+        const journalWriteCount =
+          newSendJournalInserts.length + existingSendJournalInserts.length + journalUpdates.length;
+        if (journalWriteCount > 0) {
+          revalidateJournalSurfaces({ userId: session.user.id, climbIds: affectedClimbIds });
+        }
+        refresh();
+      });
+
+    return committed;
   });
+  return !response.ok && outcomeUnknown ? { ...response, outcome: "unknown" } : response;
 }

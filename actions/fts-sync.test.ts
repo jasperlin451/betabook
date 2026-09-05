@@ -9,11 +9,8 @@ import { seedFixtureTree } from "@/test/fixtures";
 /** The FTS indexes are maintained by triggers
  * (drizzle/migrations/0015_fts_sync_triggers.sql), inside the same statement
  * as each base-table write. These tests pin the sync on creation through the
- * real server actions and the real search queries. Areas/climbs can't be
- * renamed or deleted through the app anymore — name is immutable after
- * creation and deletion isn't offered at all — so those mutation shapes are
- * no longer exercised here; the underlying triggers still guard any
- * DB-level write that changes name or removes a row. */
+ * real server actions and the real search queries. Moderated rename and
+ * deletion paths are exercised in actions/moderation.test.ts. */
 
 const sessionState = vi.hoisted(() => ({ userId: "test-user" as string | null }));
 
@@ -23,7 +20,7 @@ vi.mock("next/cache", () => ({
 }));
 
 // See mutations.test.ts — stub the session (the real one needs a Next
-// request) and point getDb/getDbAndContext at the test D1 binding.
+// request) and point getDb at the test D1 binding.
 vi.mock("@/lib/session", async () => {
   const { NotSignedInError } = await import("@/lib/action-result");
   return {
@@ -41,10 +38,6 @@ vi.mock("@/db/client", async (importOriginal) => {
   return {
     ...actual,
     getDb: async () => actual.createDb(env.DB),
-    getDbAndContext: async () => ({
-      db: actual.createDb(env.DB),
-      ctx: { waitUntil: () => {} } as unknown as ExecutionContext,
-    }),
   };
 });
 

@@ -1,0 +1,81 @@
+"use client";
+
+import { Calendar, DateField, DatePicker, Label } from "@heroui/react";
+import { parseDate, type CalendarDate } from "@internationalized/date";
+
+function toCalendarDate(value: string | undefined): CalendarDate | null {
+  if (!value) return null;
+  try {
+    return parseDate(value);
+  } catch {
+    return null;
+  }
+}
+
+export type DatePickerFieldProps = {
+  label: string;
+  /** ISO `YYYY-MM-DD`, or "" for no date. */
+  value: string;
+  onChange: (value: string) => void;
+  /** Latest selectable day, ISO — later days render struck through. */
+  max?: string;
+  isReadOnly?: boolean;
+};
+
+/** The app's date field: a segmented input plus a calendar popover, themed from
+ * the same tokens as every other surface. A native `<input type="date">` draws
+ * its own popover instead, which no CSS here can reach. */
+export function DatePickerField({ label, value, onChange, max, isReadOnly }: DatePickerFieldProps) {
+  const maxDate = toCalendarDate(max);
+
+  return (
+    <DatePicker
+      className="w-full"
+      value={toCalendarDate(value)}
+      maxValue={maxDate}
+      isReadOnly={isReadOnly}
+      // Segments are padded individually; unpadded, the field's width jumps.
+      shouldForceLeadingZeros
+      onChange={(date) => onChange(date?.toString() ?? "")}
+    >
+      <Label>{label}</Label>
+      <DateField.Group fullWidth>
+        <DateField.InputContainer>
+          <DateField.Input>
+            {(segment: DateField["SegmentProps"]["segment"]) => (
+              <DateField.Segment segment={segment} />
+            )}
+          </DateField.Input>
+        </DateField.InputContainer>
+        <DateField.Suffix>
+          <DatePicker.Trigger>
+            <DatePicker.TriggerIndicator />
+          </DatePicker.Trigger>
+        </DateField.Suffix>
+      </DateField.Group>
+      <DatePicker.Popover>
+        {/* Not redundant: HeroUI's Calendar always passes its grid an explicit
+         * maxValue, defaulting to 2099-12-31, which overrides the DatePicker's. */}
+        <Calendar maxValue={maxDate}>
+          <Calendar.Header>
+            <Calendar.YearPickerTrigger>
+              <Calendar.YearPickerTriggerHeading />
+              <Calendar.YearPickerTriggerIndicator />
+            </Calendar.YearPickerTrigger>
+            <Calendar.NavButton slot="previous" />
+            <Calendar.NavButton slot="next" />
+          </Calendar.Header>
+          <Calendar.Grid>
+            <Calendar.GridHeader>
+              {(day) => <Calendar.HeaderCell>{day}</Calendar.HeaderCell>}
+            </Calendar.GridHeader>
+            <Calendar.GridBody>{(date) => <Calendar.Cell date={date} />}</Calendar.GridBody>
+          </Calendar.Grid>
+          <Calendar.YearPickerGrid>
+            <Calendar.YearPickerGridBody />
+          </Calendar.YearPickerGrid>
+        </Calendar>
+      </DatePicker.Popover>
+    </DatePicker>
+  );
+}

@@ -2,18 +2,15 @@ import type { ClimbCandidate } from "@/db/queries";
 import { formatGrade, parseGrade, type ClimbType } from "@/lib/grades";
 import type { NormalizedImportRow } from "@/lib/sends-import";
 
-/** The lookup key for a climb name, computed like SQLite's `LOWER(TRIM(name))`
- * (see findClimbCandidatesByNames): spaces trimmed, ASCII letters lowered,
- * nothing else touched. `toLowerCase()` would fold "É" where SQLite without
- * ICU does not, and the returned `key` must match the CSV name's fold. */
+/** Match SQLite LOWER(TRIM(name)): trim ASCII spaces and lowercase only ASCII
+ * letters. JavaScript toLowerCase would also fold accented letters. */
 export function foldClimbName(name: string): string {
   return name.replace(/^ +| +$/g, "").replace(/[A-Z]/g, (c) => c.toLowerCase());
 }
 
 export type CandidateIndex = ReadonlyMap<string, ClimbCandidate[]>;
 
-/** One representative CSV spelling per fold key — what the wizard sends to
- * resolveImportClimbs, so "Zorro" and "zorro" cost one lookup. */
+/** Deduplicate lookup names using the same fold key as SQLite. */
 export function distinctClimbNames(rows: readonly NormalizedImportRow[]): string[] {
   const byKey = new Map<string, string>();
   for (const row of rows) {
@@ -23,8 +20,7 @@ export function distinctClimbNames(rows: readonly NormalizedImportRow[]): string
   return [...byKey.values()];
 }
 
-/** Groups the server's flat candidate list by key. Candidates keep the
- * server's order (most-ascended first), which doubles as relevance. */
+/** Preserve the server's most-ascended-first candidate order. */
 export function indexCandidates(candidates: readonly ClimbCandidate[]): CandidateIndex {
   const index = new Map<string, ClimbCandidate[]>();
   for (const candidate of candidates) {
@@ -35,8 +31,6 @@ export function indexCandidates(candidates: readonly ClimbCandidate[]): Candidat
   return index;
 }
 
-/** Adds candidates a later lookup found (see resolveImportClimbsInAreas) to
- * an index, skipping climbs already present. */
 export function mergeCandidates(
   index: CandidateIndex,
   extra: readonly ClimbCandidate[],
@@ -50,15 +44,11 @@ export function mergeCandidates(
   return merged;
 }
 
-/** Whether the server cut this name's list to its per-name cap, so climbs
- * with the name may be missing from the index. */
 function isTruncated(candidates: readonly ClimbCandidate[]): boolean {
   return candidates.length > 0 && candidates[0].total > candidates.length;
 }
 
-/** Rows whose name was truncated AND that name an area: the one case the
- * capped list can't settle but a name+area lookup can (see
- * resolveImportClimbsInAreas). One pair per distinct (name, area). */
+/** Uncapped name-and-area lookups recover matches omitted by the name-only cap. */
 export function areaLookupsNeeded(
   rows: readonly NormalizedImportRow[],
   index: CandidateIndex,
@@ -81,26 +71,16 @@ export type PreferredArea = { id: number; name: string };
 
 export type MatchOptions = {
   gradeScale: "native" | "converted";
-  /** Areas the user climbs in. A same-named tie resolves toward the candidate
-   * under one of these, so one area covers many rows. */
   preferredAreas: readonly PreferredArea[];
 };
 
 export type RowMatch =
-  /** Exactly one climb survives the hard filters (name, discipline, Area
-   * column). `notes` flags anything worth a second look, such as a climb
-   * outside the preferred areas, without demoting the match. */
+  /** One candidate survives hard filters; notes may still request review. */
   | { kind: "exact"; climb: ClimbCandidate; notes: string[] }
-  /** Several climbs share the name; the soft signals (preferred areas, hint
-   * columns, the CSV grade) narrowed them to one. `reason` says which. */
+  /** Soft signals resolve a same-name tie; reason identifies the deciding signal. */
   | { kind: "inferred"; climb: ClimbCandidate; reason: string; alternatives: ClimbCandidate[] }
-  /** Several remain. `candidates` is the narrowed set to offer first; `pool`
-   * is every same-named climb that passed the hard filters, or every
-   * same-named climb when a hard filter emptied the set (`conflict` says
-   * what disagreed, as a sentence). `narrowedBy` names the soft signals that
-   * cut `pool` down to `candidates`, as a fragment. `total` counts the
-   * name's climbs before the server's per-name cap; `truncated` says the cap
-   * applied. */
+  /** Offer candidates first; pool retains alternatives when filters conflict.
+   * total counts matches before the server cap. */
   | {
       kind: "ambiguous";
       candidates: ClimbCandidate[];
@@ -110,14 +90,10 @@ export type RowMatch =
       conflict: string | null;
       narrowedBy: string | null;
     }
-  /** No climb of that name at all. */
   | { kind: "none" };
 
-/** The CSV grade as an ordinal in each discipline's table. Text that parses
- * in only one is a discipline in disguise — "v4" can only be a boulder — so
- * it doubles as a type filter; text that parses in both ("6a" is a Font
- * boulder grade and a French route grade) settles nothing about type but
- * still breaks a grade tie within each. */
+/** Parse per discipline: V4 implies boulder, while 6a can match both
+ * Font and French scales and cannot settle the discipline alone. */
 export function impliedGrades(
   gradeText: string | null,
   scale: MatchOptions["gradeScale"],
@@ -140,8 +116,6 @@ function pathAreas(climb: ClimbCandidate): { id: number; name: string }[] {
   return [...climb.ancestors, { id: climb.areaId, name: climb.areaName }];
 }
 
-/** Whether `areaName` names the climb's own area or any ancestor — the same
- * "exactly or as an ancestor" rule the Area column has always used. */
 function inArea(climb: ClimbCandidate, areaName: string): boolean {
   const key = foldClimbName(areaName);
   return pathAreas(climb).some((area) => foldClimbName(area.name) === key);
@@ -151,7 +125,6 @@ function underAreas(climb: ClimbCandidate, areaIds: ReadonlySet<number>): boolea
   return pathAreas(climb).some((area) => areaIds.has(area.id));
 }
 
-/** Where a candidate sits, root-first, for messages. */
 export function candidatePath(climb: ClimbCandidate): string {
   return pathAreas(climb)
     .map((area) => area.name)
@@ -167,26 +140,15 @@ function listWords(words: string[]): string {
   return `${words.slice(0, -1).join(", ")}, and ${words[words.length - 1]}`;
 }
 
-/** What disagreed, as a sentence that also works as a failure reason:
- * `predicate` completes "is ..." / "isn't ...". */
 function describeConflict(total: number, predicate: string, suffix = ""): string {
   return total === 1
     ? `The one climb with this name isn't ${predicate}${suffix}`
     : `None of the ${total} climbs with this name is ${predicate}${suffix}`;
 }
 
-/** Resolves one CSV row against the candidates that share its climb name.
- *
- * Hard filters first (a mapped Climb Type column, the discipline the grade
- * text implies, the Area column), since each is something the file states
- * about the climb. If one empties the set, the same-named climbs are still
- * offered as ambiguous with the conflict spelled out.
- *
- * Then soft signals, only while a tie remains and only if the step keeps at
- * least one candidate: preferred areas, the hint columns in mapped order,
- * then the grade. A truncated list is never resolved by soft signals — the
- * right climb may be among the ones the cap dropped — unless the Area
- * column vouches for the survivors (see areaLookupsNeeded). */
+/** Apply hard filters first; conflicts leave candidates available for manual selection.
+ * Soft signals narrow ties only if candidates remain. A truncated list cannot
+ * resolve automatically without an area-specific lookup confirming its candidates. */
 // oxlint-disable-next-line complexity -- layered hard-then-soft signal filters, each a guarded branch
 export function matchRow(
   row: NormalizedImportRow,
@@ -219,7 +181,6 @@ export function matchRow(
     candidates = kept;
   }
 
-  // The climber's grade when they gave one, else the file's posted grade.
   const gradeText = row.gradeText ?? row.postedGradeText;
   const implied = impliedGrades(gradeText, options.gradeScale);
   const impliedType: "boulder" | "rope" | null =
@@ -252,9 +213,6 @@ export function matchRow(
     candidates = kept;
   }
 
-  // With the list cut by the server cap, a survivor is only trusted when the
-  // Area column picked it out — that lookup fetched every climb of the name
-  // in the area, cap or no cap.
   const reliable = !truncated || row.areaName !== null;
   const preferredIds = new Set(options.preferredAreas.map((a) => a.id));
 
@@ -268,9 +226,7 @@ export function matchRow(
   }
 
   const pool = candidates;
-  // A step can keep several candidates and a later step decide between
-  // them, so each reason is phrased about the eventual winner. The label is
-  // the step's generic name, for the note when no single winner emerges.
+  // Record reasons for narrowing steps even when a later step chooses the winner.
   const steps: { reason: (chosen: ClimbCandidate) => string; label: string }[] = [];
   const narrow = (
     keep: (c: ClimbCandidate) => boolean,
@@ -331,8 +287,7 @@ export function matchRow(
   );
 }
 
-/** matchRow over every row. Kept apart from resolveRows so a manual pick
- * doesn't re-run the matching for the whole file. */
+/** Cache automatic matches separately so manual picks do not rematch the whole file. */
 export function matchRows(
   rows: readonly NormalizedImportRow[],
   index: CandidateIndex,
@@ -341,23 +296,19 @@ export function matchRows(
   return rows.map((row) => matchRow(row, index, options));
 }
 
-/** What the user did about a row, overriding whatever matchRow found. */
 export type ManualChoice = { kind: "pick"; climb: ClimbCandidate } | { kind: "skip" };
 
-/** How a row stands in the match step's lists. `matched` and `review` both
- * import as they are; `review` just asks for a glance first. */
+/** Both matched and review rows import; review marks a match that needs checking. */
 export type ResolvedState = "matched" | "review" | "attention" | "picked" | "skipped";
 
 export type ResolvedRow = {
   row: NormalizedImportRow;
   match: RowMatch;
-  /** The climb this row will import against, or null if it won't import. */
   climb: ClimbCandidate | null;
   state: ResolvedState;
 };
 
-/** Lays the user's choices over the automatic matches. `matches` is
- * matchRows' output for the same `rows`, in the same order. */
+/** Manual choices override automatic matches for the same rows in the same order. */
 export function resolveRows(
   rows: readonly NormalizedImportRow[],
   matches: readonly RowMatch[],
@@ -385,7 +336,7 @@ export function resolveRows(
 }
 
 export type ResolvedSummary = Record<ResolvedState, number> & {
-  /** Rows that will import: everything with a climb. */
+  /** Unique climbs ready to import. */
   ready: number;
 };
 
@@ -398,17 +349,16 @@ export function summarizeResolved(rows: readonly ResolvedRow[]): ResolvedSummary
     skipped: 0,
     ready: 0,
   };
+  const climbs = new Set<number>();
   for (const resolved of rows) {
     summary[resolved.state] += 1;
-    if (resolved.climb) summary.ready += 1;
+    if (resolved.climb) climbs.add(resolved.climb.id);
   }
+  summary.ready = climbs.size;
   return summary;
 }
 
-/** Rows that resolved to a climb an earlier row already took. One send per
- * climb, so only the first imports (importSends counts the rest as already
- * logged); flagged here rather than on the result screen. Keyed by row
- * index; the value is the row that claimed the climb first. */
+/** Map duplicate row indices to the first row for that climb; only the first imports. */
 export function duplicateClimbRows(rows: readonly ResolvedRow[]): Map<number, NormalizedImportRow> {
   const firstByClimb = new Map<number, NormalizedImportRow>();
   const duplicates = new Map<number, NormalizedImportRow>();

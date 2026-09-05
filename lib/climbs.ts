@@ -23,8 +23,6 @@ export type RawClimbDescriptionInput = {
   description: FormDataEntryValue | null;
 };
 
-/** Also used to validate a `type` search param (see app/climbs/new), so this
- * takes `unknown` rather than just a form value. */
 export function isClimbType(value: unknown): value is ClimbType {
   return typeof value === "string" && (CLIMB_TYPES as readonly string[]).includes(value);
 }
@@ -43,28 +41,19 @@ export function validateNewClimbInput(raw: RawClimbInput): ClimbInput {
   return { name, type, grade, description };
 }
 
-/** Full edit — name/discipline/grade — is moderation-exclusive (see
- * actions/moderation.ts's requestClimbEdit); the direct action only ever
- * validates the description. */
 export function validateClimbDescriptionInput(raw: RawClimbDescriptionInput): {
   description: string | null;
 } {
   return { description: trimOrNull(raw.description) };
 }
 
-/** What a moderated full edit may change: name/discipline/grade. The
- * description is deliberately absent — editing it is free and instant for
- * any signed-in user (validateClimbDescriptionInput), so routing it through
- * admin review would only queue a snapshot that's stale by review time. */
+/** Descriptions are edited directly and excluded from moderation. */
 export type ClimbEditInput = Omit<ClimbInput, "description">;
 
 export type RawClimbEditInput = Omit<RawClimbInput, "description">;
 
-/** Validates a requested full edit against the climb it targets. Discipline
- * still can't change once sends exist: that's a data-integrity rule
- * independent of who's allowed to request the edit (each send's
- * suggestedGrade is an ordinal into the discipline-scoped scale, and
- * migration 0019's trigger enforces the same rule in the database). */
+/** Existing sends store discipline-specific grade ordinals, so their climb
+ * cannot change discipline. The database trigger enforces the same invariant. */
 export function validateClimbEditInput(existing: Climb, raw: RawClimbEditInput): ClimbEditInput {
   const name = requireTrimmed(raw.name, "Name");
   if (!isClimbType(raw.type)) {
@@ -77,25 +66,16 @@ export function validateClimbEditInput(existing: Climb, raw: RawClimbEditInput):
   return { name, type: raw.type, grade };
 }
 
-/** The target-climb fields a merge may rewrite — a strict subset of
- * ClimbInput: `type` must already match (see assertClimbMergeable) and the
- * target's area always wins a merge. */
+/** Merge targets retain their discipline and area. */
 export type ClimbMergeOverrides = Partial<Pick<ClimbInput, "name" | "grade" | "description">>;
 
-/** Grades arrive as numbers from our own UI but the payload is untrusted
- * JSON, so both number and string forms are parseable; anything else falls
- * through to the validator's own "required" error. */
 function asGradeValue(value: unknown): FormDataEntryValue | null {
   if (typeof value === "string") return value;
   if (typeof value === "number") return String(value);
   return null;
 }
 
-/** Treats `raw` as fully untrusted — it arrives either as a Server Action
- * argument (client-controlled at runtime regardless of its TypeScript type)
- * or out of a stored JSON payload. Only the three whitelisted keys are ever
- * read, each re-validated against the target climb, so a crafted object
- * can't smuggle other columns into the merge's UPDATE. */
+/** Whitelist and validate stored or client-supplied overrides before building an UPDATE. */
 export function validateClimbMergeOverrides(target: Climb, raw: unknown): ClimbMergeOverrides {
   if (raw == null) return {};
   if (typeof raw !== "object" || Array.isArray(raw)) {

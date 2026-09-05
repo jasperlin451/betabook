@@ -33,7 +33,7 @@ vi.mock("@/lib/session", async () => {
   };
 });
 
-// Point the actions' getDb/getDbAndContext at the test D1 binding instead of
+// Point the actions' getDb at the test D1 binding instead of
 // the OpenNext Cloudflare context (which only exists in a deployed worker).
 vi.mock("@/db/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/db/client")>();
@@ -41,10 +41,6 @@ vi.mock("@/db/client", async (importOriginal) => {
   return {
     ...actual,
     getDb: async () => actual.createDb(env.DB),
-    getDbAndContext: async () => ({
-      db: actual.createDb(env.DB),
-      ctx: { waitUntil: () => {} } as unknown as ExecutionContext,
-    }),
   };
 });
 
@@ -71,6 +67,7 @@ function sendFormData(overrides: Record<string, string> = {}): FormData {
 beforeAll(async () => {
   await seedFixtureTree(db);
   await seedFixtureUser(db, { id: "test-user" });
+  await seedFixtureUser(db, { id: "other-user" });
   await seedFixtureSend(db, { userId: "test-user", climbId: 1, dateSent: "2026-01-01" });
 });
 
@@ -260,11 +257,38 @@ describe("updateClimb action boundary", () => {
   });
 });
 
+describe("send ownership", () => {
+  it.each(["update", "delete"] as const)(
+    "rejects %s of another user's send without changing stored data",
+    async (operation) => {
+      const original = await db.select().from(sends).where(eq(sends.climbId, 1)).get();
+      expect(original?.userId).toBe("test-user");
+      const before = await db.select().from(sends).orderBy(sends.id);
+      const journalBefore = await db.select().from(journalEntries).orderBy(journalEntries.id);
+      sessionState.userId = "other-user";
+      const result =
+        operation === "update"
+          ? await updateSend(original!.id, sendFormData({ comment: "Stolen" }))
+          : await deleteSend(original!.id);
+      expect(result).toEqual({ ok: false, error: "Send not found" });
+      expect(await db.select().from(sends).orderBy(sends.id)).toEqual(before);
+      expect(await db.select().from(journalEntries).orderBy(journalEntries.id)).toEqual(
+        journalBefore,
+      );
+    },
+  );
+});
+
 describe("climb type immutability (DB trigger)", () => {
   it("rejects a raw write that changes the type of a climb with logged sends", async () => {
-    await expect(db.update(climbs).set({ type: "sport" }).where(eq(climbs.id, 1))).rejects.toThrow(
-      /Failed query/i,
-    );
+    const messages: string[] = [];
+    try {
+      await db.update(climbs).set({ type: "sport" }).where(eq(climbs.id, 1));
+    } catch (error) {
+      for (let cause: unknown = error; cause instanceof Error; cause = cause.cause)
+        messages.push(cause.message);
+    }
+    expect(messages.join("\n")).toContain("cannot change climb type with logged sends");
     expect((await db.select().from(climbs).where(eq(climbs.id, 1)).get())?.type).toBe("boulder");
   });
 });

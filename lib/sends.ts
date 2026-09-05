@@ -10,19 +10,13 @@ export type AscentStyle = (typeof ASCENT_STYLES)[number];
 
 export const IMPORT_BATCH_SIZE = 50;
 
-// How many distinct climb names one resolveImportClimbs call may look up.
-// They travel as a single JSON binding (see findClimbCandidatesByNames), so
-// this bounds the statement's work and the response size rather than D1's
-// bound-parameter cap.
+// Bounds lookup work and response size; names use a single JSON binding.
 export const RESOLVE_BATCH_SIZE = 100;
 
 export const GRADE_FEEL_VALUES = ["low", "solid", "high"] as const;
 export type GradeFeel = (typeof GRADE_FEEL_VALUES)[number];
 
-// Consensus math: a "low" send nudges the community average a third of a
-// grade-step easier, "high" a third harder, so the aggregate can land
-// between whole grades (1, 2, 3 -> .7, 1, 1.3, 1.7, 2, 2.3...) instead of
-// only ever landing on one.
+// Grade feel shifts a suggested grade by 0.3 for community averages.
 export const GRADE_FEEL_OFFSET: Record<GradeFeel, number> = {
   low: -0.3,
   solid: 0,
@@ -49,22 +43,11 @@ export type RawSendInput = {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/**
- * Clients submit the user's local calendar date, but the server runs at UTC
- * (Cloudflare) and can't know the client's timezone — a user's local today
- * can be up to a day ahead of UTC today (UTC+14). Tolerate one day past UTC
- * today so a valid local-today send isn't rejected; anything beyond that is
- * clearly future.
- */
+/** Allow one day past UTC today because the client's calendar date may be ahead. */
 export function latestAcceptableSendDate(todayUtc: string): string {
   const [year, month, day] = todayUtc.split("-").map(Number);
   return new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
 }
-
-// Shared by both paths that write a send: the form (validateSendInput) and
-// the CSV import (validateImportSendValues). A server action's arguments are
-// an HTTP boundary with no types left at runtime, so each path enforces these
-// itself rather than trusting its caller.
 
 function parseAscentStyle(value: unknown): AscentStyle {
   if (typeof value !== "string" || !(ASCENT_STYLES as readonly string[]).includes(value)) {
@@ -73,9 +56,7 @@ function parseAscentStyle(value: unknown): AscentStyle {
   return value as AscentStyle;
 }
 
-/** ISO shape AND a date that exists. The shape check alone passes 2026-02-30
- * and 2026-13-01, which the wizard's date-fns parse rejects — round-tripping
- * through UTC is what catches a day the month doesn't have. */
+/** Validate the calendar date as well as its ISO shape, rejecting values such as 2026-02-30. */
 export function isRealIsoDate(value: string): boolean {
   if (!ISO_DATE_RE.test(value)) return false;
   const [year, month, day] = value.split("-").map(Number);
@@ -89,8 +70,6 @@ export function isRealIsoDate(value: string): boolean {
 
 function parseDateSent(value: unknown, today: string): string | null {
   if (value === null || value === undefined) return null;
-  // Absent is null or blank. Anything else non-string is a caller sending
-  // something a date field can't hold, which is an error rather than "none".
   if (typeof value !== "string") {
     throw new ActionError("Invalid send date");
   }
@@ -105,9 +84,7 @@ function parseDateSent(value: unknown, today: string): string | null {
   return dateSent;
 }
 
-/** Whole 1–5, or absent. Strict because the sends_aggregates triggers fold
- * every rating into climbs.rating_sum, which climbs.avg_rating is generated
- * from — one out-of-range value moves a shared climb's public average. */
+/** Ratings feed shared climb aggregates, so enforce whole values from 1 to 5. */
 function isRating(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 5;
 }
@@ -118,10 +95,6 @@ function parseGradeFeel(value: unknown): GradeFeel {
     : "solid";
 }
 
-/**
- * `today` defaults to the real clock but is overridable so tests can check
- * the future-date rejection without depending on the system clock.
- */
 export function validateSendInput(
   climbType: ClimbType,
   raw: RawSendInput,
@@ -135,8 +108,6 @@ export function validateSendInput(
     throw new ActionError(`Comment must be ${MAX_LOG_NOTE_LENGTH} characters or fewer`);
   }
 
-  // A form field arrives as a string, so coerce before the shared rule.
-  // Empty means "no rating selected", not zero.
   const rating = raw.rating ? Number(raw.rating) : null;
   if (rating !== null && !isRating(rating)) {
     throw new ActionError("Rating must be between 1 and 5");
@@ -158,8 +129,6 @@ export function validateSendInput(
   };
 }
 
-/** The client-supplied half of an import row. No `suggestedGrade`: the import
- * derives that server-side, so it never needs checking. */
 export type ImportSendValues = {
   ascentStyle: AscentStyle;
   dateSent: string | null;
@@ -168,10 +137,7 @@ export type ImportSendValues = {
   gradeFeel: GradeFeel;
 };
 
-/** One row as the wizard hands it to importSends: a climb already resolved
- * to an id (in the wizard's match step), plus the send's values. The grade
- * stays as text because the ordinal depends on the resolved climb's type,
- * which only the server trusts itself to know. */
+/** Keep grades as text until the server resolves the climb's current discipline. */
 export type ImportSendRow = ImportSendValues & {
   climbId: number;
   gradeText: string | null;
@@ -179,11 +145,7 @@ export type ImportSendRow = ImportSendValues & {
   blankGradeMeans: "posted-grade" | "no-suggestion";
 };
 
-/** Server-side enforcement of the contract normalizeRows applies in the
- * browser, for callers that skipped the wizard. It coerces where normalizeRows
- * coerces (rating out of range to null, comment truncated, unknown grade feel
- * to "solid") and rejects where it rejects (ascent style, date), so a row that
- * did come through the wizard passes through unchanged. */
+/** Apply the same coercions and validation as CSV normalization at the server boundary. */
 export function validateImportSendValues(
   row: {
     ascentStyle: unknown;
@@ -203,3 +165,17 @@ export function validateImportSendValues(
     gradeFeel: parseGradeFeel(row.gradeFeel),
   };
 }
+
+export type ImportResult = {
+  imported: number;
+  overwritten: number;
+  alreadyLogged: number;
+  /** Indices within this batch whose climb no longer exists. */
+  missing: number[];
+};
+
+export type ImportOptions = {
+  batchId?: string;
+  gradeScale: "native" | "converted";
+  onConflict: "skip" | "overwrite";
+};

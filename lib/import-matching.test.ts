@@ -421,5 +421,6 @@ describe("resolveRows", () => {
     const duplicates = duplicateClimbRows(resolved);
     expect([...duplicates.keys()]).toEqual([1]);
     expect(duplicates.get(1)?.rowIndex).toBe(0);
+    expect(summarizeResolved(resolved).ready).toBe(1);
   });
 });
