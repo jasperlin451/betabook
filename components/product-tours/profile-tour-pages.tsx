@@ -19,7 +19,7 @@ const SECTIONS = [
   {
     id: "journal-page",
     name: "Journal",
-    description: "Find sessions and training with search, filters, and tags.",
+    description: "Start here to log your climbing and training, then look back at past entries.",
   },
   {
     id: "sends-page",
@@ -81,6 +81,7 @@ function PageTutorial({
   href,
   children,
   demo,
+  introduction,
   navigate,
   close,
 }: ProductTourStepProps & {
@@ -88,12 +89,14 @@ function PageTutorial({
   href: string;
   children: ReactNode;
   demo: ReactNode;
+  introduction?: ReactNode;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <Button variant="ghost" className="self-start" onPress={() => navigate("explore")}>
         All tutorials
       </Button>
+      {introduction && <p className="max-w-3xl text-sm leading-relaxed">{introduction}</p>}
       <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <section
           aria-label={`Alex's ${page} example`}
@@ -132,9 +135,10 @@ function JournalTutorial(props: ProductTourStepProps) {
       {...props}
       page="Journal"
       href={`/users/${props.userId}/journal`}
+      introduction="Journal is the starting point for Betabook. Log your outdoor sessions and training here, whether you sent a climb, worked on a project, or spent an evening at the gym. These entries also keep your Sends, Projects, and Analytics up to date."
       demo={<DemoJournal />}
     >
-      <h3 className="text-lg font-semibold">Your climbing notes</h3>
+      <h3 className="text-lg font-semibold">Find an old entry</h3>
       <p>
         Journal lists your outdoor sessions and training by date. Log each outdoor climb as a
         separate entry.
@@ -298,7 +302,7 @@ export const profileTourSteps: readonly ProductTourStep[] = [
   {
     id: "journal-page",
     navigationLabel: "Journal",
-    title: "Find an old entry",
+    title: "Start with your Journal",
     eyebrow: "1 of 5 · Journal",
     Content: JournalTutorial,
   },
