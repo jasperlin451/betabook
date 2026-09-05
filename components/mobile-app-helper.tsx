@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 
 import type { BeforeInstallPromptEvent } from "@/components/mobile-app-helper-panel";
 import { useDeferredComponent } from "@/hooks/use-deferred-component";
@@ -11,6 +11,11 @@ import {
   isStandaloneDisplay,
   setMobileHelperDismissed,
 } from "@/lib/mobile-detection";
+import {
+  isMobileHelperPaused,
+  mobileHelperServerSnapshot,
+  subscribeToMobileHelperPause,
+} from "@/lib/mobile-helper-suspension";
 
 /** Module-level so its identity is stable across renders — the preload hook
  * keys its effect on the loader. */
@@ -36,12 +41,17 @@ export function openMobileAppHelper(): void {
  */
 export function MobileAppHelper() {
   const mounted = useMounted();
+  const paused = useSyncExternalStore(
+    subscribeToMobileHelperPause,
+    isMobileHelperPaused,
+    mobileHelperServerSnapshot,
+  );
   const [isOpen, setIsOpen] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const { Component: MobileAppHelperPanel, load } = useDeferredComponent(loadPanel);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || paused) return;
 
     // Check if running already as a standalone shortcut or if user previously dismissed
     const isStandalone = isStandaloneDisplay();
@@ -77,7 +87,7 @@ export function MobileAppHelper() {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener(OPEN_MOBILE_HELPER_EVENT, handleOpenEvent);
     };
-  }, [mounted, load]);
+  }, [mounted, load, paused]);
 
   const handleDismiss = useCallback(() => {
     setMobileHelperDismissed(true);
@@ -100,7 +110,7 @@ export function MobileAppHelper() {
     }
   }, [installPrompt]);
 
-  if (!mounted || !isOpen || !MobileAppHelperPanel) {
+  if (!mounted || paused || !isOpen || !MobileAppHelperPanel) {
     return null;
   }
 

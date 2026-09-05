@@ -106,11 +106,25 @@ beforeEach(async () => {
 describe("createJournalEntry", () => {
   it("writes a session and no send", async () => {
     const result = await createJournalEntry(entryFormData());
-    expect(result).toEqual({ ok: true, value: undefined });
+    expect(result).toEqual({ ok: true, value: "project" });
 
     const entries = await entriesFor("j-user");
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ kind: "session", sent: false, climbId: HIGHBALL });
+  });
+
+  it("returns the committed outcome for guidance without relying on client flags", async () => {
+    expect(
+      await createJournalEntry(entryFormData({ kind: "training", body: "Hangboard" })),
+    ).toEqual({ ok: true, value: "training" });
+    expect(await createJournalEntry(ascentFormData())).toEqual({ ok: true, value: "ascent" });
+    expect(
+      await createJournalEntry(entryFormData({ sent: "true", entryDate: "2026-03-02" })),
+    ).toEqual({ ok: true, value: "repeat" });
+    expect(await createJournalEntry(entryFormData({ entryDate: "2026-03-03" }))).toEqual({
+      ok: true,
+      value: "session",
+    });
   });
 
   it("stores normalized tags", async () => {
@@ -226,7 +240,7 @@ describe("createJournalEntry", () => {
         entryFormData({ climbId: String(HIGHBALL), sent: "true", body: "Now dated." }),
       );
 
-      expect(result).toEqual({ ok: true, value: undefined });
+      expect(result).toEqual({ ok: true, value: "repeat" });
       expect(await entriesFor("j-user")).toMatchObject([
         { climbId: HIGHBALL, sent: true, entryDate: "2026-03-01", body: "Now dated." },
       ]);

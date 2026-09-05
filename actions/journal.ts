@@ -8,7 +8,11 @@ import { getAscentEntryId, getClimb, getJournalEntry, getUserSendForClimb } from
 import { journalEntries, sends } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import type { ClimbType } from "@/lib/grades";
-import { validateJournalInput, type JournalEntryInput } from "@/lib/journal";
+import {
+  validateJournalInput,
+  type JournalEntryInput,
+  type JournalSaveOutcome,
+} from "@/lib/journal";
 import { allowJournalWrite } from "@/lib/rate-limit";
 import { validateSendInput, type RawSendInput } from "@/lib/sends";
 import { requireSession } from "@/lib/session";
@@ -94,7 +98,9 @@ async function writeAscent(
   revalidateSendSurfaces({ userIds: [userId], climbIds: [climb.id], areaIds: [climb.areaId] });
 }
 
-export async function createJournalEntry(formData: FormData): Promise<ActionResult> {
+export async function createJournalEntry(
+  formData: FormData,
+): Promise<ActionResult<JournalSaveOutcome>> {
   return toActionResult(async () => {
     const session = await requireJournalSession();
     const db = await getDb();
@@ -102,12 +108,12 @@ export async function createJournalEntry(formData: FormData): Promise<ActionResu
     const input = validateJournalInput(readJournalFormData(formData));
     const climb = input.climbId === null ? null : await requireClimb(db, input.climbId);
 
+    const existingSend = climb ? await getUserSendForClimb(db, session.user.id, climb.id) : null;
     if (input.sent && climb) {
-      const existingSend = await getUserSendForClimb(db, session.user.id, climb.id);
       if (!existingSend) {
         await writeAscent(db, session.user.id, input, climb, formData);
         refresh();
-        return;
+        return "ascent" as const;
       }
       if (carriesSendFields(formData)) {
         throw new ActionError("A repeat doesn't carry a rating or a grade");
@@ -151,7 +157,7 @@ export async function createJournalEntry(formData: FormData): Promise<ActionResu
           areaIds: [climb.areaId],
         });
         refresh();
-        return;
+        return "repeat" as const;
       }
       assertRepeatDate(sentEntries, input.entryDate);
     }
@@ -174,6 +180,9 @@ export async function createJournalEntry(formData: FormData): Promise<ActionResu
       climbIds: climb ? [climb.id] : [],
     });
     refresh();
+    if (input.kind === "training") return "training";
+    if (input.sent) return "repeat";
+    return existingSend ? "session" : "project";
   });
 }
 

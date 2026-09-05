@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Checkbox, Input, Label, TextArea, TextField } from "@heroui/react";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { createJournalEntry, updateJournalEntry } from "@/actions";
 import { TagInput } from "@/components/journal/tag-input";
@@ -15,7 +15,8 @@ import {
 import { AppLink } from "@/components/ui/app-link";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import type { JournalEntry, SendableClimb } from "@/db/queries";
-import { MAX_JOURNAL_BODY_LENGTH, type JournalKind } from "@/lib/journal";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
+import { MAX_JOURNAL_BODY_LENGTH, type JournalKind, type JournalSaveOutcome } from "@/lib/journal";
 import type { AscentStyle, GradeFeel } from "@/lib/sends";
 
 type JournalEntryFormProps = {
@@ -24,6 +25,9 @@ type JournalEntryFormProps = {
   hasPriorSend?: boolean;
   existingEntry?: JournalEntry;
   onDone?: () => void;
+  onCreated?: (outcome: JournalSaveOutcome) => void;
+  guided?: boolean;
+  onPendingChange?: (pending: boolean) => void;
 };
 
 function describePendingEntry(input: {
@@ -63,7 +67,14 @@ export function JournalEntryForm({
   hasPriorSend = false,
   existingEntry,
   onDone,
+  onCreated,
+  guided = false,
+  onPendingChange,
 }: JournalEntryFormProps) {
+  const dateInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (guided) dateInput.current?.focus();
+  }, [guided]);
   const today = new Intl.DateTimeFormat("en-CA").format(new Date());
 
   const [entryDate, setEntryDate] = useState(existingEntry?.entryDate ?? today);
@@ -84,6 +95,7 @@ export function JournalEntryForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
     setError(null);
 
     const formData = new FormData();
@@ -101,24 +113,47 @@ export function JournalEntryForm({
       formData.set("gradeFeel", gradeFeel);
     }
 
+    onPendingChange?.(true);
     startTransition(async () => {
-      const result = existingEntry
-        ? await updateJournalEntry(existingEntry.id, formData)
-        : await createJournalEntry(formData);
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      try {
+        if (existingEntry) {
+          const result = await updateJournalEntry(existingEntry.id, formData);
+          if (!result.ok) {
+            setError(result.error);
+            return;
+          }
+          onDone?.();
+        } else {
+          const result = await createJournalEntry(formData);
+          if (!result.ok) {
+            setError(result.error);
+            return;
+          }
+          if (onCreated) onCreated(result.value);
+          else onDone?.();
+        }
+      } catch {
+        setError(GENERIC_ERROR_MESSAGE);
+      } finally {
+        onPendingChange?.(false);
       }
-      onDone?.();
     });
   }
 
   return (
     <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-6`}>
+      {guided && (
+        <p className="text-sm text-muted">
+          {kind === "training"
+            ? "Record indoor climbing, drills, strength, or conditioning. Add at least a note or a tag before saving."
+            : "This entry records one climb on one date. Log another entry for each other climb you worked on that day."}
+        </p>
+      )}
       <FormSection label="The day">
         <TextField>
           <Label>Date</Label>
           <Input
+            ref={dateInput}
             type="date"
             value={entryDate}
             max={today}
@@ -146,6 +181,13 @@ export function JournalEntryForm({
               </Checkbox.Content>
             </Checkbox>
           ))}
+        {guided && climb && !existingEntry && (
+          <p className="text-sm text-muted">
+            {hasPriorSend
+              ? "Already sent this climb? Select I sent to record a repeat. Your original ascent stays recorded."
+              : "Leave I sent unchecked to record work on a project. Select it when you send to also add the ascent to Sends."}
+          </p>
+        )}
       </FormSection>
 
       {isAscent && climb && (
@@ -181,7 +223,8 @@ export function JournalEntryForm({
 
         {(isAscent || existingEntry?.isAscent) && (
           <p className="text-xs text-muted">
-            This note also appears on your send and follows your profile privacy settings.
+            This note also appears on your send and follows your profile privacy settings, even if
+            your journal is private.
           </p>
         )}
         <TagInput value={tags} onChange={setTags} />
