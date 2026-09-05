@@ -2,6 +2,19 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  images: {
+    // Better Auth stores Google's OpenID `picture` URL on the user row.
+    // Keep the optimizer allowlist pinned to that provider rather than
+    // accepting arbitrary remote URLs from a database-backed `src`.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+        port: "",
+        pathname: "/**",
+      },
+    ],
+  },
   // `next dev` serves /_next dev resources only to the host it started with,
   // 403ing everything else — which breaks opening it from a phone on the LAN.
   // No effect on a production build.

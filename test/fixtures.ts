@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
-import { areas, climbs, user, sends } from "@/db/schema";
+import { areas, climbs, user, sends, journalEntries } from "@/db/schema";
 
 /**
  * A small tree exercising: a root with no ancestors, a two-level-deep
@@ -118,5 +118,27 @@ export async function seedFixtureSend(db: Database, overrides: FixtureSendOverri
     ...overrides,
   };
   await db.insert(sends).values(row);
+  return row;
+}
+
+type FixtureJournalEntryOverrides = Partial<typeof journalEntries.$inferInsert> & {
+  userId: string;
+  entryDate: string;
+};
+
+export async function seedFixtureJournalEntry(
+  db: Database,
+  overrides: FixtureJournalEntryOverrides,
+) {
+  const kind = overrides.kind ?? "session";
+  const row = {
+    kind,
+    sent: false,
+    climbId: kind === "session" ? 1 : null,
+    body: null,
+    tags: null,
+    ...overrides,
+  };
+  await db.insert(journalEntries).values(row);
   return row;
 }

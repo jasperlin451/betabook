@@ -1,7 +1,7 @@
 import { clsx } from "clsx";
 
 import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
-import { GRADE_FEEL_LABELS } from "@/components/send-form";
+import { GRADE_FEEL_LABELS } from "@/components/send-fields";
 import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { Eyebrow, EYEBROW_CLASS } from "@/components/ui/eyebrow";
 import { OptionSelect, type SelectOption } from "@/components/ui/option-select";

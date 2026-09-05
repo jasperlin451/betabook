@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 
 import { NavLink } from "@/components/nav-link";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useMounted } from "@/hooks/use-mounted";
 import { authClient } from "@/lib/auth-client";
 
@@ -15,16 +16,15 @@ type AuthNavProps = {
   onNavigate?: () => void;
 };
 
-/** One pill per signed-in link, each sized to roughly the label it stands in
- * for ("Search", "Add climb", "Add area", "My sends", "Account"). The
- * signed-in set is the widest (and, for a logbook, the most common) state, so
- * holding its geometry keeps the header from reflowing when the session
- * resolves. */
+/** One placeholder per signed-in control, sized to the four text links and
+ * account avatar they stand in for. The signed-in set is the widest (and,
+ * for a logbook, the most common) state, so holding its geometry keeps the
+ * header from reflowing when the session resolves. */
 const PLACEHOLDER_WIDTHS = [
   { key: "search", width: "w-14" },
   { key: "add-climb", width: "w-21" },
   { key: "add-area", width: "w-20" },
-  { key: "my-sends", width: "w-16" },
+  { key: "my-journal", width: "w-20" },
   { key: "account", width: "w-14" },
 ] as const;
 
@@ -49,9 +49,15 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
     return (
       <div className={signedInGroupClass} aria-hidden>
         {PLACEHOLDER_WIDTHS.map(({ key, width }) => (
-          // my-0.5 + h-4 adds up to the 20px line box of a text-sm link, so
-          // each pill occupies exactly one link's height in both directions.
-          <Skeleton key={key} rounded="rounded-full" className={clsx("my-0.5 h-4", width)} />
+          // The desktop account control resolves to a 32px avatar; the
+          // drawer keeps its text label and therefore its normal line box.
+          <Skeleton
+            key={key}
+            rounded="rounded-full"
+            className={clsx(
+              key === "account" && direction === "row" ? "size-8" : ["my-0.5 h-4", width],
+            )}
+          />
         ))}
       </div>
     );
@@ -69,12 +75,24 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
         <NavLink href="/areas/new" onClick={onNavigate}>
           Add area
         </NavLink>
-        <NavLink href={`/users/${session.user.id}`} onClick={onNavigate}>
-          My sends
+        <NavLink href={`/users/${session.user.id}`} hideWithin onClick={onNavigate}>
+          My Journal
         </NavLink>
-        <NavLink href="/account" onClick={onNavigate}>
-          Account
-        </NavLink>
+        {direction === "row" ? (
+          <NavLink
+            href="/account"
+            aria-label="Account"
+            title="Account"
+            className="rounded-full no-underline"
+            onClick={onNavigate}
+          >
+            <UserAvatar name={session.user.name} image={session.user.image} size="sm" />
+          </NavLink>
+        ) : (
+          <NavLink href="/account" onClick={onNavigate}>
+            Account
+          </NavLink>
+        )}
       </span>
     );
   }

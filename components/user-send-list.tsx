@@ -3,11 +3,11 @@
 import { Checkbox } from "@heroui/react";
 import { useRouter } from "next/navigation";
 
-import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { AreaSearchField } from "@/components/area-search-field";
 import { AscentStyle, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import { ClimbLogRow } from "@/components/climb-log-row";
 import { FilterToolbar } from "@/components/filter-toolbar";
-import { LogSendButton } from "@/components/log-send-button";
+import { LogEntryButton } from "@/components/journal";
 import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { RouteSearchField } from "@/components/route-search-field";
 import { SendActionsMenu } from "@/components/send-actions-menu";
@@ -16,15 +16,12 @@ import { SendListShell } from "@/components/send-list-shell";
 import { AppLink } from "@/components/ui/app-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LabeledIndexSelect } from "@/components/ui/index-select";
-import { ListRow } from "@/components/ui/list-row";
 import { SortSelect } from "@/components/ui/sort-select";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import { usePagedList } from "@/hooks/use-paged-list";
 import { RATING_OPTIONS } from "@/lib/climb-stats-filter";
-import { formatDate } from "@/lib/format-date";
 import { ASCENT_STYLES, type AscentStyle as AscentStyleType } from "@/lib/sends";
-import { climbHref } from "@/lib/slug";
 import { DEFAULT_USER_SENDS_FILTER, userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 
 /** Ascent-style checkboxes for the user sends filter — same structure as
@@ -126,11 +123,11 @@ const DEFAULT_DIRECTION: Record<SortField, "asc" | "desc"> = {
  * (back/forward) are instead adopted as values by useFilterFormNavigation,
  * which leaves the mounted inputs alone. */
 export function UserSendsFilterToolbar({
-  userId,
   filter,
+  basePath,
 }: {
-  userId: string;
   filter: UserSendsFilter;
+  basePath: string;
 }) {
   const router = useRouter();
   const {
@@ -160,7 +157,7 @@ export function UserSendsFilterToolbar({
     sort: filter.sort,
     defaultSort: DEFAULT_USER_SENDS_FILTER.sort,
     buildHref: (disciplineFilter, name, areaName, sort) =>
-      `/users/${userId}?${userSendsFilterToSearchParams({ ...disciplineFilter, name, areaName, sort }).toString()}`,
+      `${basePath}?${userSendsFilterToSearchParams({ ...disciplineFilter, name, areaName, sort }).toString()}`,
   });
 
   return (
@@ -190,7 +187,7 @@ export function UserSendsFilterToolbar({
           defaultDirection={DEFAULT_DIRECTION}
           onNavigate={(nextSort) => {
             const params = userSendsFilterToSearchParams({ ...filter, sort: nextSort });
-            router.replace(`/users/${userId}?${params.toString()}`, { scroll: false });
+            router.replace(`${basePath}?${params.toString()}`, { scroll: false });
           }}
         />
       }
@@ -285,7 +282,7 @@ export function UserSendList({
           cta={
             currentUserId === userId ? (
               <div className="flex flex-col items-center gap-3">
-                <LogSendButton />
+                <LogEntryButton />
                 <AppLink href="/account/import" className="text-sm">
                   Import your sends
                 </AppLink>
@@ -310,29 +307,25 @@ export function UserSendList({
           loadingMore={loadingMore}
           loadMoreFailed={loadMoreFailed}
           renderRow={(send) => (
-            <ListRow
-              title={send.climbName}
-              href={climbHref(send.climbId, send.climbName)}
-              subtitle={
-                <AreaBreadcrumb
-                  areaId={send.areaId}
-                  areaName={send.areaName}
-                  ancestors={areaBreadcrumbs[send.areaId] ?? []}
+            <ClimbLogRow
+              climb={{
+                id: send.climbId,
+                name: send.climbName,
+                areaId: send.areaId,
+                areaName: send.areaName,
+              }}
+              areaBreadcrumbs={areaBreadcrumbs}
+              grade={
+                <SendGradeCell
+                  type={send.climbType}
+                  grade={send.climbGrade}
+                  suggestedGrade={send.suggestedGrade}
+                  gradeFeel={send.gradeFeel}
+                  rating={send.rating}
                 />
               }
-              trailing={
-                <div className="flex flex-col items-end gap-1 text-sm">
-                  <SendGradeCell
-                    type={send.climbType}
-                    grade={send.climbGrade}
-                    suggestedGrade={send.suggestedGrade}
-                    gradeFeel={send.gradeFeel}
-                    rating={send.rating}
-                  />
-                  <AscentStyle type={send.ascentStyle} />
-                  <div className="text-xs text-muted">{formatDate(send.dateSent)}</div>
-                </div>
-              }
+              status={<AscentStyle type={send.ascentStyle} />}
+              date={send.dateSent}
               actions={
                 currentUserId === userId && (
                   <SendActionsMenu
