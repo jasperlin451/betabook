@@ -12,54 +12,46 @@ import type { JournalSaveOutcome } from "@/lib/journal";
 const RESULTS: Record<JournalSaveOutcome, { title: string; body: string }> = {
   training: {
     title: "Training saved",
-    body: "Your training is in your journal. Add tags to find similar workouts later.",
+    body: "Your workout is in Journal.",
   },
   project: {
     title: "Session saved",
-    body: "You haven't logged a send for this climb yet, so it's now in Projects. You can log your next session from there.",
+    body: "This climb is now in Projects. Log your next attempt there.",
   },
   session: {
     title: "Session saved",
-    body: "Added to your journal. You've already sent this climb, so it won't appear in open Projects.",
+    body: "Added to Journal. You've already sent this climb, so it stays out of Projects.",
   },
   ascent: {
     title: "Send saved",
-    body: "You'll find this entry in Journal and Sends. The climb is no longer in Projects.",
+    body: "Added to Journal and Sends, and removed from Projects.",
   },
   repeat: {
     title: "Repeat saved",
-    body: "The repeat is in your journal. Sends still shows your original ascent, rating, and grade.",
+    body: "Added to Journal. Sends keeps your original ascent.",
   },
 };
 
 function TourIntroduction({ navigate }: ProductTourStepProps) {
   return (
     <div className="flex flex-col gap-4 text-sm">
-      <p>Keep notes on attempts, sends, repeats, and training.</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl bg-surface-secondary p-4">
           <h3 className="mb-1 font-medium">Outdoor session</h3>
           <p className="text-muted">
-            One climb on one date. Log each climb separately, including attempts and repeats. Select
-            “I sent” when you send.
+            One climb per entry, including attempts and repeats. Select “I sent” when you send.
           </p>
         </div>
         <div className="rounded-xl bg-surface-secondary p-4">
           <h3 className="mb-1 font-medium">Training</h3>
           <p className="text-muted">
-            For indoor climbing, drills, strength, or conditioning. Add a note or tag; you don't
-            need to choose a climb.
+            Indoor climbing, drills, or strength work. No climb required.
           </p>
         </div>
       </div>
-      <p className="text-muted">
-        Climbs you've worked on but haven't sent appear in Projects automatically. Your first
-        recorded send adds an ascent to Sends; later sends are repeats.
-      </p>
       <p className="rounded-lg border border-border p-4 text-muted">
-        Journals start private. Notes on your first recorded ascent also appear on its send and
-        follow your profile's privacy settings, even when the journal is private. Check your privacy
-        settings in Account.
+        Your journal starts private. First-send notes also appear on Sends, where your profile's
+        privacy settings apply.
       </p>
       <div className="flex flex-wrap gap-2">
         <Button onPress={() => navigate("compose")}>Log my own entry</Button>

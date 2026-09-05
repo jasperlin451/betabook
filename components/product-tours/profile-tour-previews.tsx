@@ -13,7 +13,6 @@ import { formatDate } from "@/lib/format-date";
 import {
   getTourDemoJournalPage,
   TOUR_DEMO_ANALYTICS,
-  TOUR_DEMO_CLIMBER,
   TOUR_DEMO_ENTRIES,
   TOUR_DEMO_PROJECT,
   TOUR_DEMO_SENDS,
@@ -159,7 +158,6 @@ export function DemoSends() {
   });
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted">Try sorting Alex's sends by grade or rating.</p>
       <Choices
         label="Sort sends"
         options={["Date", "Grade", "Rating"]}
@@ -203,9 +201,6 @@ export function DemoProjects() {
   const [expanded, setExpanded] = useState(false);
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted">
-        Alex has one project. Read the session notes to see what still needs work.
-      </p>
       <ListRow
         title={TOUR_DEMO_PROJECT.name}
         meta={TOUR_DEMO_PROJECT.grade}
@@ -224,10 +219,6 @@ export function DemoProjects() {
           <ListRow key={entry.id} title={entry.date} comment={entry.note} />
         ))}
       </div>
-      <p className="rounded-lg bg-surface-secondary p-3 text-sm">
-        When Alex logs a first send of The Long Way, it leaves Projects and appears in Sends. Both
-        earlier sessions stay in Journal.
-      </p>
     </div>
   );
 }
@@ -248,9 +239,6 @@ export function DemoAnalytics() {
       <div>
         <h3 className="mb-2 text-sm font-medium">Boulder progression</h3>
         <ProgressionChart type="boulder" points={analytics.progression[0].points} />
-        <p className="text-xs text-muted">
-          January: V2 → February: V4 → March: V3. Alex's personal best stays V4.
-        </p>
       </div>
       <Button
         variant="secondary"
@@ -268,10 +256,7 @@ export function DemoAnalytics() {
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-sm text-muted">
-          Three outdoor entries on the same date count as one day out. The March 13 gym workout is
-          training, so it adds no outdoor day.
-        </p>
+        <p className="mt-3 text-sm text-muted">Three climbs on March 12 count as one day out.</p>
       </div>
     </div>
   );
@@ -282,9 +267,6 @@ export function DemoAccount() {
   const [publicJournal, setPublicJournal] = useState(false);
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm text-muted">
-        Try changing who can see {TOUR_DEMO_CLIMBER.name}'s logbook.
-      </p>
       <Checkbox isSelected={isPrivate} onChange={setIsPrivate}>
         <Checkbox.Content>
           <Checkbox.Control>
@@ -308,7 +290,6 @@ export function DemoAccount() {
             ? "Alex's profile, sends, journal, and analytics are hidden."
             : `Alex's profile, sends, and analytics are visible. The journal is ${publicJournal ? "visible too" : "private"}.`}
         </p>
-        <p className="mt-2 text-muted">Only Alex can see Projects.</p>
       </div>
     </div>
   );
