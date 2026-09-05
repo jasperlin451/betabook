@@ -81,7 +81,7 @@ export function AreaHeaderActions({ area }: AreaHeaderActionsProps) {
             }
           }}
         >
-          <Menu.Item id="edit">Request full edit…</Menu.Item>
+          <Menu.Item id="edit">Request a rename…</Menu.Item>
           <Menu.Item id="reparent">Change parent…</Menu.Item>
           <Menu.Item id="delete">Delete</Menu.Item>
         </ActionsMenu>

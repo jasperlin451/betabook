@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Drawer, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Drawer, Label, TextField } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
 import { useState, useTransition } from "react";
 
@@ -14,12 +14,12 @@ type AreaEditRequestDrawerProps = {
   state: UseOverlayStateReturn;
 };
 
-/** A full edit (name + description) — updateArea (the description pencil)
- * only ever touches description, so a rename can only happen through here,
- * gated behind admin approval (see actions/moderation.ts's requestAreaEdit). */
+/** A rename — the one gated area edit, behind admin approval (see
+ * actions/moderation.ts's requestAreaEdit). The description isn't here:
+ * updateArea (the description pencil) already lets any signed-in user edit
+ * it instantly. */
 export function AreaEditRequestDrawer({ area, state }: AreaEditRequestDrawerProps) {
   const [name, setName] = useState(area.name);
-  const [description, setDescription] = useState(area.description ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pendingNotice, setPendingNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -34,7 +34,6 @@ export function AreaEditRequestDrawer({ area, state }: AreaEditRequestDrawerProp
 
     const formData = new FormData();
     formData.set("name", trimmedName);
-    formData.set("description", description);
 
     startTransition(async () => {
       const result = await requestAreaEdit(area.id, formData);
@@ -56,7 +55,6 @@ export function AreaEditRequestDrawer({ area, state }: AreaEditRequestDrawerProp
     state.setOpen(isOpen);
     if (!isOpen) {
       setName(area.name);
-      setDescription(area.description ?? "");
       setError(null);
       setPendingNotice(null);
     }
@@ -67,7 +65,7 @@ export function AreaEditRequestDrawer({ area, state }: AreaEditRequestDrawerProp
       <Drawer.Content>
         <Drawer.Dialog className={`mx-auto w-full ${PAGE_MAX_WIDTH_CLASS}`}>
           <Drawer.Header>
-            <Drawer.Heading>Request a full edit</Drawer.Heading>
+            <Drawer.Heading>Request a rename</Drawer.Heading>
             <Drawer.CloseTrigger />
           </Drawer.Header>
           <Drawer.Body>
@@ -92,15 +90,10 @@ export function AreaEditRequestDrawer({ area, state }: AreaEditRequestDrawerProp
                   />
                 </TextField>
 
-                <TextField value={description} onChange={setDescription}>
-                  <Label>Description</Label>
-                  <TextArea placeholder="Describe the area…" />
-                </TextField>
-
                 {error && <p className="text-sm text-danger">{error}</p>}
 
                 <Button type="submit" isDisabled={pending || !trimmedName} fullWidth>
-                  Save changes
+                  Submit rename
                 </Button>
               </form>
             )}

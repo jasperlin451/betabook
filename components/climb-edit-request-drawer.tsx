@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Drawer, Label, ListBox, Select, TextArea, TextField } from "@heroui/react";
+import { Button, Drawer, Label, ListBox, Select, TextField } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
 import { useState, useTransition } from "react";
 
@@ -21,17 +21,16 @@ const CLIMB_TYPE_LABELS: Record<ClimbType, string> = {
   trad: "Trad",
 };
 
-/** A full edit (name/discipline/grade/description) — updateClimb (the
- * description pencil) only ever touches description, so the rest can only
- * change through here, gated behind admin approval (see
- * actions/moderation.ts's requestClimbEdit). */
+/** A full edit (name/discipline/grade) — gated behind admin approval (see
+ * actions/moderation.ts's requestClimbEdit). The description isn't here:
+ * updateClimb (the description pencil) already lets any signed-in user edit
+ * it instantly. */
 export function ClimbEditRequestDrawer({ climb, state }: ClimbEditRequestDrawerProps) {
   const disciplineLocked = climb.sendCount > 0;
 
   const [name, setName] = useState(climb.name);
   const [type, setType] = useState<ClimbType>(climb.type);
   const [grade, setGrade] = useState(String(climb.grade ?? 0));
-  const [description, setDescription] = useState(climb.description ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pendingNotice, setPendingNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -54,7 +53,6 @@ export function ClimbEditRequestDrawer({ climb, state }: ClimbEditRequestDrawerP
     formData.set("name", trimmedName);
     formData.set("type", type);
     formData.set("grade", grade);
-    formData.set("description", description);
 
     startTransition(async () => {
       const result = await requestClimbEdit(climb.id, formData);
@@ -78,7 +76,6 @@ export function ClimbEditRequestDrawer({ climb, state }: ClimbEditRequestDrawerP
       setName(climb.name);
       setType(climb.type);
       setGrade(String(climb.grade ?? 0));
-      setDescription(climb.description ?? "");
       setError(null);
       setPendingNotice(null);
     }
@@ -158,11 +155,6 @@ export function ClimbEditRequestDrawer({ climb, state }: ClimbEditRequestDrawerP
                       </ListBox>
                     </Select.Popover>
                   </Select>
-                </TextField>
-
-                <TextField value={description} onChange={setDescription}>
-                  <Label>Description</Label>
-                  <TextArea placeholder="Describe the climb…" />
                 </TextField>
 
                 {error && <p className="text-sm text-danger">{error}</p>}
