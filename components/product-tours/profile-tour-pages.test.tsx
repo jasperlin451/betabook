@@ -1,10 +1,14 @@
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { journalTourSteps } from "@/components/product-tours/journal-tour";
 import { profileTourSteps, TourDestinations } from "@/components/product-tours/profile-tour-pages";
 import type { ProductTourStepProps } from "@/components/product-tours/types";
 import { AppLink } from "@/components/ui/app-link";
 
+vi.mock("@/components/journal/journal-entry-composer", () => ({
+  JournalEntryComposer: () => null,
+}));
 vi.mock("@/components/ui/app-link", () => ({ AppLink: () => null }));
 vi.mock("@/components/product-tours/profile-tour-previews", () => ({
   DemoAccount: () => null,
@@ -69,6 +73,46 @@ describe("profile tutorials", () => {
       ) as ReactElement<{ onPress: () => void }>;
       overview.props.onPress();
       expect(props.navigate).toHaveBeenCalledWith("explore");
+    }
+  });
+});
+
+describe("real-entry tutorial branches", () => {
+  it.each(["training", "project", "session", "ascent", "repeat"])(
+    "offers the owner's Journal after saving %s",
+    (outcome) => {
+      const props = { ...context(), values: { outcome } };
+      const Saved = journalTourSteps.find((step) => step.id === "saved")!.Content as (
+        props: ProductTourStepProps,
+      ) => ReactElement;
+      const nodes = elements(Saved(props));
+      const link = nodes.find((node) => node.type === AppLink);
+      expect(link?.props.children).toBe("Open my Journal");
+      expect(link?.props.href).toBe("/users/real-owner/journal");
+      link?.props.onClick?.();
+      expect(props.close).toHaveBeenCalledOnce();
+      expect(props.navigate).not.toHaveBeenCalled();
+      const demo = nodes.find(
+        (node) => node.props.children === "Explore the tutorials",
+      ) as ReactElement<{ onPress: () => void }>;
+      demo.props.onPress();
+      expect(props.navigate).toHaveBeenCalledWith("explore");
+    },
+  );
+
+  it("names the real logging and demo branches before either opens", () => {
+    const props = context();
+    const Intro = journalTourSteps[0].Content as (props: ProductTourStepProps) => ReactElement;
+    const nodes = elements(Intro(props));
+    for (const [label, destination] of [
+      ["Log my own entry", "compose"],
+      ["Explore the demo", "explore"],
+    ]) {
+      const button = nodes.find((node) => node.props.children === label) as ReactElement<{
+        onPress: () => void;
+      }>;
+      button.props.onPress();
+      expect(props.navigate).toHaveBeenLastCalledWith(destination);
     }
   });
 });

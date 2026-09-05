@@ -136,3 +136,25 @@ export const TOUR_DEMO_ANALYTICS = buildUserAnalytics(
     climbType: "boulder",
   })),
 );
+
+/** Filter the whole sample journal before limiting the rows shown in a lesson. */
+export function getTourDemoJournalPage({
+  kind,
+  query,
+  tag,
+  showAll,
+}: {
+  kind: "session" | "training" | null;
+  query: string;
+  tag: string | null;
+  showAll: boolean;
+}) {
+  const search = query.toLowerCase().trim();
+  const matches = TOUR_DEMO_ENTRIES.filter(
+    (entry) =>
+      (kind === null || entry.kind === kind) &&
+      (tag === null || entry.tags.includes(tag)) &&
+      entry.note.toLowerCase().includes(search),
+  );
+  return { matches, visible: showAll ? matches : matches.slice(0, 3) };
+}

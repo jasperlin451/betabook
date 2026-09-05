@@ -9,6 +9,7 @@ import { choicePillClass } from "@/components/ui/choice-pill";
 import { ListRow } from "@/components/ui/list-row";
 import { nativeGradeArray } from "@/lib/grades";
 import {
+  getTourDemoJournalPage,
   TOUR_DEMO_ANALYTICS,
   TOUR_DEMO_CLIMBER,
   TOUR_DEMO_ENTRIES,
@@ -47,19 +48,31 @@ function Choices<T extends string>({
 export function DemoJournal() {
   const [view, setView] = useState<"All" | "Sessions" | "Training">("All");
   const [query, setQuery] = useState("");
-  const [tag, setTag] = useState(false);
-  const entries = TOUR_DEMO_ENTRIES.filter(
-    (entry) =>
-      (view === "All" || entry.kind === (view === "Sessions" ? "session" : "training")) &&
-      (!tag || entry.tags.includes("footwork")) &&
-      entry.note.toLowerCase().includes(query.toLowerCase().trim()),
-  );
+  const [tag, setTag] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const { matches, visible } = getTourDemoJournalPage({
+    kind: view === "All" ? null : view === "Sessions" ? "session" : "training",
+    query,
+    tag,
+    showAll,
+  });
+  function toggleTag(next: string) {
+    setTag(tag === next ? null : next);
+    setShowAll(false);
+  }
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted">
-        Try Training, search for “feet”, or select the footwork tag.
+        Find Alex's gym workout: select Training, then #footwork.
       </p>
-      <SearchField aria-label="Search Alex's journal" value={query} onChange={setQuery}>
+      <SearchField
+        aria-label="Search Alex's journal"
+        value={query}
+        onChange={(next) => {
+          setQuery(next);
+          setShowAll(false);
+        }}
+      >
         <SearchField.Group>
           <SearchField.SearchIcon />
           <SearchField.Input placeholder="Search journal…" />
@@ -70,31 +83,75 @@ export function DemoJournal() {
         label="Journal entry type"
         options={["All", "Sessions", "Training"]}
         value={view}
-        onChange={setView}
+        onChange={(next) => {
+          setView(next);
+          setShowAll(false);
+        }}
       />
       <button
         type="button"
-        aria-pressed={tag}
-        onClick={() => setTag(!tag)}
-        className={`${choicePillClass(tag, "bg-foreground text-background")} self-start`}
+        aria-pressed={tag === "footwork"}
+        aria-label="Filter by footwork"
+        onClick={() => toggleTag("footwork")}
+        className={`${choicePillClass(tag === "footwork", "bg-foreground text-background")} self-start`}
       >
         #footwork
       </button>
+      {tag && (
+        <button
+          type="button"
+          className="self-start text-xs underline focus-visible:status-focused"
+          onClick={() => {
+            setTag(null);
+            setShowAll(false);
+          }}
+        >
+          Clear #{tag} filter
+        </button>
+      )}
       <p role="status" className="text-xs text-muted">
-        {entries.length} of {TOUR_DEMO_ENTRIES.length} entries
+        {view === "Training" && tag === "footwork" && matches.length === 1
+          ? "One gym workout matches."
+          : `Showing ${visible.length} of ${matches.length} matching entries`}
       </p>
       <div className="divide-y divide-border">
-        {entries.map((entry) => (
+        {visible.map((entry) => (
           <ListRow
             key={entry.id}
             title={entry.climb?.name ?? "Training"}
             subtitle={`${entry.date} · ${entry.outcome}`}
             meta={entry.climb?.grade}
             comment={entry.note}
+            tags={
+              entry.tags.length > 0
+                ? entry.tags.map((entryTag) => (
+                    <button
+                      key={entryTag}
+                      type="button"
+                      aria-pressed={tag === entryTag}
+                      aria-label={`Filter example journal by ${entryTag}`}
+                      onClick={() => toggleTag(entryTag)}
+                      className={`cursor-pointer text-xs transition-colors hover:text-foreground focus-visible:status-focused ${tag === entryTag ? "font-medium text-foreground underline underline-offset-4" : "text-muted"}`}
+                    >
+                      #{entryTag}
+                    </button>
+                  ))
+                : undefined
+            }
           />
         ))}
       </div>
-      {entries.length === 0 && (
+      {matches.length > 3 && (
+        <Button
+          variant="ghost"
+          className="self-start"
+          onPress={() => setShowAll(!showAll)}
+          aria-expanded={showAll}
+        >
+          {showAll ? "Show fewer entries" : `Show all ${matches.length} entries`}
+        </Button>
+      )}
+      {matches.length === 0 && (
         <p className="text-sm">
           No matching entries. Clear the search or turn off a filter to see more.
         </p>

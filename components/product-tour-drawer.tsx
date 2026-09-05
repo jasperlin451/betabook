@@ -26,14 +26,12 @@ export function ProductTourDrawer({
             <Drawer.Heading>{tour.name}</Drawer.Heading>
             <Drawer.CloseTrigger />
           </Drawer.Header>
-          <Drawer.Body>
-            <ProductTourContent
-              userId={userId}
-              tour={tour}
-              onComplete={onComplete}
-              onClose={state.close}
-            />
-          </Drawer.Body>
+          <ProductTourContent
+            userId={userId}
+            tour={tour}
+            onComplete={onComplete}
+            onClose={state.close}
+          />
         </Drawer.Dialog>
       </Drawer.Content>
     </Drawer.Backdrop>

@@ -300,31 +300,36 @@ function AccountTutorial(props: ProductTourStepProps) {
 export const profileTourSteps: readonly ProductTourStep[] = [
   {
     id: "journal-page",
+    navigationLabel: "Journal",
     title: "Find an old entry",
     eyebrow: "1 of 5 · Journal",
     Content: JournalTutorial,
   },
   {
     id: "sends-page",
+    navigationLabel: "Sends",
     title: "Find and sort your sends",
     eyebrow: "2 of 5 · Sends",
     Content: SendsTutorial,
   },
   {
     id: "projects-page",
+    navigationLabel: "Projects",
     title: "Keep track of a project",
     eyebrow: "3 of 5 · Projects",
     Content: ProjectsTutorial,
   },
   {
     id: "analytics-page",
+    navigationLabel: "Analytics",
     title: "Read your climbing stats",
     eyebrow: "4 of 5 · Analytics",
     Content: AnalyticsTutorial,
   },
   {
     id: "account-page",
-    title: "Set up your account",
+    navigationLabel: "Account",
+    title: "Try the privacy settings",
     eyebrow: "5 of 5 · Account",
     Content: AccountTutorial,
   },

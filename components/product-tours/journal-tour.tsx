@@ -1,11 +1,12 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button, buttonVariants } from "@heroui/react";
 import { useState } from "react";
 
 import { JournalEntryComposer } from "@/components/journal/journal-entry-composer";
 import { profileTourSteps, TourDestinations } from "@/components/product-tours/profile-tour-pages";
 import type { ProductTourStep, ProductTourStepProps } from "@/components/product-tours/types";
+import { AppLink } from "@/components/ui/app-link";
 import type { JournalSaveOutcome } from "@/lib/journal";
 
 const RESULTS: Record<JournalSaveOutcome, { title: string; body: string }> = {
@@ -61,9 +62,9 @@ function TourIntroduction({ navigate }: ProductTourStepProps) {
         settings in Account.
       </p>
       <div className="flex flex-wrap gap-2">
-        <Button onPress={() => navigate("compose")}>Try logging an entry</Button>
+        <Button onPress={() => navigate("compose")}>Log my own entry</Button>
         <Button variant="ghost" onPress={() => navigate("explore")}>
-          Just show me around
+          Explore the demo
         </Button>
       </div>
     </div>
@@ -74,6 +75,7 @@ function LogEntryStep({ navigate }: ProductTourStepProps) {
   const [pending, setPending] = useState(false);
   return (
     <>
+      <p className="text-sm font-medium">This saves an entry to your journal.</p>
       <JournalEntryComposer
         onPendingChange={setPending}
         guided
@@ -87,7 +89,7 @@ function LogEntryStep({ navigate }: ProductTourStepProps) {
   );
 }
 
-function SavedEntryStep({ values, navigate }: ProductTourStepProps) {
+function SavedEntryStep({ values, navigate, userId, close }: ProductTourStepProps) {
   const result = RESULTS[values.outcome as JournalSaveOutcome];
   if (!result) return <Button onPress={() => navigate("explore")}>Choose a tutorial</Button>;
   return (
@@ -96,7 +98,14 @@ function SavedEntryStep({ values, navigate }: ProductTourStepProps) {
         <h3 className="text-lg font-medium">{result.title}</h3>
         <p className="text-sm text-muted">{result.body}</p>
       </div>
-      <Button onPress={() => navigate("explore")}>See where it appears</Button>
+      <div className="flex flex-wrap gap-2">
+        <AppLink href={`/users/${userId}/journal`} onClick={close} className={buttonVariants()}>
+          Open my Journal
+        </AppLink>
+        <Button variant="ghost" onPress={() => navigate("explore")}>
+          Explore the tutorials
+        </Button>
+      </div>
     </>
   );
 }
@@ -112,7 +121,7 @@ export const journalTourSteps: readonly ProductTourStep[] = [
   {
     id: "compose",
     title: "Add an entry to your journal",
-    eyebrow: "Try it",
+    eyebrow: "Your journal",
     Content: LogEntryStep,
     navigation: "custom",
   },
@@ -126,6 +135,7 @@ export const journalTourSteps: readonly ProductTourStep[] = [
   {
     id: "explore",
     title: "Choose a tutorial",
+    navigationLabel: "Tutorials",
     eyebrow: "Your logbook",
     Content: TourDestinations,
     navigation: "custom",

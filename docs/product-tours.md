@@ -28,15 +28,15 @@ export const featureTourSteps: readonly ProductTourStep[] = [
 ];
 ```
 
-The tour provides Back, Next, and Finish buttons, moves keyboard focus to each step heading, and lets users retry if saving completion fails. Step components receive the owner's `userId`, temporary `values`, `close()` to leave the tour, and `navigate(stepId, values)` to change steps. Mark a step `navigation: "custom"` when the step handles its own navigation. The last step always offers Finish. Set `canFinish: true` on an earlier overview to let people finish without visiting every optional tutorial. Never navigate back into a submitted form after a successful save; the journal tour moves from the saved result to the tutorial chooser.
+The tour keeps Previous, Next, and Finish buttons in a footer below the scrolling content, moves keyboard focus to each step heading, and lets users retry if saving completion fails. Previous/Next buttons name their destination. Set `navigationLabel` for a short name such as “Journal”; otherwise they use the step title. Step components receive the owner's `userId`, temporary `values`, `close()` to leave the tour, and `navigate(stepId, values)` to change steps. Mark a step `navigation: "custom"` when the step handles its own navigation. The last step always offers Finish. Set `canFinish: true` on an earlier overview to let people finish without visiting every optional tutorial. Never navigate back into a submitted form after a successful save; the journal tour moves from the saved result to the tutorial chooser.
 
-Keep sample data in the browser. Steps that save real entries must use the feature's authenticated actions and wait for a successful save before continuing. People can finish a tour without creating an entry.
+Keep sample data in the browser. Steps that save real entries must use the feature's authenticated actions and wait for a successful save before continuing. People can finish a tour without creating an entry. Label real-entry actions clearly, explain that saving changes the user's journal, and link the saved result to their own page. Keep browsing demo tutorials a separate choice.
 
 ## Demo account
 
 The Journal, Sends, Projects, Analytics, and Account tutorials share Alex Morgan, a fictional climber defined in `lib/product-tour-demo.ts`. The sample entries are the source for the sends, project history, and analytics. Analytics use the production `buildUserAnalytics` calculation, and previews reuse `ListRow`, `StatTiles`, and `ProgressionChart` alongside local controls.
 
-The demo loads with the tour and needs no database account. It works even when the user's logbook is empty. Example filters and privacy controls use component state and reset when that tutorial is reopened. Negative demo IDs must never be passed to mutation components or real route links. Explicit “Open my …” links use the authenticated viewer's ID and leave the tutorial.
+The demo loads with the tour and needs no database account. It works even when the user's logbook is empty. Example filters and privacy controls use component state and reset when that tutorial is reopened. The Journal lesson starts with three rows and an exercise above the controls. Search and filters use all eight entries; “Show all” expands the list without adding another scroll area. Tags on the sample rows are clickable filters. Negative demo IDs must never be passed to mutation components or real route links. Explicit “Open my …” links use the authenticated viewer's ID and leave the tutorial.
 
 To add another section, put a step and chooser button in `profile-tour-pages.tsx`, then use the same fixture for its sample data. Update the consistency tests when the data changes. Reuse display components from the app. Replace controls that normally navigate or save with local demo controls, and label the result as an example.
 
@@ -53,7 +53,7 @@ Users see tour invitations on their own Journal page. Account lists tours from t
 ## Check a tour
 
 - Check a fresh account, an account with other completed tours, and current and older saved tour versions.
-- Exercise Back/Next/Finish, close/reopen, reload after dismissal/completion, and Account replay.
+- Exercise Previous/Next/Finish, close/reopen, reload after dismissal/completion, and Account replay.
 - Check phone-width layout, keyboard focus, and any links or interactive component behavior.
 - Confirm no example data is saved unless the user explicitly submits the real feature form.
 - Run `pnpm check` and the production build for the completed change.

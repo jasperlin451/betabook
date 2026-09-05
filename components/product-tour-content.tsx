@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button, Drawer } from "@heroui/react";
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import { saveProductTourStatus } from "@/actions";
@@ -41,7 +41,7 @@ export function ProductTourContent({
   }, [tour, attempt]);
   if (failed)
     return (
-      <div role="alert" className="flex flex-col gap-3">
+      <Drawer.Body role="alert" className="flex flex-col gap-3">
         <p>Couldn't load the tour.</p>
         <Button
           onPress={() => {
@@ -51,9 +51,9 @@ export function ProductTourContent({
         >
           Try again
         </Button>
-      </div>
+      </Drawer.Body>
     );
-  if (!steps) return <p role="status">Loading your tour…</p>;
+  if (!steps) return <Drawer.Body role="status">Loading your tour…</Drawer.Body>;
   return (
     <TourSteps
       steps={steps}
@@ -112,38 +112,58 @@ function TourSteps({
   }
 
   return (
-    <div className="flex flex-col gap-5 pb-2">
-      <div className="flex flex-col gap-1">
-        <Eyebrow>{step.eyebrow}</Eyebrow>
-        <h2 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
-          {step.title}
-        </h2>
-      </div>
-      <step.Content userId={userId} values={values} navigate={navigate} close={onClose} />
-      {(step.navigation !== "custom" || canFinish) && (
-        <div className="flex flex-wrap gap-2">
-          {step.navigation !== "custom" && index > 0 && (
-            <Button variant="ghost" onPress={() => setIndex(index - 1)} isDisabled={pending}>
-              Back
-            </Button>
-          )}
-          {canFinish ? (
-            <Button onPress={finish} isDisabled={pending}>
-              {pending ? "Finishing…" : "Finish tour"}
-            </Button>
-          ) : (
-            <Button onPress={() => setIndex(index + 1)}>Next</Button>
-          )}
+    <>
+      <Drawer.Body>
+        <div className="flex flex-col gap-5 pb-2">
+          <div className="flex flex-col gap-1">
+            <Eyebrow>{step.eyebrow}</Eyebrow>
+            <h2 ref={heading} tabIndex={-1} className="text-xl font-semibold outline-none">
+              {step.title}
+            </h2>
+          </div>
+          <step.Content userId={userId} values={values} navigate={navigate} close={onClose} />
         </div>
+      </Drawer.Body>
+      {(step.navigation !== "custom" || canFinish) && (
+        <Drawer.Footer className="shrink-0 flex-col items-stretch border-t border-border pt-3">
+          <div className="flex gap-2">
+            {step.navigation !== "custom" && index > 0 && (
+              <Button
+                className="h-auto min-h-10 flex-1 whitespace-normal sm:flex-none"
+                variant="ghost"
+                onPress={() => setIndex(index - 1)}
+                isDisabled={pending}
+              >
+                Previous: {steps[index - 1].navigationLabel ?? steps[index - 1].title}
+              </Button>
+            )}
+            {canFinish ? (
+              <Button
+                className="h-auto min-h-10 flex-1 whitespace-normal sm:flex-none"
+                onPress={finish}
+                isDisabled={pending}
+              >
+                {pending ? "Finishing…" : "Finish tour"}
+              </Button>
+            ) : (
+              <Button
+                className="h-auto min-h-10 flex-1 whitespace-normal sm:flex-none"
+                onPress={() => setIndex(index + 1)}
+              >
+                Next: {steps[index + 1].navigationLabel ?? steps[index + 1].title}
+              </Button>
+            )}
+          </div>
+          {canFinish && (
+            <p className="text-xs text-muted">You can replay this tour from Account at any time.</p>
+          )}
+          {error && (
+            <p role="alert" className="text-sm text-danger">
+              {error} Try finishing again.
+            </p>
+          )}
+        </Drawer.Footer>
       )}
-      {canFinish && (
-        <p className="text-xs text-muted">You can replay this tour from Account at any time.</p>
-      )}
-      {error && (
-        <p role="alert" className="text-sm text-danger">
-          {error} Try finishing again.
-        </p>
-      )}
-    </div>
+    </>
   );
 }

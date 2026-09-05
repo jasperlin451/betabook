@@ -12,6 +12,8 @@ export type ProductTourStepProps = {
 export type ProductTourStep = {
   id: string;
   title: string;
+  /** Short destination name for Previous/Next buttons. Defaults to the step title. */
+  navigationLabel?: string;
   eyebrow: string;
   Content: ComponentType<ProductTourStepProps>;
   /** Omit for ordinary Back/Next/Finish controls. Interactive steps supply their own navigation. */
