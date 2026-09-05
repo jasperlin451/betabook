@@ -225,6 +225,13 @@
       "when": 1788592105894,
       "tag": "0031_open_wildside",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1788592195187,
+      "tag": "0032_wet_nightcrawler",
+      "breakpoints": true
     }
   ]
 }
