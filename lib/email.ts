@@ -142,3 +142,54 @@ export async function sendContactEmail(opts: { replyTo: string; subject: string;
   // shows the visitor the generic message instead of Resend's internals.
   if (error) throw new Error(`Resend rejected the contact message: ${error.message}`);
 }
+
+/** Sent when an admin approves or rejects a change request — the requester's
+ * only way to learn what happened, since the queue itself is admin-only.
+ * Fired only on the final decision: intermediate coverage approvals on a
+ * multi-area request aren't news the requester can act on.
+ *
+ * Plain text, not html, like sendContactEmail: `name`, `summary`/`details`
+ * (built from area/climb names and payload fields, which are free text — see
+ * lib/moderation.ts's describeChangeRequest), and `note` (an admin's typed
+ * rejection reason) are all user-controlled, and `text` has nothing to
+ * escape. */
+export async function sendChangeRequestDecisionEmail(
+  to: string,
+  opts: {
+    name: string;
+    summary: string;
+    details: string[];
+    decision: "approved" | "rejected";
+    note?: string | null;
+    href: string | null;
+  },
+) {
+  const resend = await getResend();
+  const base = await getBaseUrl();
+
+  const lines = [
+    `Hi ${opts.name},`,
+    "",
+    `An admin has ${opts.decision} your request: ${opts.summary}`,
+  ];
+  if (opts.details.length > 0) lines.push("", ...opts.details.map((detail) => `- ${detail}`));
+  if (opts.note) lines.push("", `Note from the admin: ${opts.note}`);
+  if (opts.href) lines.push("", `${base}${opts.href}`);
+  const text = lines.join("\n");
+
+  if (!resend) {
+    console.log(`[dev] change request ${opts.decision} email for ${to}:\n${text}`);
+    return;
+  }
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Your change request was ${opts.decision}`,
+    text,
+  });
+
+  if (error) {
+    throw new Error(`Resend rejected the change request decision email: ${error.message}`);
+  }
+}

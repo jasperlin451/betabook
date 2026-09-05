@@ -4,7 +4,7 @@ import { betterAuth } from "better-auth";
 
 import { getDb } from "@/db/client";
 import * as schema from "@/db/schema";
-import { deleteAccountSends } from "@/lib/account";
+import { deleteAccountPendingChangeRequests, deleteAccountSends } from "@/lib/account";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@/lib/email";
 import { sendWelcomeEmailOnce } from "@/lib/welcome-email";
 
@@ -71,6 +71,15 @@ async function authBuilder() {
       },
     },
     user: {
+      // `role` is our own column (drizzle/schema/auth.ts), surfaced into
+      // session.user so requireAdmin/isAdmin (lib/session.ts) can read it —
+      // deliberately NOT better-auth's admin plugin, whose ban/impersonation/
+      // user-management machinery this app doesn't want. input: false keeps
+      // sign-up payloads from ever setting it; the only granter is
+      // scripts/promote-admin.ts.
+      additionalFields: {
+        role: { type: "string", required: false, input: false },
+      },
       deleteUser: {
         enabled: true,
         // Runs before better-auth deletes the account/session/user rows —
@@ -78,6 +87,7 @@ async function authBuilder() {
         // as an explicit delete rather than via cascade.
         beforeDelete: async (deletedUser) => {
           await deleteAccountSends(db, deletedUser.id);
+          await deleteAccountPendingChangeRequests(db, deletedUser.id);
         },
       },
     },

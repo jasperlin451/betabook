@@ -3,8 +3,8 @@ import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { createDb } from "@/db/client";
-import { climbs, sends } from "@/db/schema";
-import { deleteAccountSends } from "@/lib/account";
+import { changeRequests, climbs, sends, user } from "@/db/schema";
+import { deleteAccountPendingChangeRequests, deleteAccountSends } from "@/lib/account";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
 const db = createDb(env.DB);
@@ -62,5 +62,45 @@ describe("deleteAccountSends", () => {
 
   it("is a no-op for a user with no sends", async () => {
     await expect(deleteAccountSends(db, "account-test-user-a")).resolves.toBeUndefined();
+  });
+});
+
+describe("deleteAccountPendingChangeRequests", () => {
+  it("deletes the user's pending requests and keeps the decided audit trail", async () => {
+    await seedFixtureUser(db, { id: "account-requests-user" });
+    await db.insert(changeRequests).values([
+      {
+        id: 701,
+        type: "area_edit",
+        entityId: 1,
+        payload: "{}",
+        requestedBy: "account-requests-user",
+      },
+      {
+        id: 702,
+        type: "climb_edit",
+        entityId: 1,
+        payload: "{}",
+        requestedBy: "account-requests-user",
+        status: "approved",
+      },
+    ]);
+
+    await deleteAccountPendingChangeRequests(db, "account-requests-user");
+
+    expect(
+      await db.select().from(changeRequests).where(eq(changeRequests.id, 701)).get(),
+    ).toBeUndefined();
+    expect(
+      (await db.select().from(changeRequests).where(eq(changeRequests.id, 702)).get())?.status,
+    ).toBe("approved");
+
+    // Deleting the user row itself then nulls (not cascades) the decided
+    // row's requester — the audit trail of applied changes outlives the
+    // account.
+    await db.delete(user).where(eq(user.id, "account-requests-user"));
+    const decided = await db.select().from(changeRequests).where(eq(changeRequests.id, 702)).get();
+    expect(decided).toBeDefined();
+    expect(decided?.requestedBy).toBeNull();
   });
 });
