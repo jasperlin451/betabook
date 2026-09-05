@@ -120,6 +120,7 @@ describe("updateSend action boundary", () => {
       climbId: 4,
       kind: "session",
       sent: true,
+      isAscent: true,
       entryDate: "2026-01-15",
     });
 
@@ -147,6 +148,7 @@ describe("updateSend action boundary", () => {
       climbId: 4,
       kind: "session",
       sent: true,
+      isAscent: true,
       entryDate: "2026-01-15",
     });
 

@@ -204,6 +204,13 @@
       "when": 1788538086538,
       "tag": "0028_enforce_journal_send_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1788575212878,
+      "tag": "0029_explicit_journal_ascents",
+      "breakpoints": true
     }
   ]
 }

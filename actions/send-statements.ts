@@ -47,23 +47,25 @@ export function buildMirroredSendUpdate(
     ascentEntryId: number | null;
   },
 ) {
-  const mirrorGuard =
-    ascentEntryId === null
-      ? sql`NOT EXISTS (
+  const mirrorGuard = sql`(
+    ${
+      ascentEntryId === null
+        ? sql`NOT EXISTS (
           SELECT 1 FROM journal_entries j
-          WHERE j.user_id = ${userId} AND j.climb_id = ${climbId} AND j.sent = 1
+          WHERE j.user_id = ${userId} AND j.climb_id = ${climbId} AND j.is_ascent = 1
         )`
-      : sql`${values.dateSent} IS NOT NULL AND NOT EXISTS (
+        : sql`${values.dateSent} IS NOT NULL AND EXISTS (
           SELECT 1 FROM journal_entries j
-          WHERE j.user_id = ${userId}
-            AND j.climb_id = ${climbId}
-            AND j.sent = 1
-            AND j.id <> ${ascentEntryId}
-            AND (
-              j.entry_date < ${values.dateSent}
-              OR (j.entry_date = ${values.dateSent} AND j.id < ${ascentEntryId})
-            )
-        )`;
+          WHERE j.user_id = ${userId} AND j.climb_id = ${climbId}
+            AND j.is_ascent = 1 AND j.id = ${ascentEntryId}
+        )`
+    }
+    AND NOT EXISTS (
+      SELECT 1 FROM journal_entries j
+      WHERE j.user_id = ${userId} AND j.climb_id = ${climbId}
+        AND j.sent = 1 AND j.is_ascent = 0 AND j.entry_date < ${values.dateSent}
+    )
+  )`;
   const identity = [eq(sends.userId, userId), eq(sends.climbId, climbId)];
   if (sendId !== undefined) identity.push(eq(sends.id, sendId));
 

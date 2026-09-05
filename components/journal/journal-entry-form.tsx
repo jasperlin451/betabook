@@ -3,7 +3,7 @@
 import { Button, Checkbox, Input, Label, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
-import { createJournalEntry, updateJournalEntry } from "@/actions";
+import { createJournalEntry, createUndatedSend, updateJournalEntry } from "@/actions";
 import { TagInput } from "@/components/journal/tag-input";
 import {
   AscentStylePicker,
@@ -67,6 +67,7 @@ export function JournalEntryForm({
   const today = new Intl.DateTimeFormat("en-CA").format(new Date());
 
   const [entryDate, setEntryDate] = useState(existingEntry?.entryDate ?? today);
+  const [dateUnknown, setDateUnknown] = useState(false);
   const [sent, setSent] = useState(existingEntry?.sent ?? false);
   const [body, setBody] = useState(existingEntry?.body ?? "");
   const [tags, setTags] = useState<string[]>(existingEntry?.tags ?? []);
@@ -80,6 +81,7 @@ export function JournalEntryForm({
   const [pending, startTransition] = useTransition();
 
   const isAscent = !existingEntry && sent && climb != null && !hasPriorSend;
+  const isUndatedSend = isAscent && dateUnknown;
   const summary = describePendingEntry({ kind, climbName: climb?.name, sent, hasPriorSend });
 
   function handleSubmit(e: React.FormEvent) {
@@ -92,7 +94,9 @@ export function JournalEntryForm({
     formData.set("body", body);
     if (climb) formData.set("climbId", String(climb.id));
     if (sent) formData.set("sent", "true");
-    for (const tag of tags) formData.append("tag", tag);
+    if (!isUndatedSend) {
+      for (const tag of tags) formData.append("tag", tag);
+    }
 
     if (isAscent) {
       formData.set("ascentStyle", ascentStyle);
@@ -100,11 +104,17 @@ export function JournalEntryForm({
       formData.set("suggestedGrade", suggestedGrade);
       formData.set("gradeFeel", gradeFeel);
     }
+    if (isUndatedSend) {
+      formData.set("dateSent", "");
+      formData.set("comment", body);
+    }
 
     startTransition(async () => {
       const result = existingEntry
         ? await updateJournalEntry(existingEntry.id, formData)
-        : await createJournalEntry(formData);
+        : isUndatedSend
+          ? await createUndatedSend(formData)
+          : await createJournalEntry(formData);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -116,16 +126,29 @@ export function JournalEntryForm({
   return (
     <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-6`}>
       <FormSection label="The day">
-        <TextField>
-          <Label>Date</Label>
-          <Input
-            type="date"
-            value={entryDate}
-            max={today}
-            readOnly={existingEntry?.sent}
-            onChange={(e) => setEntryDate(e.target.value)}
-          />
-        </TextField>
+        {!isUndatedSend && (
+          <TextField>
+            <Label>Date</Label>
+            <Input
+              type="date"
+              value={entryDate}
+              max={today}
+              readOnly={existingEntry?.sent}
+              onChange={(e) => setEntryDate(e.target.value)}
+            />
+          </TextField>
+        )}
+
+        {isAscent && (
+          <Checkbox isSelected={dateUnknown} onChange={setDateUnknown}>
+            <Checkbox.Content>
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              I don&apos;t remember the date
+            </Checkbox.Content>
+          </Checkbox>
+        )}
 
         {climb &&
           (existingEntry ? (
@@ -184,13 +207,19 @@ export function JournalEntryForm({
             This note also appears on your send and follows your profile privacy settings.
           </p>
         )}
-        <TagInput value={tags} onChange={setTags} />
+        {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}
       </FormSection>
 
       {!existingEntry && (
         <div className="flex flex-col gap-1 rounded-lg bg-surface-secondary px-4 py-3">
           <p className="text-sm font-medium text-foreground">{summary.headline}</p>
           {summary.consequence && <p className="text-sm text-muted">{summary.consequence}</p>}
+          {isUndatedSend && (
+            <p className="text-sm text-muted">
+              Saved in your logbook with Date unknown. Add a date later to include it in your
+              journal. Journal tags require a date.
+            </p>
+          )}
         </div>
       )}
 
@@ -201,7 +230,7 @@ export function JournalEntryForm({
       )}
 
       <Button type="submit" isDisabled={pending} fullWidth>
-        {existingEntry ? "Save changes" : "Save entry"}
+        {existingEntry ? "Save changes" : isUndatedSend ? "Save send" : "Save entry"}
       </Button>
 
       <p className="text-center text-xs text-muted">

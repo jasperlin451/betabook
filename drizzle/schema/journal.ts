@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { sqliteTable, integer, text, index, check } from "drizzle-orm/sqlite-core";
+import { sqliteTable, integer, text, index, uniqueIndex, check } from "drizzle-orm/sqlite-core";
 
 import { user } from "./auth";
 import { climbs } from "./climbs";
@@ -14,6 +14,7 @@ export const journalEntries = sqliteTable(
     climbId: integer("climb_id").references(() => climbs.id, { onDelete: "restrict" }),
     kind: text("kind", { enum: ["session", "training"] }).notNull(),
     sent: integer("sent", { mode: "boolean" }).default(false).notNull(),
+    isAscent: integer("is_ascent", { mode: "boolean" }).default(false).notNull(),
     entryDate: text("entry_date").notNull(),
     body: text("body"),
     tags: text("tags", { mode: "json" }).$type<string[]>(),
@@ -28,6 +29,10 @@ export const journalEntries = sqliteTable(
   (t) => [
     index("journal_user_climb_idx").on(t.userId, t.climbId),
     index("journal_climb_idx").on(t.climbId),
+    uniqueIndex("journal_ascent_unique")
+      .on(t.userId, t.climbId)
+      .where(sql`${t.isAscent} = 1`),
+    check("journal_ascent_shape", sql`${t.isAscent} = 0 OR (${t.isAscent} = 1 AND ${t.sent} = 1)`),
     check("journal_kind_valid", sql`${t.kind} IN ('session', 'training')`),
     check("journal_sent_boolean", sql`${t.sent} IN (0, 1)`),
     check(

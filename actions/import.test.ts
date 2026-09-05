@@ -12,7 +12,13 @@ import {
   RESOLVE_BATCH_SIZE,
   type ImportSendRow,
 } from "@/lib/sends";
-import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyClimbs } from "@/test/fixtures";
+import {
+  seedFixtureJournalEntry,
+  seedFixtureSend,
+  seedFixtureTree,
+  seedFixtureUser,
+  seedManyClimbs,
+} from "@/test/fixtures";
 
 /** importSends's commit contract: each call is all-or-nothing (one db.batch
  * = one D1 transaction), duplicate rows are skipped via the user+climb key
@@ -539,4 +545,51 @@ describe("resolveImportClimbs", () => {
       error: "Invalid climb names",
     });
   });
+});
+
+describe("overwriting undated sends with dated repeats", () => {
+  it.each([null, "2026-02-01", "2026-03-01"])(
+    "preserves repeats when importing original date %s",
+    async (dateSent) => {
+      const userId = `undated-overwrite-${dateSent}`;
+      sessionState.userId = userId;
+      await seedFixtureUser(db, { id: userId });
+      await seedFixtureSend(db, { userId, climbId: 1, dateSent: null, comment: "Original." });
+      await seedFixtureJournalEntry(db, {
+        userId,
+        climbId: 1,
+        entryDate: "2026-03-01",
+        sent: true,
+        body: "Repeat.",
+      });
+      expect(
+        (
+          await importSends([importRow(1, { dateSent, comment: "Imported original." })], {
+            onConflict: "overwrite",
+            gradeScale: "native",
+          })
+        ).ok,
+      ).toBe(true);
+      expect(await db.select().from(sends).where(eq(sends.userId, userId)).get()).toMatchObject({
+        dateSent,
+        comment: "Imported original.",
+      });
+      const entries = await db
+        .select()
+        .from(journalEntries)
+        .where(eq(journalEntries.userId, userId));
+      expect(entries).toHaveLength(dateSent ? 2 : 1);
+      expect(entries.find((entry) => !entry.isAscent)).toMatchObject({
+        entryDate: "2026-03-01",
+        isAscent: false,
+        body: "Repeat.",
+      });
+      if (dateSent)
+        expect(entries.find((entry) => entry.isAscent)).toMatchObject({
+          entryDate: dateSent,
+          isAscent: true,
+          body: "Imported original.",
+        });
+    },
+  );
 });
