@@ -6,7 +6,7 @@ import { DatePickerField } from "@/components/ui/date-picker-field";
 
 type PickerProps = {
   value: CalendarDate | null;
-  maxValue?: CalendarDate;
+  maxValue: CalendarDate | null;
   onChange: (date: CalendarDate | null) => void;
 };
 
@@ -31,24 +31,21 @@ describe("DatePickerField", () => {
     expect(renderPicker({ ...baseProps, value }).value).toBeNull();
   });
 
-  it("leaves max unset when the caller passes none", () => {
-    expect(renderPicker(baseProps).maxValue).toBeUndefined();
+  it("bounds nothing when the caller passes no max", () => {
+    expect(renderPicker(baseProps).maxValue).toBeNull();
   });
 
-  it("reports a picked day as the ISO string the form submits", () => {
+  // The padded case is the one that matters: the forms submit these strings and
+  // the column sorts lexically, so an unpadded month would order wrongly.
+  it.each([
+    [new CalendarDate(2026, 8, 12), "2026-08-12"],
+    [new CalendarDate(2026, 1, 3), "2026-01-03"],
+  ])("reports %s as the ISO string the form submits", (picked, iso) => {
     const onChange = vi.fn<(value: string) => void>();
 
-    renderPicker({ ...baseProps, onChange }).onChange(new CalendarDate(2026, 8, 12));
+    renderPicker({ ...baseProps, onChange }).onChange(picked);
 
-    expect(onChange).toHaveBeenCalledWith("2026-08-12");
-  });
-
-  it("pads single-digit months and days so the ISO string stays sortable", () => {
-    const onChange = vi.fn<(value: string) => void>();
-
-    renderPicker({ ...baseProps, onChange }).onChange(new CalendarDate(2026, 1, 3));
-
-    expect(onChange).toHaveBeenCalledWith("2026-01-03");
+    expect(onChange).toHaveBeenCalledWith(iso);
   });
 
   it("reports a cleared date as the empty string", () => {

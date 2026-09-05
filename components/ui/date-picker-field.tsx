@@ -41,7 +41,7 @@ export function DatePickerField({ label, value, onChange, max, isReadOnly }: Dat
     <DatePicker
       className="w-full"
       value={toCalendarDate(value)}
-      maxValue={toCalendarDate(max) ?? undefined}
+      maxValue={toCalendarDate(max)}
       isReadOnly={isReadOnly}
       // Segments are padded individually, so an unpadded month and day make the
       // field's width jump as you tab across it.
