@@ -1,27 +1,41 @@
 version: 2
 updates:
-  # Maintain GitHub Actions workflows weekly
+  # Grouped so a scheduled run lands as one or two PRs instead of a dozen.
+  # Major bumps stay ungrouped so they can be reviewed and reverted on their own.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-    assignees:
-      - "smwoo"
-      - "jasperlin451"
-    open-pull-requests-limit: 10
+      time: "09:00"
+      timezone: "America/Los_Angeles"
+    groups:
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 3
 
-  # Maintain npm dependencies weekly, grouping dev dependencies together
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-    assignees:
-      - "smwoo"
-      - "jasperlin451"
+      time: "09:00"
+      timezone: "America/Los_Angeles"
     groups:
       dev-dependencies:
         applies-to: "version-updates"
         dependency-type: "development"
-    open-pull-requests-limit: 10
+        update-types:
+          - "minor"
+          - "patch"
+      production-dependencies:
+        applies-to: "version-updates"
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 5
