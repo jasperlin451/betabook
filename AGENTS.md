@@ -86,7 +86,7 @@ For each new user-facing feature or workflow change, decide whether to update a 
 
 Read [docs/product-tours.md](docs/product-tours.md) before changing a tutorial.
 
-- Add related steps in `components/product-tours/profile-tour-pages.tsx` and examples in `profile-tour-previews.tsx`. For a separate feature tour, register metadata in `lib/product-tour.ts` and a loader in `components/product-tours/registry.ts`. Both use the existing navigation, focus handling, progress tracking, and Account replay.
+- Add related steps in `lib/product-tour-navigation.ts` with a stable ID, section, title, short description, and `data-tour-target`. Add the target to the page component and reuse the app's layouts and display components for demo views. For a separate feature tour, register metadata in `lib/product-tour.ts`, its steps in `PRODUCT_TOUR_STEPS`, and a lazy page loader in `components/product-tours/registry.ts`. `/tutorial/[tourId]/[stepId]` handles navigation, callout positioning, keyboard focus, progress, and replay. Keep each callout to one short explanation; do not rebuild the tour as a drawer or repeat instructions inside the example.
 - Use the sample climber in `lib/product-tour-demo.ts`. Reuse display components and calculations from the app, and keep the examples consistent across pages. Demo controls use local state. Never save sample data or use demo IDs in real links or writes.
 - Decide whether people who dismissed or finished the tour should see it again. If so, bump its version. Copy edits usually don't need this. A new tour ID tracks progress separately.
 - Check navigation, replay, keyboard focus, mobile layout, and the example controls. Update tests for changed behavior and sample data, and check that demos don't change the user's account.

@@ -63,29 +63,31 @@ export function DemoJournal() {
   }
   return (
     <div className="flex flex-col gap-3">
-      <SearchField
-        aria-label="Search Alex's journal"
-        value={query}
-        onChange={(next) => {
-          setQuery(next);
-          setShowAll(false);
-        }}
-      >
-        <SearchField.Group>
-          <SearchField.SearchIcon />
-          <SearchField.Input placeholder="Search journal…" />
-          <SearchField.ClearButton />
-        </SearchField.Group>
-      </SearchField>
-      <Choices
-        label="Journal entry type"
-        options={["All", "Sessions", "Training"]}
-        value={view}
-        onChange={(next) => {
-          setView(next);
-          setShowAll(false);
-        }}
-      />
+      <div data-tour-target="journal-filters" className="flex flex-col gap-3">
+        <SearchField
+          aria-label="Search Alex's journal"
+          value={query}
+          onChange={(next) => {
+            setQuery(next);
+            setShowAll(false);
+          }}
+        >
+          <SearchField.Group>
+            <SearchField.SearchIcon />
+            <SearchField.Input placeholder="Search journal…" />
+            <SearchField.ClearButton />
+          </SearchField.Group>
+        </SearchField>
+        <Choices
+          label="Journal entry type"
+          options={["All", "Sessions", "Training"]}
+          value={view}
+          onChange={(next) => {
+            setView(next);
+            setShowAll(false);
+          }}
+        />
+      </div>
       {tag && (
         <button
           type="button"
@@ -158,12 +160,14 @@ export function DemoSends() {
   });
   return (
     <div className="flex flex-col gap-3">
-      <Choices
-        label="Sort sends"
-        options={["Date", "Grade", "Rating"]}
-        value={sort}
-        onChange={setSort}
-      />
+      <div data-tour-target="send-sort">
+        <Choices
+          label="Sort sends"
+          options={["Date", "Grade", "Rating"]}
+          value={sort}
+          onChange={setSort}
+        />
+      </div>
       <p role="status" className="text-xs text-muted">
         {sort === "Date"
           ? "Newest first"
@@ -206,14 +210,16 @@ export function DemoProjects() {
         meta={TOUR_DEMO_PROJECT.grade}
         subtitle={`${TOUR_DEMO_PROJECT.sessions.length} sessions · Last: March 14`}
       />
-      <Button
-        variant="secondary"
-        aria-expanded={expanded}
-        aria-controls="demo-project-sessions"
-        onPress={() => setExpanded(!expanded)}
-      >
-        {expanded ? "Hide sessions" : "See Alex's sessions"}
-      </Button>
+      <div data-tour-target="project-sessions" className="self-start">
+        <Button
+          variant="secondary"
+          aria-expanded={expanded}
+          aria-controls="demo-project-sessions"
+          onPress={() => setExpanded(!expanded)}
+        >
+          {expanded ? "Hide sessions" : "See Alex's sessions"}
+        </Button>
+      </div>
       <div id="demo-project-sessions" hidden={!expanded} className="divide-y divide-border">
         {TOUR_DEMO_PROJECT.sessions.map((entry) => (
           <ListRow key={entry.id} title={entry.date} comment={entry.note} />
@@ -236,7 +242,7 @@ export function DemoAnalytics() {
           { label: "Hardest", value: analytics.hardest[0].label },
         ]}
       />
-      <div>
+      <div data-tour-target="analytics-chart">
         <h3 className="mb-2 text-sm font-medium">Boulder progression</h3>
         <ProgressionChart type="boulder" points={analytics.progression[0].points} />
       </div>
@@ -267,22 +273,24 @@ export function DemoAccount() {
   const [publicJournal, setPublicJournal] = useState(false);
   return (
     <div className="flex flex-col gap-4">
-      <Checkbox isSelected={isPrivate} onChange={setIsPrivate}>
-        <Checkbox.Content>
-          <Checkbox.Control>
-            <Checkbox.Indicator />
-          </Checkbox.Control>
-          Private profile
-        </Checkbox.Content>
-      </Checkbox>
-      <Checkbox isSelected={publicJournal} isDisabled={isPrivate} onChange={setPublicJournal}>
-        <Checkbox.Content>
-          <Checkbox.Control>
-            <Checkbox.Indicator />
-          </Checkbox.Control>
-          Public journal
-        </Checkbox.Content>
-      </Checkbox>
+      <div data-tour-target="privacy-controls" className="flex flex-col gap-4">
+        <Checkbox isSelected={isPrivate} onChange={setIsPrivate}>
+          <Checkbox.Content>
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            Private profile
+          </Checkbox.Content>
+        </Checkbox>
+        <Checkbox isSelected={publicJournal} isDisabled={isPrivate} onChange={setPublicJournal}>
+          <Checkbox.Content>
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            Public journal
+          </Checkbox.Content>
+        </Checkbox>
+      </div>
       <div role="status" className="rounded-lg bg-surface-secondary p-4 text-sm">
         <p className="font-medium">What a visitor can see</p>
         <p className="mt-1">

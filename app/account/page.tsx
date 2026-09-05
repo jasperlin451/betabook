@@ -113,7 +113,7 @@ export default async function AccountPage() {
           title="Getting started"
           description="Learn how sessions, sends, projects, and training fit together."
         >
-          <ProductTour userId={session.user.id} />
+          <ProductTour />
         </AccountSection>
 
         <AccountSection title="Security" description="Manage your password and current session.">

@@ -1,59 +1,37 @@
-# Product tours and component showcases
+# In-page product tours
 
-The tour system handles navigation, replay, and saved progress. Each feature supplies its own steps, which can show a component with sample data, link to a page, or walk someone through using the feature. Tours are optional.
+Tours run at `/tutorial/[tourId]/[stepId]` inside the app shell. The page uses Alex Morgan's sample data and the same profile heading, tabs, sidebar layouts, list rows, and charts as the app. A spotlight identifies one control, with a short callout beside it on desktop or near the bottom of the viewport on mobile. The highlighted controls remain usable.
 
-## Add a tour
+## Add a step or feature
 
-1. Add metadata to `PRODUCT_TOURS` in `lib/product-tour.ts`: a stable ID, integer version, name, and invitation copy. IDs identify features; versions identify substantial changes to that feature's tour. Do not rename an existing ID to edit its copy.
-2. Create a module under `components/product-tours/` exporting a nonempty array of `ProductTourStep`. Give every step a stable, unique ID, title, eyebrow, and React `Content` component.
-3. Add a dynamic loader to `PRODUCT_TOUR_LOADERS` in `components/product-tours/registry.ts`. The exhaustive ID mapping makes a missing loader a type error. Each tour's components load only when that tour is opened.
-4. Optionally add a quick action beside the invitation in `quick-actions.tsx`. Most component showcases don't need one.
+1. Add a step to `PRODUCT_TOUR_STEPS` in `lib/product-tour-navigation.ts`: a stable `id`, `section`, `title`, short `description`, and `target`. Keep each callout to one explanation. Do not repeat its text inside the demo.
+2. Add `data-tour-target="your-target"` to the relevant control or small group in the feature view. Avoid targeting a whole page or a long list. Targets must be visible and unique within the view; do not select them by CSS classes or translated text.
+3. Render the section in the feature's page component. `ProductTourPageProps` supplies its section and `href(stepId)` for links that preserve the replay destination. Reuse the app's layouts and display components. Keep demo controls local and never pass sample IDs to real links or mutation components.
+4. For a separate tour, register its metadata in `lib/product-tour.ts`, steps in `PRODUCT_TOUR_STEPS`, and a lazy page loader in `components/product-tours/registry.ts`. The existing route layout handles the rest. An optional quick action beside the invitation belongs in `quick-actions.tsx`.
 
-A basic step only needs content:
+The Journal tour covers Log, journal filters, Sends sorting, project history, Analytics, and privacy. The sample Log control explains the entry types without opening a real mutation form. Users can log real entries from the invitation's ordinary Log button or their own Journal after leaving the tour.
 
-```tsx
-import type { ProductTourStep } from "@/components/product-tours/types";
+## Navigation and overlays
 
-function FeaturePreview() {
-  return <p>Render the new component here with sample props.</p>;
-}
+The URL owns the current step. Next, Back, profile tabs, the All tutorials menu, refresh, and browser history all resolve through the same step catalog. The persistent route layout loads the feature once and suspends the mobile installation helper while mounted. Each section's local demo state resets when leaving that section.
 
-export const featureTourSteps: readonly ProductTourStep[] = [
-  {
-    id: "preview",
-    title: "Try the new feature",
-    eyebrow: "What's new",
-    Content: FeaturePreview,
-  },
-];
-```
+Callouts use a nonmodal region: the page remains interactive and keyboard reachable. The step heading receives focus, Escape exits, and the close button is always available. A highlighted target is measured after rendering and followed on scroll and resize. New targets scroll into the available space above the mobile card, including when the keyboard changes the visual viewport. If a target disappears or cannot be found, navigation stays available in an unanchored card.
 
-The tour keeps Previous, Next, and Finish buttons in a footer below the scrolling content, moves keyboard focus to each step heading, and lets users retry if saving completion fails. Previous/Next buttons name their destination. Set `navigationLabel` for a short name such as “Journal”; otherwise they use the step title. Step components receive the owner's `userId`, temporary `values`, `close()` to leave the tour, and `navigate(stepId, values)` to change steps. Mark a step `navigation: "custom"` when the step handles its own navigation. The last step always offers Finish. Set `canFinish: true` on an earlier overview to let people finish without visiting every optional tutorial. Never navigate back into a submitted form after a successful save; the journal tour moves from the saved result to the tutorial chooser.
+Exit returns to Account for Account replay and otherwise to the user's Journal. These destinations are derived from the authenticated account, not arbitrary return URLs. Finishing saves completion and opens the user's Journal. The route is authenticated, rejects unknown tour/step IDs, and is not indexable.
 
-Keep sample data in the browser. Steps that save real entries must use the feature's authenticated actions and wait for a successful save before continuing. People can finish a tour without creating an entry. Label real-entry actions clearly, explain that saving changes the user's journal, and link the saved result to their own page. Keep browsing demo tutorials a separate choice.
+## Sample account
 
-## Demo account
+`lib/product-tour-demo.ts` defines Alex Morgan's browser-only fixtures. Journal entries are the source for sends, projects, and analytics; analytics use the production calculation. No database demo account is needed. Negative sample IDs must never enter entity links, real forms, or actions. The only tour mutation is saving the authenticated user's dismissal/completion status.
 
-The Journal, Sends, Projects, Analytics, and Account tutorials share Alex Morgan, a fictional climber defined in `lib/product-tour-demo.ts`. The sample entries are the source for the sends, project history, and analytics. Analytics use the production `buildUserAnalytics` calculation, and previews reuse `ListRow`, `StatTiles`, and `ProgressionChart` alongside local controls.
+## Progress and replay
 
-The demo loads with the tour and needs no database account. It works even when the user's logbook is empty. Example filters and privacy controls use component state and reset when that tutorial is reopened. The Journal preview starts with search, entry-type filters, and three rows. Search and filters use all eight entries; “Show all” expands the list without adding another scroll area. Tags on the sample rows are clickable filters. Negative demo IDs must never be passed to mutation components or real route links. Explicit “Open my …” links use the authenticated viewer's ID and leave the tutorial.
+`user_product_tours` stores a version and dismissed/completed status for each user and tour. Existing atomic updates prevent stale tabs from downgrading completed or newer progress. An invitation appears on the owner's Journal when that version has not been dismissed or completed. Account always offers replay; replay does not clear saved progress. Closing a tour does not mark it complete. Loading and completion failures have retry controls.
 
-To add another section, put a step and chooser button in `profile-tour-pages.tsx`, then use the same fixture for its sample data. Start with a short introduction explaining what the page is for before showing the demo. `PageTutorial` requires this introduction and places it above both columns on desktop. On mobile, the reading order is introduction, demo, then detailed tips. Keep the introduction to one or two short sentences and aim for two concise tips. Explain each point once; avoid repeating instructions inside the demo. Keep privacy details that affect what gets shared. Update the consistency tests when the data changes. Reuse display components from the app. Replace controls that normally navigate or save with local demo controls, and label the result as an example.
+Use a version bump only when previous users should receive another invitation. This unreleased tour stays on version 1 during the overlay redesign. Adding a new tour ID tracks progress independently and needs no schema change.
 
-## Eligibility and persistence
+## Verify changes
 
-`user_product_tours` stores one row per `(user_id, tour_id)`, containing the version the user dismissed or completed. The invitation appears if the user hasn't dismissed or completed the current version. A new ID is independent of all existing progress; adding it requires no database migration. Incrementing one tour's version reintroduces only that tour. Copy edits usually do not need a version bump.
-
-The save action validates IDs and versions against the server registry, derives the account from the authenticated session, and uses an atomic upsert. Stale dismissals cannot downgrade completed progress, and an older deployment cannot overwrite newer-version progress. Replay never clears saved progress. Failures remain visible and retryable.
-
-The first release marks existing accounts with `product_tour_returning` so they get a shorter introduction. Existing sends and journal entries don't count as completing a tour. Future tours can use the same introduction for everyone.
-
-Users see tour invitations on their own Journal page. Account lists tours from the same registry for replay. Visitors never load another user's tour state. The mobile installation helper pauses while a tour is open; this does not change its saved dismissal preference.
-
-## Check a tour
-
-- Check a fresh account, an account with other completed tours, and current and older saved tour versions.
-- Exercise Previous/Next/Finish, close/reopen, reload after dismissal/completion, and Account replay.
-- Check phone-width layout, keyboard focus, and any links or interactive component behavior.
-- Confirm no example data is saved unless the user explicitly submits the real feature form.
-- Run `pnpm check` and the production build for the completed change.
+- Check invitations, Account replay, Exit, Finish, direct links, refresh, and browser Back/Forward.
+- Check each target at desktop and phone widths in both themes, including scroll, keyboard focus, Escape, and the mobile keyboard. Callouts must not hide the highlighted control.
+- Exercise filters, sorting, project disclosure, chart explanation, and privacy toggles. Check that no sample data or settings reach the real account.
+- Test step/route validation and positioning logic. Keep the existing persistence tests. Run `pnpm check` and the Cloudflare production build before updating the PR.

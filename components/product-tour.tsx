@@ -1,8 +1,8 @@
 "use client";
 
-import { Button, useOverlayState } from "@heroui/react";
-import dynamic from "next/dynamic";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Button } from "@heroui/react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 
 import { saveProductTourStatus } from "@/actions";
 import { PRODUCT_TOUR_QUICK_ACTIONS } from "@/components/product-tours/quick-actions";
@@ -10,33 +10,22 @@ import { cardClass } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { SectionHeading } from "@/components/ui/typography";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
-import { suspendMobileHelper } from "@/lib/mobile-helper-suspension";
 import {
   PRODUCT_TOURS,
   shouldOfferProductTour,
   type ProductTourState,
   type ProductTourDefinition,
 } from "@/lib/product-tour";
-
-const ProductTourDrawer = dynamic(() =>
-  import("@/components/product-tour-drawer").then((module) => module.ProductTourDrawer),
-);
+import { productTourPath } from "@/lib/product-tour-navigation";
 
 /** The owner invitation and Account replay catalog share the same registry. */
-export function ProductTour({
-  userId,
-  initialState,
-}: {
-  userId: string;
-  initialState?: ProductTourState;
-}) {
+export function ProductTour({ initialState }: { initialState?: ProductTourState }) {
   return (
     <>
       {PRODUCT_TOURS.map((tour) => (
         <TourInvitation
           key={`${tour.id}:${tour.version}`}
           tour={tour}
-          userId={userId}
           initialState={initialState}
         />
       ))}
@@ -45,18 +34,14 @@ export function ProductTour({
 }
 
 function TourInvitation({
-  userId,
   tour,
   initialState,
 }: {
-  userId: string;
   tour: ProductTourDefinition;
   /** Omitted in Account, where replay is always available. */
   initialState?: ProductTourState;
 }) {
-  const overlay = useOverlayState();
-  const trigger = useRef<HTMLButtonElement>(null);
-  const wasOpen = useRef(false);
+  const router = useRouter();
   const [hidden, setHidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -64,16 +49,9 @@ function TourInvitation({
   const offered = replay || (!hidden && shouldOfferProductTour(tour, initialState.progress));
   const QuickAction = PRODUCT_TOUR_QUICK_ACTIONS[tour.id];
 
-  useEffect(() => {
-    if (overlay.isOpen) {
-      wasOpen.current = true;
-      return suspendMobileHelper();
-    }
-    if (wasOpen.current || hidden) {
-      wasOpen.current = false;
-      (trigger.current ?? document.getElementById("main"))?.focus();
-    }
-  }, [overlay.isOpen, hidden]);
+  function open() {
+    router.push(productTourPath(tour.id, undefined, replay ? "account" : "journal"));
+  }
 
   function dismiss() {
     startTransition(async () => {
@@ -95,12 +73,7 @@ function TourInvitation({
     <>
       {offered &&
         (replay ? (
-          <Button
-            ref={trigger}
-            variant="outline"
-            onPress={overlay.open}
-            aria-label={`Replay product tour: ${tour.name}`}
-          >
+          <Button variant="outline" onPress={open} aria-label={`Replay product tour: ${tour.name}`}>
             Replay product tour{PRODUCT_TOURS.length > 1 ? `: ${tour.name}` : ""}
           </Button>
         ) : (
@@ -113,7 +86,7 @@ function TourInvitation({
               {initialState.returning ? tour.returningDescription : tour.description}
             </p>
             <div className="flex flex-wrap gap-2">
-              <Button ref={trigger} onPress={overlay.open} isDisabled={pending}>
+              <Button onPress={open} isDisabled={pending}>
                 Show me how
               </Button>
               {QuickAction && <QuickAction />}
@@ -128,17 +101,6 @@ function TourInvitation({
             )}
           </section>
         ))}
-      {overlay.isOpen && (
-        <ProductTourDrawer
-          userId={userId}
-          tour={tour}
-          state={overlay}
-          onComplete={() => {
-            setHidden(true);
-            overlay.close();
-          }}
-        />
-      )}
     </>
   );
 }

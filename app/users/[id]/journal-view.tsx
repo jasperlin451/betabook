@@ -71,7 +71,7 @@ export async function JournalView({
 
   return (
     <NavigationPendingProvider>
-      {tourState && <ProductTour userId={owner.id} initialState={tourState} />}
+      {tourState && <ProductTour initialState={tourState} />}
       <SidebarLayout sidebar={<StatStrip cards={statCards} />}>
         <div className="flex flex-col gap-3">
           <SectionHeading>Journal</SectionHeading>
