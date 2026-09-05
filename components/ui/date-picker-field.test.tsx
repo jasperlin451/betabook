@@ -1,5 +1,6 @@
+import { Calendar } from "@heroui/react";
 import { CalendarDate } from "@internationalized/date";
-import type { ReactElement } from "react";
+import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DatePickerField } from "@/components/ui/date-picker-field";
@@ -8,6 +9,7 @@ type PickerProps = {
   value: CalendarDate | null;
   maxValue: CalendarDate | null;
   onChange: (date: CalendarDate | null) => void;
+  children: ReactNode;
 };
 
 /** The component renders HeroUI's DatePicker as its root, and the date it
@@ -15,6 +17,22 @@ type PickerProps = {
  * which the Workers test pool doesn't have. */
 function renderPicker(props: Parameters<typeof DatePickerField>[0]) {
   return (DatePickerField(props) as ReactElement<PickerProps>).props;
+}
+
+/** Depth-first search for the one element of a given type in the tree — the
+ * calendar carries its own copy of the bound, so reading the root's props
+ * alone would miss it. */
+function findElement(node: ReactNode, type: unknown): ReactElement<PickerProps> | null {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = findElement(child, type);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (!isValidElement<{ children?: ReactNode }>(node)) return null;
+  if (node.type === type) return node as ReactElement<PickerProps>;
+  return findElement(node.props.children, type);
 }
 
 const baseProps = { label: "Date", value: "2026-08-12", onChange: () => {} };
@@ -33,6 +51,19 @@ describe("DatePickerField", () => {
 
   it("bounds nothing when the caller passes no max", () => {
     expect(renderPicker(baseProps).maxValue).toBeNull();
+  });
+
+  // HeroUI's Calendar hands its grid an explicit maxValue defaulting to
+  // 2099-12-31, which beats the one it would inherit from the DatePicker. Miss
+  // this and the field rejects a future date while the grid still offers one.
+  it.each([
+    ["2026-09-05", new CalendarDate(2026, 9, 5)],
+    [undefined, null],
+  ])("passes max %o down to the calendar grid", (max, expected) => {
+    const calendar = findElement(renderPicker({ ...baseProps, max }).children, Calendar);
+
+    expect(calendar).not.toBeNull();
+    expect(calendar?.props.maxValue).toEqual(expected);
   });
 
   // The padded case is the one that matters: the forms submit these strings and

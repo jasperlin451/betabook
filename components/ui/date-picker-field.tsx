@@ -37,11 +37,13 @@ export type DatePickerFieldProps = {
  * The month heading doubles as a year picker (the native control's only
  * feature this would otherwise drop), which backfilling old sends needs. */
 export function DatePickerField({ label, value, onChange, max, isReadOnly }: DatePickerFieldProps) {
+  const maxDate = toCalendarDate(max);
+
   return (
     <DatePicker
       className="w-full"
       value={toCalendarDate(value)}
-      maxValue={toCalendarDate(max)}
+      maxValue={maxDate}
       isReadOnly={isReadOnly}
       // Segments are padded individually, so an unpadded month and day make the
       // field's width jump as you tab across it.
@@ -64,7 +66,11 @@ export function DatePickerField({ label, value, onChange, max, isReadOnly }: Dat
         </DateField.Suffix>
       </DateField.Group>
       <DatePicker.Popover>
-        <Calendar>
+        {/* The bound has to be repeated here: HeroUI's Calendar always hands the
+         * grid an explicit maxValue, defaulting to 2099-12-31, which wins over
+         * the one the DatePicker would otherwise supply. Without this the field
+         * rejects a future date but the grid still offers one. */}
+        <Calendar maxValue={maxDate}>
           <Calendar.Header>
             <Calendar.YearPickerTrigger>
               <Calendar.YearPickerTriggerHeading />
