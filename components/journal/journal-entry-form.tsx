@@ -126,17 +126,18 @@ export function JournalEntryForm({
   return (
     <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-6`}>
       <FormSection label="The day">
-        <TextField>
-          <Label>Date</Label>
-          <Input
-            type="date"
-            value={entryDate}
-            max={today}
-            readOnly={existingEntry?.sent}
-            disabled={isUndatedSend}
-            onChange={(e) => setEntryDate(e.target.value)}
-          />
-        </TextField>
+        {!isUndatedSend && (
+          <TextField>
+            <Label>Date</Label>
+            <Input
+              type="date"
+              value={entryDate}
+              max={today}
+              readOnly={existingEntry?.sent}
+              onChange={(e) => setEntryDate(e.target.value)}
+            />
+          </TextField>
+        )}
 
         {isAscent && (
           <Checkbox isSelected={dateUnknown} onChange={setDateUnknown}>

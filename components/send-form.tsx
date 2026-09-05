@@ -61,24 +61,25 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
       <FormSection label="Ascent">
         <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} />
 
-        <TextField>
-          <Label>Date sent</Label>
-          <Input
-            type="date"
-            value={dateSent}
-            max={today}
-            disabled={dateUnknown}
-            onChange={(e) => setDateSent(e.target.value)}
-          />
-          <Checkbox className="mt-2" isSelected={dateUnknown} onChange={setDateUnknown}>
-            <Checkbox.Content>
-              <Checkbox.Control>
-                <Checkbox.Indicator />
-              </Checkbox.Control>
-              I don&apos;t remember
-            </Checkbox.Content>
-          </Checkbox>
-        </TextField>
+        {!dateUnknown && (
+          <TextField>
+            <Label>Date sent</Label>
+            <Input
+              type="date"
+              value={dateSent}
+              max={today}
+              onChange={(e) => setDateSent(e.target.value)}
+            />
+          </TextField>
+        )}
+        <Checkbox isSelected={dateUnknown} onChange={setDateUnknown}>
+          <Checkbox.Content>
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            I don&apos;t remember the date
+          </Checkbox.Content>
+        </Checkbox>
       </FormSection>
 
       <FormSection label="Your opinion">
