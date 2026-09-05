@@ -1,4 +1,4 @@
-import { and, eq, exists, isNotNull, isNull, notExists, sql } from "drizzle-orm";
+import { and, eq, exists, inArray, isNotNull, isNull, notExists, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { refresh, revalidatePath } from "next/cache";
 
@@ -16,7 +16,6 @@ import {
   type Climb,
 } from "@/db/queries";
 import {
-  adminAreaScopes,
   areas,
   changeRequestApprovals,
   changeRequests,
@@ -120,6 +119,67 @@ export async function submitChangeRequest<T extends ChangeRequestType>(
   }
 }
 
+const ORPHANED_REVIEW_NOTE = "The area or climb this request affected no longer exists.";
+
+/** Pending requests stranded by a climb's deletion (or merge-away): anything
+ * targeting it directly, plus merges pointing *into* it. Auto-rejected with
+ * an explanatory note and no reviewer — nobody could ever action them, and a
+ * strictly area-scoped queue (getReviewQueue) would otherwise never surface
+ * them to anyone. No decision email: the entity's disappearance is the
+ * explanation, and the requester may well be the one who requested it. */
+function rejectOrphanedClimbRequests(db: Database, climbId: number) {
+  return db
+    .update(changeRequests)
+    .set({ status: "rejected", reviewNote: ORPHANED_REVIEW_NOTE, reviewedAt: new Date() })
+    .where(
+      and(
+        eq(changeRequests.status, "pending"),
+        or(
+          and(
+            inArray(changeRequests.type, [
+              "climb_edit",
+              "climb_delete",
+              "climb_move",
+              "climb_merge",
+            ]),
+            eq(changeRequests.entityId, climbId),
+          ),
+          and(
+            eq(changeRequests.type, "climb_merge"),
+            sql`json_extract(${changeRequests.payload}, '$.targetClimbId') = ${climbId}`,
+          ),
+        ),
+      ),
+    );
+}
+
+/** The area flavor of rejectOrphanedClimbRequests: requests on the area
+ * itself, plus reparents/moves whose *destination* was this area. */
+function rejectOrphanedAreaRequests(db: Database, areaId: number) {
+  return db
+    .update(changeRequests)
+    .set({ status: "rejected", reviewNote: ORPHANED_REVIEW_NOTE, reviewedAt: new Date() })
+    .where(
+      and(
+        eq(changeRequests.status, "pending"),
+        or(
+          and(
+            inArray(changeRequests.type, ["area_edit", "area_delete", "area_reparent"]),
+            eq(changeRequests.entityId, areaId),
+          ),
+          and(
+            eq(changeRequests.type, "area_reparent"),
+            sql`json_extract(${changeRequests.payload}, '$.newParentId') = ${areaId}`,
+          ),
+          and(
+            eq(changeRequests.type, "climb_move"),
+            sql`json_extract(${changeRequests.payload}, '$.newAreaId') = ${areaId}`,
+          ),
+        ),
+      ),
+    );
+}
+
 // --- Apply logic -----------------------------------------------------------
 //
 // One function per gated operation, shared between "an admin does it right
@@ -167,6 +227,7 @@ export async function applyAreaDelete(db: Database, areaId: number): Promise<voi
   const existing = await assertAreaDeletable(db, areaId);
 
   await db.delete(areas).where(eq(areas.id, areaId));
+  await rejectOrphanedAreaRequests(db, areaId);
 
   revalidatePath(`/areas/${areaId}`);
   if (existing.parentId != null) revalidatePath(`/areas/${existing.parentId}`);
@@ -212,15 +273,22 @@ export async function isAdminForArea(
 ): Promise<boolean> {
   if (!isAdmin(session)) return false;
 
-  const managed = await db
-    .select({ areaId: adminAreaScopes.areaId })
-    .from(adminAreaScopes)
-    .where(eq(adminAreaScopes.userId, session.user.id));
-
-  for (const { areaId: managedAreaId } of managed) {
-    if (await isAreaOrDescendant(db, areaId, managedAreaId)) return true;
-  }
-  return false;
+  // One query, not one ancestor-walk per granted scope: walk the area's own
+  // ancestor chain (bounded by tree depth) and check whether any link is a
+  // granted scope. The review queue calls this per request per area, so the
+  // per-call cost lands directly on the page's D1 subrequest budget.
+  const [row] = await db.all<{ found: number }>(sql`
+    WITH RECURSIVE chain(id) AS (
+      SELECT ${areaId}
+      UNION ALL
+      SELECT areas.parent_id FROM chain JOIN areas ON areas.id = chain.id
+      WHERE areas.parent_id IS NOT NULL
+    )
+    SELECT 1 AS found FROM admin_area_scopes
+    WHERE user_id = ${session.user.id} AND area_id IN (SELECT id FROM chain)
+    LIMIT 1
+  `);
+  return Boolean(row);
 }
 
 /** Throws without mutating anything — used both to give a non-admin
@@ -376,6 +444,7 @@ export async function applyClimbDelete(db: Database, climbId: number): Promise<v
     if (sent) throw new ActionError("Can't delete a climb with logged sends");
     throw new ActionError("Can't delete a climb with journal entries");
   }
+  await rejectOrphanedClimbRequests(db, climbId);
 
   revalidatePath(`/areas/${deleted.areaId}`);
   revalidatePath("/");
@@ -541,6 +610,10 @@ export async function applyClimbMerge(
       ? [db.update(climbs).set(overrides).where(eq(climbs.id, targetClimbId))]
       : []),
     db.delete(climbs).where(eq(climbs.id, sourceClimbId)),
+    // Requests stranded by the source's disappearance — auto-rejected in the
+    // same transaction. The request being approved (if any) was already
+    // claimed out of `pending` before this batch runs.
+    rejectOrphanedClimbRequests(db, sourceClimbId),
   ];
   await db.batch(statements as [(typeof statements)[number], ...typeof statements]);
 
@@ -674,7 +747,9 @@ export async function recordAdminApply<T extends ChangeRequestType>(
 
 export type ChangeRequestCoverage = {
   scopeAreaIds: number[];
-  approverIds: string[];
+  /** Everyone whose approval is recorded — names included so the queue page
+   * doesn't have to re-fetch the same user rows this check already loaded. */
+  approvers: { id: string; name: string }[];
   /** Scope areas no current approver manages — empty means fully covered. */
   missingAreaIds: number[];
   complete: boolean;
@@ -684,28 +759,31 @@ export type ChangeRequestCoverage = {
  * request touches. Recomputed live against adminAreaScopes (and each
  * approver's current role) rather than snapshotted at approval time: a
  * revoked grant or demoted admin stops counting on its own, and an entity
- * that moved since an approval is measured where it lives *now*. A request
- * whose scope resolves to `[]` (entity gone) is never complete — it can only
- * be rejected. */
+ * that moved since an approval is measured where it lives *now*.
+ * `scopeAreaIds` comes from the caller — getReviewQueue and
+ * loadReviewableRequest both already derived it, and re-deriving here would
+ * re-fetch the same entities (the queue page's D1 subrequest budget is the
+ * constraint). An empty scope is never complete. */
 export async function changeRequestCoverage(
   db: Database,
   request: ChangeRequest,
+  scopeAreaIds: number[],
 ): Promise<ChangeRequestCoverage> {
-  const scopeAreaIds = await changeRequestScopeAreaIds(db, request);
   const approvals = await getChangeRequestApprovals(db, request.id);
-  const approverIds = approvals.map((approval) => approval.userId);
 
-  const approverSessions: { user: { id: string; role?: string | null } }[] = [];
-  for (const approverId of approverIds) {
-    const approver = await getUser(db, approverId);
-    if (approver) approverSessions.push({ user: { id: approver.id, role: approver.role } });
+  const approverRows: { id: string; name: string; role: string | null }[] = [];
+  for (const approval of approvals) {
+    const approver = await getUser(db, approval.userId);
+    if (approver) {
+      approverRows.push({ id: approver.id, name: approver.name, role: approver.role });
+    }
   }
 
   const missingAreaIds: number[] = [];
   for (const areaId of scopeAreaIds) {
     let covered = false;
-    for (const approverSession of approverSessions) {
-      if (await isAdminForArea(db, approverSession, areaId)) {
+    for (const approver of approverRows) {
+      if (await isAdminForArea(db, { user: { id: approver.id, role: approver.role } }, areaId)) {
         covered = true;
         break;
       }
@@ -715,36 +793,38 @@ export async function changeRequestCoverage(
 
   return {
     scopeAreaIds,
-    approverIds,
+    approvers: approverRows.map(({ id, name }) => ({ id, name })),
     missingAreaIds,
     complete: scopeAreaIds.length > 0 && missingAreaIds.length === 0,
   };
 }
 
-/** Every pending request scoped to an area this admin manages — strictly
- * their moderation surface, nothing from elsewhere. A request whose target
- * entity is already gone (scope `[]`) is invisible to everyone here; it can
- * still be rejected by any admin who reaches it (see loadReviewableRequest
- * in actions/moderation.ts), it just no longer clutters unrelated queues.
- * Filters in application code rather than a SQL join: with two-area types
- * needing entity lookups anyway and the pending queue expected to stay
- * small, a per-request isAdminForAnyArea check reads far more clearly than
- * folding the area/climb union and the recursive ancestor walk into one
- * query. */
-export async function getVisibleChangeRequests(
+/** Every pending request this admin can review — strictly requests scoped
+ * to areas they manage, minus their own submissions (an admin can't approve
+ * those, so listing them is noise; withdrawal isn't offered). The derived
+ * scope ids ride along so downstream coverage checks don't re-fetch the
+ * same entities. Requests whose entity is gone never appear: the apply
+ * functions auto-reject orphaned requests when an entity is deleted or
+ * merged away. Filters in application code rather than a SQL join: with
+ * two-area types needing entity lookups anyway and the pending queue
+ * expected to stay small, a per-request isAdminForAnyArea check reads far
+ * more clearly than folding the area/climb union and the recursive ancestor
+ * walk into one query. */
+export async function getReviewQueue(
   db: Database,
   session: { user: { id: string; role?: string | null } },
-): Promise<ChangeRequest[]> {
+): Promise<{ request: ChangeRequest; scopeAreaIds: number[] }[]> {
   if (!isAdmin(session)) return [];
   const pending = await getPendingChangeRequests(db);
-  const visible: ChangeRequest[] = [];
+  const queue: { request: ChangeRequest; scopeAreaIds: number[] }[] = [];
   for (const request of pending) {
-    const areaIds = await changeRequestScopeAreaIds(db, request);
-    if (areaIds.length > 0 && (await isAdminForAnyArea(db, session, areaIds))) {
-      visible.push(request);
+    if (request.requestedBy === session.user.id) continue;
+    const scopeAreaIds = await changeRequestScopeAreaIds(db, request);
+    if (scopeAreaIds.length > 0 && (await isAdminForAnyArea(db, session, scopeAreaIds))) {
+      queue.push({ request, scopeAreaIds });
     }
   }
-  return visible;
+  return queue;
 }
 
 export type ChangeRequestDescription = {
