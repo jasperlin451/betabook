@@ -215,15 +215,22 @@
     {
       "idx": 30,
       "version": "6",
-      "when": 1788581085600,
-      "tag": "0030_jittery_ezekiel",
+      "when": 1788578425051,
+      "tag": "0030_product_tours",
       "breakpoints": true
     },
     {
       "idx": 31,
       "version": "6",
-      "when": 1788581233310,
-      "tag": "0031_colossal_aqueduct",
+      "when": 1788592105894,
+      "tag": "0031_open_wildside",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1788592195187,
+      "tag": "0032_wet_nightcrawler",
       "breakpoints": true
     }
   ]
