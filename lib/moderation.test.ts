@@ -4,9 +4,14 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { createDb, type Database } from "@/db/client";
 import { getChangeRequest } from "@/db/queries";
-import { adminAreaScopes, areas, changeRequests, climbs, sends } from "@/db/schema";
+import { adminAreaScopes, areas, changeRequests, climbs, journalEntries, sends } from "@/db/schema";
 import { formatGrade } from "@/lib/grades";
-import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
+import {
+  seedFixtureJournalEntry,
+  seedFixtureSend,
+  seedFixtureTree,
+  seedFixtureUser,
+} from "@/test/fixtures";
 
 vi.mock("next/cache", () => ({ refresh: () => {}, revalidatePath: () => {} }));
 
@@ -31,7 +36,6 @@ import {
   isAdminForAllAreas,
   isAdminForAnyArea,
   isAdminForArea,
-  MERGE_COMMENT_SEPARATOR,
   recordChangeRequestApproval,
   submitChangeRequest,
 } from "./moderation";
@@ -625,6 +629,29 @@ describe("applyClimbDelete", () => {
     );
     expect(await db.select().from(climbs).where(eq(climbs.id, 876)).get()).toBeDefined();
   });
+
+  it("refuses a climb with journal entries, even without sends", async () => {
+    await seedFixtureUser(db, { id: "delete-journaler" });
+    await db
+      .insert(climbs)
+      .values({ id: 877, areaId: 3, name: "Journaled Climb", type: "sport", grade: 8 });
+    // A non-sent session note — the ON DELETE restrict FK would abort the
+    // delete with a raw driver error without the explicit guard.
+    await seedFixtureJournalEntry(db, {
+      userId: "delete-journaler",
+      climbId: 877,
+      entryDate: "2026-01-05",
+      body: "Working the crux",
+    });
+
+    await expect(assertClimbDeletable(db, 877)).rejects.toThrow(
+      "Can't delete a climb with journal entries",
+    );
+    await expect(applyClimbDelete(db, 877)).rejects.toThrow(
+      "Can't delete a climb with journal entries",
+    );
+    expect(await db.select().from(climbs).where(eq(climbs.id, 877)).get()).toBeDefined();
+  });
 });
 
 describe("applyClimbMerge", () => {
@@ -666,7 +693,7 @@ describe("applyClimbMerge", () => {
     expect(send?.rating).toBe(4);
   });
 
-  it("folds comments and drops the source's other fields when a user sent both climbs", async () => {
+  it("keeps the target's send wholesale when a user sent both climbs", async () => {
     await seedFixtureUser(db, { id: "merge-user-b" });
     await db.insert(climbs).values([
       { id: 920, areaId: 3, name: "Merge Source B", type: "boulder", grade: 3 },
@@ -693,13 +720,179 @@ describe("applyClimbMerge", () => {
     const rows = await db.select().from(sends).where(eq(sends.userId, "merge-user-b"));
     expect(rows).toHaveLength(1);
     expect(rows[0].climbId).toBe(921);
-    // The target's send survives — its dateSent/rating win, not the source's.
+    // The target's send survives untouched — folding the source's comment in
+    // would desync it from its ascent journal entry (send_journal_update_guard);
+    // a dated source send's comment lives on in its journal entry instead.
     expect(rows[0].dateSent).toBe("2026-02-01");
     expect(rows[0].rating).toBe(2);
-    expect(rows[0].comment).toBe(`Target comment${MERGE_COMMENT_SEPARATOR}Source comment`);
+    expect(rows[0].comment).toBe("Target comment");
 
     const target = await db.select().from(climbs).where(eq(climbs.id, 921)).get();
     expect(target?.sendCount).toBe(1);
+  });
+
+  it("moves journal entries with their sends and keeps the ascent flag", async () => {
+    await seedFixtureUser(db, { id: "merge-journal-a" });
+    await db.insert(climbs).values([
+      { id: 800, areaId: 3, name: "Journal Merge Source A", type: "boulder", grade: 3 },
+      { id: 801, areaId: 3, name: "Journal Merge Target A", type: "boulder", grade: 3 },
+    ]);
+    await seedFixtureSend(db, {
+      userId: "merge-journal-a",
+      climbId: 800,
+      dateSent: "2026-01-01",
+      comment: "First go",
+    });
+    // The ascent entry mirrors its send (entry_date/body must match — see
+    // journal_sent_insert_guard), plus a later repeat and a non-sent note.
+    await seedFixtureJournalEntry(db, {
+      userId: "merge-journal-a",
+      climbId: 800,
+      entryDate: "2026-01-01",
+      sent: true,
+      isAscent: true,
+      body: "First go",
+    });
+    await seedFixtureJournalEntry(db, {
+      userId: "merge-journal-a",
+      climbId: 800,
+      entryDate: "2026-01-15",
+      sent: true,
+      body: "Repeat lap",
+    });
+    await seedFixtureJournalEntry(db, {
+      userId: "merge-journal-a",
+      climbId: 800,
+      entryDate: "2026-01-20",
+      body: "Just a session note",
+    });
+
+    await applyClimbMerge(db, 800, 801);
+
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, "merge-journal-a"))
+      .orderBy(journalEntries.entryDate);
+    expect(entries).toHaveLength(3);
+    expect(entries.every((entry) => entry.climbId === 801)).toBe(true);
+    expect(entries[0].isAscent).toBe(true);
+    expect(entries[0].sent).toBe(true);
+    expect(entries[1].isAscent).toBe(false);
+    expect(entries[1].sent).toBe(true);
+    expect(entries[2].sent).toBe(false);
+  });
+
+  it("demotes the colliding user's source entries and moves them without an ascent clash", async () => {
+    await seedFixtureUser(db, { id: "merge-journal-b" });
+    await db.insert(climbs).values([
+      { id: 810, areaId: 3, name: "Journal Merge Source B", type: "boulder", grade: 3 },
+      { id: 811, areaId: 3, name: "Journal Merge Target B", type: "boulder", grade: 3 },
+    ]);
+    await seedFixtureSend(db, {
+      userId: "merge-journal-b",
+      climbId: 810,
+      dateSent: "2026-01-01",
+      comment: "Source story",
+    });
+    await seedFixtureSend(db, {
+      userId: "merge-journal-b",
+      climbId: 811,
+      dateSent: "2026-02-01",
+      comment: "Target story",
+    });
+    await seedFixtureJournalEntry(db, {
+      userId: "merge-journal-b",
+      climbId: 810,
+      entryDate: "2026-01-01",
+      sent: true,
+      isAscent: true,
+      body: "Source story",
+    });
+    await seedFixtureJournalEntry(db, {
+      userId: "merge-journal-b",
+      climbId: 811,
+      entryDate: "2026-02-01",
+      sent: true,
+      isAscent: true,
+      body: "Target story",
+    });
+
+    await applyClimbMerge(db, 810, 811);
+
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, "merge-journal-b"))
+      .orderBy(journalEntries.entryDate);
+    expect(entries).toHaveLength(2);
+    expect(entries.every((entry) => entry.climbId === 811)).toBe(true);
+    // The source-side entry was demoted by send_journal_delete_sync when its
+    // send was deleted — its text survives, but the target keeps the one
+    // ascent (journal_ascent_unique).
+    expect(entries[0].body).toBe("Source story");
+    expect(entries[0].sent).toBe(false);
+    expect(entries[0].isAscent).toBe(false);
+    expect(entries[1].body).toBe("Target story");
+    expect(entries[1].isAscent).toBe(true);
+  });
+
+  it("preserves an undated colliding send's comment as a journal note on the target", async () => {
+    await seedFixtureUser(db, { id: "merge-journal-c" });
+    await db.insert(climbs).values([
+      { id: 820, areaId: 3, name: "Journal Merge Source C", type: "boulder", grade: 3 },
+      { id: 821, areaId: 3, name: "Journal Merge Target C", type: "boulder", grade: 3 },
+    ]);
+    // Undated source send: no journal entry can carry its comment (an ascent
+    // entry needs a dated send), so the merge writes it into a non-sent note.
+    await seedFixtureSend(db, {
+      userId: "merge-journal-c",
+      climbId: 820,
+      dateSent: null,
+      comment: "Beta worth keeping",
+    });
+    await seedFixtureSend(db, {
+      userId: "merge-journal-c",
+      climbId: 821,
+      dateSent: "2026-02-01",
+    });
+
+    await applyClimbMerge(db, 820, 821);
+
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, "merge-journal-c"));
+    expect(entries).toHaveLength(1);
+    expect(entries[0].climbId).toBe(821);
+    expect(entries[0].sent).toBe(false);
+    expect(entries[0].body).toBe("Beta worth keeping");
+  });
+
+  it("moves session notes from users who never sent the source climb", async () => {
+    await seedFixtureUser(db, { id: "merge-journal-d" });
+    await db.insert(climbs).values([
+      { id: 830, areaId: 3, name: "Journal Merge Source D", type: "boulder", grade: 3 },
+      { id: 831, areaId: 3, name: "Journal Merge Target D", type: "boulder", grade: 3 },
+    ]);
+    await seedFixtureJournalEntry(db, {
+      userId: "merge-journal-d",
+      climbId: 830,
+      entryDate: "2026-03-01",
+      body: "Projecting notes",
+    });
+
+    // Without the journal reassignment, deleting the source would abort on
+    // the entries' ON DELETE restrict FK.
+    await applyClimbMerge(db, 830, 831);
+
+    expect(await db.select().from(climbs).where(eq(climbs.id, 830)).get()).toBeUndefined();
+    const [entry] = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, "merge-journal-d"));
+    expect(entry.climbId).toBe(831);
+    expect(entry.body).toBe("Projecting notes");
   });
 
   it("applies validated overrides to the surviving climb", async () => {
