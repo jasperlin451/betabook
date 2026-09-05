@@ -7,9 +7,11 @@ export const user = sqliteTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: integer("email_verified", { mode: "boolean" }).default(false).notNull(),
   image: text("image"),
-  // Populated by better-auth's admin plugin (lib/auth.ts) — "admin" or null
-  // for an ordinary user. Nothing else in the schema currently reads this
-  // besides lib/session.ts's requireAdmin().
+  // Populated by better-auth's admin plugin (lib/auth.ts) — the plugin
+  // assigns its defaultRole "user" to every new signup, so ordinary users
+  // are "user" (or null only for rows predating the plugin); never branch on
+  // IS NULL. Nothing else in the schema currently reads this besides
+  // lib/session.ts's requireAdmin()/isAdmin, which check for "admin" exactly.
   role: text("role"),
   banned: integer("banned", { mode: "boolean" }).default(false),
   banReason: text("ban_reason"),
