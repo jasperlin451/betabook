@@ -7,15 +7,11 @@ export const user = sqliteTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: integer("email_verified", { mode: "boolean" }).default(false).notNull(),
   image: text("image"),
-  // Populated by better-auth's admin plugin (lib/auth.ts) — the plugin
-  // assigns its defaultRole "user" to every new signup, so ordinary users
-  // are "user" (or null only for rows predating the plugin); never branch on
-  // IS NULL. Nothing else in the schema currently reads this besides
-  // lib/session.ts's requireAdmin()/isAdmin, which check for "admin" exactly.
+  // Our own moderation marker, not a better-auth plugin column: null for
+  // every ordinary user, "admin" only via scripts/promote-admin.ts. Exposed
+  // into session.user through user.additionalFields (lib/auth.ts) so
+  // lib/session.ts's requireAdmin()/isAdmin can check for "admin" exactly.
   role: text("role"),
-  banned: integer("banned", { mode: "boolean" }).default(false),
-  banReason: text("ban_reason"),
-  banExpires: integer("ban_expires", { mode: "timestamp_ms" }),
   // Null means "never welcomed", and that is not derivable from
   // emailVerified: better-auth routes a *changed* address through the same
   // afterEmailVerification hook as a first verification, so an established
@@ -56,9 +52,6 @@ export const session = sqliteTable(
       .notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
-    // Set by better-auth's admin plugin while an admin is impersonating this
-    // session's user — the impersonating admin's own user id.
-    impersonatedBy: text("impersonated_by"),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
