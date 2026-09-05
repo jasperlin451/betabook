@@ -38,7 +38,7 @@ The Journal, Sends, Projects, Analytics, and Account tutorials share Alex Morgan
 
 The demo loads with the tour and needs no database account. It works even when the user's logbook is empty. Example filters and privacy controls use component state and reset when that tutorial is reopened. The Journal lesson starts with three rows and an exercise above the controls. Search and filters use all eight entries; “Show all” expands the list without adding another scroll area. Tags on the sample rows are clickable filters. Negative demo IDs must never be passed to mutation components or real route links. Explicit “Open my …” links use the authenticated viewer's ID and leave the tutorial.
 
-To add another section, put a step and chooser button in `profile-tour-pages.tsx`, then use the same fixture for its sample data. Update the consistency tests when the data changes. Reuse display components from the app. Replace controls that normally navigate or save with local demo controls, and label the result as an example.
+To add another section, put a step and chooser button in `profile-tour-pages.tsx`, then use the same fixture for its sample data. Start with a short introduction explaining what the page is for before showing the demo. `PageTutorial` requires this introduction and places it above both columns on desktop. On mobile, the reading order is introduction, demo, then detailed tips. Keep the introduction focused on the page's purpose and use the tips to explain controls and examples. Update the consistency tests when the data changes. Reuse display components from the app. Replace controls that normally navigate or save with local demo controls, and label the result as an example.
 
 ## Eligibility and persistence
 

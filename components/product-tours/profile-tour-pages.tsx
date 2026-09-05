@@ -89,14 +89,14 @@ function PageTutorial({
   href: string;
   children: ReactNode;
   demo: ReactNode;
-  introduction?: ReactNode;
+  introduction: string;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <Button variant="ghost" className="self-start" onPress={() => navigate("explore")}>
         All tutorials
       </Button>
-      {introduction && <p className="max-w-3xl text-sm leading-relaxed">{introduction}</p>}
+      <p className="max-w-3xl text-sm leading-relaxed">{introduction}</p>
       <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <section
           aria-label={`Alex's ${page} example`}
@@ -170,6 +170,7 @@ function SendsTutorial(props: ProductTourStepProps) {
       {...props}
       page="Sends"
       href={`/users/${props.userId}/sends`}
+      introduction="Sends is your list of climbs you've completed. When you log your first send of a climb in Journal, it appears here with its grade, rating, and notes. Repeats stay in Journal, so each climb appears once in Sends."
       demo={<DemoSends />}
     >
       <h3 className="text-lg font-semibold">One send per climb</h3>
@@ -204,6 +205,7 @@ function ProjectsTutorial(props: ProductTourStepProps) {
       {...props}
       page="Projects"
       href={`/users/${props.userId}/projects`}
+      introduction="Projects keeps track of climbs you've worked on but haven't sent. Logging a session on one in Journal adds it here automatically. Use this page to look back at your attempts and pick up where you left off."
       demo={<DemoProjects />}
     >
       <h3 className="text-lg font-semibold">Your current projects</h3>
@@ -239,6 +241,7 @@ function AnalyticsTutorial(props: ProductTourStepProps) {
       {...props}
       page="Analytics"
       href={`/users/${props.userId}/analytics`}
+      introduction="Analytics shows how your climbing adds up over time, from days outside to your hardest sends. It uses the sessions and sends you've already logged in Journal, so there's nothing extra to enter here."
       demo={<DemoAnalytics />}
     >
       <h3 className="text-lg font-semibold">What the numbers mean</h3>
@@ -270,11 +273,17 @@ function AnalyticsTutorial(props: ProductTourStepProps) {
 
 function AccountTutorial(props: ProductTourStepProps) {
   return (
-    <PageTutorial {...props} page="Account" href="/account" demo={<DemoAccount />}>
-      <h3 className="text-lg font-semibold">Choose what you share</h3>
+    <PageTutorial
+      {...props}
+      page="Account"
+      href="/account"
+      introduction="Account is where you choose who can see your climbing history. Your journal starts private. Try Alex's privacy settings below to see what visitors would be able to see."
+      demo={<DemoAccount />}
+    >
+      <h3 className="text-lg font-semibold">How the privacy settings work</h3>
       <p>
-        Journals start private. A public profile still shares sends and their notes. Notes on a
-        first recorded ascent also appear on its send, even if the journal is private.
+        A public profile shares sends and their notes. Notes on a first recorded ascent also appear
+        on its send, even if the journal is private.
       </p>
       <ul className="list-disc space-y-3 pl-5">
         <li>
