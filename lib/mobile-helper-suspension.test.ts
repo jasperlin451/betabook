@@ -18,4 +18,7 @@ it("keeps installation help paused until all active tours close, then permits it
   expect(isMobileHelperPaused()).toBe(false);
   expect(notify).toHaveBeenCalledTimes(4);
   unsubscribe();
+  const closeAfterUnsubscribe = suspendMobileHelper();
+  closeAfterUnsubscribe();
+  expect(notify).toHaveBeenCalledTimes(4);
 });

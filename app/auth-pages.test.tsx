@@ -7,7 +7,11 @@ const sessionState = vi.hoisted(() => ({
   session: null as { user: { id: string } } | null,
 }));
 
-const mockRedirect = vi.hoisted(() => vi.fn<(url: string) => void>());
+const mockRedirect = vi.hoisted(() =>
+  vi.fn<(url: string) => never>((url) => {
+    throw new Error(`REDIRECT:${url}`);
+  }),
+);
 
 const mockSignInForm = vi.hoisted(() =>
   vi.fn<(props: { next?: string; googleEnabled?: boolean; initialError?: string | null }) => null>(
@@ -50,21 +54,21 @@ describe("SignInPage", () => {
   it("redirects an authenticated user to their own page by default", async () => {
     sessionState.session = { user: { id: "climber-123" } };
 
-    await SignInPage({
-      searchParams: Promise.resolve({}),
-    });
-
-    expect(mockRedirect).toHaveBeenCalledWith("/users/climber-123");
+    await expect(SignInPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
+      "REDIRECT:/users/climber-123",
+    );
+    expect(mockRedirect).toHaveBeenCalledExactlyOnceWith("/users/climber-123");
+    expect(mockIsGoogleOAuthEnabled).not.toHaveBeenCalled();
   });
 
   it("redirects an authenticated user to the safe next path if specified", async () => {
     sessionState.session = { user: { id: "climber-123" } };
 
-    await SignInPage({
-      searchParams: Promise.resolve({ next: "/areas/new" }),
-    });
-
-    expect(mockRedirect).toHaveBeenCalledWith("/areas/new");
+    await expect(
+      SignInPage({ searchParams: Promise.resolve({ next: "/areas/new" }) }),
+    ).rejects.toThrow("REDIRECT:/areas/new");
+    expect(mockRedirect).toHaveBeenCalledExactlyOnceWith("/areas/new");
+    expect(mockIsGoogleOAuthEnabled).not.toHaveBeenCalled();
   });
 
   it("renders the sign-in form for unauthenticated users", async () => {
@@ -74,8 +78,8 @@ describe("SignInPage", () => {
       searchParams: Promise.resolve({}),
     });
 
+    expect(result.type).toBe(mockSignInForm);
     expect(mockRedirect).not.toHaveBeenCalled();
-    expect(result).toBeDefined();
     const element = result as React.ReactElement<{
       next?: string;
       googleEnabled: boolean;
@@ -93,6 +97,7 @@ describe("SignInPage", () => {
       searchParams: Promise.resolve({ next: "/account/import" }),
     });
 
+    expect(result.type).toBe(mockSignInForm);
     expect(mockRedirect).not.toHaveBeenCalled();
     const element = result as React.ReactElement<{ next?: string; googleEnabled: boolean }>;
     expect(element.props.next).toBe("/account/import");
@@ -106,6 +111,7 @@ describe("SignInPage", () => {
       searchParams: Promise.resolve({ error: "access_denied" }),
     });
 
+    expect(result.type).toBe(mockSignInForm);
     const element = result as React.ReactElement<{ googleEnabled: boolean; initialError?: string }>;
     expect(element.props.googleEnabled).toBe(true);
     expect(element.props.initialError).toBe("Google sign-in was cancelled.");
@@ -119,6 +125,7 @@ describe("SignInPage", () => {
       searchParams: Promise.resolve({}),
     });
 
+    expect(result.type).toBe(mockSignInForm);
     const element = result as React.ReactElement<{ googleEnabled: boolean }>;
     expect(element.props.googleEnabled).toBe(false);
   });
@@ -134,21 +141,21 @@ describe("SignUpPage", () => {
   it("redirects an authenticated user to their own page by default", async () => {
     sessionState.session = { user: { id: "climber-123" } };
 
-    await SignUpPage({
-      searchParams: Promise.resolve({}),
-    });
-
-    expect(mockRedirect).toHaveBeenCalledWith("/users/climber-123");
+    await expect(SignUpPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
+      "REDIRECT:/users/climber-123",
+    );
+    expect(mockRedirect).toHaveBeenCalledExactlyOnceWith("/users/climber-123");
+    expect(mockIsGoogleOAuthEnabled).not.toHaveBeenCalled();
   });
 
   it("redirects an authenticated user to the safe next path if specified", async () => {
     sessionState.session = { user: { id: "climber-123" } };
 
-    await SignUpPage({
-      searchParams: Promise.resolve({ next: "/climbs/new" }),
-    });
-
-    expect(mockRedirect).toHaveBeenCalledWith("/climbs/new");
+    await expect(
+      SignUpPage({ searchParams: Promise.resolve({ next: "/climbs/new" }) }),
+    ).rejects.toThrow("REDIRECT:/climbs/new");
+    expect(mockRedirect).toHaveBeenCalledExactlyOnceWith("/climbs/new");
+    expect(mockIsGoogleOAuthEnabled).not.toHaveBeenCalled();
   });
 
   it("renders the sign-up form for unauthenticated users", async () => {
@@ -158,8 +165,8 @@ describe("SignUpPage", () => {
       searchParams: Promise.resolve({}),
     });
 
+    expect(result.type).toBe(mockSignUpForm);
     expect(mockRedirect).not.toHaveBeenCalled();
-    expect(result).toBeDefined();
     const element = result as React.ReactElement<{ next?: string; googleEnabled: boolean }>;
     expect(element.props.googleEnabled).toBe(true);
     expect(element.props.next).toBeUndefined();
@@ -172,6 +179,7 @@ describe("SignUpPage", () => {
       searchParams: Promise.resolve({ next: "/climbs/new" }),
     });
 
+    expect(result.type).toBe(mockSignUpForm);
     expect(mockRedirect).not.toHaveBeenCalled();
     const element = result as React.ReactElement<{ next?: string; googleEnabled: boolean }>;
     expect(element.props.next).toBe("/climbs/new");
@@ -186,6 +194,7 @@ describe("SignUpPage", () => {
       searchParams: Promise.resolve({}),
     });
 
+    expect(result.type).toBe(mockSignUpForm);
     const element = result as React.ReactElement<{ googleEnabled: boolean }>;
     expect(element.props.googleEnabled).toBe(false);
   });

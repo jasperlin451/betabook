@@ -47,6 +47,17 @@ describe("sendWelcomeEmailOnce", () => {
     expect(await stampFor(account.id)).toBeInstanceOf(Date);
   });
 
+  it("claims a welcome once when verification callbacks race", async () => {
+    const account = await seedFixtureUser(db, { id: "welcome-concurrent", name: "Ada" });
+    await Promise.all([
+      sendWelcomeEmailOnce(db, account),
+      sendWelcomeEmailOnce(db, account),
+      sendWelcomeEmailOnce(db, account),
+    ]);
+    expect(sendWelcomeEmail).toHaveBeenCalledExactlyOnceWith(account.email, "Ada");
+    expect(await stampFor(account.id)).toBeInstanceOf(Date);
+  });
+
   it("sends nothing the second time — the change-email case", async () => {
     const account = await seedFixtureUser(db, { id: "welcome-twice" });
 

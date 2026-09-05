@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { and, eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   approveChangeRequest,
@@ -25,6 +25,7 @@ import {
 import { sendChangeRequestDecisionEmail } from "@/lib/email";
 import type { ChangeRequestType } from "@/lib/moderation";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
+import { resetDb } from "@/test/reset-db";
 
 /** requestAreaEdit/requestAreaDelete/requestClimbEdit/requestClimbDelete are
  * the only path to a full edit (name/discipline/grade) or a delete —
@@ -118,13 +119,20 @@ async function approvalsFor(requestId: number) {
     .where(eq(changeRequestApprovals.requestId, requestId));
 }
 
-beforeAll(async () => {
+beforeEach(async () => {
+  await resetDb(db);
   await seedFixtureTree(db);
   await seedFixtureUser(db, { id: "moderation-user" });
   // Admin bypass is area-scoped (see lib/moderation.ts's isAdminForArea) — a
   // grant on the fixture tree's root covers every area/climb under it. Only
   // takes effect in the tests below that also set sessionState.role = "admin".
   await db.insert(adminAreaScopes).values({ userId: "moderation-user", areaId: 1 });
+
+  // Coverage recomputes each approver's role and scopes from the DB (not
+  // the session), so reviewers need real role: "admin" rows.
+  await seedFixtureUser(db, { id: "reviewer-root", role: "admin" });
+  await seedFixtureUser(db, { id: "review-requester" });
+  await db.insert(adminAreaScopes).values({ userId: "reviewer-root", areaId: 1 });
 });
 
 beforeEach(() => {
@@ -162,7 +170,10 @@ describe("requestAreaEdit", () => {
   });
 
   it("rejects a duplicate pending request from the same requester", async () => {
-    // The first test in this block queued area_edit/3 for moderation-user.
+    expect(await requestAreaEdit(3, areaFormData("First Rename"))).toEqual({
+      ok: true,
+      value: { status: "pending" },
+    });
     expect(await requestAreaEdit(3, areaFormData("Renamed Differently"))).toEqual({
       ok: false,
       error: "You already have a pending request for this — an admin will review it",
@@ -283,7 +294,7 @@ describe("requestClimbEdit", () => {
 
 describe("requestClimbDelete", () => {
   it("rejects immediately, without queuing, when the climb has logged sends", async () => {
-    // Climb 1 already has a send logged from the requestClimbEdit block above.
+    await seedFixtureSend(db, { userId: "moderation-user", climbId: 1, dateSent: "2026-01-01" });
     expect(await requestClimbDelete(1)).toEqual({
       ok: false,
       error: "Can't delete a climb with logged sends",
@@ -562,14 +573,6 @@ describe("requestClimbMerge", () => {
 });
 
 describe("approveChangeRequest", () => {
-  beforeAll(async () => {
-    // Coverage recomputes each approver's role and scopes from the DB (not
-    // the session), so reviewers need real role: "admin" rows.
-    await seedFixtureUser(db, { id: "reviewer-root", role: "admin" });
-    await seedFixtureUser(db, { id: "review-requester" });
-    await db.insert(adminAreaScopes).values({ userId: "reviewer-root", areaId: 1 });
-  });
-
   it("applies a fully-covered request and marks it approved", async () => {
     sessionState.userId = "reviewer-root";
     sessionState.role = "admin";
@@ -740,7 +743,7 @@ describe("approveChangeRequest", () => {
     });
   });
 
-  it("blocks approving a request whose entity is gone, but lets any admin reject it", async () => {
+  it("blocks both approval and rejection when the affected entity is gone", async () => {
     await db
       .insert(climbs)
       .values({ id: 970, areaId: 3, name: "Soon Gone", type: "boulder", grade: 3 });
@@ -755,6 +758,7 @@ describe("approveChangeRequest", () => {
       .returning({ id: changeRequests.id });
     await db.delete(climbs).where(eq(climbs.id, 970));
 
+    await seedFixtureUser(db, { id: "elsewhere-admin", role: "admin" });
     // The entity vanished via a raw DB delete (not applyClimbDelete, which
     // would have auto-rejected this request) — nobody can review the
     // leftover either way.

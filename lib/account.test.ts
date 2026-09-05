@@ -1,15 +1,17 @@
 import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createDb } from "@/db/client";
 import { changeRequests, climbs, sends, user } from "@/db/schema";
 import { deleteAccountPendingChangeRequests, deleteAccountSends } from "@/lib/account";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
+import { resetDb } from "@/test/reset-db";
 
 const db = createDb(env.DB);
 
-beforeAll(async () => {
+beforeEach(async () => {
+  await resetDb(db);
   await seedFixtureTree(db);
   await seedFixtureUser(db, { id: "account-test-user-a" });
   await seedFixtureUser(db, { id: "account-test-user-b" });
@@ -61,7 +63,11 @@ describe("deleteAccountSends", () => {
   });
 
   it("is a no-op for a user with no sends", async () => {
-    await expect(deleteAccountSends(db, "account-test-user-a")).resolves.toBeUndefined();
+    await seedFixtureUser(db, { id: "empty-account" });
+    const before = await db.select().from(sends).orderBy(sends.id);
+    expect(before).toHaveLength(2);
+    await expect(deleteAccountSends(db, "empty-account")).resolves.toBeUndefined();
+    expect(await db.select().from(sends).orderBy(sends.id)).toEqual(before);
   });
 });
 
@@ -86,7 +92,22 @@ describe("deleteAccountPendingChangeRequests", () => {
       },
     ]);
 
+    await db.insert(changeRequests).values({
+      id: 703,
+      type: "area_edit",
+      entityId: 1,
+      payload: "{}",
+      requestedBy: "account-test-user-b",
+    });
+    const otherBefore = await db
+      .select()
+      .from(changeRequests)
+      .where(eq(changeRequests.id, 703))
+      .get();
     await deleteAccountPendingChangeRequests(db, "account-requests-user");
+    expect(await db.select().from(changeRequests).where(eq(changeRequests.id, 703)).get()).toEqual(
+      otherBefore,
+    );
 
     expect(
       await db.select().from(changeRequests).where(eq(changeRequests.id, 701)).get(),

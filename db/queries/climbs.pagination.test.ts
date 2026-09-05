@@ -43,6 +43,9 @@ describe("getSubtreeClimbs pagination", () => {
     const area = await getArea(db, 1);
     const page2 = await getSubtreeClimbs(db, area!, 2, "ascents_desc", undefined, 10);
     const slice = await getSubtreeClimbs(db, area!, 1, "ascents_desc", undefined, 10, 10);
+    expect(slice.climbs.map((climb) => climb.id)).toEqual(
+      [18, 19, 2, 20, 21, 22, 23, 24, 25, 26].map((i) => 1000 + i),
+    );
     expect(slice.climbs).toEqual(page2.climbs);
     expect(slice.hasNextPage).toBe(page2.hasNextPage);
   });

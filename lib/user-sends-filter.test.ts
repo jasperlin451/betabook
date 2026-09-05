@@ -44,6 +44,9 @@ describe("user sends filter serialization", () => {
       minRating: 3,
     };
     const params = userSendsFilterToSearchParams(filter);
+    expect(params.toString()).toBe(
+      "discipline=boulder&discipline=trad&boulderRange=1&boulderRange=6&tradRange=4&tradRange=18&name=Astroman&areaName=Washington+Column&sort=grade_asc&ascentStyle=flash&ascentStyle=onsight&minRating=3",
+    );
     const record = searchParamsToRecord(params);
 
     expect(parseUserSendsFilter(record)).toEqual(filter);

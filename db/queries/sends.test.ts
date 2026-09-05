@@ -1,11 +1,13 @@
 import { env } from "cloudflare:test";
 import { sql } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createDb, type Database } from "@/db/client";
 import { climbs, sends } from "@/db/schema";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyClimbs } from "@/test/fixtures";
+import { explainQueries } from "@/test/query-plans";
+import { resetDb } from "@/test/reset-db";
 
 import {
   getClimbSendStats,
@@ -31,8 +33,9 @@ const ALL_SENDS_FILTER: UserSendsFilter = {
 
 let db: Database;
 
-beforeAll(async () => {
+beforeEach(async () => {
   db = createDb(env.DB);
+  await resetDb(db);
   await seedFixtureTree(db);
 
   await seedFixtureUser(db, { id: "test-user-1", name: "Alice Climber" });
@@ -59,6 +62,67 @@ beforeAll(async () => {
     ascentStyle: "onsight",
   });
 });
+
+async function seedMultiDiscipline() {
+  await seedFixtureUser(db, { id: "test-user-5", name: "Multi Discipline" });
+  await seedFixtureSend(db, {
+    userId: "test-user-5",
+    climbId: 1, // Test Highball, boulder
+    dateSent: "2026-01-01",
+  });
+  await seedFixtureSend(db, {
+    userId: "test-user-5",
+    climbId: 3, // Test Crimper, sport
+    dateSent: "2026-02-01",
+  });
+}
+async function seedNameSends() {
+  await seedFixtureUser(db, { id: "test-user-10", name: "Name Filter Tester" });
+  // Test Highball lives in Test Highball Alcove, under Test Boulders,
+  // under Test Crag; Test Crimper lives directly in Test Sport Wall,
+  // also under Test Crag — a sibling subtree of Test Boulders.
+  await seedFixtureSend(db, {
+    userId: "test-user-10",
+    climbId: 1, // Test Highball
+    dateSent: "2026-05-01",
+  });
+  await seedFixtureSend(db, {
+    userId: "test-user-10",
+    climbId: 3, // Test Crimper
+    dateSent: "2026-05-02",
+  });
+}
+async function seedSortSends() {
+  await seedFixtureUser(db, { id: "test-user-11", name: "Sort Tester" });
+  // climbs.grade (ordinal index): Test Slab=2, Test Highball=5,
+  // Test Crack=6, Test Crimper=10 — deliberately mixed disciplines,
+  // since grade sort is documented as a raw-index sort, not a
+  // cross-discipline difficulty comparison.
+  await seedFixtureSend(db, {
+    userId: "test-user-11",
+    climbId: 2, // Test Slab, grade 2
+    dateSent: "2026-06-01",
+    rating: 3,
+  });
+  await seedFixtureSend(db, {
+    userId: "test-user-11",
+    climbId: 3, // Test Crimper, grade 10
+    dateSent: "2026-06-02",
+    rating: null,
+  });
+  await seedFixtureSend(db, {
+    userId: "test-user-11",
+    climbId: 1, // Test Highball, grade 5
+    dateSent: "2026-06-03",
+    rating: 5,
+  });
+  await seedFixtureSend(db, {
+    userId: "test-user-11",
+    climbId: 4, // Test Crack, grade 6
+    dateSent: null,
+    rating: 1,
+  });
+}
 
 describe("getUserSendForClimb", () => {
   it("returns the user's send for a climb they've sent", async () => {
@@ -131,17 +195,7 @@ describe("getSendsForUserPage", () => {
   });
 
   it("excludes disciplines not selected", async () => {
-    await seedFixtureUser(db, { id: "test-user-5", name: "Multi Discipline" });
-    await seedFixtureSend(db, {
-      userId: "test-user-5",
-      climbId: 1, // Test Highball, boulder
-      dateSent: "2026-01-01",
-    });
-    await seedFixtureSend(db, {
-      userId: "test-user-5",
-      climbId: 3, // Test Crimper, sport
-      dateSent: "2026-02-01",
-    });
+    await seedMultiDiscipline();
 
     const boulderOnly = await getSendsForUserPage(
       db,
@@ -167,6 +221,7 @@ describe("getSendsForUserPage", () => {
   });
 
   it("returns every discipline when none are selected (unfiltered, not empty)", async () => {
+    await seedMultiDiscipline();
     const results = await getSendsForUserPage(
       db,
       "test-user-5",
@@ -194,10 +249,10 @@ describe("getSendsForUserPage", () => {
   });
 
   describe("grade-unknown sends", () => {
-    beforeAll(async () => {
+    beforeEach(async () => {
       // Two new climbs in Test Highball Alcove (area 4) rather than sends on
       // the shared fixture climbs — later describe blocks assert exact
-      // cumulative send counts for climbs 1-4 "by this point" in the file's
+      // cumulative send counts for climbs 1-4 "in this fixture" in the file's
       // fixture history. Grade V4 = ordinal 5 (BOULDER_HUECO).
       await db.insert(climbs).values([
         { id: 850, areaId: 4, name: "Test Mystery Problem", type: "boulder", grade: null },
@@ -269,22 +324,7 @@ describe("getSendsForUserPage", () => {
   });
 
   describe("name/areaName filtering", () => {
-    beforeAll(async () => {
-      await seedFixtureUser(db, { id: "test-user-10", name: "Name Filter Tester" });
-      // Test Highball lives in Test Highball Alcove, under Test Boulders,
-      // under Test Crag; Test Crimper lives directly in Test Sport Wall,
-      // also under Test Crag — a sibling subtree of Test Boulders.
-      await seedFixtureSend(db, {
-        userId: "test-user-10",
-        climbId: 1, // Test Highball
-        dateSent: "2026-05-01",
-      });
-      await seedFixtureSend(db, {
-        userId: "test-user-10",
-        climbId: 3, // Test Crimper
-        dateSent: "2026-05-02",
-      });
-    });
+    beforeEach(seedNameSends);
 
     it("fuzzy-matches by partial climb name", async () => {
       const results = await getSendsForUserPage(
@@ -356,37 +396,7 @@ describe("getSendsForUserPage", () => {
   });
 
   describe("sort", () => {
-    beforeAll(async () => {
-      await seedFixtureUser(db, { id: "test-user-11", name: "Sort Tester" });
-      // climbs.grade (ordinal index): Test Slab=2, Test Highball=5,
-      // Test Crack=6, Test Crimper=10 — deliberately mixed disciplines,
-      // since grade sort is documented as a raw-index sort, not a
-      // cross-discipline difficulty comparison.
-      await seedFixtureSend(db, {
-        userId: "test-user-11",
-        climbId: 2, // Test Slab, grade 2
-        dateSent: "2026-06-01",
-        rating: 3,
-      });
-      await seedFixtureSend(db, {
-        userId: "test-user-11",
-        climbId: 3, // Test Crimper, grade 10
-        dateSent: "2026-06-02",
-        rating: null,
-      });
-      await seedFixtureSend(db, {
-        userId: "test-user-11",
-        climbId: 1, // Test Highball, grade 5
-        dateSent: "2026-06-03",
-        rating: 5,
-      });
-      await seedFixtureSend(db, {
-        userId: "test-user-11",
-        climbId: 4, // Test Crack, grade 6
-        dateSent: null,
-        rating: 1,
-      });
-    });
+    beforeEach(seedSortSends);
 
     it("defaults to newest send first", async () => {
       const results = await getSendsForUserPage(db, "test-user-11", ALL_SENDS_FILTER, 0);
@@ -529,15 +539,19 @@ describe("getUserSentClimbIds", () => {
 });
 
 describe("getClimbSendStats", () => {
+  beforeEach(async () => {
+    await seedMultiDiscipline();
+    await seedNameSends();
+    await seedSortSends();
+  });
   it("averages ratings (ignoring nulls) and counts every send for a climb", async () => {
-    // Test Highball (climb 1) has five sends by this point, from earlier
-    // describe blocks' fixture seeding: ratings of 4 and 5, the rest null.
+    // The per-test fixture has five sends: ratings 4 and 5, the rest null.
     const stats = await getClimbSendStats(db, [1]);
     expect(stats[1]).toEqual({ avgRating: 4.5, sendCount: 5, avgSuggestedGrade: null });
   });
 
   it("returns a null average when no send on the climb has a rating", async () => {
-    // Test Crimper (climb 3) has three sends by this point, all with no rating.
+    // Test Crimper (climb 3) has three sends in this fixture, all with no rating.
     const stats = await getClimbSendStats(db, [3]);
     expect(stats[3]).toEqual({ avgRating: null, sendCount: 3, avgSuggestedGrade: null });
   });
@@ -567,9 +581,7 @@ describe("getClimbSendStats", () => {
   it("averages non-null suggested grades independently of rating", async () => {
     await seedFixtureUser(db, { id: "test-user-7", name: "Grade Suggester" });
     await seedFixtureUser(db, { id: "test-user-8", name: "Grade Suggester Two" });
-    // Test Crimper (climb 3) already has three sends from earlier describe
-    // blocks ("excludes disciplines not selected", "name/areaName
-    // filtering", "sort"), with no suggested grade.
+    // Test Crimper (climb 3) already has three sends from the per-test fixture, with no suggested grade.
     await seedFixtureSend(db, {
       userId: "test-user-7",
       climbId: 3,
@@ -590,7 +602,7 @@ describe("getClimbSendStats", () => {
   it("returns a null suggested-grade average when sends are rated but not grade-suggested", async () => {
     await seedFixtureUser(db, { id: "test-user-9", name: "Rater Only" });
     // Test Slab (climb 2) already has a null-rating send and a rating-3
-    // send from earlier describe blocks; add a rating-5 send with no
+    // send from the per-test fixture; add a rating-5 send with no
     // suggested grade to confirm the two aggregates are computed
     // independently.
     await seedFixtureSend(db, {
@@ -607,7 +619,7 @@ describe("getClimbSendStats", () => {
   it("weighs a high gradeFeel by +0.3 when averaging suggested grades", async () => {
     await seedFixtureUser(db, { id: "test-user-14", name: "High End" });
     // Test Crack (climb 4) already has one send with no suggested grade
-    // from the "sort" describe block above, which doesn't count toward this
+    // from this describe's per-test fixture, which does not count toward this
     // average either way. A plain (unweighted) average of the one
     // suggested grade added here would be exactly 4; a "high" gradeFeel
     // should instead land on 4.3, proving the offset is actually applied
@@ -627,9 +639,7 @@ describe("getClimbSendStats", () => {
 
   it("weighs a low gradeFeel by -0.3 when averaging suggested grades", async () => {
     await seedFixtureUser(db, { id: "test-user-15", name: "Low End" });
-    // Continues from the previous test: climb 4 now has the no-suggestion
-    // send plus the "high" 4.3 one; this adds a "low" 4 -> 3.7, so the
-    // average of the two suggested grades becomes (4.3 + 3.7) / 2 = 4.
+    // The local fixture has one unrated send; the new low suggestion is 3.7.
     await seedFixtureSend(db, {
       userId: "test-user-15",
       climbId: 4,
@@ -639,19 +649,13 @@ describe("getClimbSendStats", () => {
     });
 
     const stats = await getClimbSendStats(db, [4]);
-    expect(stats[4].sendCount).toBe(3);
-    expect(stats[4].avgSuggestedGrade).toBeCloseTo(4, 5);
+    expect(stats[4].sendCount).toBe(2);
+    expect(stats[4].avgSuggestedGrade).toBeCloseTo(3.7, 5);
   });
 });
 
-// Placed near the end of the file, as its own top-level describe rather
-// than nested inside getSendsForUserPage's — every other describe block
-// above asserts exact cumulative send counts/averages for climbs 1-3 "by
-// this point" in the file's fixture history, so adding more sends to those
-// climbs anywhere earlier would shift those hardcoded numbers. Only the
-// tie-breaking describe below (same placement constraint) runs after this.
 describe("getSendsForUserPage ascentStyles/minRating filtering", () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     await seedFixtureUser(db, { id: "test-user-12", name: "Style Rating Tester" });
     await seedFixtureSend(db, {
       userId: "test-user-12",
@@ -734,7 +738,7 @@ describe("getSendsForUserPage ascentStyles/minRating filtering", () => {
 // describe above — this seeds more sends on climbs 1-3. Only the
 // climb-sends describes below (which seed their own climb) run after this.
 describe("getSendsForUserPage tie-breaking across pages", () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     await seedFixtureUser(db, { id: "test-user-17", name: "Tie Breaker" });
     // Three sends sharing the same dateSent (and no rating) — under the
     // default date_desc sort, only the sends.id tie-breaker orders them.
@@ -775,7 +779,7 @@ describe("getSendsForUserPage tie-breaking across pages", () => {
 describe("getSendsForClimb tie-breaking across pages", () => {
   const CLIMB_ID = 50;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     await db.insert(climbs).values({
       id: CLIMB_ID,
       areaId: 3, // Test Sport Wall
@@ -816,7 +820,7 @@ describe("getSendsForClimb tie-breaking across pages", () => {
 describe("getClimbSendSummary", () => {
   const CLIMB_ID = 51;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     await db.insert(climbs).values({
       id: CLIMB_ID,
       areaId: 3, // Test Sport Wall
@@ -882,12 +886,12 @@ describe("getSendsForUserExportPage", () => {
   // boundary, the query-plan one so the planner is choosing against a real,
   // ANALYZEd table rather than an empty one. Seeded here rather than by the
   // first `it` so neither test depends on the other having run.
-  beforeAll(async () => {
+  beforeEach(async () => {
     const startId = 600_000;
     await seedFixtureUser(db, { id: userId, name: "Large Export" });
-    await seedManyClimbs(db, 5, 205, startId);
+    await seedManyClimbs(db, 5, 405, startId);
 
-    const rows = Array.from({ length: 205 }, (_, index) => ({
+    const rows = Array.from({ length: 405 }, (_, index) => ({
       userId,
       climbId: startId + index,
       ascentStyle: "redpoint" as const,
@@ -910,38 +914,36 @@ describe("getSendsForUserExportPage", () => {
 
     const exported: Awaited<ReturnType<typeof getSendsForUserExportPage>>["sends"] = [];
     let cursor: UserSendsExportCursor | null = null;
+    let pages = 0;
     do {
+      pages += 1;
+      expect(pages).toBeLessThanOrEqual(3);
       const page = await getSendsForUserExportPage(db, userId, cursor);
       exported.push(...page.sends);
       cursor = page.nextCursor;
     } while (cursor);
 
-    expect(exported).toHaveLength(205);
-    expect(new Set(exported.map((send) => send.id)).size).toBe(205);
-    expect(exported.slice(-5).every((send) => send.dateSent === null)).toBe(true);
+    expect(exported).toHaveLength(405);
+    expect(new Set(exported.map((send) => send.id)).size).toBe(405);
+    expect(pages).toBe(3);
+    expect(exported.map((send) => send.climbId)).toEqual([
+      ...Array.from({ length: 200 }, (_, i) => 600199 - i),
+      ...Array.from({ length: 205 }, (_, i) => 600404 - i),
+    ]);
+    expect(exported.slice(200).map((send) => send.dateSent)).toEqual(Array(205).fill(null));
   });
 
   it("constrains both export cursor phases beyond user_id in the composite index", async () => {
-    const datedPlan = await db.all<{ detail: string }>(sql`
-      EXPLAIN QUERY PLAN
-      SELECT sends.id
-      FROM sends INDEXED BY sends_user_date_idx
-      WHERE sends.user_id = ${userId}
-        AND sends.date_sent IS NOT NULL
-        AND (sends.date_sent, sends.id) < (${"2026-04-01"}, ${999999})
-      ORDER BY sends.date_sent DESC, sends.id DESC
-      LIMIT 201
-    `);
-    const undatedPlan = await db.all<{ detail: string }>(sql`
-      EXPLAIN QUERY PLAN
-      SELECT sends.id
-      FROM sends INDEXED BY sends_user_date_idx
-      WHERE sends.user_id = ${userId}
-        AND sends.date_sent IS NULL
-        AND sends.id < ${999999}
-      ORDER BY sends.date_sent DESC, sends.id DESC
-      LIMIT 201
-    `);
+    const datedPlans = await explainQueries(db, () =>
+      getSendsForUserExportPage(db, userId, { dateSent: "2026-04-01", id: 999999 }),
+    );
+    expect(datedPlans).toHaveLength(2);
+    const [datedPlan] = datedPlans;
+    const undatedPlans = await explainQueries(db, () =>
+      getSendsForUserExportPage(db, userId, { dateSent: null, id: 999999 }),
+    );
+    expect(undatedPlans).toHaveLength(1);
+    const [undatedPlan] = undatedPlans;
 
     const datedDetail = datedPlan.map((row) => row.detail).join("\n");
     const undatedDetail = undatedPlan.map((row) => row.detail).join("\n");
@@ -966,14 +968,11 @@ describe("getSendsForUserExportPage", () => {
   });
 });
 
-// A dedicated climb (seedManyClimbs, id 1000+) and fresh users, isolated from
-// every describe block above — those assert exact cumulative counts/averages
-// "by this point" in the file's shared fixture history, so a private-user
-// send landing on climbs 1-4 would silently change those numbers.
+// A dedicated climb isolates this privacy scenario from the base sends.
 describe("getSendsForClimb private-user filtering", () => {
   const PRIVATE_CLIMB_ID = 1000;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     await seedManyClimbs(db, 3, 1, PRIVATE_CLIMB_ID);
     await seedFixtureUser(db, { id: "private-user", name: "Private Climber", isPrivate: true });
     await seedFixtureUser(db, { id: "public-user", name: "Public Climber" });

@@ -46,6 +46,9 @@ describe("area climbs filter serialization", () => {
       minAscents: 10,
     };
     const params = areaClimbsFilterToSearchParams("name_asc", filter);
+    expect(params.toString()).toBe(
+      "sort=name_asc&name=Nose&discipline=trad&tradRange=5&tradRange=25&ratingRange=3&ratingRange=5&minAscents=10",
+    );
     const record = searchParamsToRecord(params);
 
     expect(parseAreaClimbsSort(record)).toBe("name_asc");

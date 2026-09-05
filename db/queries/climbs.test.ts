@@ -1,6 +1,5 @@
 import { env } from "cloudflare:test";
-import { sql } from "drizzle-orm";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { createDb, type Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
@@ -11,6 +10,8 @@ import {
   seedManyAreas,
   seedManyClimbs,
 } from "@/test/fixtures";
+import { explainQueries } from "@/test/query-plans";
+import { resetDb } from "@/test/reset-db";
 
 import { getArea } from "./areas";
 import {
@@ -35,10 +36,61 @@ import {
 
 let db: Database;
 
-beforeAll(async () => {
+beforeEach(async () => {
   db = createDb(env.DB);
+  await resetDb(db);
   await seedFixtureTree(db);
+  await seedSortSends();
 });
+
+async function seedSortSends() {
+  // A user can only send a given climb once (sends.user_id/climb_id is
+  // unique), so each send below needs its own distinct user.
+  for (let i = 1; i <= 6; i += 1) {
+    await seedFixtureUser(db, {
+      id: `test-user-climbs-sort-${i}`,
+      name: `Climbs Sort Tester ${i}`,
+    });
+  }
+
+  // Test Slab (climb 2): 2 sends, ratings 5 and 3 -> avg 4.
+  await seedFixtureSend(db, {
+    userId: "test-user-climbs-sort-1",
+    climbId: 2,
+    dateSent: "2026-01-01",
+    rating: 5,
+  });
+  await seedFixtureSend(db, {
+    userId: "test-user-climbs-sort-2",
+    climbId: 2,
+    dateSent: "2026-01-02",
+    rating: 3,
+  });
+  // Test Highball (climb 1): 1 send, no rating.
+  await seedFixtureSend(db, {
+    userId: "test-user-climbs-sort-3",
+    climbId: 1,
+    dateSent: "2026-01-03",
+  });
+  // Test Crimper (climb 3): 3 sends, only one rated (1).
+  await seedFixtureSend(db, {
+    userId: "test-user-climbs-sort-4",
+    climbId: 3,
+    dateSent: "2026-01-04",
+  });
+  await seedFixtureSend(db, {
+    userId: "test-user-climbs-sort-5",
+    climbId: 3,
+    dateSent: "2026-01-05",
+  });
+  await seedFixtureSend(db, {
+    userId: "test-user-climbs-sort-6",
+    climbId: 3,
+    dateSent: "2026-01-06",
+    rating: 1,
+  });
+  // Test Crack (climb 4): no sends at all.
+}
 
 describe("getClimb", () => {
   it("returns the climb for a known id", async () => {
@@ -91,55 +143,6 @@ describe("getSubtreeClimbs", () => {
   });
 
   describe("sort", () => {
-    beforeAll(async () => {
-      // A user can only send a given climb once (sends.user_id/climb_id is
-      // unique), so each send below needs its own distinct user.
-      for (let i = 1; i <= 6; i += 1) {
-        await seedFixtureUser(db, {
-          id: `test-user-climbs-sort-${i}`,
-          name: `Climbs Sort Tester ${i}`,
-        });
-      }
-
-      // Test Slab (climb 2): 2 sends, ratings 5 and 3 -> avg 4.
-      await seedFixtureSend(db, {
-        userId: "test-user-climbs-sort-1",
-        climbId: 2,
-        dateSent: "2026-01-01",
-        rating: 5,
-      });
-      await seedFixtureSend(db, {
-        userId: "test-user-climbs-sort-2",
-        climbId: 2,
-        dateSent: "2026-01-02",
-        rating: 3,
-      });
-      // Test Highball (climb 1): 1 send, no rating.
-      await seedFixtureSend(db, {
-        userId: "test-user-climbs-sort-3",
-        climbId: 1,
-        dateSent: "2026-01-03",
-      });
-      // Test Crimper (climb 3): 3 sends, only one rated (1).
-      await seedFixtureSend(db, {
-        userId: "test-user-climbs-sort-4",
-        climbId: 3,
-        dateSent: "2026-01-04",
-      });
-      await seedFixtureSend(db, {
-        userId: "test-user-climbs-sort-5",
-        climbId: 3,
-        dateSent: "2026-01-05",
-      });
-      await seedFixtureSend(db, {
-        userId: "test-user-climbs-sort-6",
-        climbId: 3,
-        dateSent: "2026-01-06",
-        rating: 1,
-      });
-      // Test Crack (climb 4): no sends at all.
-    });
-
     it("sorts alphabetically by name ascending", async () => {
       const root = await getArea(db, 1);
       const { climbs } = await getSubtreeClimbs(db, root!, 1, "name_asc");
@@ -229,19 +232,11 @@ describe("getSubtreeClimbs", () => {
     });
 
     it("gathers by area_id, not the sort-column index, for a small area", async () => {
-      const plan = await db.all<{ detail: string }>(sql`
-        EXPLAIN QUERY PLAN
-        WITH RECURSIVE subtree(id) AS (
-          SELECT 1
-          UNION ALL
-          SELECT a.id FROM areas a JOIN subtree s ON a.parent_id = s.id
-        )
-        SELECT climbs.id FROM climbs INDEXED BY climbs_area_idx
-        JOIN areas ON areas.id = climbs.area_id
-        WHERE climbs.area_id IN (SELECT id FROM subtree)
-        ORDER BY climbs.send_count DESC, climbs.id
-        LIMIT 51 OFFSET 0
-      `);
+      const plans = await explainQueries(db, async () =>
+        getSubtreeClimbs(db, { ...(await getArea(db, 1))!, largeSubtree: false }),
+      );
+      expect(plans).toHaveLength(1);
+      const [plan] = plans;
       const details = plan.map((row) => row.detail);
       // Small subtree: gather the candidates and sort them, rather than
       // scanning a global sort index hunting for the few that match.
@@ -421,18 +416,9 @@ describe("getSubtreeGradeHistogram", () => {
 
   it("reaches its climbs through the area index, not a table scan", async () => {
     const root = await getArea(db, 1);
-    const plan = await db.all<{ detail: string }>(sql`
-      EXPLAIN QUERY PLAN
-      WITH RECURSIVE subtree(id) AS (
-        SELECT ${root!.id}
-        UNION ALL
-        SELECT a.id FROM areas a JOIN subtree s ON a.parent_id = s.id
-      )
-      SELECT climbs.type, climbs.grade, COUNT(*)
-      FROM climbs
-      WHERE climbs.area_id IN (SELECT id FROM subtree)
-      GROUP BY climbs.type, climbs.grade
-    `);
+    const plans = await explainQueries(db, async () => getSubtreeGradeHistogram(db, root!));
+    expect(plans).toHaveLength(1);
+    const [plan] = plans;
     expect(plan.some((row) => row.detail.includes("climbs_area_idx"))).toBe(true);
     expect(plan.every((row) => !row.detail.startsWith("SCAN climbs"))).toBe(true);
   });
@@ -514,8 +500,7 @@ describe("searchClimbs", () => {
     expect(climbs[0].areaId).toBe(4); // Test Highball Alcove
   });
 
-  // Reuses the ratings/ascent counts seeded in getSubtreeClimbs's "sort"
-  // describe above: Slab (2 sends, avg 4), Highball (1 send, unrated),
+  // The common per-test fixture supplies: Slab (2 sends, avg 4), Highball (1 send, unrated),
   // Crimper (3 sends, avg 1), Crack (0 sends, unrated).
   it("filters by minimum ascent count", async () => {
     const { climbs } = await searchClimbs(db, { disciplines: [], minAscents: 2 });
@@ -602,21 +587,19 @@ describe("searchClimbs", () => {
   });
 });
 
-// Placed after the searchClimbs describe: this seeds its own area with 55
-// more climbs, which would otherwise bleed into the exact result sets above.
+// Each pagination case seeds its own area and 55 climbs.
 describe("searchClimbs pagination", () => {
   const AREA_ID = 200_000;
   // Scopes every query here to just this describe's fixtures — a name unique
   // in this file, matched via areaNameCondition.
   const SCOPE = { areaName: "Paged Search Area", disciplines: [] as [] };
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     await db.insert(areas).values({
       id: AREA_ID,
       parentId: null,
       name: "Paged Search Area",
     });
-    await db.run(sql`INSERT INTO areas_fts(rowid, name) VALUES (${AREA_ID}, 'Paged Search Area')`);
     await seedManyClimbs(db, AREA_ID, 55, AREA_ID);
   });
 
@@ -635,6 +618,9 @@ describe("searchClimbs pagination", () => {
   it("supports offset pagination independently of page numbers", async () => {
     const page2 = await searchClimbs(db, SCOPE, 2, 10);
     const slice = await searchClimbs(db, SCOPE, 1, 10, 10);
+    expect(slice.climbs.map((climb) => climb.id)).toEqual(
+      [18, 19, 2, 20, 21, 22, 23, 24, 25, 26].map((i) => AREA_ID + i),
+    );
     expect(slice).toEqual(page2);
   });
 
@@ -675,12 +661,20 @@ describe("searchClimbs pagination", () => {
   });
 });
 
+async function seedTwins() {
+  // Twins in different areas; only the higher-id one has been climbed.
+  await db.insert(climbs).values([
+    { id: 997, areaId: 5, name: "Test Twin", type: "boulder", grade: 3 },
+    { id: 998, areaId: 3, name: "Test Twin", type: "sport", grade: 3 },
+  ]);
+  await seedFixtureUser(db, { id: "candidate-user" });
+  await seedFixtureSend(db, { userId: "candidate-user", climbId: 998, dateSent: null });
+}
+
 describe("findClimbCandidatesByNames", () => {
   it("returns each climb matching a name, keyed by its folded name, with its area and ancestors", async () => {
     const results = await findClimbCandidatesByNames(db, ["Test Crimper"]);
     expect(results).toHaveLength(1);
-    // sendCount comes from the shared fixture climb, which other suites in
-    // this file log sends against — a number, not a particular one.
     expect(results[0]).toEqual({
       id: 3,
       key: "test crimper",
@@ -689,7 +683,7 @@ describe("findClimbCandidatesByNames", () => {
       grade: 10,
       areaId: 3,
       areaName: "Test Sport Wall",
-      sendCount: expect.any(Number),
+      sendCount: 3,
       total: 1,
       ancestors: [{ id: 1, name: "Test Crag" }],
     });
@@ -739,13 +733,7 @@ describe("findClimbCandidatesByNames", () => {
   });
 
   it("returns every same-named climb under one key, most-ascended first", async () => {
-    // Twins in different areas; only the higher-id one has been climbed.
-    await db.insert(climbs).values([
-      { id: 997, areaId: 5, name: "Test Twin", type: "boulder", grade: 3 },
-      { id: 998, areaId: 3, name: "Test Twin", type: "sport", grade: 3 },
-    ]);
-    await seedFixtureUser(db, { id: "candidate-user" });
-    await seedFixtureSend(db, { userId: "candidate-user", climbId: 998, dateSent: null });
+    await seedTwins();
 
     const results = await findClimbCandidatesByNames(db, ["Test Twin"]);
     expect(results.map((c) => c.id)).toEqual([998, 997]);
@@ -800,7 +788,7 @@ describe("findClimbCandidatesInAreas", () => {
   });
 
   it("returns only the paired area's twin while counting every climb of the name", async () => {
-    // Test Twin: 997 in Test Slab Area, 998 in Test Sport Wall (seeded above).
+    await seedTwins();
     const results = await findClimbCandidatesInAreas(db, [
       { name: "Test Twin", areaName: "Test Slab Area" },
       { name: "No Such Climb", areaName: "Test Crag" },

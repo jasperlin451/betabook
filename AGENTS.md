@@ -102,6 +102,16 @@ Read [docs/product-tours.md](docs/product-tours.md) before changing a tutorial.
 
 Site identity constants (canonical origin, name, OG image) live in `@/lib/site`. `lib/seo.ts` is pure and unit-tested (`lib/seo.test.ts`) — extend the tests when you add builders.
 
+## Test Quality & Red–Green Workflow
+
+- Testing must follow a red–green cycle. Before implementing a behavior change or bug fix, write or update a focused test and run it to observe a failure caused by the missing or incorrect behavior. Then implement the change and rerun the test to confirm it passes. A syntax, import, setup, or unrelated failure does not count as red.
+- When adding or strengthening tests for existing behavior, prove the test can fail by temporarily introducing a targeted regression in the production code, observing the expected failure, and restoring the code before confirming green. Never leave the deliberate regression in the final diff.
+- Tests must not be vacuous: exercise the real behavior under test and assert a specific observable result, state change, or required side effect. A test must fail when the behavior it claims to protect is broken. Do not merely assert fixture values, repeat the implementation to compute expected results, mock away the subject under test, or use source-text checks as a substitute for runtime behavior.
+- Use fixtures that distinguish correct behavior from plausible bugs. Assertions over collections must establish that the expected records are present; an empty collection passing `every()`, a loop, or a negative-only assertion is insufficient. Check meaningful values and identities, not only existence, truthiness, or counts when incorrect results could satisfy those checks.
+- Cover relevant failure paths and boundaries, including authorization, privacy, and persistence where applicable. Await asynchronous work and verify rejected mutations leave state unchanged. Keep mocks at external boundaries so the behavior being tested still executes.
+- Each test must establish its own preconditions and pass independently and in any execution order. Do not depend on another test's writes or cleanup; put a multi-step scenario in one test or use resettable fixtures.
+- Record the focused red and green commands and their outcomes in the work summary or PR. Do not claim a red–green cycle if only a passing run was observed.
+
 ## Validation Commands
 
 Before committing, run the full validation suite:

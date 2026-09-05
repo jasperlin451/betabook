@@ -32,7 +32,15 @@ describe("revalidateSendSurfaces", () => {
       areaIds: [34, 34],
     });
 
-    expect(revalidatePath).toHaveBeenCalledTimes(7);
+    expect(revalidatePath.mock.calls.map(([path]) => path)).toEqual([
+      "/",
+      "/users/user-1",
+      "/users/user-1/sends",
+      "/users/user-1/projects",
+      "/users/user-1/analytics",
+      "/climbs/12",
+      "/areas/34",
+    ]);
   });
 });
 
