@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@heroui/react";
+import { KeyRound } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
@@ -40,7 +41,14 @@ export function ResetPasswordButton({ email }: { email: string }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <Button onPress={handleClick} isDisabled={pending || cooldown}>
+      <Button
+        variant="outline"
+        fullWidth
+        className="gap-2"
+        onPress={handleClick}
+        isDisabled={pending || cooldown}
+      >
+        <KeyRound className="size-4" />
         {cooldown ? "Reset email sent" : sent ? "Send again" : "Reset password"}
       </Button>
       {error && <p className="text-sm text-danger">{error}</p>}

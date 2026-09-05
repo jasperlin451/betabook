@@ -1,4 +1,4 @@
-import { and, eq, exists, notExists, sql } from "drizzle-orm";
+import { and, eq, exists, isNotNull, isNull, notExists, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { refresh, revalidatePath } from "next/cache";
 
@@ -21,6 +21,7 @@ import {
   changeRequestApprovals,
   changeRequests,
   climbs,
+  journalEntries,
   sends,
   CHANGE_REQUEST_TYPES,
 } from "@/db/schema";
@@ -320,7 +321,26 @@ export async function assertClimbDeletable(db: Database, climbId: number): Promi
   const existing = await getClimb(db, climbId);
   if (!existing) throw new ActionError("Climb not found");
   if (existing.sendCount > 0) throw new ActionError("Can't delete a climb with logged sends");
+  if (await hasJournalEntriesForClimb(db, climbId)) {
+    throw new ActionError("Can't delete a climb with journal entries");
+  }
   return existing;
+}
+
+/** Journal entries reference climbs with an ON DELETE *restrict* FK
+ * (drizzle/schema/journal.ts) — deleting a journaled climb would abort with
+ * a raw driver error, so both the advisory assert and applyClimbDelete's
+ * authoritative condition check it explicitly for a friendly message. Even a
+ * sends-free climb can be journaled: a session note (`sent = 0`) needs no
+ * send. */
+async function hasJournalEntriesForClimb(db: Database, climbId: number): Promise<boolean> {
+  const row = await db
+    .select({ id: journalEntries.id })
+    .from(journalEntries)
+    .where(eq(journalEntries.climbId, climbId))
+    .limit(1)
+    .get();
+  return row != null;
 }
 
 export async function applyClimbDelete(db: Database, climbId: number): Promise<void> {
@@ -330,6 +350,12 @@ export async function applyClimbDelete(db: Database, climbId: number): Promise<v
       and(
         eq(climbs.id, climbId),
         notExists(db.select({ id: sends.id }).from(sends).where(eq(sends.climbId, climbs.id))),
+        notExists(
+          db
+            .select({ id: journalEntries.id })
+            .from(journalEntries)
+            .where(eq(journalEntries.climbId, climbs.id)),
+        ),
       ),
     )
     .returning({ areaId: climbs.areaId })
@@ -337,16 +363,20 @@ export async function applyClimbDelete(db: Database, climbId: number): Promise<v
 
   if (!deleted) {
     if (!(await getClimb(db, climbId))) throw new ActionError("Climb not found");
-    throw new ActionError("Can't delete a climb with logged sends");
+    const sent = await db
+      .select({ id: sends.id })
+      .from(sends)
+      .where(eq(sends.climbId, climbId))
+      .limit(1)
+      .get();
+    if (sent) throw new ActionError("Can't delete a climb with logged sends");
+    throw new ActionError("Can't delete a climb with journal entries");
   }
 
   revalidatePath(`/areas/${deleted.areaId}`);
   revalidatePath("/");
   refresh();
 }
-
-/** Placed between two merged sends' comments — see applyClimbMerge. */
-export const MERGE_COMMENT_SEPARATOR = "\n---------\n";
 
 /** Throws without mutating anything — used both to give a non-admin
  * immediate feedback before queuing a request that could never succeed, and
@@ -380,19 +410,30 @@ export async function assertClimbMergeable(
  * can't leave sends reassigned without the source climb actually gone, or
  * vice versa.
  *
- * Three steps, in an order that never trips the unique (userId, climbId)
- * index on `sends` for a user who logged both climbs:
- *  1. For each colliding pair, fold the source's comment into the surviving
- *     target send (joined with MERGE_COMMENT_SEPARATOR) rather than silently
- *     dropping it — its other fields (rating/dateSent/ascentStyle/
- *     suggestedGrade/gradeFeel) don't survive; the target's own values win.
- *  2. Delete the now-redundant colliding sends on the source.
- *  3. Reassign everything still on the source (by construction, no longer
- *     colliding) to the target.
+ * Sends and journal entries move together, in an order that satisfies both
+ * the unique (userId, climbId) index on `sends` and the journal/send sync
+ * triggers (0029_explicit_journal_ascents.sql):
+ *  1. A colliding source send (its user also logged the target) that is
+ *     undated but commented gets its comment preserved as a non-sent session
+ *     entry on the target — the send row is about to go, and an undated send
+ *     has no ascent entry carrying its text. Dated sends need nothing here:
+ *     their journal entries carry the comment and survive the merge.
+ *  2. Delete the colliding sends on the source. The target's own send wins
+ *     wholesale — its comment can't absorb the source's, because
+ *     send_journal_update_guard pins a send's comment to its ascent entry's
+ *     body. send_journal_delete_sync then demotes the deleted sends' source-
+ *     side entries (sent = 0, is_ascent = 0), which is also what clears the
+ *     journal_ascent_unique index ahead of step 4.
+ *  3. Reassign the remaining (non-colliding) sends. Must happen before step
+ *     4: journal_sent_update_guard only lets a sent entry move to a climb
+ *     where its user's matching send already lives.
+ *  4. Reassign every source journal entry — session notes from users who
+ *     never sent included; the FK on journal_entries.climbId is ON DELETE
+ *     restrict, so nothing may still point at the source when it's deleted.
  * No manual aggregate math is needed: 0014_sends_aggregate_triggers.sql's
  * `AFTER UPDATE` trigger already moves climbs.sendCount/ratingSum/ratingCount
  * when a send's climb_id changes, and its `AFTER DELETE` trigger covers step
- * 2's drops — both fire inside this same batch. */
+ * 2's drops — all of it fires inside this same batch. */
 export async function applyClimbMerge(
   db: Database,
   sourceClimbId: number,
@@ -407,48 +448,89 @@ export async function applyClimbMerge(
   // return) — a `db.run(sql\`...\`)` type-checks as a batch item but fails at
   // runtime, since D1's driver expects each item's own prepared-statement
   // shape.
-  const src = alias(sends, "src");
   const collidingTarget = alias(sends, "t");
 
-  const statements = [
-    // 1. Fold the source's comment into the surviving target send, for
-    // every user who logged both climbs.
+  const collidesWithTarget = exists(
     db
-      .update(sends)
-      .set({
-        comment: sql`CASE
-          WHEN ${sends.comment} IS NULL THEN ${src.comment}
-          WHEN ${src.comment} IS NULL THEN ${sends.comment}
-          ELSE ${sends.comment} || ${MERGE_COMMENT_SEPARATOR} || ${src.comment}
-        END`,
-      })
-      .from(src)
+      .select({ one: sql`1` })
+      .from(collidingTarget)
       .where(
-        and(
-          eq(sends.climbId, targetClimbId),
-          eq(src.climbId, sourceClimbId),
-          eq(src.userId, sends.userId),
-        ),
+        and(eq(collidingTarget.climbId, targetClimbId), eq(collidingTarget.userId, sends.userId)),
       ),
-    // 2. The source's half of each pair folded above is now redundant.
-    db.delete(sends).where(
-      and(
-        eq(sends.climbId, sourceClimbId),
-        exists(
-          db
-            .select({ one: sql`1` })
-            .from(collidingTarget)
-            .where(
-              and(
-                eq(collidingTarget.climbId, targetClimbId),
-                eq(collidingTarget.userId, sends.userId),
-              ),
-            ),
+  );
+
+  const statements = [
+    // 1. Preserve the comment of a colliding, undated source send as a
+    // non-sent session note on the target, dated to the merge itself (the
+    // send never had a date to inherit).
+    // drizzle's insert().select() insists on the full column list in table
+    // definition order — NULL id lets autoincrement assign, and the
+    // timestamp expressions mirror the schema defaults.
+    db.insert(journalEntries).select(
+      db
+        .select({
+          id: sql<number>`null`.as("id"),
+          userId: sends.userId,
+          climbId: sql<number>`${targetClimbId}`.as("climb_id"),
+          kind: sql<string>`'session'`.as("kind"),
+          sent: sql<boolean>`0`.as("sent"),
+          isAscent: sql<boolean>`0`.as("is_ascent"),
+          entryDate: sql<string>`date('now')`.as("entry_date"),
+          body: sends.comment,
+          tags: sql<string | null>`null`.as("tags"),
+          createdAt: sql<number>`(cast(unixepoch('subsecond') * 1000 as integer))`.as("created_at"),
+          updatedAt: sql<number>`(cast(unixepoch('subsecond') * 1000 as integer))`.as("updated_at"),
+        })
+        .from(sends)
+        .where(
+          and(
+            eq(sends.climbId, sourceClimbId),
+            isNull(sends.dateSent),
+            isNotNull(sends.comment),
+            collidesWithTarget,
+          ),
         ),
-      ),
     ),
+    // 2. The colliding sends themselves — the delete trigger demotes their
+    // source-side journal entries in the same breath.
+    db.delete(sends).where(and(eq(sends.climbId, sourceClimbId), collidesWithTarget)),
     // 3. Everything still on the source is, by construction, non-colliding.
     db.update(sends).set({ climbId: targetClimbId }).where(eq(sends.climbId, sourceClimbId)),
+    // 4a. Ascent entries can't be UPDATEd across climbs at all —
+    // journal_sent_update_guard's ascent branch requires OLD.climb_id =
+    // NEW.climb_id, and re-promoting a demoted entry is equally blocked — so
+    // the remaining (non-colliding; step 2 demoted the rest) ascents move by
+    // copy-and-delete. The INSERT satisfies journal_sent_insert_guard
+    // because step 3 already put the user's send, with the matching
+    // date/comment, on the target.
+    db.insert(journalEntries).select(
+      db
+        .select({
+          id: sql<number>`null`.as("id"),
+          userId: journalEntries.userId,
+          climbId: sql<number>`${targetClimbId}`.as("climb_id"),
+          kind: journalEntries.kind,
+          sent: journalEntries.sent,
+          isAscent: journalEntries.isAscent,
+          entryDate: journalEntries.entryDate,
+          body: journalEntries.body,
+          tags: journalEntries.tags,
+          createdAt: journalEntries.createdAt,
+          updatedAt: journalEntries.updatedAt,
+        })
+        .from(journalEntries)
+        .where(and(eq(journalEntries.climbId, sourceClimbId), eq(journalEntries.isAscent, true))),
+    ),
+    db
+      .delete(journalEntries)
+      .where(and(eq(journalEntries.climbId, sourceClimbId), eq(journalEntries.isAscent, true))),
+    // 4b. Everything else — repeats, demoted entries, never-sent session
+    // notes — moves by plain UPDATE, which the guard allows for
+    // non-ascents once the matching send is already on the target.
+    db
+      .update(journalEntries)
+      .set({ climbId: targetClimbId })
+      .where(eq(journalEntries.climbId, sourceClimbId)),
     ...(Object.keys(overrides).length > 0
       ? [db.update(climbs).set(overrides).where(eq(climbs.id, targetClimbId))]
       : []),

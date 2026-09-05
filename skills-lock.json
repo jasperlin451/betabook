@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "github-upload-image-to-pr": {
+      "source": "tonkotsuboy/github-upload-image-to-pr",
+      "sourceType": "github",
+      "skillPath": "skills/github-upload-image-to-pr/SKILL.md",
+      "computedHash": "11dbd80328adc8d277b44fe184c13516581efd14e3311c0d563b6eb235a956b8"
+    }
+  }
+}
