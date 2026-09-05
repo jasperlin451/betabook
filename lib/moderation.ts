@@ -715,12 +715,45 @@ export async function getVisibleChangeRequests(
 
 export type ChangeRequestDescription = {
   summary: string;
+  /** The same request in the requester's language — identical to `summary`
+   * except for a merge, where the admin queue speaks in merges ("Merge X
+   * into Y") but the requester asked to mark a duplicate and hears the
+   * decision back in those terms (see notifyRequester). Undefined never:
+   * every describer sets it. */
+  requesterSummary: string;
   href: string | null;
   /** One plain-language line per field the request would change, measured
    * against the entity's *current* state — what a reviewer actually needs to
    * judge a request, and what the decision email echoes back. */
   details: string[];
 };
+
+/** The field-by-field account of what a merge would do — pulled out of the
+ * describer record to keep each entry within the lint complexity budget. */
+function climbMergeDetails(
+  source: Climb | undefined,
+  target: Climb | undefined,
+  overrides: ClimbMergeOverrides | undefined,
+): string[] {
+  const details: string[] = [];
+  if (source && target) {
+    details.push(`${source.sendCount} send(s) move to "${target.name}"`);
+  }
+  if (overrides?.name !== undefined) {
+    details.push(`Name: "${target?.name ?? "?"}" → "${overrides.name}"`);
+  }
+  if (overrides?.grade !== undefined && target) {
+    details.push(
+      `Grade: ${formatGrade(target.type, target.grade)} → ${formatGrade(target.type, overrides.grade)}`,
+    );
+  }
+  if (overrides?.description !== undefined) {
+    details.push(
+      `Description: ${excerpt(target?.description)} → ${excerpt(overrides.description)}`,
+    );
+  }
+  return details;
+}
 
 /** Description excerpts stay short enough for a queue row / plain-text
  * email line. */
@@ -737,7 +770,10 @@ function excerpt(value: string | null | undefined): string {
 // differently.
 const CHANGE_REQUEST_DESCRIBERS: Record<
   ChangeRequestType,
-  (db: Database, request: ChangeRequest) => Promise<ChangeRequestDescription>
+  (
+    db: Database,
+    request: ChangeRequest,
+  ) => Promise<Omit<ChangeRequestDescription, "requesterSummary"> & { requesterSummary?: string }>
 > = {
   area_edit: async (db, request) => {
     const area = await getArea(db, request.entityId);
@@ -830,27 +866,13 @@ const CHANGE_REQUEST_DESCRIBERS: Record<
       getClimb(db, request.entityId),
       getClimb(db, targetClimbId),
     ]);
-    const details: string[] = [];
-    if (source && target) {
-      details.push(`${source.sendCount} send(s) move to "${target.name}"`);
-    }
-    if (overrides?.name !== undefined) {
-      details.push(`Name: "${target?.name ?? "?"}" → "${overrides.name}"`);
-    }
-    if (overrides?.grade !== undefined && target) {
-      details.push(
-        `Grade: ${formatGrade(target.type, target.grade)} → ${formatGrade(target.type, overrides.grade)}`,
-      );
-    }
-    if (overrides?.description !== undefined) {
-      details.push(
-        `Description: ${excerpt(target?.description)} → ${excerpt(overrides.description)}`,
-      );
-    }
+    const sourceName = source?.name ?? "a climb";
+    const targetName = target?.name ?? "another climb";
     return {
-      summary: `Mark "${source?.name ?? "a climb"}" as a duplicate of "${target?.name ?? "another climb"}"`,
+      summary: `Merge "${sourceName}" into "${targetName}"`,
+      requesterSummary: `Mark "${sourceName}" as a duplicate of "${targetName}"`,
       href: source ? climbHref(source.id, source.name) : null,
-      details,
+      details: climbMergeDetails(source, target, overrides),
     };
   },
 };
@@ -858,9 +880,10 @@ const CHANGE_REQUEST_DESCRIBERS: Record<
 /** A short "what's being asked for" line, a link to the affected entity, and
  * a field-by-field account of what would change — a reviewer approves the
  * details, not just the headline, so every payload field shows up here. */
-export function describeChangeRequest(
+export async function describeChangeRequest(
   db: Database,
   request: ChangeRequest,
 ): Promise<ChangeRequestDescription> {
-  return CHANGE_REQUEST_DESCRIBERS[request.type](db, request);
+  const described = await CHANGE_REQUEST_DESCRIBERS[request.type](db, request);
+  return { requesterSummary: described.summary, ...described };
 }
