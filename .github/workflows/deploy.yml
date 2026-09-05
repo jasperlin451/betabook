@@ -30,6 +30,20 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      # setup-node's `cache: pnpm` covers the package store but not pnpm's
+      # cache dir, where the minimumReleaseAge verdict from pnpm-workspace.yaml
+      # is recorded. Without it every run re-checks all lockfile entries against
+      # the registry, ~12s. Keyed on the lockfile and the policy, so a
+      # dependency change still gets verified from scratch.
+      - name: Locate pnpm cache
+        id: pnpm-cache
+        run: echo "dir=$(pnpm cache path)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm-cache.outputs.dir }}/lockfile-verified.jsonl
+          key: pnpm-verified-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
+
       - run: pnpm install --frozen-lockfile
 
       # worker-configuration.d.ts is gitignored and `wrangler types` derives it
@@ -80,6 +94,20 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+
+      # setup-node's `cache: pnpm` covers the package store but not pnpm's
+      # cache dir, where the minimumReleaseAge verdict from pnpm-workspace.yaml
+      # is recorded. Without it every run re-checks all lockfile entries against
+      # the registry, ~12s. Keyed on the lockfile and the policy, so a
+      # dependency change still gets verified from scratch.
+      - name: Locate pnpm cache
+        id: pnpm-cache
+        run: echo "dir=$(pnpm cache path)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: ${{ steps.pnpm-cache.outputs.dir }}/lockfile-verified.jsonl
+          key: pnpm-verified-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml') }}
 
       - run: pnpm install --frozen-lockfile
 
