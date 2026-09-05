@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Checkbox, Input, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Checkbox, Label, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
 import { updateSend } from "@/actions";
@@ -12,6 +12,7 @@ import {
   SuggestedGradeField,
 } from "@/components/send-fields";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 import type { EditableSend, SendableClimb } from "@/db/queries";
 import { MAX_COMMENT_LENGTH, type AscentStyle, type GradeFeel } from "@/lib/sends";
 
@@ -62,15 +63,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} />
 
         {!dateUnknown && (
-          <TextField>
-            <Label>Date sent</Label>
-            <Input
-              type="date"
-              value={dateSent}
-              max={today}
-              onChange={(e) => setDateSent(e.target.value)}
-            />
-          </TextField>
+          <DatePickerField label="Date sent" value={dateSent} max={today} onChange={setDateSent} />
         )}
         <Checkbox isSelected={dateUnknown} onChange={setDateUnknown}>
           <Checkbox.Content>

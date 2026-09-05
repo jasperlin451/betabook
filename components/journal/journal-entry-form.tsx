@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Checkbox, Input, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Checkbox, Label, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
 import { createJournalEntry, createUndatedSend, updateJournalEntry } from "@/actions";
@@ -14,6 +14,7 @@ import {
 } from "@/components/send-fields";
 import { AppLink } from "@/components/ui/app-link";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { DatePickerField } from "@/components/ui/date-picker-field";
 import type { JournalEntry, SendableClimb } from "@/db/queries";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
 import { MAX_JOURNAL_BODY_LENGTH, type JournalKind } from "@/lib/journal";
@@ -138,16 +139,13 @@ export function JournalEntryForm({
     <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-6`}>
       <FormSection label="The day">
         {!isUndatedSend && (
-          <TextField>
-            <Label>Date</Label>
-            <Input
-              type="date"
-              value={entryDate}
-              max={today}
-              readOnly={existingEntry?.sent}
-              onChange={(e) => setEntryDate(e.target.value)}
-            />
-          </TextField>
+          <DatePickerField
+            label="Date"
+            value={entryDate}
+            max={today}
+            isReadOnly={existingEntry?.sent}
+            onChange={setEntryDate}
+          />
         )}
 
         {isAscent && (
