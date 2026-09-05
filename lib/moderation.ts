@@ -393,13 +393,15 @@ export async function assertClimbMergeable(
   sourceClimbId: number,
   targetClimbId: number,
 ): Promise<{ source: Climb; target: Climb }> {
-  if (sourceClimbId === targetClimbId) throw new ActionError("Can't merge a climb into itself");
+  if (sourceClimbId === targetClimbId) {
+    throw new ActionError("Can't mark a climb as a duplicate of itself");
+  }
   const source = await getClimb(db, sourceClimbId);
   if (!source) throw new ActionError("Climb not found");
   const target = await getClimb(db, targetClimbId);
   if (!target) throw new ActionError("Target climb not found");
   if (source.type !== target.type) {
-    throw new ActionError("Can't merge climbs of different disciplines");
+    throw new ActionError("Can't mark a climb as a duplicate of a different discipline");
   }
   return { source, target };
 }
@@ -880,7 +882,7 @@ const CHANGE_REQUEST_DESCRIBERS: Record<
       );
     }
     return {
-      summary: `Merge "${source?.name ?? "a climb"}" into "${target?.name ?? "another climb"}"`,
+      summary: `Mark "${source?.name ?? "a climb"}" as a duplicate of "${target?.name ?? "another climb"}"`,
       href: source ? climbHref(source.id, source.name) : null,
       details,
     };
