@@ -6,12 +6,8 @@ import { AppLink } from "@/components/ui/app-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageTitle } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
-import { getArea, getManagedAreas, getUser } from "@/db/queries";
-import {
-  changeRequestCoverage,
-  describeChangeRequest,
-  getVisibleChangeRequests,
-} from "@/lib/moderation";
+import { getAreasByIds, getManagedAreas, getUsersByIds } from "@/db/queries";
+import { changeRequestCoverage, describeChangeRequest, getReviewQueue } from "@/lib/moderation";
 import { areaHref } from "@/lib/slug";
 
 export const metadata: Metadata = { title: "Review requests" };
@@ -26,33 +22,40 @@ export default async function AdminRequestsPage() {
   const session = await requireAdminOrRedirect();
   const db = await getDb();
 
-  const [managedAreas, requests] = await Promise.all([
+  const [managedAreas, queue] = await Promise.all([
     getManagedAreas(db, session.user.id),
-    getVisibleChangeRequests(db, session),
+    getReviewQueue(db, session),
   ]);
-  const rows = await Promise.all(
-    requests.map(async (request) => {
-      const [requester, description, coverage] = await Promise.all([
-        request.requestedBy ? getUser(db, request.requestedBy) : undefined,
+
+  // Per-row work reuses what the queue already derived (scope ids) and what
+  // coverage already loaded (approver names); requester names and
+  // missing-area names batch into one IN query each across the whole page —
+  // every query here counts against the Workers subrequest cap.
+  const described = await Promise.all(
+    queue.map(async ({ request, scopeAreaIds }) => {
+      const [description, coverage] = await Promise.all([
         describeChangeRequest(db, request),
-        changeRequestCoverage(db, request),
+        changeRequestCoverage(db, request, scopeAreaIds),
       ]);
-      const [approvers, missingAreas] = await Promise.all([
-        Promise.all(coverage.approverIds.map((id) => getUser(db, id))),
-        Promise.all(coverage.missingAreaIds.map((id) => getArea(db, id))),
-      ]);
-      return {
-        request,
-        requesterName: requester?.name ?? "a deleted account",
-        description,
-        entityGone: coverage.scopeAreaIds.length === 0,
-        isMine: request.requestedBy === session.user.id,
-        alreadyApproved: coverage.approverIds.includes(session.user.id),
-        approverNames: approvers.flatMap((approver) => (approver ? [approver.name] : [])),
-        missingAreaNames: missingAreas.flatMap((area) => (area ? [area.name] : [])),
-      };
+      return { request, description, coverage };
     }),
   );
+  const [requesters, missingAreas] = await Promise.all([
+    getUsersByIds(db, [...new Set(described.flatMap(({ request }) => request.requestedBy ?? []))]),
+    getAreasByIds(db, [...new Set(described.flatMap(({ coverage }) => coverage.missingAreaIds))]),
+  ]);
+  const requesterNames = new Map(requesters.map((requester) => [requester.id, requester.name]));
+  const areaNames = new Map(missingAreas.map((area) => [area.id, area.name]));
+
+  const rows = described.map(({ request, description, coverage }) => ({
+    request,
+    description,
+    requesterName:
+      (request.requestedBy && requesterNames.get(request.requestedBy)) ?? "a deleted account",
+    alreadyApproved: coverage.approvers.some((approver) => approver.id === session.user.id),
+    approverNames: coverage.approvers.map((approver) => approver.name),
+    missingAreaNames: coverage.missingAreaIds.flatMap((id) => areaNames.get(id) ?? []),
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -89,8 +92,6 @@ export default async function AdminRequestsPage() {
               request,
               requesterName,
               description,
-              entityGone,
-              isMine,
               alreadyApproved,
               approverNames,
               missingAreaNames,
@@ -127,12 +128,7 @@ export default async function AdminRequestsPage() {
                     </span>
                   )}
                 </div>
-                <ApproveRejectControls
-                  requestId={request.id}
-                  isMine={isMine}
-                  entityGone={entityGone}
-                  alreadyApproved={alreadyApproved}
-                />
+                <ApproveRejectControls requestId={request.id} alreadyApproved={alreadyApproved} />
               </div>
             ),
           )}

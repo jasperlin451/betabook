@@ -662,7 +662,7 @@ describe("approveChangeRequest", () => {
     );
   });
 
-  it("blocks approving your own request", async () => {
+  it("blocks reviewing your own request", async () => {
     sessionState.userId = "reviewer-root";
     sessionState.role = "admin";
 
@@ -678,7 +678,7 @@ describe("approveChangeRequest", () => {
 
     expect(await approveChangeRequest(requestId)).toEqual({
       ok: false,
-      error: "You can't approve your own request",
+      error: "You can't review your own request",
     });
   });
 
@@ -755,9 +755,9 @@ describe("approveChangeRequest", () => {
       .returning({ id: changeRequests.id });
     await db.delete(climbs).where(eq(climbs.id, 970));
 
-    // elsewhere-admin manages a disjoint continent — scope-based visibility
-    // can't place this request anywhere, so approve is impossible and reject
-    // is open to any admin.
+    // The entity vanished via a raw DB delete (not applyClimbDelete, which
+    // would have auto-rejected this request) — nobody can review the
+    // leftover either way.
     sessionState.userId = "elsewhere-admin";
     sessionState.role = "admin";
     expect(await approveChangeRequest(requestId)).toEqual({
@@ -765,13 +765,9 @@ describe("approveChangeRequest", () => {
       error: "The area or climb this request affects is gone",
     });
     expect(await rejectChangeRequest(requestId, "target vanished")).toEqual({
-      ok: true,
-      value: undefined,
+      ok: false,
+      error: "The area or climb this request affects is gone",
     });
-    expect(
-      (await db.select().from(changeRequests).where(eq(changeRequests.id, requestId)).get())
-        ?.status,
-    ).toBe("rejected");
   });
 
   it("puts the request back to pending when the apply fails a business rule", async () => {
@@ -842,7 +838,7 @@ describe("rejectChangeRequest", () => {
     );
   });
 
-  it("lets a requester-admin withdraw their own request", async () => {
+  it("blocks rejecting your own request too — reviews come from someone else", async () => {
     sessionState.userId = "reviewer-root";
     sessionState.role = "admin";
 
@@ -856,12 +852,15 @@ describe("rejectChangeRequest", () => {
       })
       .returning({ id: changeRequests.id });
 
-    expect(await rejectChangeRequest(requestId, "")).toEqual({ ok: true, value: undefined });
+    expect(await rejectChangeRequest(requestId, "")).toEqual({
+      ok: false,
+      error: "You can't review your own request",
+    });
     expect(
       (await db.select().from(changeRequests).where(eq(changeRequests.id, requestId)).get())
         ?.status,
-    ).toBe("rejected");
-    // Withdrawing your own request isn't news — no email.
+    ).toBe("pending");
+    // Never decided, so nobody hears about it.
     expect(sendChangeRequestDecisionEmail).not.toHaveBeenCalled();
   });
 

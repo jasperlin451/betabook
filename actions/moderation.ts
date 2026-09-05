@@ -271,40 +271,33 @@ export type ReviewDecision = { decision: "applied" | "awaiting" };
 /** Loads the request and re-checks reviewability for real — the queue page
  * already filters, but a second admin could have decided it (or the entity
  * could be gone) since that page loaded. Shared by approve and reject so the
- * two can't diverge on what "still reviewable" means, with two deliberate
- * asymmetries:
- *  - approving your own request is blocked (your submission already recorded
- *    your coverage — see queueChangeRequest), but *rejecting* your own is
- *    allowed: that's withdrawing it.
- *  - a request whose entity is gone (scope []) can't be approved by anyone,
- *    but any admin may reject it — otherwise it would sit pending forever,
- *    invisible to area-scoped filtering. */
+ * two can't diverge on what "still reviewable" means. Reviewing your own
+ * request is blocked outright (your submission already recorded your
+ * coverage — see queueChangeRequest — and the queue doesn't list your own
+ * rows). A gone entity is only reachable here through a race: the apply
+ * functions auto-reject the requests an entity's deletion strands. Returns
+ * the derived scope ids so coverage doesn't re-fetch the same entities. */
 async function loadReviewableRequest(
   db: Database,
   session: Awaited<ReturnType<typeof requireAdmin>>,
   requestId: number,
-  intent: "approve" | "reject",
-): Promise<ChangeRequest> {
+): Promise<{ request: ChangeRequest; scopeAreaIds: number[] }> {
   if (parseId(requestId) === null) throw new ActionError("Request not found");
   const request = await getChangeRequest(db, requestId);
   if (!request) throw new ActionError("Request not found");
   if (request.status !== "pending") throw new ActionError("This request has already been reviewed");
-
-  if (intent === "approve" && request.requestedBy === session.user.id) {
-    throw new ActionError("You can't approve your own request");
+  if (request.requestedBy === session.user.id) {
+    throw new ActionError("You can't review your own request");
   }
 
-  const areaIds = await changeRequestScopeAreaIds(db, request);
-  if (areaIds.length === 0) {
-    if (intent === "approve") {
-      throw new ActionError("The area or climb this request affects is gone");
-    }
-    return request; // Rejectable by any admin, to clear the queue.
+  const scopeAreaIds = await changeRequestScopeAreaIds(db, request);
+  if (scopeAreaIds.length === 0) {
+    throw new ActionError("The area or climb this request affects is gone");
   }
-  if (!(await isAdminForAnyArea(db, session, areaIds))) {
+  if (!(await isAdminForAnyArea(db, session, scopeAreaIds))) {
     throw new ActionError("You don't manage this area");
   }
-  return request;
+  return { request, scopeAreaIds };
 }
 
 // One applier per gated operation, dispatched by `request.type` — a plain
@@ -400,10 +393,10 @@ export async function approveChangeRequest(
     const session = await requireAdmin();
     const db = await getDb();
 
-    const request = await loadReviewableRequest(db, session, requestId, "approve");
+    const { request, scopeAreaIds } = await loadReviewableRequest(db, session, requestId);
     await recordChangeRequestApproval(db, requestId, session.user.id);
 
-    const coverage = await changeRequestCoverage(db, request);
+    const coverage = await changeRequestCoverage(db, request, scopeAreaIds);
     if (!coverage.complete) {
       // Recorded, but an admin for the missing side(s) still has to weigh
       // in. The request stays pending; the queue page re-renders with the
@@ -448,7 +441,7 @@ export async function rejectChangeRequest(requestId: number, note: unknown): Pro
     const session = await requireAdmin();
     const db = await getDb();
 
-    const request = await loadReviewableRequest(db, session, requestId, "reject");
+    const { request } = await loadReviewableRequest(db, session, requestId);
     const trimmedNote = typeof note === "string" ? note.trim().slice(0, 2000) || null : null;
     const description = await describeChangeRequest(db, request);
 

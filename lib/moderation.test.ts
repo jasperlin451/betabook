@@ -32,7 +32,7 @@ import {
   changeRequestCoverage,
   changeRequestScopeAreaIds,
   describeChangeRequest,
-  getVisibleChangeRequests,
+  getReviewQueue,
   isAdminForAllAreas,
   isAdminForAnyArea,
   isAdminForArea,
@@ -46,6 +46,12 @@ async function loadRequest(id: number) {
   const request = await getChangeRequest(db, id);
   if (!request) throw new Error(`request ${id} not found`);
   return request;
+}
+
+/** Coverage the way real callers invoke it — with the scope ids they
+ * already derived. */
+async function coverageFor(request: Awaited<ReturnType<typeof loadRequest>>) {
+  return changeRequestCoverage(db, request, await changeRequestScopeAreaIds(db, request));
 }
 
 beforeAll(async () => {
@@ -282,18 +288,18 @@ describe("changeRequestCoverage", () => {
     });
     const request = await loadRequest(id);
 
-    const before = await changeRequestCoverage(db, request);
+    const before = await coverageFor(request);
     expect(before.scopeAreaIds).toEqual([4, 3]);
     expect(before.missingAreaIds).toEqual([4, 3]);
     expect(before.complete).toBe(false);
 
     await recordChangeRequestApproval(db, id, "coverage-admin-a");
-    const half = await changeRequestCoverage(db, request);
+    const half = await coverageFor(request);
     expect(half.missingAreaIds).toEqual([3]);
     expect(half.complete).toBe(false);
 
     await recordChangeRequestApproval(db, id, "coverage-admin-b");
-    const full = await changeRequestCoverage(db, request);
+    const full = await coverageFor(request);
     expect(full.missingAreaIds).toEqual([]);
     expect(full.complete).toBe(true);
   });
@@ -307,7 +313,7 @@ describe("changeRequestCoverage", () => {
     });
     await recordChangeRequestApproval(db, id, "coverage-root-admin");
 
-    const coverage = await changeRequestCoverage(db, await loadRequest(id));
+    const coverage = await coverageFor(await loadRequest(id));
     expect(coverage.complete).toBe(true);
   });
 
@@ -319,14 +325,14 @@ describe("changeRequestCoverage", () => {
       name: "Coverage Rename",
     });
     await recordChangeRequestApproval(db, id, "coverage-revoked-admin");
-    expect((await changeRequestCoverage(db, await loadRequest(id))).complete).toBe(true);
+    expect((await coverageFor(await loadRequest(id))).complete).toBe(true);
 
     await db
       .delete(adminAreaScopes)
       .where(
         and(eq(adminAreaScopes.userId, "coverage-revoked-admin"), eq(adminAreaScopes.areaId, 4)),
       );
-    expect((await changeRequestCoverage(db, await loadRequest(id))).complete).toBe(false);
+    expect((await coverageFor(await loadRequest(id))).complete).toBe(false);
   });
 
   it("ignores approvals from users without the admin role", async () => {
@@ -335,8 +341,8 @@ describe("changeRequestCoverage", () => {
     });
     await recordChangeRequestApproval(db, id, "coverage-non-admin");
 
-    const coverage = await changeRequestCoverage(db, await loadRequest(id));
-    expect(coverage.approverIds).toEqual(["coverage-non-admin"]);
+    const coverage = await coverageFor(await loadRequest(id));
+    expect(coverage.approvers.map((a) => a.id)).toEqual(["coverage-non-admin"]);
     expect(coverage.complete).toBe(false);
   });
 
@@ -347,7 +353,7 @@ describe("changeRequestCoverage", () => {
     const id = await submitChangeRequest(db, "climb_delete", 999998, "coverage-requester", {});
     await recordChangeRequestApproval(db, id, "coverage-zombie-admin");
 
-    const coverage = await changeRequestCoverage(db, await loadRequest(id));
+    const coverage = await coverageFor(await loadRequest(id));
     expect(coverage.scopeAreaIds).toEqual([]);
     expect(coverage.complete).toBe(false);
   });
@@ -359,12 +365,12 @@ describe("changeRequestCoverage", () => {
     await recordChangeRequestApproval(db, id, "coverage-admin-a");
     await recordChangeRequestApproval(db, id, "coverage-admin-a");
 
-    const coverage = await changeRequestCoverage(db, await loadRequest(id));
-    expect(coverage.approverIds).toEqual(["coverage-admin-a"]);
+    const coverage = await coverageFor(await loadRequest(id));
+    expect(coverage.approvers.map((a) => a.id)).toEqual(["coverage-admin-a"]);
   });
 });
 
-describe("getVisibleChangeRequests", () => {
+describe("getReviewQueue", () => {
   it("only returns pending requests inside the admin's managed areas", async () => {
     await seedFixtureUser(db, { id: "visibility-admin" });
     await seedFixtureUser(db, { id: "visibility-requester" });
@@ -381,12 +387,25 @@ describe("getVisibleChangeRequests", () => {
       {},
     );
 
-    const visible = await getVisibleChangeRequests(db, {
+    const queue = await getReviewQueue(db, {
       user: { id: "visibility-admin", role: "admin" },
     });
-    const visibleIds = visible.map((r) => r.id);
+    const visibleIds = queue.map((q) => q.request.id);
     expect(visibleIds).toContain(inScopeId);
     expect(visibleIds).not.toContain(outOfScopeId);
+    // The derived scope rides along for downstream coverage checks.
+    expect(queue.find((q) => q.request.id === inScopeId)?.scopeAreaIds).toEqual([4]);
+  });
+
+  it("omits the admin's own requests — they can't review them anyway", async () => {
+    const ownId = await submitChangeRequest(db, "area_edit", 5, "visibility-admin", {
+      name: "My Own Rename",
+    });
+
+    const queue = await getReviewQueue(db, {
+      user: { id: "visibility-admin", role: "admin" },
+    });
+    expect(queue.map((q) => q.request.id)).not.toContain(ownId);
   });
 
   it("shows a reparent request to an admin managing only the destination side", async () => {
@@ -399,10 +418,10 @@ describe("getVisibleChangeRequests", () => {
       newParentId: 5,
     });
 
-    const visible = await getVisibleChangeRequests(db, {
+    const queue = await getReviewQueue(db, {
       user: { id: "destination-only-admin", role: "admin" },
     });
-    expect(visible.map((r) => r.id)).toContain(id);
+    expect(queue.map((q) => q.request.id)).toContain(id);
   });
 
   it("hides a request whose entity is gone — the queue is strictly in-scope", async () => {
@@ -412,20 +431,20 @@ describe("getVisibleChangeRequests", () => {
 
     const id = await submitChangeRequest(db, "climb_delete", 999997, "zombie-requester", {});
 
-    const visible = await getVisibleChangeRequests(db, {
+    const queue = await getReviewQueue(db, {
       user: { id: "zombie-viewer-admin", role: "admin" },
     });
-    expect(visible.map((r) => r.id)).not.toContain(id);
+    expect(queue.map((q) => q.request.id)).not.toContain(id);
   });
 
   it("returns nothing for a non-admin session", async () => {
     await seedFixtureUser(db, { id: "non-admin-viewer" });
     await db.insert(adminAreaScopes).values({ userId: "non-admin-viewer", areaId: 1 });
 
-    const visible = await getVisibleChangeRequests(db, {
+    const queue = await getReviewQueue(db, {
       user: { id: "non-admin-viewer", role: null },
     });
-    expect(visible).toEqual([]);
+    expect(queue).toEqual([]);
   });
 });
 
@@ -943,6 +962,68 @@ describe("applyClimbMerge", () => {
     await expect(applyClimbMerge(db, 960, 961, { grade: 999 })).rejects.toThrow("Invalid grade");
     // The failed validation must not have merged anything.
     expect(await db.select().from(climbs).where(eq(climbs.id, 960)).get()).toBeDefined();
+  });
+});
+
+describe("orphaned request auto-rejection", () => {
+  beforeAll(async () => {
+    await seedFixtureUser(db, { id: "orphan-requester" });
+  });
+
+  it("rejects pending requests on a deleted climb, including merges targeting it", async () => {
+    await db.insert(climbs).values([
+      { id: 884, areaId: 3, name: "Orphan Deleted", type: "boulder", grade: 3 },
+      { id: 885, areaId: 3, name: "Orphan Merge Source", type: "boulder", grade: 3 },
+    ]);
+    const editId = await submitChangeRequest(db, "climb_edit", 884, "orphan-requester", {
+      name: "Never Happens",
+    });
+    const mergeIntoId = await submitChangeRequest(db, "climb_merge", 885, "orphan-requester", {
+      targetClimbId: 884,
+    });
+
+    await applyClimbDelete(db, 884);
+
+    const edit = await loadRequest(editId);
+    expect(edit.status).toBe("rejected");
+    expect(edit.reviewNote).toBe("The area or climb this request affected no longer exists.");
+    expect(edit.reviewedBy).toBeNull();
+    expect((await loadRequest(mergeIntoId)).status).toBe("rejected");
+  });
+
+  it("rejects pending requests stranded by a merge, atomically with it", async () => {
+    await db.insert(climbs).values([
+      { id: 886, areaId: 3, name: "Orphan Merge Away", type: "boulder", grade: 3 },
+      { id: 887, areaId: 3, name: "Orphan Merge Target", type: "boulder", grade: 3 },
+    ]);
+    const editId = await submitChangeRequest(db, "climb_edit", 886, "orphan-requester", {
+      name: "Stranded",
+    });
+
+    await applyClimbMerge(db, 886, 887);
+
+    expect((await loadRequest(editId)).status).toBe("rejected");
+  });
+
+  it("rejects reparents and moves whose destination area was deleted", async () => {
+    await db.insert(areas).values({ id: 872, parentId: 1, name: "Orphan Destination" });
+    const reparentId = await submitChangeRequest(db, "area_reparent", 5, "orphan-requester", {
+      newParentId: 872,
+    });
+    const moveId = await submitChangeRequest(db, "climb_move", 2, "orphan-requester", {
+      newAreaId: 872,
+    });
+
+    await applyAreaDelete(db, 872);
+
+    expect((await loadRequest(reparentId)).status).toBe("rejected");
+    expect((await loadRequest(moveId)).status).toBe("rejected");
+    // Unrelated pending requests are untouched.
+    const untouched = await db
+      .select()
+      .from(changeRequests)
+      .where(and(eq(changeRequests.status, "pending"), eq(changeRequests.type, "area_edit")));
+    expect(untouched.length).toBeGreaterThan(0);
   });
 });
 
