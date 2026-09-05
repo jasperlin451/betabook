@@ -69,7 +69,7 @@ export function ClimbSendList({
         <ListRow
           title={send.userName}
           href={`/users/${send.userId}`}
-          subtitle={formatDate(send.dateSent)}
+          subtitle={send.dateSent ? formatDate(send.dateSent) : "Date unknown"}
           trailing={
             <div className="flex flex-col items-end gap-1 text-sm">
               {/* The climber's own grade leads: the page's header already

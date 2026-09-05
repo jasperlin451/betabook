@@ -1,0 +1,48 @@
+import { isValidElement, type ReactElement, type ReactNode } from "react";
+import { describe, expect, it, vi } from "vitest";
+
+import { ProjectsView } from "@/app/users/[id]/projects-view";
+
+const mocks = vi.hoisted(() => ({
+  getOpenProjects: vi.fn<() => Promise<Array<{ climbId: number }>>>(),
+  OpenProjectList: vi.fn<(props: { projects: unknown[]; hasMore: boolean }) => null>(() => null),
+}));
+
+vi.mock("@/db/client", () => ({
+  getDb: vi.fn<() => Promise<Record<string, never>>>(async () => ({})),
+}));
+
+vi.mock("@/db/queries", () => ({
+  getOpenProjects: mocks.getOpenProjects,
+  OPEN_PROJECT_PAGE_SIZE: 100,
+}));
+
+vi.mock("@/components/journal", () => ({
+  OpenProjectList: mocks.OpenProjectList,
+}));
+
+const owner = {
+  id: "journal-owner",
+  isPrivate: false,
+  journalVisibility: "private" as const,
+};
+
+describe("ProjectsView", () => {
+  it("caps the rendered list and reports more projects", async () => {
+    const projects = Array.from({ length: 101 }, (_, index) => ({ climbId: index + 1 }));
+    mocks.getOpenProjects.mockResolvedValue(projects);
+
+    const result = (await ProjectsView({ owner })) as ReactElement<{ children: ReactNode }>;
+    const children = result.props.children as ReactNode[];
+    const list = children.find(
+      (child) => isValidElement(child) && child.type === mocks.OpenProjectList,
+    );
+
+    expect(
+      isValidElement<{ projects: unknown[]; hasMore: boolean }>(list) && list.props.projects,
+    ).toHaveLength(100);
+    expect(
+      isValidElement<{ projects: unknown[]; hasMore: boolean }>(list) && list.props.hasMore,
+    ).toBe(true);
+  });
+});

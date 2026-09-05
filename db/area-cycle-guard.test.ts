@@ -7,25 +7,6 @@ import { getAncestors, getSubtreeClimbs, findClimbCandidatesByNames } from "@/db
 import { areas } from "@/db/schema";
 import { seedFixtureTree } from "@/test/fixtures";
 
-/** Every subtree and ancestor query in db/queries walks parent_id through a
- * recursive CTE with UNION ALL, which doesn't dedup. Those walks terminate
- * only because the tree is acyclic — one cyclic parent_id edge turns an
- * unbounded walk into an infinite one and the query burns until D1's 30s
- * limit kills it. There is no read-side defense and deliberately so: adding
- * UNION everywhere would pay a dedup cost on every page load to guard against
- * a state the data should never be in.
- *
- * So the guarantee has to hold at write time, which is what
- * drizzle/migrations/0017_area_cycle_guard.sql enforces and what these tests
- * pin. They exercise the triggers through raw statements rather than through
- * db/mutations/areas.ts, because the point of putting the check in the
- * database is that it binds writers that don't go through the mutations at
- * all — an import script, a manual fix-up, a future action.
- *
- * Note what can't be tested here: that an actual cycle hangs the readers.
- * Asserting it would mean committing one, and the assertion would be a test
- * that never finishes. The rejection cases below are the reproduction. */
-
 let db: Database;
 
 beforeAll(async () => {

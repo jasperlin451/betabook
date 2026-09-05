@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 
 import { getDb } from "@/db/client";
@@ -11,7 +11,7 @@ import {
   getUserSentClimbIds,
   type ClimbCandidate,
 } from "@/db/queries";
-import { sends } from "@/db/schema";
+import { journalEntries, sends } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { parseGrade } from "@/lib/grades";
 import {
@@ -22,7 +22,16 @@ import {
 } from "@/lib/sends";
 import { requireSession } from "@/lib/session";
 
-import { revalidateSendSurfaces } from "./revalidation";
+import {
+  assertAscentDateChange,
+  buildSentJournalInsert,
+  getSentJournalEntries,
+  groupSentJournalEntries,
+  journalEntryFromSend,
+  rethrowJournalSendInvariant,
+} from "./journal-sync";
+import { revalidateJournalSurfaces, revalidateSendSurfaces } from "./revalidation";
+import { buildMirroredSendUpdate } from "./send-statements";
 
 export type ImportResult = {
   imported: number;
@@ -44,8 +53,8 @@ export type ImportOptions = {
  * and the timestamps. Shared by the insert and overwrite paths. */
 type SendValues = Omit<
   typeof sends.$inferInsert,
-  "id" | "userId" | "climbId" | "createdAt" | "updatedAt"
->;
+  "id" | "userId" | "climbId" | "dateSent" | "comment" | "createdAt" | "updatedAt"
+> & { dateSent: string | null; comment: string | null };
 
 // How many rows each insert statement carries. D1 caps a statement at 100
 // bound parameters, and each inserted sends row binds 8 values (userId,
@@ -153,7 +162,7 @@ export async function importSends(
     // is a no-op either way: in overwrite mode it would otherwise issue two
     // UPDATEs to the same row in one batch. First row for a climb wins.
     const processed = new Set<number>();
-    const toInsert: (typeof sends.$inferInsert)[] = [];
+    const toInsert: Array<SendValues & { userId: string; climbId: number }> = [];
     const toUpdate: Array<{ climbId: number; values: SendValues }> = [];
     const affectedAreaIds = new Set<number>();
     const missing: number[] = [];
@@ -208,47 +217,105 @@ export async function importSends(
       }
     }
 
-    // ONE db.batch for the whole call — a D1 batch runs as a single
-    // transaction (and a single Workers subrequest), so every row here commits
-    // or none do; a mid-batch failure can't leave earlier chunks committed
-    // while the action reports the whole call failed. The inserts are still
-    // split across statements because of the D1 bound-parameter cap (see
-    // INSERT_CHUNK_SIZE); the updates are one statement per row regardless.
-    //
-    // climbs.sendCount/ratingSum/ratingCount follow both via the triggers on
-    // sends (see drizzle/schema/climbs.ts), so neither carries a companion
-    // aggregate write — the triggers fire inside this same transaction.
+    const existingEntries = groupSentJournalEntries(
+      await getSentJournalEntries(
+        db,
+        session.user.id,
+        toUpdate.map(({ climbId }) => climbId),
+      ),
+    );
+    const newSendJournalInserts = toInsert.flatMap((row) =>
+      row.dateSent
+        ? [journalEntryFromSend(session.user.id, row.climbId, row.dateSent, row.comment)]
+        : [],
+    );
+    const existingSendJournalInserts: ReturnType<typeof journalEntryFromSend>[] = [];
+    const journalUpdates: Array<{
+      id: number;
+      climbId: number;
+      entryDate: string;
+      body: string | null;
+    }> = [];
+    const mirroredEntryIdsByClimb = new Map<number, number>();
+
+    for (const { climbId, values } of toUpdate) {
+      const climbEntries = existingEntries.get(climbId) ?? [];
+      const ascent = climbEntries.find((entry) => entry.isAscent);
+      if (!values.dateSent) {
+        if (ascent) throw new ActionError("A send with journal history must keep its date");
+        continue;
+      }
+      assertAscentDateChange(climbEntries, values.dateSent);
+      if (ascent) {
+        mirroredEntryIdsByClimb.set(climbId, ascent.id);
+        journalUpdates.push({
+          id: ascent.id,
+          climbId,
+          entryDate: values.dateSent,
+          body: values.comment,
+        });
+      } else {
+        existingSendJournalInserts.push(
+          journalEntryFromSend(session.user.id, climbId, values.dateSent, values.comment),
+        );
+      }
+    }
+
+    const sendUpdates = (withMirror: boolean) =>
+      toUpdate
+        .filter(({ climbId }) => mirroredEntryIdsByClimb.has(climbId) === withMirror)
+        .map(({ climbId, values }) =>
+          buildMirroredSendUpdate(db, {
+            userId: session.user.id,
+            climbId,
+            values,
+            ascentEntryId: mirroredEntryIdsByClimb.get(climbId) ?? null,
+          }),
+        );
+    const journalInsertStatements = (entries: ReturnType<typeof journalEntryFromSend>[]) =>
+      Array.from({ length: Math.ceil(entries.length / INSERT_CHUNK_SIZE) }, (_, i) =>
+        buildSentJournalInsert(
+          db,
+          entries.slice(i * INSERT_CHUNK_SIZE, (i + 1) * INSERT_CHUNK_SIZE),
+        ),
+      );
     const statements = [
       ...Array.from({ length: Math.ceil(toInsert.length / INSERT_CHUNK_SIZE) }, (_, i) =>
         db.insert(sends).values(toInsert.slice(i * INSERT_CHUNK_SIZE, (i + 1) * INSERT_CHUNK_SIZE)),
       ),
-      // (userId, climbId) is uniquely indexed, so each of these targets exactly
-      // one row without needing the existing send's id. sends.updatedAt has
-      // $onUpdate, so drizzle stamps it.
-      ...toUpdate.map(({ climbId, values }) =>
-        db
-          .update(sends)
-          .set(values)
-          .where(and(eq(sends.userId, session.user.id), eq(sends.climbId, climbId))),
+      ...journalInsertStatements(newSendJournalInserts),
+      ...journalUpdates.map(({ id, entryDate, body }) =>
+        db.update(journalEntries).set({ entryDate, body }).where(eq(journalEntries.id, id)),
       ),
+      ...sendUpdates(true),
+      ...sendUpdates(false),
+      ...journalInsertStatements(existingSendJournalInserts),
     ];
 
     if (statements.length > 0) {
-      // db.batch wants a non-empty tuple; the guard above already ensures it.
-      await db.batch(statements as [(typeof statements)[number], ...typeof statements]);
+      try {
+        await db.batch(statements as [(typeof statements)[number], ...typeof statements]);
+      } catch (error) {
+        rethrowJournalSendInvariant(
+          error,
+          "The journal changed while these sends were being imported — try again",
+        );
+      }
 
-      // Same revalidation set as createSend (db/mutations/sends.ts): the batch
-      // above moves climbs.sendCount/ratingSum/ratingCount, which the home
-      // page, each climb's page, and each area's climb list all render — not
-      // just the user's profile.
+      const affectedClimbIds = [
+        ...toInsert.map((row) => row.climbId),
+        ...toUpdate.map(({ climbId }) => climbId),
+      ];
       revalidateSendSurfaces({
         userIds: [session.user.id],
-        climbIds: [
-          ...toInsert.map((row) => row.climbId),
-          ...toUpdate.map(({ climbId }) => climbId),
-        ],
+        climbIds: affectedClimbIds,
         areaIds: affectedAreaIds,
       });
+      const journalWriteCount =
+        newSendJournalInserts.length + existingSendJournalInserts.length + journalUpdates.length;
+      if (journalWriteCount > 0) {
+        revalidateJournalSurfaces({ userId: session.user.id, climbIds: affectedClimbIds });
+      }
       refresh();
     }
 

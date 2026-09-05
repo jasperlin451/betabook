@@ -4,7 +4,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { importSends, resolveImportClimbs, resolveImportClimbsInAreas } from "@/actions";
 import { createDb } from "@/db/client";
-import { climbs, sends } from "@/db/schema";
+import { climbs, journalEntries, sends } from "@/db/schema";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
 import {
   IMPORT_BATCH_SIZE,
@@ -12,7 +12,13 @@ import {
   RESOLVE_BATCH_SIZE,
   type ImportSendRow,
 } from "@/lib/sends";
-import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyClimbs } from "@/test/fixtures";
+import {
+  seedFixtureJournalEntry,
+  seedFixtureSend,
+  seedFixtureTree,
+  seedFixtureUser,
+  seedManyClimbs,
+} from "@/test/fixtures";
 
 /** importSends's commit contract: each call is all-or-nothing (one db.batch
  * = one D1 transaction), duplicate rows are skipped via the user+climb key
@@ -28,8 +34,6 @@ const cacheMocks = vi.hoisted(() => ({
 
 vi.mock("next/cache", () => cacheMocks);
 
-// See db/mutations/mutations.test.ts for why the session is stubbed rather
-// than run for real.
 vi.mock("@/lib/session", async () => {
   const { NotSignedInError } = await import("@/lib/action-result");
   return {
@@ -105,7 +109,9 @@ beforeAll(async () => {
     "coerce-user",
     "reject-user",
     "grade-user",
+    "comment-user",
     "overwrite-user",
+    "overwrite-null-user",
   ]) {
     await seedFixtureUser(db, { id });
   }
@@ -123,6 +129,22 @@ beforeEach(() => {
 });
 
 describe("importSends atomic commit", () => {
+  it("uses the imported comment as the ascent journal note", async () => {
+    sessionState.userId = "comment-user";
+    const result = await importSends(
+      [importRow(159, { comment: "Imported note." })],
+      IMPORT_OPTIONS,
+    );
+
+    expect(result.ok).toBe(true);
+    const entry = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, "comment-user"))
+      .get();
+    expect(entry?.body).toBe("Imported note.");
+  });
+
   it("commits a 25-row batch in a single db.batch and reports the committed count", async () => {
     const result = await importSends(bulkRows(0, 24), IMPORT_OPTIONS);
 
@@ -137,6 +159,13 @@ describe("importSends atomic commit", () => {
 
     const rows = await db.select().from(sends).where(eq(sends.userId, "import-user")).all();
     expect(rows).toHaveLength(25);
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, "import-user"))
+      .all();
+    expect(entries).toHaveLength(25);
+    expect(entries.every((entry) => entry.sent && entry.kind === "session")).toBe(true);
     const climb = await db.select().from(climbs).where(eq(climbs.id, 100)).get();
     expect(climb?.sendCount).toBe(1);
   });
@@ -153,6 +182,9 @@ describe("importSends atomic commit", () => {
     expect(await db.select().from(sends).where(eq(sends.userId, "ghost-user")).all()).toHaveLength(
       0,
     );
+    expect(
+      await db.select().from(journalEntries).where(eq(journalEntries.userId, "ghost-user")).all(),
+    ).toHaveLength(0);
     const bulkIds = Array.from({ length: 12 }, (_, i) => 125 + i);
     const touched = await db.select().from(climbs).where(inArray(climbs.id, bulkIds)).all();
     expect(touched.every((c) => c.sendCount === 0)).toBe(true);
@@ -180,6 +212,9 @@ describe("importSends atomic commit", () => {
     expect(await db.select().from(sends).where(eq(sends.userId, "retry-user")).all()).toHaveLength(
       3,
     );
+    expect(
+      await db.select().from(journalEntries).where(eq(journalEntries.userId, "retry-user")).all(),
+    ).toHaveLength(3);
     const climb = await db.select().from(climbs).where(eq(climbs.id, 137)).get();
     expect(climb?.sendCount).toBe(1); // not double-counted by the retry
   });
@@ -194,7 +229,18 @@ describe("importSends revalidation", () => {
 
     const paths = cacheMocks.revalidatePath.mock.calls.map((call) => call[0]);
     expect(new Set(paths)).toEqual(
-      new Set(["/", "/users/reval-user", "/climbs/1", "/climbs/3", "/areas/4", "/areas/3"]),
+      new Set([
+        "/",
+        "/users/reval-user",
+        "/users/reval-user/journal",
+        "/users/reval-user/sends",
+        "/users/reval-user/projects",
+        "/users/reval-user/analytics",
+        "/climbs/1",
+        "/climbs/3",
+        "/areas/4",
+        "/areas/3",
+      ]),
     );
     expect(cacheMocks.refresh).toHaveBeenCalledTimes(1);
   });
@@ -365,7 +411,15 @@ describe("importSends overwrite mode", () => {
     // the ones it fills. A second row for a climb not yet logged inserts as
     // usual in the same call.
     const second = await importSends(
-      [importRow(150, { rating: 5, comment: null, gradeText: "V6" }), importRow(151)],
+      [
+        importRow(150, {
+          dateSent: "2026-02-10",
+          rating: 5,
+          comment: null,
+          gradeText: "V6",
+        }),
+        importRow(151),
+      ],
       { ...IMPORT_OPTIONS, onConflict: "overwrite" },
     );
     expect(second).toEqual({
@@ -382,9 +436,40 @@ describe("importSends overwrite mode", () => {
     expect(send?.rating).toBe(5);
     expect(send?.comment).toBeNull();
     expect(send?.suggestedGrade).toBe(7); // V6
+    expect(send?.dateSent).toBe("2026-02-10");
+    const entries = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, "overwrite-user"))
+      .all();
+    expect(entries).toHaveLength(2);
+    expect(entries.find((entry) => entry.climbId === 150)).toMatchObject({
+      entryDate: "2026-02-10",
+      body: null,
+    });
     const climb = await db.select().from(climbs).where(eq(climbs.id, 150)).get();
     expect(climb?.sendCount).toBe(1);
     expect(climb?.ratingSum).toBe(5);
+  });
+
+  it("won't clear a date that anchors journal history", async () => {
+    sessionState.userId = "overwrite-null-user";
+    expect((await importSends([importRow(152)], IMPORT_OPTIONS)).ok).toBe(true);
+    const result = await importSends([importRow(152, { dateSent: null })], {
+      ...IMPORT_OPTIONS,
+      onConflict: "overwrite",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "A send with journal history must keep its date",
+    });
+    const send = await db
+      .select()
+      .from(sends)
+      .where(and(eq(sends.userId, "overwrite-null-user"), eq(sends.climbId, 152)))
+      .get();
+    expect(send?.dateSent).toBe("2026-01-10");
   });
 });
 
@@ -460,4 +545,51 @@ describe("resolveImportClimbs", () => {
       error: "Invalid climb names",
     });
   });
+});
+
+describe("overwriting undated sends with dated repeats", () => {
+  it.each([null, "2026-02-01", "2026-03-01"])(
+    "preserves repeats when importing original date %s",
+    async (dateSent) => {
+      const userId = `undated-overwrite-${dateSent}`;
+      sessionState.userId = userId;
+      await seedFixtureUser(db, { id: userId });
+      await seedFixtureSend(db, { userId, climbId: 1, dateSent: null, comment: "Original." });
+      await seedFixtureJournalEntry(db, {
+        userId,
+        climbId: 1,
+        entryDate: "2026-03-01",
+        sent: true,
+        body: "Repeat.",
+      });
+      expect(
+        (
+          await importSends([importRow(1, { dateSent, comment: "Imported original." })], {
+            onConflict: "overwrite",
+            gradeScale: "native",
+          })
+        ).ok,
+      ).toBe(true);
+      expect(await db.select().from(sends).where(eq(sends.userId, userId)).get()).toMatchObject({
+        dateSent,
+        comment: "Imported original.",
+      });
+      const entries = await db
+        .select()
+        .from(journalEntries)
+        .where(eq(journalEntries.userId, userId));
+      expect(entries).toHaveLength(dateSent ? 2 : 1);
+      expect(entries.find((entry) => !entry.isAscent)).toMatchObject({
+        entryDate: "2026-03-01",
+        isAscent: false,
+        body: "Repeat.",
+      });
+      if (dateSent)
+        expect(entries.find((entry) => entry.isAscent)).toMatchObject({
+          entryDate: dateSent,
+          isAscent: true,
+          body: "Imported original.",
+        });
+    },
+  );
 });
