@@ -28,9 +28,17 @@ export const featureTourSteps: readonly ProductTourStep[] = [
 ];
 ```
 
-The shared shell supplies Back, Next, and Finish, keyboard-accessible controls, step-heading focus, and completion errors with retry. Content may receive the owner's `userId`, transient `values`, `close()` for links to the product, and `navigate(stepId, values)` for interactive flows. Mark a step `navigation: "custom"` when its content supplies branching controls. The last step always offers Finish. Never navigate back into a submitted form after a successful save; the journal tour demonstrates a result step that leads forward to orientation.
+The shared shell supplies Back, Next, and Finish, keyboard-accessible controls, step-heading focus, and completion errors with retry. Content may receive the owner's `userId`, transient `values`, `close()` for links to the product, and `navigate(stepId, values)` for interactive flows. Mark a step `navigation: "custom"` when its content supplies branching controls. The last step always offers Finish. Set `canFinish: true` on an earlier overview to let people finish without visiting every optional tutorial. Never navigate back into a submitted form after a successful save; the journal tour demonstrates a result step that leads forward to orientation.
 
 Treat component previews as previews: sample props must not write application data. Interactive steps must use the feature's ordinary authenticated actions and advance only after success. Tour completion means the person finished the explanation, not that they performed any particular action.
+
+## A connected demo account
+
+The Journal, Sends, Projects, Analytics, and Account tutorials share Alex Morgan, a fictional climber defined in `lib/product-tour-demo.ts`. The sample entries are the source for the sends, project history, and analytics. Analytics use the production `buildUserAnalytics` calculation, and previews reuse `ListRow`, `StatTiles`, and `ProgressionChart` alongside local controls.
+
+The demo exists only in the lazy-loaded tour bundle. It needs no seeded or public account, works on an empty production database, and never inserts sample entries into the viewer's logbook. Example filters and privacy controls use component state and reset when that tutorial is reopened. Negative demo IDs must never be passed to mutation components or real route links. Explicit “Open my …” links use the authenticated viewer's ID and leave the tutorial.
+
+To showcase another section, add a tutorial step and chooser entry in `profile-tour-pages.tsx`, then give its preview representative data from this same fixture. Extend the fixture's cross-page consistency tests when changing the story. Prefer production read-only display components; isolate any control that would normally navigate or save, and label it as an example.
 
 ## Eligibility and persistence
 

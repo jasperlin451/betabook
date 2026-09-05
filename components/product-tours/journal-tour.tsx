@@ -4,8 +4,8 @@ import { Button } from "@heroui/react";
 import { useState } from "react";
 
 import { JournalEntryComposer } from "@/components/journal/journal-entry-composer";
+import { profileTourSteps, TourDestinations } from "@/components/product-tours/profile-tour-pages";
 import type { ProductTourStep, ProductTourStepProps } from "@/components/product-tours/types";
-import { AppLink } from "@/components/ui/app-link";
 import type { JournalSaveOutcome } from "@/lib/journal";
 
 const RESULTS: Record<JournalSaveOutcome, { title: string; body: string }> = {
@@ -70,67 +70,6 @@ function TourIntroduction({ navigate }: ProductTourStepProps) {
   );
 }
 
-function TourDestinations({ userId, close }: ProductTourStepProps) {
-  const base = `/users/${userId}`;
-  return (
-    <div className="flex flex-col gap-4 text-sm">
-      <p>Use these sections on your profile whenever you want to look back or log more.</p>
-      <dl className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <dt className="font-medium">
-            <AppLink onClick={close} href={`${base}/journal`}>
-              Journal
-            </AppLink>
-          </dt>
-          <dd className="mt-1 text-muted">
-            Your sessions and training. Search notes, filter by entry type, or select a tag to find
-            related entries.
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium">
-            <AppLink onClick={close} href={`${base}/sends`}>
-              Sends
-            </AppLink>
-          </dt>
-          <dd className="mt-1 text-muted">
-            Your recorded ascents, with grades, ratings, and notes. Repeats stay in the journal.
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium">
-            <AppLink onClick={close} href={`${base}/projects`}>
-              Projects
-            </AppLink>
-          </dt>
-          <dd className="mt-1 text-muted">
-            Only you see this list of climbs you've worked on but haven't sent. Log the next session
-            from here.
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium">
-            <AppLink onClick={close} href={`${base}/analytics`}>
-              Analytics
-            </AppLink>
-          </dt>
-          <dd className="mt-1 text-muted">
-            Explore outdoor climbing days and send progression. Multiple climbs on one date count as
-            one day out; training doesn't count toward outdoor days.
-          </dd>
-        </div>
-      </dl>
-      <p className="text-muted">
-        Find privacy controls, send import, and Replay product tour in{" "}
-        <AppLink onClick={close} href="/account">
-          Account
-        </AppLink>
-        .
-      </p>
-    </div>
-  );
-}
-
 function LogEntryStep({ navigate }: ProductTourStepProps) {
   const [pending, setPending] = useState(false);
   return (
@@ -190,5 +129,7 @@ export const journalTourSteps: readonly ProductTourStep[] = [
     eyebrow: "Your climbing history",
     Content: TourDestinations,
     navigation: "custom",
+    canFinish: true,
   },
+  ...profileTourSteps,
 ];

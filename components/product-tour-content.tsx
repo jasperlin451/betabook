@@ -84,7 +84,7 @@ function TourSteps({
   const [pending, startTransition] = useTransition();
   const heading = useRef<HTMLHeadingElement>(null);
   const step = steps[index];
-  const last = index === steps.length - 1;
+  const canFinish = step.canFinish || index === steps.length - 1;
   useEffect(() => {
     heading.current?.focus();
   }, [index]);
@@ -120,14 +120,14 @@ function TourSteps({
         </h2>
       </div>
       <step.Content userId={userId} values={values} navigate={navigate} close={onClose} />
-      {(step.navigation !== "custom" || last) && (
+      {(step.navigation !== "custom" || canFinish) && (
         <div className="flex flex-wrap gap-2">
           {step.navigation !== "custom" && index > 0 && (
             <Button variant="ghost" onPress={() => setIndex(index - 1)} isDisabled={pending}>
               Back
             </Button>
           )}
-          {last ? (
+          {canFinish ? (
             <Button onPress={finish} isDisabled={pending}>
               {pending ? "Finishing…" : "Finish tour"}
             </Button>
@@ -136,7 +136,7 @@ function TourSteps({
           )}
         </div>
       )}
-      {last && (
+      {canFinish && (
         <p className="text-xs text-muted">You can replay this tour from Account at any time.</p>
       )}
       {error && (

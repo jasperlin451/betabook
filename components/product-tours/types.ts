@@ -16,4 +16,6 @@ export type ProductTourStep = {
   Content: ComponentType<ProductTourStepProps>;
   /** Omit for ordinary Back/Next/Finish controls. Interactive steps supply their own navigation. */
   navigation?: "custom";
+  /** Also offer completion at a branching overview before optional deeper tutorials. */
+  canFinish?: boolean;
 };
