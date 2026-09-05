@@ -33,7 +33,7 @@ vi.mock("@/lib/session", async () => {
   };
 });
 
-// Point the actions' getDb/getDbAndContext at the test D1 binding instead of
+// Point the actions' getDb at the test D1 binding instead of
 // the OpenNext Cloudflare context (which only exists in a deployed worker).
 vi.mock("@/db/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/db/client")>();
@@ -41,10 +41,6 @@ vi.mock("@/db/client", async (importOriginal) => {
   return {
     ...actual,
     getDb: async () => actual.createDb(env.DB),
-    getDbAndContext: async () => ({
-      db: actual.createDb(env.DB),
-      ctx: { waitUntil: () => {} } as unknown as ExecutionContext,
-    }),
   };
 });
 

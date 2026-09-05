@@ -12,25 +12,16 @@ import { formatGrade, type ClimbType } from "@/lib/grades";
 import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
 
 import { areaNameCondition } from "./areas";
-import type { Climb, Discipline } from "./climbs";
-import { toFtsPrefixQuery } from "./shared";
+import type { Climb } from "./climbs";
+import { disciplineGradeCondition, toFtsPrefixQuery } from "./shared";
 
 export type Send = typeof sends.$inferSelect;
 
-/** The subset of a Send that SendForm actually needs to prefill an edit —
- * lets a flattened row (e.g. UserSendRow) be passed in without requiring
- * the full Send shape (userId/climbId/createdAt/updatedAt aren't used
- * for editing). */
 export type EditableSend = Pick<
   Send,
   "id" | "ascentStyle" | "dateSent" | "comment" | "rating" | "suggestedGrade" | "gradeFeel"
 >;
 
-/** The subset of a Climb the create/edit-send chain (SendActionsMenu ->
- * SendFormDrawer -> SendForm) actually reads — same "narrow to what's
- * used" reasoning as EditableSend, so a flattened row (e.g. UserSendRow)
- * can build one honestly instead of fabricating the rest of Climb's
- * denormalized fields. */
 export type SendableClimb = Pick<Climb, "id" | "areaId" | "type" | "grade">;
 
 export async function getUserSendForClimb(
@@ -45,29 +36,15 @@ export async function getUserSendForClimb(
     .get();
 }
 
-/** One community-ascents row for the climb detail page: the fields the list
- * renders plus what the edit flow needs (EditableSend), and nothing else —
- * notably not createdAt/updatedAt, which are Date columns that would silently
- * degrade to strings across the /api/climbs/[id]/sends JSON boundary. */
+/** Fields crossing the sends JSON endpoint; excludes Date-valued database timestamps. */
 export type ClimbSendRow = EditableSend & { userId: string; userName: string };
 
 export const CLIMB_SENDS_PAGE_SIZE = 10;
 
 export type ClimbSendsPage = { sends: ClimbSendRow[]; hasMore: boolean };
 
-/** A page of a climb's send history, newest dateSent first (NULL dates last,
- * SQLite's DESC default) with `sends.id` as the deterministic tie-breaker —
- * sends sharing a date have no defined order without it, so OFFSET
- * pagination could duplicate or skip them across pages. A popular climb can
- * have hundreds of sends, so this is never fetched in full: the first page
- * is server-rendered and /api/climbs/[id]/sends backs "load more".
- *
- * `viewerId` excludes rows belonging to a private user other than the viewer
- * themselves (see lib/user-visibility.ts) — this is the one query in the
- * module that lists sends across many authors, so it's the one place a
- * per-row visibility check is needed. The climb's send_count/rating/suggested
- * grade are unaffected: those come from getClimbSendStats/the aggregate
- * triggers, neither of which joins `user`. */
+/** Newest first, with ID breaking date ties. Private authors are visible only
+ * to themselves; anonymous aggregate statistics still include their sends. */
 export async function getSendsForClimb(
   db: Database,
   climbId: number,
@@ -79,7 +56,6 @@ export async function getSendsForClimb(
     ? sql`(user.is_private = 0 OR sends.user_id = ${viewerId})`
     : sql`user.is_private = 0`;
 
-  // Fetch one extra row to detect a next page without a separate COUNT query.
   const rows = await db
     .select({
       id: sends.id,
@@ -107,14 +83,10 @@ export type SuggestedGradeCount = { grade: number; feel: GradeFeel; count: numbe
 
 export type ClimbSendSummary = ClimbSendStats & {
   styleBreakdown: Record<AscentStyle, number>;
-  /** How many senders suggested each grade — the community's own grading
-   * of the climb, for the logged-grades histogram. */
   suggestedGradeCounts: SuggestedGradeCount[];
 };
 
-/** Whole-history stats for the climb detail page's stat cards — aggregate
- * SQL over every send, independent of the paginated list (which no longer
- * loads the full history to reduce in memory). */
+/** Whole-history aggregates, independent of the paginated send list. */
 export async function getClimbSendSummary(
   db: Database,
   climbId: number,
@@ -146,10 +118,7 @@ export async function getClimbSendSummary(
   return { ...stats[climbId], styleBreakdown, suggestedGradeCounts };
 }
 
-/** Climb ids the user already has a send for. Pass `climbIds` on list pages
- * so the query and RSC payload stay proportional to the visible page; omit
- * it only for workflows that genuinely need the whole set (the profile
- * picker and import duplicate pre-check). */
+/** Pass climbIds for list pages to bound the lookup to the displayed climbs. */
 export async function getUserSentClimbIds(
   db: Database,
   userId: string,
@@ -158,9 +127,7 @@ export async function getUserSentClimbIds(
   const distinctIds = climbIds ? [...new Set(climbIds)] : undefined;
   if (distinctIds?.length === 0) return new Set();
 
-  // The ids go over as one JSON binding rather than one parameter each, so a
-  // future caller cannot accidentally exceed D1's 100-parameter ceiling.
-  // Same reasoning as getAreaBreadcrumbs.
+  // A single JSON binding avoids D1's parameter limit.
   const rows = await db.all<{ climbId: number }>(sql`
     SELECT sends.climb_id AS climbId
     FROM sends
@@ -175,13 +142,6 @@ export async function getUserSentClimbIds(
   `);
   return new Set(rows.map((r) => r.climbId));
 }
-
-// --- Paginated, filtered send history for a user's profile page ---
-//
-// A user's send count can run into the thousands, so (like the
-// community-ascents list for a single climb above) this is deliberately never
-// fetched in full: both the row query and the summary stats below are
-// bounded/aggregate SQL, not "fetch everything and reduce in memory".
 
 export type UserSendRow = {
   id: number;
@@ -215,15 +175,7 @@ export type UserSendsFilter = DisciplineFilter & {
   minRating: number;
 };
 
-// NULLS LAST on the ascending variants keeps unknown-date/unknown-grade
-// sends at the bottom regardless of direction — SQLite otherwise treats
-// NULL as the smallest value, which would float them to the top of an ASC
-// sort. The descending variants already put NULLs last by default.
-//
-// None of these keys is unique, so getSendsForUserPage appends `sends.id`
-// as a final tie-breaker (same as getSubtreeClimbs's `climbs.id`) — without
-// it, rows sharing a value have no defined order, and OFFSET pagination can
-// duplicate or skip them across pages.
+// Unknown values sort last. ID breaks ties in the paginated query.
 const USER_SENDS_ORDER_BY: Record<UserSendsSort, SQL> = {
   date_desc: sql`sends.date_sent DESC`,
   date_asc: sql`sends.date_sent ASC NULLS LAST`,
@@ -240,37 +192,22 @@ export type UserSendsPage = {
   hasMore: boolean;
 };
 
-/** One checked discipline's clause. At the full default range the grade
- * filter isn't narrowed at all, so there's no grade predicate and
- * grade-unknown (NULL) sends are included; once either bound is narrowed,
- * NULL grades fail the BETWEEN and are excluded — an unknown grade can't be
- * known to fall inside a narrowed range. (They used to be OR-ed back in, so
- * "grade unknown" sends matched every narrowed range.) */
-function disciplineGradeClause(
-  type: Discipline,
-  range: [number, number],
-  fullRange: [number, number],
-): SQL {
-  const [min, max] = range;
-  if (min <= fullRange[0] && max >= fullRange[1]) return sql`climbs.type = ${type}`;
-  return sql`(climbs.type = ${type} AND climbs.grade BETWEEN ${min} AND ${max})`;
-}
-
 function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
   const disciplineClauses: SQL[] = [];
   if (filter.disciplines.includes("boulder")) {
     disciplineClauses.push(
-      disciplineGradeClause("boulder", filter.boulderRange, DEFAULT_BOULDER_RANGE),
+      disciplineGradeCondition("boulder", filter.boulderRange, DEFAULT_BOULDER_RANGE),
     );
   }
   if (filter.disciplines.includes("sport")) {
-    disciplineClauses.push(disciplineGradeClause("sport", filter.sportRange, DEFAULT_SPORT_RANGE));
+    disciplineClauses.push(
+      disciplineGradeCondition("sport", filter.sportRange, DEFAULT_SPORT_RANGE),
+    );
   }
   if (filter.disciplines.includes("trad")) {
-    disciplineClauses.push(disciplineGradeClause("trad", filter.tradRange, DEFAULT_TRAD_RANGE));
+    disciplineClauses.push(disciplineGradeCondition("trad", filter.tradRange, DEFAULT_TRAD_RANGE));
   }
-  // No discipline checked at all means the discipline/grade filter isn't
-  // active — match everything, not nothing.
+  // No selected disciplines means no discipline filter.
   const disciplineWhere =
     disciplineClauses.length > 0 ? sql`(${sql.join(disciplineClauses, sql` OR `)})` : sql`1`;
 
@@ -285,8 +222,6 @@ function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
     );
   }
 
-  // A null rating naturally fails this once a minimum is actually set — no
-  // special-case NULL handling needed.
   if (filter.minRating > 0) {
     conditions.push(sql`sends.rating >= ${filter.minRating}`);
   }
@@ -306,18 +241,7 @@ function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
   return sql.join(conditions, sql` AND `);
 }
 
-export async function getSendsForUserPage(
-  db: Database,
-  userId: string,
-  filter: UserSendsFilter,
-  offset: number,
-  pageSize: number = USER_SENDS_PAGE_SIZE,
-): Promise<UserSendsPage> {
-  const where = userSendsWhere(userId, filter);
-
-  // Fetch one extra row to detect a next page without a separate COUNT query.
-  const rows = await db.all<UserSendRow>(sql`
-    SELECT
+const USER_SEND_COLUMNS = sql`
       sends.id AS id,
       sends.climb_id AS climbId,
       climbs.name AS climbName,
@@ -331,6 +255,19 @@ export async function getSendsForUserPage(
       sends.suggested_grade AS suggestedGrade,
       sends.grade_feel AS gradeFeel,
       sends.comment AS comment
+`;
+
+export async function getSendsForUserPage(
+  db: Database,
+  userId: string,
+  filter: UserSendsFilter,
+  offset: number,
+  pageSize: number = USER_SENDS_PAGE_SIZE,
+): Promise<UserSendsPage> {
+  const where = userSendsWhere(userId, filter);
+
+  const rows = await db.all<UserSendRow>(sql`
+    SELECT ${USER_SEND_COLUMNS}
     FROM sends
     JOIN climbs ON climbs.id = sends.climb_id
     JOIN areas ON areas.id = climbs.area_id
@@ -351,12 +288,8 @@ export type UserSendsExportPage = {
   nextCursor: UserSendsExportCursor | null;
 };
 
-/** Full-history export uses keyset pagination rather than the UI list's
- * bounded OFFSET. It therefore never replays/clamps at 10k rows and each
- * request seeks from the previous `(date_sent, id)` key through
- * sends_user_date_idx. Dated and undated sends are fetched as separate index
- * ranges: combining them with OR prevents SQLite from seeking past user_id
- * and turns page N into a rescan of pages 1…N-1. */
+/** Keep dated and undated keyset ranges separate so sends_user_date_idx can
+ * seek past user_id; combining them with OR prevents that seek. */
 export async function getSendsForUserExportPage(
   db: Database,
   userId: string,
@@ -364,8 +297,6 @@ export async function getSendsForUserExportPage(
 ): Promise<UserSendsExportPage> {
   const rows: UserSendRow[] = [];
 
-  // Phase 1: dated rows. Matching DESC directions let the row-value range
-  // map directly to the (user_id, date_sent DESC, id DESC) index.
   if (cursor === null || cursor.dateSent !== null) {
     const datedRange =
       cursor === null
@@ -375,9 +306,7 @@ export async function getSendsForUserExportPage(
     rows.push(...(await getUserExportRows(db, userId, datedRange, EXPORT_SENDS_PAGE_SIZE + 1)));
   }
 
-  // Phase 2: NULL dates sort after every dated row. Only enter this range
-  // once the dated range no longer fills the page; when a page straddles the
-  // boundary, fetch just enough NULL rows to fill it plus the has-more row.
+  // Fill the remaining page slots with undated sends, plus one row for hasMore.
   if (rows.length <= EXPORT_SENDS_PAGE_SIZE) {
     const undatedRange =
       cursor?.dateSent === null
@@ -409,20 +338,7 @@ function getUserExportRows(
   limit: number,
 ): Promise<UserSendRow[]> {
   return db.all<UserSendRow>(sql`
-    SELECT
-      sends.id AS id,
-      sends.climb_id AS climbId,
-      climbs.name AS climbName,
-      climbs.type AS climbType,
-      climbs.grade AS climbGrade,
-      climbs.area_id AS areaId,
-      areas.name AS areaName,
-      sends.ascent_style AS ascentStyle,
-      sends.date_sent AS dateSent,
-      sends.rating AS rating,
-      sends.suggested_grade AS suggestedGrade,
-      sends.grade_feel AS gradeFeel,
-      sends.comment AS comment
+    SELECT ${USER_SEND_COLUMNS}
     FROM sends INDEXED BY sends_user_date_idx
     JOIN climbs ON climbs.id = sends.climb_id
     JOIN areas ON areas.id = climbs.area_id
@@ -443,10 +359,7 @@ export type UserStatsSummary = {
 type UserSendsTotals = { sendCount: number; areaCount: number; latestSendDate: string | null };
 type TopDiscipline = { type: ClimbType; count: number; maxGrade: number | null };
 
-/** Peak grade is scoped to the user's most-logged discipline — grades aren't
- * comparable across boulder/sport/trad, so picking a single cross-discipline
- * "best" would be misleading. Two small aggregate queries over the whole
- * history (independent of any list filter/pagination), not a full row fetch. */
+/** Peak grade uses the most-logged discipline; ordinals are not comparable across disciplines. */
 export async function getUserSendsSummary(db: Database, userId: string): Promise<UserStatsSummary> {
   const [totals] = await db.all<UserSendsTotals>(sql`
     SELECT
@@ -498,9 +411,7 @@ export type ClimbSendStats = {
   avgSuggestedGrade: number | null;
 };
 
-/** One batched lookup for a page of search results, not one query per climb.
- * Climbs with zero sends are pre-seeded to the zero/null default rather than
- * omitted, since a GROUP BY simply has no row for them. */
+/** Pre-seed zero-send climbs because GROUP BY produces no row for them. */
 export async function getClimbSendStats(
   db: Database,
   climbIds: number[],
@@ -543,8 +454,7 @@ export type AnalyticsSendRow = {
   climbId: number;
   climbName: string;
   climbType: ClimbType;
-  /** The climber's own grade. climbs.grade is deliberately absent: analytics
-   * reads one grade source so no chart's ceiling contradicts another's. */
+  /** Analytics uses the climber's suggested grade consistently across charts. */
   suggestedGrade: number | null;
   areaId: number;
   areaName: string;
@@ -552,11 +462,7 @@ export type AnalyticsSendRow = {
   dateSent: string | null;
 };
 
-/** Every send a user has logged, with just the fields the analytics page
- * aggregates. One query, oldest climb-date first; all the derivation lives
- * in lib/user-analytics.ts where it's pure and testable. A user's log tops
- * out in the low thousands of rows — fine for a single D1 round trip, and
- * the page is per-user, not per-request-hot. */
+/** Full send history for analytics. Unlike list pages, this loads all of a user's sends. */
 export async function getUserSendsForAnalytics(
   db: Database,
   userId: string,

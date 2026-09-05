@@ -15,33 +15,19 @@ import { CSV_UNPARSE_CONFIG } from "@/lib/sends-export";
 export type ParsedCsv = {
   headers: string[];
   rows: Record<string, string>[];
-  /** Human-readable parse diagnostics: malformed-CSV errors reported by the
-   * parser plus any duplicate-header renames. Non-fatal — the file still
-   * parsed — but shown to the user before they map columns. */
+  /** Parser diagnostics and duplicate-header renames shown before column mapping. */
   warnings: string[];
-  /** Columns computed from the file rather than read from it (see
-   * deriveSourceColumns). Present on every row and mappable like a header,
-   * but not part of `headers`, so a failed-rows export still matches the
-   * source file column for column. */
+  /** Computed columns available for mapping, excluded from headers so exports
+   * retain the source file's columns. */
   derived: string[];
 };
 
 export const CLIMB_TYPES = ["boulder", "sport", "trad"] as const;
-/** Browser-side safety bounds, since parsing is all in-memory.
- *
- * The byte cap is the one that actually protects the parse: it is checked
- * against `file.size` before `file.text()` duplicates the file and before
- * Papa Parse sees any of it. The row cap is checked AFTER parsing — by then
- * every cell is materialized — so it is a bound on what reaches the mapping
- * UI and the import request, not on peak memory. The byte cap is what keeps
- * that survivable; a 10 MB CSV of short rows still parses a few hundred
- * thousand rows before being turned away. Moving the row cap upstream would
- * take a streaming parse (Papa's `step`/`preview` with an abort). */
+/** Check bytes before reading/parsing to bound memory. The row cap is checked
+ * after parsing and only limits what reaches the wizard. */
 export const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 50_000;
 
-/** Each distinct trimmed non-blank value in `column`, in first-seen order,
- * with how often it occurs. */
 function countValues(rows: Record<string, string>[], column: string | null): Map<string, number> {
   const counts = new Map<string, number>();
   if (!column) return counts;
@@ -52,16 +38,11 @@ function countValues(rows: Record<string, string>[], column: string | null): Map
   return counts;
 }
 
-/** Every distinct, trimmed, non-blank value in `column` across `rows` — used
- * to build the value-mapping step's list of ascent-style/climb-type values
- * the user needs to map. */
 export function distinctValues(rows: Record<string, string>[], column: string | null): string[] {
   return [...countValues(rows, column).keys()];
 }
 
-/** distinctValues with how often each value occurs, most common first — the
- * value-mapping step shows the count beside each value so a one-off typo and
- * the file's main ascent style don't read as equally weighty. */
+/** Distinct nonblank values and counts, most frequent first. */
 export function valueCounts(
   rows: Record<string, string>[],
   column: string | null,
@@ -73,21 +54,13 @@ export function valueCounts(
 
 const MAX_PARSE_ERROR_WARNINGS = 5;
 
-/**
- * Real-world exports (like Sendage's) sometimes have metadata lines before
- * the actual header row (an attribution line, an export date, a blank
- * line). Rather than assuming row 0 is always the header, this detects the
- * header row as the first row whose column count matches the most common
- * column count across all rows — i.e. the shape of the real data table.
- */
+/** Skip export preambles by treating the first row with the modal column count
+ * as the header. This is a heuristic, not a CSV format guarantee. */
 export function parseCsvText(text: string): ParsedCsv {
   const result = Papa.parse<string[]>(text, { skipEmptyLines: true });
   const warnings: string[] = [];
 
-  // "UndetectableDelimiter" only means papaparse fell back to a comma — it
-  // fires for any empty or single-column file, so it's noise rather than a
-  // sign of a malformed file. Everything else (unterminated quotes, etc.)
-  // is worth showing.
+  // Papa Parse uses this warning when an empty or single-column file defaults to commas.
   const parseErrors = result.errors.filter((e) => e.code !== "UndetectableDelimiter");
   for (const err of parseErrors.slice(0, MAX_PARSE_ERROR_WARNINGS)) {
     warnings.push(err.row != null ? `Row ${err.row + 1}: ${err.message}` : err.message);
@@ -115,10 +88,7 @@ export function parseCsvText(text: string): ParsedCsv {
   const headerIndex = rawRows.findIndex((r) => r.length === modeLength);
   const rawHeaders = rawRows[headerIndex] ?? [];
 
-  // Duplicate header names would silently collapse into one field (each row
-  // object is keyed by header name) and produce duplicate React keys in the
-  // mapping UI — rename repeats deterministically instead, skipping over any
-  // name another header already holds.
+  // Rename duplicate headers to prevent lost cells and duplicate React keys.
   const used = new Set<string>();
   const headers = rawHeaders.map((header) => {
     if (!used.has(header)) {
@@ -151,39 +121,27 @@ export type ColumnMapping = {
   date: string | null;
   ascentStyle: string | null;
   climbName: string | null;
-  /** The area a climb is in, matched exactly against the climb's own area or
-   * any ancestor. Optional: a file without one (KAYA's, say) is matched on
-   * climb name alone and the wizard's match step settles any ties. */
+  /** Optional exact area constraint, matching the climb's area or an ancestor. */
   areaName: string | null;
-  /** Columns that only *hint* at where a climb is — KAYA's boulder-name
-   * "location" and its "country", a Sendage "Country". Never required to
-   * match, only used to break ties between same-named climbs; a hint that
-   * matches nothing is ignored rather than failing the row. */
+  /** Soft location signals: unmatched hints do not disqualify a candidate. */
   areaHints: string[];
-  climbType: string | null; // optional — tiebreaker only
-  grade: string | null; // optional
+  climbType: string | null; // Optional discipline constraint.
+  grade: string | null;
   suggestedGrade: string | null; // optional — takes precedence over `grade` for the send's suggested grade
-  gradeFeel: string | null; // optional
-  rating: string | null; // optional
-  comment: string | null; // optional
+  gradeFeel: string | null;
+  rating: string | null;
+  comment: string | null;
 };
 
-/** The single-column fields of a ColumnMapping — everything but areaHints. */
 export type FieldKey = Exclude<keyof ColumnMapping, "areaHints">;
 
 export const REQUIRED_COLUMN_KEYS: readonly FieldKey[] = ["ascentStyle", "climbName"];
 
-/** The required fields (per REQUIRED_COLUMN_KEYS) that aren't mapped to a
- * CSV column yet. The wizard's columns step blocks Next and names these
- * until the user maps each one — an unmapped ascent style would otherwise
- * only surface three steps later as "0 rows ready". */
 export function missingRequiredColumns(mapping: ColumnMapping): FieldKey[] {
   return REQUIRED_COLUMN_KEYS.filter((key) => !mapping[key]);
 }
 
-// Order matters: more specific aliases are matched first so, e.g., "Climb
-// Type" is claimed before ascentStyle's generic "type" fallback would
-// otherwise grab it.
+// Claim specific fields before generic aliases such as ascentStyle's "type".
 const FIELD_ORDER: FieldKey[] = [
   "date",
   "climbType",
@@ -197,8 +155,6 @@ const FIELD_ORDER: FieldKey[] = [
   "comment",
 ];
 
-// Matched against normalizeHeader's output, so "ascent_type", "Ascent-Type"
-// and "Ascent Type" all read as "ascent type" — one spelling per alias here.
 const HEADER_ALIASES: Record<FieldKey, string[]> = {
   date: ["date sent", "send date", "ascent date", "date"],
   climbType: ["climb type", "discipline"],
@@ -213,10 +169,8 @@ const HEADER_ALIASES: Record<FieldKey, string[]> = {
   ],
   climbName: ["climb name", "route name", "problem name", "climb", "route", "problem", "name"],
   areaName: ["area name", "area", "crag", "location", "sector"],
-  // A third-party log's one grade column is the grade the climber logged,
-  // i.e. betabook's suggested grade, so the bare "grade" belongs here. The
-  // posted-grade field only claims a bare "Grade" once a more specific header
-  // has taken this one (a betabook export has both).
+  // A lone third-party grade maps to suggestedGrade. A separate posted Grade
+  // is claimed only after a more specific suggested-grade column.
   suggestedGrade: ["suggested grade", "personal grade", "my grade", "grade", "difficulty"],
   grade: ["posted grade", "climb grade", "route grade", "guidebook grade", "grade"],
   gradeFeel: ["grade feel", "stiffness", "feel"],
@@ -224,21 +178,12 @@ const HEADER_ALIASES: Record<FieldKey, string[]> = {
   comment: ["comments", "comment", "notes"],
 };
 
-/** Columns that place a climb only loosely — a country or state names a
- * subtree thousands of climbs wide, so they're offered as tie-breaking hints
- * rather than as the area itself. */
 const HINT_ALIASES = ["country", "state", "province", "region"];
 
-/** Header text reduced to the form the alias tables are written in: lower
- * case, with underscores and hyphens read as spaces, so an export's
- * `climb_name` finds the "climb name" alias. */
 export function normalizeHeader(header: string): string {
   return header.trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
 }
 
-/** Which app produced the file, when its header row gives it away. Drives a
- * preset column mapping and a per-source note in the wizard; "unknown" falls
- * back to the alias tables above. */
 export type ImportSource = "betabook" | "kaya" | "sendage" | "mountainproject" | "unknown";
 
 export const IMPORT_SOURCE_LABELS: Record<ImportSource, string> = {
@@ -249,8 +194,7 @@ export const IMPORT_SOURCE_LABELS: Record<ImportSource, string> = {
   unknown: "CSV",
 };
 
-/** Header sets that identify a source. Each is a few headers no other export
- * shares, tested as a subset so an export that gains a column still matches. */
+/** Identify exports by a subset of headers so additional columns do not break detection. */
 const SOURCE_SIGNATURES: Record<Exclude<ImportSource, "unknown">, string[]> = {
   betabook: ["date sent", "ascent style", "climb name", "area name"],
   kaya: ["ascent type", "climb name", "stiffness"],
@@ -258,15 +202,10 @@ const SOURCE_SIGNATURES: Record<Exclude<ImportSource, "unknown">, string[]> = {
   mountainproject: ["route", "lead style", "route type", "your stars"],
 };
 
-/** Mountain Project splits the ascent style across two columns: "Lead Style"
- * (Onsight/Flash/Redpoint/Pinkpoint/Fell/Hung) for leads, and "Style" alone
- * for everything else (Send/Flash/Attempt for boulders, TR, Follow, Solo).
- * This derived column takes "Lead Style" when present and "Style" otherwise,
- * so one value-mapping covers every row. */
+/** Mountain Project splits ascent style between Lead Style and Style;
+ * use Lead Style when nonblank and Style otherwise. */
 export const MP_ASCENT_COLUMN = "Lead Style or Style";
 
-/** Adds the per-source derived columns (see ParsedCsv.derived) to a parsed
- * file. Returns the input untouched for sources that need none. */
 export function deriveSourceColumns(parsed: ParsedCsv, source: ImportSource): ParsedCsv {
   if (source !== "mountainproject") return parsed;
   const find = (name: string) => parsed.headers.find((h) => normalizeHeader(h) === name);
@@ -314,17 +253,8 @@ function emptyMapping(): ColumnMapping {
   };
 }
 
-/** Case-insensitive/trimmed match against the header aliases, adjusted per
- * detected source; the wizard pre-fills the mapping UI with this, and the
- * user can override any of it. `headers` should include any derived columns
- * (see deriveSourceColumns) so a preset can claim them.
- *
- * KAYA's "location" is the boulder, not an area, so as an Area column it
- * would fail nearly every row. It becomes a hint instead, with "country".
- *
- * Mountain Project's "Rating" is the route's grade and "Your Stars" the star
- * rating, the reverse of what the alias table would guess, and its
- * "Location" is a full " > " path, which the hint matching splits. */
+/** Apply source presets before generic aliases. Include derived columns in headers.
+ * Mountain Project uses Rating for route grade and Your Stars for star rating. */
 export function guessColumnMapping(headers: string[]): ColumnMapping {
   const mapping = emptyMapping();
   const source = detectImportSource(headers);
@@ -339,8 +269,7 @@ export function guessColumnMapping(headers: string[]): ColumnMapping {
   };
 
   if (source === "kaya") {
-    // Claimed up front so the generic pass below can't hand "location" to
-    // areaName. KAYA's "color", "gym" and "attempts" have no betabook field.
+    // Claim KAYA location as a hint before generic aliases treat it as an exact area.
     mapping.areaHints = ["location", "country"].flatMap((h) => claim(h) ?? []);
   }
 
@@ -355,9 +284,7 @@ export function guessColumnMapping(headers: string[]): ColumnMapping {
   }
 
   for (const field of FIELD_ORDER) {
-    // A preset's choice stands; the generic alias for "style" would
-    // otherwise take Mountain Project's raw "Style" back from the derived
-    // column above.
+    // Do not overwrite source presets with generic aliases.
     if (mapping[field]) continue;
     for (const alias of HEADER_ALIASES[field]) {
       const raw = claim(alias);
@@ -376,26 +303,11 @@ export function guessColumnMapping(headers: string[]): ColumnMapping {
   return mapping;
 }
 
-/**
- * How to read an all-numeric date. This is the only genuinely ambiguous
- * choice — "05/06/2019" is May 6th to an American export and June 5th to a
- * European one, and nothing in the file can settle it — so it's the only
- * thing the wizard asks the user about. Every other shape below carries its
- * own field order and is parsed regardless of this setting.
- */
+/** Disambiguates numeric dates such as 05/06/2019; other date shapes ignore this choice. */
 export type DateFormat = "iso" | "mdy" | "dmy";
 
-/**
- * Formats that can't be misread: the month is spelled out, or the year comes
- * first. Tried for every DateFormat, so a file that mixes (say) ISO rows into
- * an otherwise MM/DD/YYYY export still imports cleanly.
- *
- * date-fns' numeric tokens tolerate missing zero-padding ("2019-1-5" parses
- * under "yyyy-MM-dd") and month names are matched case-insensitively, so each
- * entry covers more than its literal spelling. "MMM" and "MMMM" don't
- * substitute for each other, though, so abbreviated and full month names are
- * listed separately.
- */
+/** Try year-first and named-month formats regardless of the selected numeric order.
+ * Abbreviated and full month names need separate patterns. */
 const UNAMBIGUOUS_FORMATS = [
   "yyyy-MM-dd", // ISO 8601, and what an ISO timestamp reduces to once its time part is stripped
   "yyyy/MM/dd",
@@ -414,47 +326,29 @@ const UNAMBIGUOUS_FORMATS = [
   "MMM-d-yyyy",
 ];
 
-/** All-numeric formats, read according to the user's DateFormat choice.
- * Two-digit years are mapped to the nearest century by date-fns (69 -> 1969,
- * 26 -> 2026), which matches how spreadsheets read them. */
+/** date-fns resolves two-digit years relative to REFERENCE_DATE. */
 const AMBIGUOUS_FORMATS: Record<DateFormat, string[]> = {
-  // ISO's numeric shapes are unambiguous, so they're already covered above.
   iso: [],
   mdy: ["M/d/yyyy", "M-d-yyyy", "M.d.yyyy", "M/d/yy", "M-d-yy", "M.d.yy"],
   dmy: ["d/M/yyyy", "d-M-yyyy", "d.M.yyyy", "d/M/yy", "d-M-yy", "d.M.yy"],
 };
 
-// A trailing timezone name in parens, as JS Date#toString emits:
-// "(GMT+00:00)", "(Pacific Daylight Time)".
+// Parenthesized timezone names from Date.toString(), such as (Pacific Daylight Time).
 const TZ_NAME_RE = /\s*\([^)]*\)\s*$/;
 
-// A trailing time, with an optional timezone glued to it: " 00:00:00",
-// "T00:00:00.000Z", " 00:00:00 GMT+0000", " 2:05 PM". The timezone is only
-// stripped as part of a time so that the "-2019" in "15-Oct-2019" can't be
-// mistaken for a UTC offset.
+// Strip timezone offsets only with a time, so -2019 in 15-Oct-2019 is not removed.
 const TIME_RE =
   /[T\s]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:[AP]\.?M\.?)?\s*(?:(?:GMT|UTC|UT)?\s*(?:Z|[+-]\d{1,2}:?\d{2})?)\s*$/i;
 
-/**
- * Reduces a timestamp to the civil date it displays, dropping the time and
- * timezone. Deliberately takes the date *as written* rather than converting
- * to UTC: a log line reading "Tue Oct 15 2019 ... GMT-0700" is a send on
- * October 15th to the person who logged it, and shifting it to the 16th
- * because of an offset would be wrong. Sends are stored as civil dates, with
- * no time, for the same reason.
- */
+/** Preserve the written calendar date; converting the timestamp to UTC could change the send day. */
 function stripTimeSuffix(value: string): string {
   return value.replace(TZ_NAME_RE, "").replace(TIME_RE, "").trim();
 }
 
-// date-fns spells September "Sep"; "Sept" is common enough in hand-written
-// logs to be worth normalizing rather than rejecting.
+// Normalize Sept to the Sep spelling expected by date-fns.
 const SEPT_RE = /\bSept\b/gi;
 
-// `parse` fills in any field its format doesn't cover from this date. Every
-// format above supplies year, month and day, so it only ever contributes the
-// time of day — but it's fixed rather than `new Date()` to keep parsing
-// independent of when it runs.
+// A fixed reference keeps parsing, including two-digit year resolution, independent of the clock.
 const REFERENCE_DATE = new Date(2000, 0, 1);
 
 /** Returns an ISO YYYY-MM-DD string, or null if unparseable/blank under the given format. */
@@ -463,9 +357,6 @@ export function parseDateWithFormat(raw: string, format: DateFormat): string | n
   if (!trimmed) return null;
 
   for (const pattern of [...UNAMBIGUOUS_FORMATS, ...AMBIGUOUS_FORMATS[format]]) {
-    // `parse` anchors on the whole string — trailing junk fails the match —
-    // and rejects impossible dates like 2019-02-30, so a valid result here
-    // means the value really was that format.
     const parsed = parse(trimmed, pattern, REFERENCE_DATE);
     if (isValid(parsed) && isPlausibleYear(parsed)) return formatDate(parsed, "yyyy-MM-dd");
   }
@@ -473,30 +364,16 @@ export function parseDateWithFormat(raw: string, format: DateFormat): string | n
   return null;
 }
 
-// No one logs a send from year 19, so an implausible year means a token ate
-// the wrong digits and the next format should get a shot. date-fns' "yyyy"
-// matches 1-4 digits, so without this "10/15/19" would parse as year 19 under
-// "M/d/yyyy" instead of falling through to "M/d/yy" and its 2019.
+// Reject short years misread by yyyy, letting 10/15/19 fall through to M/d/yy.
 function isPlausibleYear(date: Date): boolean {
   const year = date.getFullYear();
   return year >= 1900 && year <= 2100;
 }
 
-/** How many of a date column's distinct values to look at when detecting the
- * format and deciding whether to ask about it. Enough to catch a stray
- * numeric row in an otherwise named-month file; small enough that a
- * 50,000-row import doesn't parse every value three times. */
+/** Bound format detection work by sampling distinct date values. */
 export const DATE_SAMPLE_SIZE = 25;
 
-/**
- * Whether the user actually has to be asked how to read this column's dates.
- * True only if some value is genuinely ambiguous — it reads as one date
- * under "month first" and a different one under "day first", the way
- * "05/06/2019" does. Everything else answers itself: "2019-09-22" and
- * "Sun Sep 22 2019" parse the same way whatever the setting is, and
- * "22/09/2019" only parses one way, so detectDateFormat can settle it
- * without bothering the user.
- */
+/** Ask only when month-first and day-first parsing produce different valid dates. */
 export function needsDateFormatChoice(sampleValues: string[]): boolean {
   return sampleValues.some((value) => {
     if (!value.trim()) return false;
@@ -506,11 +383,7 @@ export function needsDateFormatChoice(sampleValues: string[]): boolean {
   });
 }
 
-/** Tries each candidate format against the sample values, returns whichever
- * parses the most of them (ties favor "iso"). Values in an unambiguous format
- * parse under all three candidates, so they tie and leave the choice to
- * whatever all-numeric values are in the sample — which is exactly the
- * decision the setting exists to make. */
+/** Choose the format that parses the most samples; ties favor iso. */
 export function detectDateFormat(sampleValues: string[]): DateFormat {
   const candidates: DateFormat[] = ["iso", "mdy", "dmy"];
   let best: DateFormat = "iso";
@@ -529,15 +402,10 @@ export function detectDateFormat(sampleValues: string[]): DateFormat {
   return best;
 }
 
-// A time of day other than midnight inside a date value: "16:42:54" in
-// "Wed Sep 02 2026 16:42:54 GMT+0000".
 const NON_MIDNIGHT_TIME_RE = /\b(?!00:00(?::00)?\b)\d{1,2}:\d{2}(?::\d{2})?\b/;
 
-/** Date values that stand in for "no date". KAYA writes the export time on
- * sends logged without a date, so every undated send shares one timestamp to
- * the second. Real values are midnight (date-only logs) or unique per row.
- * Returned with counts so the wizard can offer to import those rows undated
- * instead of all dated today. */
+/** Repeated non-midnight timestamps may be export-time placeholders for undated sends.
+ * Return candidates for user review; repetition does not prove a date is a placeholder. */
 export function findPlaceholderTimestamps(
   rows: Record<string, string>[],
   dateColumn: string | null,
@@ -551,11 +419,7 @@ export type AscentStyleMapping = Record<string, AscentStyle | "skip">;
 export type ClimbTypeMapping = Record<string, ClimbType | "skip">;
 export type GradeFeelMapping = Record<string, GradeFeel | "skip">;
 
-// Other apps' words for the three styles. "Pinkpoint" is a redpoint on
-// pre-placed gear; Mountain Project's "Send" is a boulder redpoint and a
-// bare "Lead" is a lead with no style given, which is a redpoint far more
-// often than not. Non-sends (TR, Follow, Attempt, Fell/Hung) stay unmapped
-// so they default to skipping the row.
+// Map common send styles; attempts, top ropes, and follows stay unmapped for review.
 const ASCENT_STYLE_ALIASES: Record<string, AscentStyle> = {
   "red point": "redpoint",
   pinkpoint: "redpoint",
@@ -566,9 +430,7 @@ const ASCENT_STYLE_ALIASES: Record<string, AscentStyle> = {
   "on-sight": "onsight",
 };
 
-/** Pre-fills the value-mapping step's ascent-style dropdowns by matching
- * each distinct CSV value against a known ascent style; anything that
- * doesn't match defaults to "skip" for the user to resolve manually. */
+/** Unknown styles default to skip until the user maps them. */
 export function guessAscentStyleMapping(values: string[]): AscentStyleMapping {
   const mapping: AscentStyleMapping = {};
   for (const value of values) {
@@ -584,9 +446,7 @@ const CLIMB_TYPE_ALIASES: Record<string, ClimbType> = {
   traditional: "trad",
 };
 
-/** Same as guessAscentStyleMapping, but for the (optional, tiebreaker-only)
- * climb-type column. A value can list several types ("Trad, Sport" or
- * "Sport, TR" on Mountain Project); the first recognized one wins. */
+/** For mixed types such as Trad, Sport, use the first recognized discipline. */
 export function guessClimbTypeMapping(values: string[]): ClimbTypeMapping {
   const mapping: ClimbTypeMapping = {};
   for (const value of values) {
@@ -605,16 +465,13 @@ export function guessClimbTypeMapping(values: string[]): ClimbTypeMapping {
 // ("5.9 R", "5.10c PG13"); it says nothing about difficulty.
 const PROTECTION_SUFFIX_RE = /\s+(?:PG-?13|R|X)$/i;
 
-/** Grade text as the grade tables expect it. */
 function cleanGradeText(raw: string): string | null {
   return raw.replace(PROTECTION_SUFFIX_RE, "").trim() || null;
 }
 
 export type GradeScale = "native" | "converted";
 
-/** Which notation a grade column is written in, by which set of tables reads
- * more of its values: V-scale/YDS ("V4", "5.11a") or Font/French ("6A",
- * "6c+"). A tie, or a column with no readable grade, stays native. */
+/** Choose the grade scale that parses more values; ties favor native. */
 export function detectGradeScale(values: string[]): GradeScale {
   let native = 0;
   let converted = 0;
@@ -632,13 +489,9 @@ export function detectGradeScale(values: string[]): GradeScale {
   return converted > native ? "converted" : "native";
 }
 
-// Mountain Project writes an area as its whole path from the root
-// ("International > North America > Canada > … > Campground Wall").
 const AREA_PATH_SEPARATOR_RE = /\s+>\s+/;
 
-/** A hint cell as one or more area names, most specific first. A path splits
- * into its segments leaf-first, so the hint matching tries the wall before
- * the country; a plain name is itself. */
+/** Split location paths leaf-first so specific hints are tried before broad regions. */
 export function splitAreaHint(value: string): string[] {
   return value
     .split(AREA_PATH_SEPARATOR_RE)
@@ -647,12 +500,8 @@ export function splitAreaHint(value: string): string[] {
     .toReversed();
 }
 
-// Other sites rarely use betabook's own low/solid/high wording — soft/stiff
-// is the more common phrasing — so the guess covers the unambiguous
-// synonyms. Deliberately excludes terms like "sandbagged", which people use
-// to mean opposite things; those fall through to "skip" for the user to
-// decide rather than being guessed wrong. The signed numbers are KAYA's
-// "stiffness" (0 = fair; the sign follows the word, so negative is soft).
+// KAYA stiffness uses negative for soft and positive for stiff. Ambiguous
+// words such as sandbagged are left for manual mapping.
 const GRADE_FEEL_ALIASES: Record<string, GradeFeel> = {
   soft: "low",
   easy: "low",
@@ -665,9 +514,7 @@ const GRADE_FEEL_ALIASES: Record<string, GradeFeel> = {
   "1": "high",
 };
 
-/** Same as guessAscentStyleMapping, but for the optional grade-feel column.
- * Unmapped values fall back to the "solid" default rather than failing the
- * row — grade feel is never required. */
+/** Unmapped grade feel defaults to solid without invalidating the row. */
 export function guessGradeFeelMapping(values: string[]): GradeFeelMapping {
   const mapping: GradeFeelMapping = {};
   for (const value of values) {
@@ -682,35 +529,20 @@ export type NormalizedImportRow = {
   /** Index into ParsedCsv.rows — the wizard keys per-row decisions by it. */
   rowIndex: number;
   climbName: string;
-  /** Null when no Area column is mapped or the cell is blank; the match step
-   * then resolves the climb on name alone. */
   areaName: string | null;
-  /** Non-blank values of the mapped hint columns, in column order, with a
-   * path value split into its segments leaf-first (see splitAreaHint). For
-   * the match step's tie-breaking, never a requirement. */
+  /** Soft location hints in mapped-column order, with paths expanded leaf-first. */
   areaHints: string[];
-  climbTypeHint: ClimbType | null; // from ClimbTypeMapping, tiebreaker only
+  climbTypeHint: ClimbType | null; // A mapped discipline constrains matching.
   ascentStyle: AscentStyle;
   dateSent: string | null; // ISO if present; blank in the CSV -> null, not a failure
   rating: number | null;
   comment: string | null; // truncated to MAX_COMMENT_LENGTH here, not rejected
-  /** The text that becomes the send's suggested grade — from the Suggested
-   * Grade column when one is mapped (where third-party exports' lone grade
-   * column lands: it's the grade the climber logged), else from the posted
-   * Grade column, which only a betabook export carries separately. */
+  /** Suggested-grade text; falls back to the Grade column only if no Suggested Grade is mapped. */
   gradeText: string | null;
-  /** What a null gradeText means for the send's suggested grade:
-   * "posted-grade" — only a Grade column was mapped, so fall back to the
-   * climb's posted grade (the pre-existing semantics for third-party CSVs);
-   * "no-suggestion" — a Suggested Grade column was mapped and this row's
-   * cell was blank, so record no suggestion at all. The latter is what lets
-   * a betabook export round-trip losslessly instead of silently replacing
-   * every blank suggested grade with the climb's posted grade. */
+  /** A blank mapped Suggested Grade means no suggestion. With only Grade mapped,
+   * a blank falls back to the climb's posted grade. Preserve this distinction on export/import. */
   blankGradeMeans: "posted-grade" | "no-suggestion";
-  /** The climb's grade as the file states it, when a posted Grade column is
-   * mapped. Never written to the send; it stands in for a blank gradeText
-   * when matching (a Mountain Project row rarely has a grade of the
-   * climber's own, but always has the route's). */
+  /** Posted grade from the file, used only for matching when gradeText is blank. */
   postedGradeText: string | null;
   gradeFeel: GradeFeel; // optional CSV column; defaults to "solid" if absent/unrecognized
   raw: Record<string, string>; // the original CSV row, kept for a failed-rows export identical to the source
@@ -722,11 +554,7 @@ export type InvalidImportRow = {
   reason: string;
 };
 
-/** One kind of silent value adjustment normalizeImportRows makes to rows it
- * still counts as valid — surfaced on the review step so lossy coercions
- * (invalid rating dropped, unrecognized grade dropped, unknown grade feel
- * defaulted, overlong comment truncated) aren't presented as "ready"
- * without comment. */
+/** Lossy adjustments reported for rows that remain valid. */
 export type CoercionWarning = {
   field: "suggestedGrade" | "rating" | "gradeFeel" | "comment";
   message: string;
@@ -744,11 +572,8 @@ const COERCION_MESSAGES: Record<CoercionWarning["field"], string> = {
   comment: `comment longer than ${MAX_COMMENT_LENGTH} characters, truncated`,
 };
 
-/** Whether grade text will resolve to a grade ordinal server-side. With a
- * climb-type hint the exact grade table is known; without one, text that
- * parses in neither the boulder nor the rope table is certain to come back
- * null. (Text that parses in only one table can still miss if the climb
- * resolves to the other discipline — that can't be known client-side.) */
+/** Without a resolved discipline, parsing only establishes that a grade could match.
+ * The server validates against the chosen climb's scale. */
 function gradeTextParses(
   text: string,
   climbTypeHint: ClimbType | null,
@@ -768,14 +593,8 @@ export type NormalizeOptions = {
   undatedValues?: Iterable<string>;
 };
 
-/**
- * Applies column mapping + value mappings + date format to every parsed CSV
- * row. Never touches the database — climb resolution happens in the match
- * step. Returns both buckets so the wizard can show "N rows ready, M rows
- * can't be imported" before the user ever clicks Finalize, plus per-field
- * coercion warnings for the value adjustments made to rows in the valid
- * bucket.
- */
+/** Normalize CSV fields before climb matching; return invalid rows and
+ * warnings for lossy adjustments to otherwise valid rows. */
 // oxlint-disable-next-line complexity -- one coercion + validation branch per mapped CSV column
 export function normalizeImportRows(
   parsed: ParsedCsv,
@@ -794,8 +613,6 @@ export function normalizeImportRows(
   const undated = new Set(undatedValues);
   const valid: NormalizedImportRow[] = [];
   const invalid: InvalidImportRow[] = [];
-  // One day past UTC today, since a client's local today can be ahead of
-  // UTC's — see latestAcceptableSendDate.
   const latestDateSent = latestAcceptableSendDate(today);
 
   const warningBuckets = new Map<CoercionWarning["field"], { count: number; examples: string[] }>();
@@ -855,8 +672,7 @@ export function normalizeImportRows(
       ratingNum !== null && Number.isInteger(ratingNum) && ratingNum >= 1 && ratingNum <= 5
         ? ratingNum
         : null;
-    // Zero or negative is an app's "not rated" (Mountain Project exports -1),
-    // not a rating that failed to parse, so it drops silently.
+    // Zero and negative ratings represent unrated in supported exports; Mountain Project uses -1.
     if (rawRating && rating === null && !(ratingNum !== null && ratingNum <= 0)) {
       warn("rating", rowIndex, `"${rawRating}"`);
     }
@@ -871,9 +687,6 @@ export function normalizeImportRows(
         : rawComment
       : null;
 
-    // The Suggested Grade column, when mapped, is authoritative for the
-    // send's suggested grade; the Grade column only fills that role when no
-    // Suggested Grade column exists (see NormalizedImportRow.blankGradeMeans).
     const gradeColumn = mapping.suggestedGrade ?? mapping.grade;
     const blankGradeMeans = mapping.suggestedGrade
       ? ("no-suggestion" as const)
@@ -886,10 +699,6 @@ export function normalizeImportRows(
 
     const rawGradeFeel = cell(mapping.gradeFeel);
     const mappedGradeFeel = rawGradeFeel ? gradeFeelMapping[rawGradeFeel] : undefined;
-    // Unmapped or explicitly ignored grade feel falls back to the "solid"
-    // default — unlike ascent style, it never invalidates a row. It does
-    // warn, though: the file said something about this send's grade feel and
-    // the import is dropping it.
     const feelDropped = !mappedGradeFeel || mappedGradeFeel === "skip";
     const gradeFeel: GradeFeel = feelDropped ? "solid" : mappedGradeFeel;
     if (rawGradeFeel && feelDropped) warn("gradeFeel", rowIndex, `"${rawGradeFeel}"`);
@@ -922,7 +731,7 @@ export function normalizeImportRows(
   return { valid, invalid, warnings };
 }
 
-/** One row that didn't import, with why — whatever stage stopped it. */
+/** A row needing attention, including unconfirmed import outcomes. */
 export type FailedImportRow = {
   raw: Record<string, string>;
   reason: string;
@@ -930,13 +739,8 @@ export type FailedImportRow = {
 
 const REASON_COLUMN = "Import Failure Reason";
 
-/**
- * Builds a CSV of every row that couldn't be imported so the user can review
- * and fix them outside the wizard. Every row's original CSV columns/values
- * are carried through unchanged (via each row's own `raw`), with one column
- * appended explaining why it failed — the export otherwise matches the
- * source file exactly, so it can be edited and re-uploaded as-is.
- */
+/** Export original cell values plus an explanation for each row needing attention.
+ * An unconfirmed outcome does not mean the row is safe to import again. */
 export function buildFailedRowsCsv(headers: string[], failures: FailedImportRow[]): string {
   const fields = [...headers, REASON_COLUMN];
   const data = failures.map(({ raw, reason }) => [...headers.map((h) => raw[h] ?? ""), reason]);
