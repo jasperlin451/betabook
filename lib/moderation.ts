@@ -719,12 +719,13 @@ export async function changeRequestCoverage(
   };
 }
 
-/** Every pending request this admin can act on — anything scoped to an area
- * they manage, plus requests whose target entity is already gone (scope
- * `[]`): those are invisible to area-scoped filtering by definition, would
- * otherwise sit pending forever, and any admin may reject them to clear the
- * queue. Filters in application code rather than a SQL join: with two-area
- * types needing entity lookups anyway and the pending queue expected to stay
+/** Every pending request scoped to an area this admin manages — strictly
+ * their moderation surface, nothing from elsewhere. A request whose target
+ * entity is already gone (scope `[]`) is invisible to everyone here; it can
+ * still be rejected by any admin who reaches it (see loadReviewableRequest
+ * in actions/moderation.ts), it just no longer clutters unrelated queues.
+ * Filters in application code rather than a SQL join: with two-area types
+ * needing entity lookups anyway and the pending queue expected to stay
  * small, a per-request isAdminForAnyArea check reads far more clearly than
  * folding the area/climb union and the recursive ancestor walk into one
  * query. */
@@ -737,7 +738,7 @@ export async function getVisibleChangeRequests(
   const visible: ChangeRequest[] = [];
   for (const request of pending) {
     const areaIds = await changeRequestScopeAreaIds(db, request);
-    if (areaIds.length === 0 || (await isAdminForAnyArea(db, session, areaIds))) {
+    if (areaIds.length > 0 && (await isAdminForAnyArea(db, session, areaIds))) {
       visible.push(request);
     }
   }
