@@ -1,3 +1,5 @@
+import type { JournalVisibility } from "@/lib/journal";
+
 /** The one predicate every page/route branches on to decide whether a
  * private user's profile and sends may be shown to a given viewer. A private
  * profile is visible only to its own owner — there's no partial/public
@@ -9,4 +11,12 @@ export function canViewUser(
   viewerId: string | null,
 ): boolean {
   return !target.isPrivate || target.id === viewerId;
+}
+
+export function canViewJournal(
+  owner: { id: string; isPrivate: boolean; journalVisibility: JournalVisibility },
+  viewerId: string | null,
+): boolean {
+  if (!canViewUser(owner, viewerId)) return false;
+  return owner.journalVisibility === "public" || owner.id === viewerId;
 }

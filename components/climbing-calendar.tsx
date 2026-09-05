@@ -22,17 +22,16 @@ const MONTHS_SHORT = [
 // out a light one.
 const LEVEL_OPACITY = [0, 0.35, 0.55, 0.75, 1] as const;
 
-/** One year of climbing days as a week-column grid — the season's rhythm
- * at a glance, darker squares for bigger days. Hovering a square names its
- * date and send count. */
 export function ClimbingCalendar({
-  sendsByDay,
+  countsByDay,
   year,
   hue,
+  unit,
 }: {
-  sendsByDay: Record<string, number>;
+  countsByDay: Record<string, number>;
   year: number;
   hue: string;
+  unit: "send" | "session";
 }) {
   // oxlint-disable-next-line react/capitalized-calls -- Date.UTC is standard JavaScript built-in
   const jan1 = Date.UTC(year, 0, 1);
@@ -44,7 +43,7 @@ export function ClimbingCalendar({
 
   const days = Array.from({ length: daysInYear }, (_, i) => {
     const iso = new Date(jan1 + i * MS_PER_DAY).toISOString().slice(0, 10);
-    return { iso, count: sendsByDay[iso] ?? 0 };
+    return { iso, count: countsByDay[iso] ?? 0 };
   });
   const max = Math.max(...days.map((day) => day.count), 1);
   const level = (count: number) => (count === 0 ? 0 : Math.max(1, Math.ceil((count / max) * 4)));
@@ -104,7 +103,7 @@ export function ClimbingCalendar({
               {days.map((day) => (
                 <span
                   key={day.iso}
-                  title={`${day.count > 0 ? formatCount(day.count, "send") : "No sends"} · ${formatDate(day.iso)}`}
+                  title={`${day.count > 0 ? formatCount(day.count, unit) : `No ${unit}s`} · ${formatDate(day.iso)}`}
                   className="aspect-square w-full rounded-[2px] bg-foreground/10"
                   style={
                     day.count > 0

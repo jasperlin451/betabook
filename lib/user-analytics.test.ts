@@ -212,7 +212,36 @@ describe("buildUserAnalytics", () => {
     expect(a.favoriteWeekday).toEqual({ weekday: "Monday", count: 3 });
     expect(a.bestYear).toEqual({ year: 2024, count: 5 });
     expect(a.years).toEqual([2024]);
-    expect(a.sendsByDay["2024-03-04"]).toBe(2);
+    expect(a.calendarYears).toEqual([2024]);
+    expect(a.calendarCounts["2024-03-04"]).toBe(2);
+  });
+
+  it("uses outdoor journal sessions for days out and consistency", () => {
+    const a = buildUserAnalytics(
+      [
+        send({ climbType: "sport", dateSent: "2024-01-01" }),
+        send({ climbType: "sport", dateSent: "2024-03-04" }),
+      ],
+      "sport",
+      [
+        { climbType: "sport", entryDate: "2024-01-01" },
+        { climbType: "sport", entryDate: "2024-01-02" },
+        { climbType: "sport", entryDate: "2024-01-02" },
+        { climbType: "boulder", entryDate: "2024-02-01" },
+        { climbType: "sport", entryDate: "2024-03-04" },
+      ],
+    );
+
+    expect(a.daysOut).toBe(3);
+    expect(a.longestStreak).toEqual({ days: 2, end: "2024-01-02" });
+    expect(a.longestLayoff).toEqual({ days: 62, from: "2024-01-02", to: "2024-03-04" });
+    expect(a.dateSpan).toEqual(["2024-01-01", "2024-03-04"]);
+    expect(a.calendarYears).toEqual([2024]);
+    expect(a.calendarCounts).toEqual({
+      "2024-01-01": 1,
+      "2024-01-02": 2,
+      "2024-03-04": 1,
+    });
   });
 
   it("reports no layoff when every gap is a back-to-back climbing day", () => {

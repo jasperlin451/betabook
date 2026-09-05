@@ -5,7 +5,10 @@ import { Menu as MenuIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect } from "react";
 
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useDeferredComponent } from "@/hooks/use-deferred-component";
+import { useMounted } from "@/hooks/use-mounted";
+import { authClient } from "@/lib/auth-client";
 
 /** Module-level so its identity is stable across renders — the preload hook
  * keys its effect on the loader. */
@@ -15,7 +18,10 @@ export function MobileNav() {
   const state = useOverlayState();
   const { close, open, setOpen } = state;
   const pathname = usePathname();
+  const mounted = useMounted();
+  const { data: session, isPending } = authClient.useSession();
   const { Component: MobileNavDrawer, load } = useDeferredComponent(loadDrawer);
+  const showAccountAvatar = mounted && !isPending && session != null;
 
   // Pulls the drawer in on the way to opening, for a tap that beats the idle
   // preload. Ordinarily already resolved, so this is a no-op.
@@ -44,7 +50,11 @@ export function MobileNav() {
         aria-label="Open menu"
         onPress={openMenu}
       >
-        <MenuIcon className="size-5" />
+        {showAccountAvatar ? (
+          <UserAvatar name={session.user.name} image={session.user.image} size="sm" />
+        ) : (
+          <MenuIcon className="size-5" />
+        )}
       </Button>
       {MobileNavDrawer && (
         <MobileNavDrawer isOpen={state.isOpen} onOpenChange={setOpen} onClose={close} />

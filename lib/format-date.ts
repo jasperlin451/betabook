@@ -18,3 +18,11 @@ export function formatDate(isoDate: string | null | undefined): string {
   if (Number.isNaN(parsed.getTime())) return isoDate;
   return DATE_FORMAT.format(parsed);
 }
+
+export function calendarMonth(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    timeZone,
+  }).format(date);
+}
