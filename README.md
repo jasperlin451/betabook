@@ -112,8 +112,7 @@ and never sends email; the product tour's sample controls also send nothing.
 
 Journal audiences protect every send note, including mirrored ascent notes.
 Public-profile send facts and anonymous community aggregates retain their existing
-visibility. See [the implementation notes](docs/friends-feed-plan.md) for the
-privacy matrix and friendship lifecycle.
+visibility.
 
 To check social seeding against a disposable copy of a migrated, default-seeded
 SQLite database, run `pnpm test:seed-social /path/to/copy.sqlite`.
