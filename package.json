@@ -25,7 +25,7 @@
     "seed": "node --disable-warning=ExperimentalWarning scripts/seed.ts",
     "setup": "node scripts/setup.ts",
     "promote-admin": "node --disable-warning=ExperimentalWarning scripts/promote-admin.ts",
-    "backfill:climb-names": "node --disable-warning=ExperimentalWarning scripts/backfill-climb-names.ts",
+    "backfill:entities": "node --disable-warning=ExperimentalWarning scripts/backfill-entities.ts",
     "prepare": "husky"
   },
   "dependencies": {
