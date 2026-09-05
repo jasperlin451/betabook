@@ -24,7 +24,7 @@ const SECTIONS = [
   {
     id: "sends-page",
     name: "Sends",
-    description: "Explore recorded ascents, grades, ratings, and styles.",
+    description: "Sort your sends by date, grade, or rating.",
   },
   {
     id: "projects-page",
@@ -34,12 +34,12 @@ const SECTIONS = [
   {
     id: "analytics-page",
     name: "Analytics",
-    description: "Understand outdoor days and send progression.",
+    description: "See what counts toward your climbing stats.",
   },
   {
     id: "account-page",
     name: "Account",
-    description: "Try privacy controls and find your account tools.",
+    description: "Choose who can see your journal and sends.",
   },
 ] as const;
 
@@ -47,12 +47,11 @@ export function TourDestinations({ navigate }: ProductTourStepProps) {
   return (
     <div className="flex flex-col gap-5 text-sm">
       <p>
-        Meet {TOUR_DEMO_CLIMBER.name}, our fictional demo climber. Explore a populated logbook with
-        eight journal entries, three sends, and a project in {TOUR_DEMO_CLIMBER.area}.
+        {TOUR_DEMO_CLIMBER.name} climbs at {TOUR_DEMO_CLIMBER.area}. We'll use this sample account
+        to show you around.
       </p>
       <p className="text-muted">
-        Choose a tutorial to try its controls with Alex's sample data, or walk through every section
-        in order.
+        Pick a section below, or start with Journal and go through them in order.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {SECTIONS.map((section) => (
@@ -63,7 +62,7 @@ export function TourDestinations({ navigate }: ProductTourStepProps) {
             className="group flex cursor-pointer items-center gap-4 rounded-xl border border-border p-4 text-left transition-colors hover:bg-surface-secondary focus-visible:status-focused"
           >
             <span className="flex-1">
-              <span className="block font-medium text-foreground">Explore {section.name}</span>
+              <span className="block font-medium text-foreground">{section.name} tutorial</span>
               <span className="mt-1 block text-muted">{section.description}</span>
             </span>
             <ArrowRight aria-hidden className="size-4 shrink-0 text-muted" />
@@ -71,7 +70,7 @@ export function TourDestinations({ navigate }: ProductTourStepProps) {
         ))}
       </div>
       <Button variant="secondary" className="self-start" onPress={() => navigate("journal-page")}>
-        Walk through every section
+        Start with Journal
       </Button>
     </div>
   );
@@ -111,12 +110,12 @@ function PageTutorial({
               <h3 className="font-medium text-foreground">
                 {TOUR_DEMO_CLIMBER.name} · {page}
               </h3>
-              <p className="text-xs text-muted">Fictional demo account · Try the controls below</p>
+              <p className="text-xs text-muted">Demo account</p>
             </div>
           </div>
           <div className="p-3 sm:p-4">{demo}</div>
           <p className="border-t border-border px-4 py-3 text-xs text-muted">
-            Sample data. Changes here stay in this example.
+            These examples won't change your account.
           </p>
         </section>
         <div className="flex flex-col gap-4 text-sm leading-relaxed">
@@ -138,19 +137,18 @@ function JournalTutorial(props: ProductTourStepProps) {
       href={`/users/${props.userId}/journal`}
       demo={<DemoJournal />}
     >
-      <h3 className="text-lg font-semibold">Remember what worked</h3>
+      <h3 className="text-lg font-semibold">Your climbing notes</h3>
       <p>
-        Your journal brings outdoor sessions, repeat ascents, and training into one timeline. Each
-        outdoor entry belongs to one climb on one date.
+        Journal lists your outdoor sessions and training by date. Log each outdoor climb as a
+        separate entry.
       </p>
       <ul className="list-disc space-y-3 pl-5">
         <li>
-          <strong>Search notes</strong> to recover a detail, like Alex's quieter feet or next crux
-          sequence.
+          <strong>Search notes</strong> to find something you wrote, like beta for a crux.
         </li>
         <li>
-          <strong>Choose Sessions or Training</strong> to narrow the timeline. Select a tag to
-          connect related entries across days.
+          <strong>Choose Sessions or Training</strong> to show just those entries. Select a tag to
+          find other entries with the same tag.
         </li>
         <li>
           <strong>Log an entry</strong> whenever you climb or train. Use an entry's menu to edit its
@@ -158,8 +156,8 @@ function JournalTutorial(props: ProductTourStepProps) {
         </li>
       </ul>
       <p className="text-muted">
-        Try #footwork: it connects Alex's gym drills, repeat, send, and project session. Combine it
-        with Training to find just the workout.
+        Alex tagged both gym drills and outdoor sessions with #footwork. Select that tag and
+        Training to find the gym workout.
       </p>
     </PageTutorial>
   );
@@ -173,10 +171,10 @@ function SendsTutorial(props: ProductTourStepProps) {
       href={`/users/${props.userId}/sends`}
       demo={<DemoSends />}
     >
-      <h3 className="text-lg font-semibold">Your recorded ascents</h3>
+      <h3 className="text-lg font-semibold">One send per climb</h3>
       <p>
-        Alex sent Quiet Arete in February and repeated it in March. Sends keeps the original ascent;
-        Journal tells the story of both days.
+        Alex sent Quiet Arete in February and repeated it in March. Sends shows the February ascent.
+        Both entries are in Journal.
       </p>
       <ul className="list-disc space-y-3 pl-5">
         <li>
@@ -188,13 +186,12 @@ function SendsTutorial(props: ProductTourStepProps) {
           filters for ascent styles and ratings.
         </li>
         <li>
-          <strong>Open a climb</strong> to see its details and send history. Your own send has
-          controls for editing its ascent details.
+          <strong>Open a climb</strong> to see its details and send history. You can also edit your
+          own send there.
         </li>
       </ul>
       <p className="text-muted">
-        Select Grade: Quiet Arete rises to the top. Select Rating: Alex's favorite, Moss Ladder,
-        comes first.
+        Sorting by Grade puts Quiet Arete first. Sorting by Rating puts Moss Ladder first.
       </p>
     </PageTutorial>
   );
@@ -208,10 +205,10 @@ function ProjectsTutorial(props: ProductTourStepProps) {
       href={`/users/${props.userId}/projects`}
       demo={<DemoProjects />}
     >
-      <h3 className="text-lg font-semibold">Pick up where you left off</h3>
+      <h3 className="text-lg font-semibold">Your current projects</h3>
       <p>
-        The Long Way appears here because Alex logged outdoor sessions on it without a send.
-        Projects is built from your climbing history automatically.
+        Alex has logged two sessions on The Long Way but hasn't sent it. That puts it in Projects
+        automatically.
       </p>
       <ul className="list-disc space-y-3 pl-5">
         <li>
@@ -219,8 +216,8 @@ function ProjectsTutorial(props: ProductTourStepProps) {
           when you last visited.
         </li>
         <li>
-          <strong>Open a project</strong> to revisit its journal entries. Use the log control beside
-          it to start another entry with that climb selected.
+          <strong>Open a project</strong> to read its journal entries. The log button beside it
+          starts a new entry for that climb.
         </li>
         <li>
           <strong>Select “I sent”</strong> when you finish it. Its first ascent goes to Sends and
@@ -243,7 +240,7 @@ function AnalyticsTutorial(props: ProductTourStepProps) {
       href={`/users/${props.userId}/analytics`}
       demo={<DemoAnalytics />}
     >
-      <h3 className="text-lg font-semibold">Read the story behind the numbers</h3>
+      <h3 className="text-lg font-semibold">What the numbers mean</h3>
       <p>
         Alex has six outdoor entries across four dates, plus two training entries. That gives four
         days out and three sends.
@@ -254,12 +251,12 @@ function AnalyticsTutorial(props: ProductTourStepProps) {
           tracks your personal best, even when a later month is easier.
         </li>
         <li>
-          <strong>Outdoor days</strong> count distinct dates, including sessions without a send.
-          Multiple climbs on the same date count once; training is excluded.
+          <strong>Outdoor days</strong> count days you climbed outside, whether you sent or not.
+          Multiple climbs on one day count once. Training doesn't count.
         </li>
         <li>
-          <strong>Explore your page</strong> by discipline. The grade pyramid and activity calendar
-          each have their own year selector.
+          <strong>Filter by discipline</strong> on your Analytics page. The grade pyramid and
+          activity calendar each have their own year selector.
         </li>
       </ul>
       <p className="text-muted">
@@ -288,8 +285,8 @@ function AccountTutorial(props: ProductTourStepProps) {
           profile. A private profile overrides this setting.
         </li>
         <li>
-          <strong>Account tools</strong> include send import and export, appearance, and Replay
-          product tour whenever you need a refresher.
+          <strong>Also in Account:</strong> import or export sends, change your theme, and replay
+          this tour.
         </li>
       </ul>
       <p className="text-muted">
@@ -303,31 +300,31 @@ function AccountTutorial(props: ProductTourStepProps) {
 export const profileTourSteps: readonly ProductTourStep[] = [
   {
     id: "journal-page",
-    title: "Find the details in your journal",
+    title: "Find an old entry",
     eyebrow: "1 of 5 · Journal",
     Content: JournalTutorial,
   },
   {
     id: "sends-page",
-    title: "Explore your sends",
+    title: "Find and sort your sends",
     eyebrow: "2 of 5 · Sends",
     Content: SendsTutorial,
   },
   {
     id: "projects-page",
-    title: "Return to an unfinished climb",
+    title: "Keep track of a project",
     eyebrow: "3 of 5 · Projects",
     Content: ProjectsTutorial,
   },
   {
     id: "analytics-page",
-    title: "Understand your progress",
+    title: "Read your climbing stats",
     eyebrow: "4 of 5 · Analytics",
     Content: AnalyticsTutorial,
   },
   {
     id: "account-page",
-    title: "Make your account your own",
+    title: "Set up your account",
     eyebrow: "5 of 5 · Account",
     Content: AccountTutorial,
   },

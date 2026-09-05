@@ -6,12 +6,12 @@ export const PRODUCT_TOURS = [
     id: "journal",
     version: 1,
     name: "Logging sessions and training",
-    title: "Your climbing, beyond sends",
+    title: "Keep a climbing journal",
     description:
-      "Record outdoor sessions, projects, and training. Start with a quick tour, or log what you did today.",
+      "Log outdoor sessions and training, including days you didn't send. Take a tour or add an entry.",
     returningTitle: "Logging now includes sessions and training",
     returningDescription:
-      "Record days on a project, repeat ascents, and training alongside your sends. Take a quick look at the new logging flow.",
+      "You can now log project attempts, repeats, and training. Take a tour to see how it works.",
   },
 ] as const;
 

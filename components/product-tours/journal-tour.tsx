@@ -14,27 +14,27 @@ const RESULTS: Record<JournalSaveOutcome, { title: string; body: string }> = {
     body: "Your training is in your journal. Add tags to find similar workouts later.",
   },
   project: {
-    title: "Session saved — keep working on it",
-    body: "This climb appears in Projects because you've logged a session and haven't recorded a send. Log your next session from there.",
+    title: "Session saved",
+    body: "You haven't logged a send for this climb yet, so it's now in Projects. You can log your next session from there.",
   },
   session: {
     title: "Session saved",
     body: "Added to your journal. You've already sent this climb, so it won't appear in open Projects.",
   },
   ascent: {
-    title: "Your ascent is recorded",
-    body: "This session is in your journal, and your ascent is also in Sends. This climb no longer appears in open Projects.",
+    title: "Send saved",
+    body: "You'll find this entry in Journal and Sends. The climb is no longer in Projects.",
   },
   repeat: {
     title: "Repeat saved",
-    body: "Added to your journal. Your original ascent stays recorded in Sends, with its rating and grade unchanged.",
+    body: "The repeat is in your journal. Sends still shows your original ascent, rating, and grade.",
   },
 };
 
 function TourIntroduction({ navigate }: ProductTourStepProps) {
   return (
     <div className="flex flex-col gap-4 text-sm">
-      <p>You don't have to send to have something worth recording.</p>
+      <p>Keep notes on attempts, sends, repeats, and training.</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl bg-surface-secondary p-4">
           <h3 className="mb-1 font-medium">Outdoor session</h3>
@@ -46,8 +46,8 @@ function TourIntroduction({ navigate }: ProductTourStepProps) {
         <div className="rounded-xl bg-surface-secondary p-4">
           <h3 className="mb-1 font-medium">Training</h3>
           <p className="text-muted">
-            Indoor climbing, drills, strength, or conditioning. No climb selection needed — just a
-            note or a tag.
+            For indoor climbing, drills, strength, or conditioning. Add a note or tag; you don't
+            need to choose a climb.
           </p>
         </div>
       </div>
@@ -57,8 +57,8 @@ function TourIntroduction({ navigate }: ProductTourStepProps) {
       </p>
       <p className="rounded-lg border border-border p-4 text-muted">
         Journals start private. Notes on your first recorded ascent also appear on its send and
-        follow your profile's privacy settings, even when the journal is private. Review visibility
-        in Account.
+        follow your profile's privacy settings, even when the journal is private. Check your privacy
+        settings in Account.
       </p>
       <div className="flex flex-wrap gap-2">
         <Button onPress={() => navigate("compose")}>Try logging an entry</Button>
@@ -89,14 +89,14 @@ function LogEntryStep({ navigate }: ProductTourStepProps) {
 
 function SavedEntryStep({ values, navigate }: ProductTourStepProps) {
   const result = RESULTS[values.outcome as JournalSaveOutcome];
-  if (!result) return <Button onPress={() => navigate("explore")}>Explore your journal</Button>;
+  if (!result) return <Button onPress={() => navigate("explore")}>Choose a tutorial</Button>;
   return (
     <>
       <div role="status" className="flex flex-col gap-2">
         <h3 className="text-lg font-medium">{result.title}</h3>
         <p className="text-sm text-muted">{result.body}</p>
       </div>
-      <Button onPress={() => navigate("explore")}>Where to find it</Button>
+      <Button onPress={() => navigate("explore")}>See where it appears</Button>
     </>
   );
 }
@@ -104,14 +104,14 @@ function SavedEntryStep({ values, navigate }: ProductTourStepProps) {
 export const journalTourSteps: readonly ProductTourStep[] = [
   {
     id: "intro",
-    title: "Make room for every climbing day",
+    title: "Log a session or a workout",
     eyebrow: "Getting started",
     Content: TourIntroduction,
     navigation: "custom",
   },
   {
     id: "compose",
-    title: "Log something you actually did",
+    title: "Add an entry to your journal",
     eyebrow: "Try it",
     Content: LogEntryStep,
     navigation: "custom",
@@ -125,8 +125,8 @@ export const journalTourSteps: readonly ProductTourStep[] = [
   },
   {
     id: "explore",
-    title: "Find your next session and your progress",
-    eyebrow: "Your climbing history",
+    title: "Choose a tutorial",
+    eyebrow: "Your logbook",
     Content: TourDestinations,
     navigation: "custom",
     canFinish: true,

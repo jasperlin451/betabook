@@ -112,9 +112,7 @@ export function DemoSends() {
   });
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted">
-        Sort Alex's three ascents. Quiet Arete's repeat stays in Journal.
-      </p>
+      <p className="text-sm text-muted">Try sorting Alex's sends by grade or rating.</p>
       <Choices
         label="Sort sends"
         options={["Date", "Grade", "Rating"]}
@@ -151,7 +149,7 @@ export function DemoProjects() {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-muted">
-        Alex has one open project. Open its sessions to see what to try next.
+        Alex has one project. Read the session notes to see what still needs work.
       </p>
       <ListRow
         title={TOUR_DEMO_PROJECT.name}
@@ -230,7 +228,7 @@ export function DemoAccount() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted">
-        Try changing {TOUR_DEMO_CLIMBER.name}'s example visibility settings.
+        Try changing who can see {TOUR_DEMO_CLIMBER.name}'s logbook.
       </p>
       <Checkbox isSelected={isPrivate} onChange={setIsPrivate}>
         <Checkbox.Content>
@@ -255,7 +253,7 @@ export function DemoAccount() {
             ? "Alex's profile, sends, journal, and analytics are hidden."
             : `Alex's profile, sends, and analytics are visible. The journal is ${publicJournal ? "visible too" : "private"}.`}
         </p>
-        <p className="mt-2 text-muted">Projects remain visible only to Alex.</p>
+        <p className="mt-2 text-muted">Only Alex can see Projects.</p>
       </div>
     </div>
   );

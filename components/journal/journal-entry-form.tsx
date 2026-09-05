@@ -146,7 +146,7 @@ export function JournalEntryForm({
         <p className="text-sm text-muted">
           {kind === "training"
             ? "Record indoor climbing, drills, strength, or conditioning. Add at least a note or a tag before saving."
-            : "This entry records one climb on one date. Log another entry for each other climb you worked on that day."}
+            : "Log one climb per entry. If you worked on more than one climb that day, add an entry for each."}
         </p>
       )}
       <FormSection label="The day">
@@ -184,7 +184,7 @@ export function JournalEntryForm({
         {guided && climb && !existingEntry && (
           <p className="text-sm text-muted">
             {hasPriorSend
-              ? "Already sent this climb? Select I sent to record a repeat. Your original ascent stays recorded."
+              ? "You've sent this climb before. Select I sent to log a repeat; Sends will keep your original ascent."
               : "Leave I sent unchecked to record work on a project. Select it when you send to also add the ascent to Sends."}
           </p>
         )}

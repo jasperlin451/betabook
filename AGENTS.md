@@ -80,17 +80,16 @@ Strict boundaries are codified in `oxlint.config.ts` via `typescript/no-restrict
 5. **Import Safety Suite**:
    - Oxlint enforces cycle-free (`import/no-cycle`), duplicate-free (`import/no-duplicates`), and relative-parent-free (`import/no-relative-parent-imports`) imports across all modules.
 
-## Product Tutorials & Feature Discovery
+## Product Tutorials
 
-When planning a new user-facing feature or changing an existing workflow, explicitly decide whether to update an existing tutorial step, add a step, create a separate feature tour, or make no tutorial change. Record the decision and a brief reason in the implementation plan or PR description. Internal changes and self-explanatory controls may need no tutorial; unfamiliar workflows, new sections, and changes to logging or visibility usually benefit from one. Keep existing explanations accurate whenever their feature changes.
+For each new user-facing feature or workflow change, decide whether to update a tutorial, add a step, create a separate tour, or leave tutorials unchanged. Note the choice and why in the plan or PR. New sections and changes to logging or privacy often need an explanation; internal changes and obvious controls may not. Update any existing tutorial that becomes inaccurate.
 
-Read [docs/product-tours.md](docs/product-tours.md) before implementing tutorial changes. Use the existing tour system:
+Read [docs/product-tours.md](docs/product-tours.md) before changing a tutorial.
 
-- **Extend a related tutorial** when the feature fits its current story. Profile section steps and their chooser live in `components/product-tours/profile-tour-pages.tsx`; interactive examples live in `profile-tour-previews.tsx` alongside it.
-- **Add a separate tour** for an independent feature or component showcase. Register metadata in `lib/product-tour.ts` and a lazy loader in `components/product-tours/registry.ts`. Reuse shared navigation, focus handling, completion, and Account replay.
-- **Demonstrate with connected data.** Extend the fictional climber in `lib/product-tour-demo.ts` and reuse production display components and domain calculations. Keep related examples consistent across sections. Preview controls use local state; never persist sample data or pass demo IDs to real links or mutations.
-- **Decide whether returning users need another invitation.** A new tour ID has independent progress; increment an existing tour's version only when its changed content warrants resurfacing. Copy corrections do not normally need a version bump.
-- **Verify the learning flow.** Check navigation, replay, keyboard focus, phone layout, and interactive examples. Extend relevant behavior and demo-consistency tests, and confirm previews leave the user's data unchanged.
+- Add related steps in `components/product-tours/profile-tour-pages.tsx` and examples in `profile-tour-previews.tsx`. For a separate feature tour, register metadata in `lib/product-tour.ts` and a loader in `components/product-tours/registry.ts`. Both use the existing navigation, focus handling, progress tracking, and Account replay.
+- Use the sample climber in `lib/product-tour-demo.ts`. Reuse display components and calculations from the app, and keep the examples consistent across pages. Demo controls use local state. Never save sample data or use demo IDs in real links or writes.
+- Decide whether people who dismissed or finished the tour should see it again. If so, bump its version. Copy edits usually don't need this. A new tour ID tracks progress separately.
+- Check navigation, replay, keyboard focus, mobile layout, and the example controls. Update tests for changed behavior and sample data, and check that demos don't change the user's account.
 
 ## SEO & Metadata
 
