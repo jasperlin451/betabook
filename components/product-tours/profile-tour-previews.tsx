@@ -1,10 +1,11 @@
 "use client";
 
-import { Button, Checkbox, SearchField } from "@heroui/react";
+import { Button, SearchField } from "@heroui/react";
 import { useState } from "react";
 
 import { StatTiles } from "@/components/analytics-stat-tiles";
 import { AscentStyle } from "@/components/ascent-style";
+import { PrivacyFields } from "@/components/privacy-fields";
 import { ProgressionChart } from "@/components/progression-chart";
 import { SendGradeCell } from "@/components/send-grade-cell";
 import { choicePillClass } from "@/components/ui/choice-pill";
@@ -274,22 +275,12 @@ export function DemoAccount() {
   return (
     <div className="flex flex-col gap-4">
       <div data-tour-target="privacy-controls" className="flex flex-col gap-4">
-        <Checkbox isSelected={isPrivate} onChange={setIsPrivate}>
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            Private profile
-          </Checkbox.Content>
-        </Checkbox>
-        <Checkbox isSelected={publicJournal} isDisabled={isPrivate} onChange={setPublicJournal}>
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            Public journal
-          </Checkbox.Content>
-        </Checkbox>
+        <PrivacyFields
+          isPrivate={isPrivate}
+          publicJournal={publicJournal}
+          onProfileChange={setIsPrivate}
+          onJournalChange={setPublicJournal}
+        />
       </div>
       <div role="status" className="rounded-lg bg-surface-secondary p-4 text-sm">
         <p className="font-medium">What a visitor can see</p>

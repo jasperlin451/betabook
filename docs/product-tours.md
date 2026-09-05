@@ -13,7 +13,7 @@ The Journal tour covers Log, journal filters, Sends sorting, project history, An
 
 ## Navigation and overlays
 
-The URL owns the current step. Next, Back, profile tabs, the All tutorials menu, refresh, and browser history all resolve through the same step catalog. The persistent route layout loads the feature once and suspends the mobile installation helper while mounted. Each section's local demo state resets when leaving that section.
+The URL owns the current step. `parseProductTourNavigation` applies the same allowlist and duplicate-parameter rules to server and client inputs. Build links with named options, for example `productTourPath(tour.id, { stepId, from: "journal", mode: "updates" })`. `resolveProductTour` owns invitation eligibility, the active steps, and the fallback from an acknowledged update to full replay; use it for both invitations and playback. Invitation copy is selected by `getProductTourInvitationCopy`. Next, Back, profile tabs, the All tutorials menu, refresh, and browser history all resolve through the same step catalog. The persistent route layout loads the feature once and suspends the mobile installation helper while mounted. Each section's local demo state resets when leaving that section.
 
 The guide and demo are separate, nonmodal regions. The demo scrolls independently and has a tab stop for keyboard scrolling. The step heading receives focus, Escape exits, and the close button is always available. Each step shows its explanation directly. Back, Next, and All tutorials stay outside the guide's scrolling text area.
 
@@ -23,7 +23,7 @@ Exit returns to Account for Account replay and otherwise to the user's Journal. 
 
 ## Sample account
 
-`lib/product-tour-demo.ts` defines Alex Morgan's browser-only fixtures. Journal entries are the source for sends, projects, and analytics; analytics use the production calculation. No database demo account is needed. Negative sample IDs must never enter entity links, real forms, or actions. The only tour mutation is saving the authenticated user's dismissal/completion status.
+`lib/product-tour-demo.ts` defines Alex Morgan's browser-only fixtures. Journal entries are the source for sends, projects, and analytics; analytics use the production calculation. No database demo account is needed. Negative sample IDs must never enter entity links, real forms, or actions. The only tour mutation is saving the authenticated user's dismissal/completion status. `PrivacyFields` is shared with Account: the tutorial passes local state callbacks, while `PrivacyControls` owns the real saving and error handling. Keep the shared fields free of actions.
 
 ## Progress and replay
 

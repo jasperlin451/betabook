@@ -15,7 +15,8 @@ import { suspendMobileHelper } from "@/lib/mobile-helper-suspension";
 import type { ProductTourDefinition } from "@/lib/product-tour";
 import {
   PRODUCT_TOUR_STEPS,
-  getProductTourSteps,
+  resolveProductTour,
+  parseProductTourNavigation,
   productTourExitPath,
   productTourPath,
 } from "@/lib/product-tour-navigation";
@@ -36,15 +37,16 @@ export function TourExperience({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const from = searchParams.get("from") ?? "journal";
-  const newSteps = getProductTourSteps(PRODUCT_TOUR_STEPS[tour.id], tour.version, savedVersion);
-  // Already acknowledged update links fall back to replay, rather than an empty guide.
-  const updates =
-    from !== "account" &&
-    searchParams.get("mode") === "updates" &&
-    savedVersion > 0 &&
-    newSteps.length > 0;
-  const steps = updates ? newSteps : getProductTourSteps(PRODUCT_TOUR_STEPS[tour.id], tour.version);
+  const { steps, navigation } = resolveProductTour(PRODUCT_TOUR_STEPS[tour.id], {
+    version: tour.version,
+    savedVersion,
+    navigation: parseProductTourNavigation({
+      from: searchParams.getAll("from"),
+      mode: searchParams.getAll("mode"),
+    }),
+  });
+  const { from } = navigation;
+  const updates = navigation.mode === "updates";
   const routeKey = `${pathname}:${from}:${updates}`;
   const index = steps.findIndex((step) => pathname.endsWith(`/${step.id}`));
   const [Page, setPage] = useState<ProductTourPage | null>(null);
@@ -61,7 +63,7 @@ export function TourExperience({
     router.replace(exitPath);
   }
   function href(id: string) {
-    return productTourPath(tour.id, id, from, updates);
+    return productTourPath(tour.id, { ...navigation, stepId: id });
   }
   const firstPath = href(steps[0].id);
 
@@ -166,7 +168,7 @@ export function TourExperience({
             finish={finish}
             pending={pending}
             error={error?.path === routeKey ? error.message : null}
-            fullTourHref={updates ? productTourPath(tour.id, undefined, from) : undefined}
+            fullTourHref={updates ? productTourPath(tour.id, { from, mode: "full" }) : undefined}
           />
         </div>
       ) : (

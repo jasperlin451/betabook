@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { PRODUCT_TOURS } from "@/lib/product-tour";
+import { PRODUCT_TOURS, getAcknowledgedTourVersion } from "@/lib/product-tour";
 import {
   findProductTour,
-  getProductTourSteps,
+  resolveProductTour,
+  parseProductTourNavigation,
   PRODUCT_TOUR_STEPS,
   productTourExitPath,
   productTourPath,
@@ -26,14 +27,16 @@ describe("route-based tours", () => {
           expect(step.updatedInVersion).toBeLessThanOrEqual(tour.version);
         }
         expect(step.target).toMatch(/^[a-z][a-z0-9-]+$/);
-        expect(productTourPath(tour.id, step.id)).toBe(`/tutorial/${tour.id}/${step.id}`);
+        expect(productTourPath(tour.id, { stepId: step.id })).toBe(
+          `/tutorial/${tour.id}/${step.id}`,
+        );
       }
     }
   });
 
   it("keeps Account replay's return destination across steps", () => {
     for (const step of PRODUCT_TOUR_STEPS.journal) {
-      expect(productTourPath("journal", step.id, "account")).toBe(
+      expect(productTourPath("journal", { stepId: step.id, from: "account" })).toBe(
         `/tutorial/journal/${step.id}?from=account`,
       );
     }
@@ -41,21 +44,30 @@ describe("route-based tours", () => {
   });
 
   it("never uses an arbitrary return URL or sample ID for the user's destination", () => {
-    expect(productTourExitPath("owner", "https://example.com")).toBe("/users/owner/journal");
-    expect(productTourExitPath("owner", "//example.com")).toBe("/users/owner/journal");
-    expect(productTourExitPath("owner", null)).toBe("/users/owner/journal");
-    expect(productTourPath("journal", "missing")).toBe("/tutorial/journal/journal");
+    expect(
+      productTourExitPath(
+        "owner",
+        parseProductTourNavigation({ from: "https://example.com" }).from,
+      ),
+    ).toBe("/users/owner/journal");
+    expect(
+      productTourExitPath("owner", parseProductTourNavigation({ from: "//example.com" }).from),
+    ).toBe("/users/owner/journal");
+    expect(productTourExitPath("owner", parseProductTourNavigation({}).from)).toBe(
+      "/users/owner/journal",
+    );
+    expect(productTourPath("journal", { stepId: "missing" })).toBe("/tutorial/journal/journal");
     expect(findProductTour("missing")).toBeUndefined();
   });
 
   it("keeps update mode on step links while Account always replays the full tour", () => {
-    expect(productTourPath("journal", "sends", "journal", true)).toBe(
+    expect(productTourPath("journal", { stepId: "sends", mode: "updates" })).toBe(
       "/tutorial/journal/sends?mode=updates",
     );
-    expect(productTourPath("journal", "sends", "account", true)).toBe(
+    expect(productTourPath("journal", { stepId: "sends", from: "account", mode: "updates" })).toBe(
       "/tutorial/journal/sends?from=account",
     );
-    expect(productTourPath("journal", "sends")).toBe("/tutorial/journal/sends");
+    expect(productTourPath("journal", { stepId: "sends" })).toBe("/tutorial/journal/sends");
   });
 });
 
@@ -71,8 +83,14 @@ describe("lessons added after a user's acknowledged version", () => {
     { ...PRODUCT_TOUR_STEPS.journal[2], id: "addition-v2", introducedInVersion: 2 },
     { ...PRODUCT_TOUR_STEPS.journal[3], id: "addition-v3", introducedInVersion: 3 },
   ];
-  const ids = (version: number, acknowledgedVersion = 0) =>
-    getProductTourSteps(steps, version, acknowledgedVersion).map((step) => step.id);
+  const resolve = (version: number, savedVersion = 0) =>
+    resolveProductTour(steps, {
+      version,
+      savedVersion,
+      navigation: { from: "journal", mode: "updates" },
+    });
+  const ids = (version: number, savedVersion = 0) =>
+    resolve(version, savedVersion).steps.map((step) => step.id);
 
   it("includes the full tour for first-time users and explicit replay", () => {
     expect(ids(3)).toEqual(["original", "revised", "addition-v2", "addition-v3"]);
@@ -82,17 +100,96 @@ describe("lessons added after a user's acknowledged version", () => {
     expect(ids(3, 2)).toEqual(["revised", "addition-v3"]);
   });
   it("does not offer unchanged lessons or already acknowledged versions", () => {
-    expect(ids(3, 3)).toEqual([]);
-    expect(ids(3, 4)).toEqual([]);
-    expect(getProductTourSteps([steps[0]], 3, 1)).toEqual([]);
+    for (const savedVersion of [3, 4]) {
+      expect(resolve(3, savedVersion)).toMatchObject({
+        shouldInvite: false,
+        navigation: { mode: "full" },
+        steps,
+      });
+    }
+    expect(resolveProductTour([steps[0]], { version: 3, savedVersion: 1 })).toMatchObject({
+      shouldInvite: false,
+    });
   });
   it("supports an update containing just one new lesson", () => {
-    expect(getProductTourSteps([steps[0], steps[2]], 2, 1).map((step) => step.id)).toEqual([
-      "addition-v2",
-    ]);
+    expect(
+      resolveProductTour([steps[0], steps[2]], {
+        version: 2,
+        savedVersion: 1,
+        navigation: { from: "journal", mode: "updates" },
+      }).steps.map((step) => step.id),
+    ).toEqual(["addition-v2"]);
   });
   it("does not offer steps before their introduction", () => {
     expect(ids(1)).toEqual(["original", "revised"]);
     expect(ids(2, 1)).toEqual(["addition-v2"]);
+  });
+});
+
+describe("shared tour selection policy", () => {
+  const steps = [
+    { ...PRODUCT_TOUR_STEPS.journal[0], introducedInVersion: 1 },
+    { ...PRODUCT_TOUR_STEPS.journal[1], introducedInVersion: 2 },
+  ];
+  const navigation = { from: "journal", mode: "updates" } as const;
+
+  it("invites first-time users to every published lesson", () => {
+    expect(resolveProductTour(steps, { version: 2, navigation })).toEqual({
+      shouldInvite: true,
+      steps,
+      navigation: { from: "journal", mode: "full" },
+    });
+  });
+  it.each(["completed", "dismissed"] as const)(
+    "uses %s progress for invitation and playback",
+    (status) => {
+      const progress = [{ tourId: "journal", version: 1, status }];
+      const savedVersion = getAcknowledgedTourVersion("journal", progress);
+      expect(resolveProductTour(steps, { version: 2, savedVersion, navigation })).toEqual({
+        shouldInvite: true,
+        steps: [steps[1]],
+        navigation,
+      });
+      expect(resolveProductTour(steps, { version: 1, savedVersion, navigation }).shouldInvite).toBe(
+        false,
+      );
+      expect(getAcknowledgedTourVersion("another-tour", progress)).toBe(0);
+    },
+  );
+  it("replays every lesson from Account or an explicit full-tour link", () => {
+    for (const requested of [
+      { from: "account", mode: "updates" },
+      { from: "journal", mode: "full" },
+    ] as const) {
+      expect(
+        resolveProductTour(steps, { version: 2, savedVersion: 1, navigation: requested }),
+      ).toEqual({
+        shouldInvite: true,
+        steps,
+        navigation: { from: requested.from, mode: "full" },
+      });
+    }
+  });
+});
+
+describe("shared tour query parsing", () => {
+  it.each([
+    ["", { from: "journal", mode: "full" }],
+    ["mode=updates", { from: "journal", mode: "updates" }],
+    ["from=account&mode=updates", { from: "account", mode: "full" }],
+    ["from=https://example.com&mode=unknown", { from: "journal", mode: "full" }],
+    ["from=account&from=journal&mode=updates", { from: "journal", mode: "updates" }],
+    ["mode=updates&mode=updates", { from: "journal", mode: "full" }],
+  ])("parses %s identically on server and client", (query, expected) => {
+    const client = new URLSearchParams(query);
+    const server: Record<string, string | string[]> = {};
+    for (const key of ["from", "mode"]) {
+      const values = client.getAll(key);
+      if (values.length) server[key] = values.length === 1 ? values[0] : values;
+    }
+    expect(
+      parseProductTourNavigation({ from: client.getAll("from"), mode: client.getAll("mode") }),
+    ).toEqual(expected);
+    expect(parseProductTourNavigation(server)).toEqual(expected);
   });
 });

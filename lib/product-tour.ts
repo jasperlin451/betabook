@@ -27,12 +27,11 @@ export type ProductTourState = {
   progress: ProductTourProgress[];
 };
 
-export function shouldOfferProductTour(
-  tour: { id: string; version: number },
-  progress: ProductTourProgress[],
-): boolean {
-  const saved = progress.find((entry) => entry.tourId === tour.id);
-  return !saved || saved.version < tour.version;
+export function getAcknowledgedTourVersion(
+  tourId: string,
+  progress: readonly ProductTourProgress[] = [],
+): number {
+  return progress.find((entry) => entry.tourId === tourId)?.version ?? 0;
 }
 
 export function validateProductTourUpdate(
