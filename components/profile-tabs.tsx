@@ -23,13 +23,28 @@ export function ProfileTabs({ userId, showJournal, showProjects }: ProfileTabsPr
   ];
 
   return (
+    <ProfileSectionNav
+      tabs={tabs.map((tab) => ({
+        ...tab,
+        current: pathname === tab.href || tab.roots.includes(pathname),
+      }))}
+    />
+  );
+}
+
+export function ProfileSectionNav({
+  tabs,
+}: {
+  tabs: readonly { href: string; label: string; current: boolean }[];
+}) {
+  return (
     <nav
       aria-label="Profile sections"
       className="w-full max-w-full overflow-x-auto border-b border-separator"
     >
       <div className="flex min-w-max items-center gap-6">
         {tabs.map((tab) => {
-          const current = pathname === tab.href || tab.roots.includes(pathname);
+          const current = tab.current;
           return (
             <AppLink
               key={tab.href}

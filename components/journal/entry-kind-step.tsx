@@ -13,8 +13,8 @@ export type EntryKindChoice =
 const ENTRY_TYPES = [
   {
     id: "session",
-    label: "Session",
-    description: "Outdoor climbing on a specific climb.",
+    label: "Outdoor session",
+    description: "One climb, one date — whether or not you sent.",
   },
   {
     id: "training",
@@ -37,7 +37,9 @@ export function EntryKindStep({
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">
           <p className="font-medium text-foreground">Choose a climb</p>
-          <p className="text-sm text-muted">Every outdoor session is associated with a climb.</p>
+          <p className="text-sm text-muted">
+            Log one climb at a time. You can record another entry for each climb you worked on.
+          </p>
         </div>
         <ClimbPicker
           allowSentClimbs

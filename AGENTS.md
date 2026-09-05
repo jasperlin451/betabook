@@ -34,6 +34,7 @@ betabook/
 ├── components/         # React UI Components
 │   ├── ui/             # Design tokens & generic primitives (buttons, modals, fields)
 │   ├── import/         # CSV import wizard subsystem (steps, drawers, matchers)
+│   ├── product-tours/  # Lazy-loaded tutorials and interactive demo previews
 │   └── *.tsx           # Domain feature components (areas, climbs, sends, auth)
 ├── db/                 # Database & Persistence Layer
 │   ├── client.ts       # Cloudflare D1 / Drizzle client factory
@@ -78,6 +79,17 @@ Strict boundaries are codified in `oxlint.config.ts` via `typescript/no-restrict
 
 5. **Import Safety Suite**:
    - Oxlint enforces cycle-free (`import/no-cycle`), duplicate-free (`import/no-duplicates`), and relative-parent-free (`import/no-relative-parent-imports`) imports across all modules.
+
+## Product Tutorials
+
+For each new user-facing feature or workflow change, decide whether to update a tutorial, add a step, create a separate tour, or leave tutorials unchanged. Note the choice and why in the plan or PR. New sections and changes to logging or privacy often need an explanation; internal changes and obvious controls may not. Update any existing tutorial that becomes inaccurate.
+
+Read [docs/product-tours.md](docs/product-tours.md) before changing a tutorial.
+
+- Add related steps in `lib/product-tour-navigation.ts` with a stable ID, section, title, short description, and `data-tour-target`. Add the target to the page component and reuse the app's layouts and display components for demo views. For a separate feature tour, register metadata in `lib/product-tour.ts`, its steps in `PRODUCT_TOUR_STEPS`, and a lazy page loader in `components/product-tours/registry.ts`. `/tutorial/[tourId]/[stepId]` handles navigation, callout positioning, keyboard focus, progress, and replay. Keep each callout to one short explanation; do not rebuild the tour as a drawer or repeat instructions inside the example.
+- Use the sample climber in `lib/product-tour-demo.ts`. Reuse display components and calculations from the app, and keep the examples consistent across pages. Demo controls use local state. Never save sample data or use demo IDs in real links or writes.
+- For new lessons after release, bump the tour version and set each new step's `introducedInVersion`. Set `updatedInVersion` when an existing lesson needs to be shown again after a substantial change. Returning users are offered only steps changed since their dismissed/completed version; Account replay always shows the full tour. Copy edits do not need a bump. Use the supplied active `steps` for demo section links so update navigation stays within its subset. A new tour ID tracks progress separately.
+- Keep the guide in its own space beside or below the scrollable demo. Never cover controls or results with tutorial text. Confine spotlight dimming to the demo pane, leaving the highlighted control, guide, and app navigation clear. Check navigation, replay, keyboard focus, mobile layout, and the example controls. Update tests for changed behavior and sample data, and check that demos don't change the user's account.
 
 ## SEO & Metadata
 
