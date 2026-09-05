@@ -89,7 +89,6 @@ const db = createDb(env.DB);
 function areaFormData(name: string): FormData {
   const formData = new FormData();
   formData.set("name", name);
-  formData.set("description", "");
   return formData;
 }
 
@@ -99,7 +98,6 @@ function climbFormData(overrides: Record<string, string> = {}): FormData {
     name: "Renamed Climb",
     type: "boulder",
     grade: "5",
-    description: "",
     ...overrides,
   };
   for (const [key, value] of Object.entries(fields)) formData.set(key, value);

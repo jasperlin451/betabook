@@ -43,24 +43,38 @@ export function validateNewClimbInput(raw: RawClimbInput): ClimbInput {
   return { name, type, grade, description };
 }
 
-/** Full edit — name/discipline/grade/description — is moderation-exclusive
- * (see actions/moderation.ts's requestClimbEdit); the direct action only
- * ever validates the description. */
+/** Full edit — name/discipline/grade — is moderation-exclusive (see
+ * actions/moderation.ts's requestClimbEdit); the direct action only ever
+ * validates the description. */
 export function validateClimbDescriptionInput(raw: RawClimbDescriptionInput): {
   description: string | null;
 } {
   return { description: trimOrNull(raw.description) };
 }
 
+/** What a moderated full edit may change: name/discipline/grade. The
+ * description is deliberately absent — editing it is free and instant for
+ * any signed-in user (validateClimbDescriptionInput), so routing it through
+ * admin review would only queue a snapshot that's stale by review time. */
+export type ClimbEditInput = Omit<ClimbInput, "description">;
+
+export type RawClimbEditInput = Omit<RawClimbInput, "description">;
+
 /** Validates a requested full edit against the climb it targets. Discipline
  * still can't change once sends exist: that's a data-integrity rule
- * independent of who's allowed to request the edit. */
-export function validateClimbEditInput(existing: Climb, raw: RawClimbInput): ClimbInput {
-  const input = validateNewClimbInput(raw);
-  if (input.type !== existing.type && existing.sendCount > 0) {
+ * independent of who's allowed to request the edit (each send's
+ * suggestedGrade is an ordinal into the discipline-scoped scale, and
+ * migration 0019's trigger enforces the same rule in the database). */
+export function validateClimbEditInput(existing: Climb, raw: RawClimbEditInput): ClimbEditInput {
+  const name = requireTrimmed(raw.name, "Name");
+  if (!isClimbType(raw.type)) {
+    throw new ActionError("Invalid discipline");
+  }
+  if (raw.type !== existing.type && existing.sendCount > 0) {
     throw new ActionError("Can't change discipline once a climb has logged sends");
   }
-  return input;
+  const grade = parseGradeIndex(raw.grade, nativeGradeArray(raw.type).length, "Grade");
+  return { name, type: raw.type, grade };
 }
 
 /** The target-climb fields a merge may rewrite — a strict subset of
