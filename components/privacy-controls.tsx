@@ -32,8 +32,8 @@ export function PrivacyControls({
     });
   }
 
-  function handleJournalChange(isPublic: boolean) {
-    const next = isPublic ? "public" : "private";
+  function handleJournalChange(nextPrivate: boolean) {
+    const next = nextPrivate ? "private" : "public";
     const previous = journalVisibility;
     setJournalVisibilityState(next);
     setJournalError(null);
@@ -49,7 +49,7 @@ export function PrivacyControls({
   return (
     <PrivacyFields
       isPrivate={isPrivate}
-      publicJournal={journalVisibility === "public"}
+      privateJournal={journalVisibility === "private"}
       onProfileChange={handleProfileChange}
       onJournalChange={handleJournalChange}
       isPending={isPending}
@@ -59,7 +59,7 @@ export function PrivacyControls({
       journalDescription={
         isPrivate
           ? "Your private profile keeps both your journal and sends hidden. Make the profile public to share your journal."
-          : "Lets anyone who can view your profile read your journal. Logging and editing stay private to you."
+          : "Hides your journal from people who can view your profile. Logging and editing always stay private to you."
       }
     />
   );

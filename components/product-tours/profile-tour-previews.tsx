@@ -271,15 +271,15 @@ export function DemoAnalytics() {
 
 export function DemoAccount() {
   const [isPrivate, setIsPrivate] = useState(false);
-  const [publicJournal, setPublicJournal] = useState(false);
+  const [privateJournal, setPrivateJournal] = useState(true);
   return (
     <div className="flex flex-col gap-4">
       <div data-tour-target="privacy-controls" className="flex flex-col gap-4">
         <PrivacyFields
           isPrivate={isPrivate}
-          publicJournal={publicJournal}
+          privateJournal={privateJournal}
           onProfileChange={setIsPrivate}
-          onJournalChange={setPublicJournal}
+          onJournalChange={setPrivateJournal}
         />
       </div>
       <div role="status" className="rounded-lg bg-surface-secondary p-4 text-sm">
@@ -287,7 +287,7 @@ export function DemoAccount() {
         <p className="mt-1">
           {isPrivate
             ? "Alex's profile, sends, journal, and analytics are hidden."
-            : `Alex's profile, sends, and analytics are visible. The journal is ${publicJournal ? "visible too" : "private"}.`}
+            : `Alex's profile, sends, and analytics are visible. The journal is ${privateJournal ? "private" : "visible too"}.`}
         </p>
       </div>
     </div>
