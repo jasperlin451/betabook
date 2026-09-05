@@ -1,23 +1,18 @@
 import { decode } from "html-entities";
 
-/** Some exporters run their text through an encoder twice ("&amp;rsquo;"), so
- * one pass isn't always enough; the cap stops a deliberately written
- * "&amp;amp;amp;…" from unravelling indefinitely. */
+/** Some exporters encode twice ("&amp;rsquo;"); the cap stops text genuinely
+ * written "&amp;amp;amp;…" from unravelling indefinitely. */
 const MAX_PASSES = 3;
 
 /**
- * Turns HTML entities back into the characters they stand for, so a
- * third-party export's "One of the best climbs I&rsquo;ve ever done" reads as
- * the apostrophe the climber typed.
+ * Decodes entities in text that was never meant to be HTML — a Sendage export's
+ * "I&rsquo;ve". The result is stored and rendered as plain text, so turning
+ * "&lt;" back into "<" is safe here in a way it wouldn't be if it reached markup.
  *
- * For cleaning up text that was never meant to be HTML in the first place.
- * The result is stored and rendered as plain text, so decoding "&lt;" back to
- * "<" is safe here in a way it wouldn't be if the output reached markup.
- *
- * `scope: "strict"` is load-bearing: the library's default follows the HTML5
- * parser, which decodes the legacy entities that omit their semicolon, and
- * would rewrite prose like "&notit;" to "¬it;". Requiring the semicolon keeps
- * a climber's literal "R&D" and "Cams #3 & #4" intact.
+ * `scope: "strict"` requires the closing semicolon. On the library's default
+ * (HTML5 parser) scope a legacy entity decodes without one, so "Bolted 5&times
+ * in a day" becomes "Bolted 5× in a day" and "Cams #3 &#4" gains a control
+ * character. A bare "&" is safe either way; an "&" glued to a word is not.
  */
 export function decodeHtmlEntities(text: string): string {
   if (!text.includes("&")) return text;

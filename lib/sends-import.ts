@@ -629,12 +629,10 @@ export function normalizeImportRows(
   for (const [rowIndex, row] of parsed.rows.entries()) {
     const fail = (reason: string) => invalid.push({ rowIndex, raw: row, reason });
     const cell = (column: string | null) => (column ? (row[column] ?? "").trim() : "");
-    /** Sendage stores its text HTML-encoded and exports it that way, so prose
-     * arrives as "I&rsquo;ve" and names as "Salt &amp; Pepper". Only the
-     * free-text fields are decoded: a value-mapped cell is a key into a
-     * mapping built from the raw text, and `raw` has to keep matching the
-     * source file for the failed-rows export. */
-    const textCell = (column: string | null) => decodeHtmlEntities(cell(column));
+    /** Free-text only: a value-mapped cell is a key into a mapping built from
+     * the raw text, and `raw` must keep matching the source file. Trimmed
+     * again after decoding, since "&nbsp;" only becomes whitespace here. */
+    const textCell = (column: string | null) => decodeHtmlEntities(cell(column)).trim();
 
     const climbName = textCell(mapping.climbName);
     if (!climbName) {

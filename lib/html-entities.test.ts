@@ -21,8 +21,7 @@ describe("decodeHtmlEntities", () => {
   it("decodes accented Latin-1 letters", () => {
     expect(decodeHtmlEntities("Caf&eacute; Cr&egrave;me")).toBe("Café Crème");
     expect(decodeHtmlEntities("&Agrave;&yuml;&szlig;&Ntilde;&divide;&deg;")).toBe("ÀÿßÑ÷°");
-    // By code point: the formatter rewrites an escape to the literal
-    // character, and a non-breaking space reads as a plain space in source.
+    // By code point: a literal non-breaking space reads as a plain one here.
     expect(decodeHtmlEntities("&nbsp;").codePointAt(0)).toBe(0xa0);
   });
 
@@ -44,16 +43,21 @@ describe("decodeHtmlEntities", () => {
     expect(decodeHtmlEntities("&#128;")).toBe("€");
   });
 
-  // The decisive reason this passes `scope: "strict"`. On the library's default
-  // (HTML5 parser) scope, legacy entities decode without their closing
-  // semicolon, so "&notit;" becomes "¬it;" and a climber's "Cams #3 & #4" is
-  // rewritten mid-sentence. Dropping the option would silently corrupt prose.
-  it("requires the closing semicolon, leaving prose that merely contains '&' alone", () => {
-    expect(decodeHtmlEntities("Cams #3 & #4, R&D, 5 & 6")).toBe("Cams #3 & #4, R&D, 5 & 6");
-    expect(decodeHtmlEntities("AT&T")).toBe("AT&T");
+  // Every case here fails without `scope: "strict"`: on the default scope a
+  // legacy entity decodes with no closing semicolon. A bare "&" is safe either
+  // way — it's an "&" glued to a word that gets rewritten mid-sentence.
+  it("requires the closing semicolon", () => {
+    expect(decodeHtmlEntities("Bolted 5&times in a day")).toBe("Bolted 5&times in a day");
+    expect(decodeHtmlEntities("5&lt6")).toBe("5&lt6");
+    expect(decodeHtmlEntities("Cams #3 &#4")).toBe("Cams #3 &#4");
     expect(decodeHtmlEntities("&notit; &amp without a semicolon")).toBe(
       "&notit; &amp without a semicolon",
     );
+  });
+
+  it("leaves an ampersand that isn't an entity alone", () => {
+    expect(decodeHtmlEntities("Cams #3 & #4, R&D, 5 & 6")).toBe("Cams #3 & #4, R&D, 5 & 6");
+    expect(decodeHtmlEntities("AT&T")).toBe("AT&T");
     expect(decodeHtmlEntities("&notanentity; &; &#; &#x;")).toBe("&notanentity; &; &#; &#x;");
   });
 
