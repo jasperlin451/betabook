@@ -51,9 +51,7 @@ export function PrivacyFields({
           </p>
         )}
       </div>
-      <div
-        className={`flex flex-col gap-5 border-t border-separator pt-4 ${isPrivate ? "opacity-60" : ""}`}
-      >
+      <div className="flex flex-col gap-5 border-t border-separator pt-4">
         <AudienceField
           label="Send commentary"
           description="Notes on original sends, including the matching ascent note in your journal."

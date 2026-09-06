@@ -45,6 +45,9 @@
        lands under 2.5:1, so accent flips HeroUI's usual light-on-color. */
     --accent: var(--palette-primary);
     --accent-foreground: var(--palette-ink);
+    /* Secondary buttons use this text on a soft green fill. HeroUI's
+       default blend is too light against the paper theme's soft fill. */
+    --accent-soft-foreground: color-mix(in oklab, var(--palette-primary) 55%, var(--palette-ink));
     --success: var(--palette-primary);
     --success-foreground: var(--palette-ink);
     /* Deepened toward ink: raw #A4585A is ~4.1:1 as text on paper and
@@ -132,6 +135,7 @@
 
     --accent: var(--palette-primary);
     --accent-foreground: var(--palette-ink);
+    --accent-soft-foreground: color-mix(in oklab, var(--palette-primary) 70%, var(--palette-paper));
     --success: var(--palette-primary);
     --success-foreground: var(--palette-ink);
     /* Lightened toward paper: raw #A4585A reads ~3.6:1 as error text on the
@@ -170,6 +174,11 @@
 
     --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3b0a7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
   }
+}
+
+/* Cards, bounded panels, and their loading placeholders share one geometry. */
+@theme {
+  --radius-panel: 0.75rem;
 }
 
 @theme inline {

@@ -1,7 +1,6 @@
-/** The one card surface: a lifted secondary panel with the page's large
- * radius. Every card in the app composes from here so a radius or surface
- * change lands everywhere at once instead of in nine hand-written copies. */
-const CARD_CLASS = "rounded-xl bg-surface-secondary";
+/** Standard panel surface and spacing. Feature panels with different fills
+ * or borders use rounded-panel directly; its radius lives in app/globals.css. */
+const CARD_CLASS = "rounded-panel bg-surface-secondary";
 
 /** Card paddings: `sm` for dense stat cards and expanded filter panels,
  * `md` for forms and settings, `fluid` for wide analytics cards that need

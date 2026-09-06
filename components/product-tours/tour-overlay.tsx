@@ -57,7 +57,7 @@ export function TourOverlay({
       {highlight && (
         <div
           aria-hidden
-          className="pointer-events-none fixed z-20 overflow-hidden rounded-lg"
+          className="pointer-events-none fixed z-20 overflow-hidden rounded-panel"
           style={{
             left: highlight.viewport.left,
             top: highlight.viewport.top,
@@ -79,7 +79,7 @@ export function TourOverlay({
       <div
         role="region"
         aria-label="Product tour"
-        className={`${styles.guide} ${showSteps ? styles.chooser : ""} flex min-h-40 shrink-0 flex-col gap-3 rounded-xl border border-foreground/30 bg-surface p-3 text-foreground`}
+        className={`${styles.guide} ${showSteps ? styles.chooser : ""} flex min-h-40 shrink-0 flex-col gap-3 rounded-panel border border-foreground/30 bg-surface p-3 text-foreground`}
       >
         <div className="flex shrink-0 items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
