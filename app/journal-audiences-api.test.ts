@@ -1,4 +1,5 @@
 import { env } from "cloudflare:test";
+import { eq } from "drizzle-orm";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { GET as climbSends } from "@/app/api/climbs/[id]/sends/route";
@@ -7,7 +8,7 @@ import { GET as journal } from "@/app/api/users/[id]/journal/route";
 import { GET as sends } from "@/app/api/users/[id]/sends/route";
 import { generateMetadata as journalMetadata } from "@/app/users/[id]/journal/page";
 import { createDb } from "@/db/client";
-import { friendships } from "@/db/schema";
+import { friendships, user } from "@/db/schema";
 import {
   seedFixtureUser,
   seedFixtureFriendship,
@@ -49,7 +50,11 @@ beforeEach(async () => {
   await resetDb(db);
   state.viewer = "reader";
   await seedFixtureTree(db);
-  await seedFixtureUser(db, { id: "author", journalVisibility: "friends" });
+  await seedFixtureUser(db, {
+    id: "author",
+    journalVisibility: "friends",
+    sendCommentVisibility: "friends",
+  });
   await seedFixtureUser(db, { id: "reader" });
   await seedFixtureSend(db, {
     userId: "author",
@@ -58,6 +63,7 @@ beforeEach(async () => {
     comment: "Friends-only note",
   });
   await seedFixtureJournalEntry(db, {
+    id: 30,
     userId: "author",
     kind: "training",
     entryDate: "2026-09-01",
@@ -137,3 +143,62 @@ it("propagates the viewer to profile and climb send notes without caching restri
     sends: [{ comment: null }],
   });
 });
+
+it.each([
+  {
+    journalVisibility: "private",
+    sendCommentVisibility: "public",
+    journalStatus: 404,
+    comment: "Friends-only note",
+  },
+  {
+    journalVisibility: "public",
+    sendCommentVisibility: "private",
+    journalStatus: 200,
+    comment: null,
+  },
+  {
+    journalVisibility: "friends",
+    sendCommentVisibility: "public",
+    journalStatus: 404,
+    comment: "Friends-only note",
+  },
+] as const)(
+  "serves $sendCommentVisibility commentary separately from a $journalVisibility journal",
+  async ({ journalVisibility, sendCommentVisibility, journalStatus, comment }) => {
+    await db
+      .update(user)
+      .set({ journalVisibility, sendCommentVisibility })
+      .where(eq(user.id, "author"));
+    await seedFixtureJournalEntry(db, {
+      id: 100,
+      userId: "author",
+      climbId: 1,
+      entryDate: "2026-09-01",
+      sent: true,
+      isAscent: true,
+      body: "Friends-only note",
+    });
+    state.viewer = null;
+    expect(await (await sends(request("/api/users/author/sends"), owner)).json()).toMatchObject({
+      sends: [{ comment }],
+    });
+    expect(
+      await (
+        await climbSends(request("/api/climbs/1/sends"), { params: Promise.resolve({ id: "1" }) })
+      ).json(),
+    ).toMatchObject({ sends: [{ comment }] });
+    const response = await journal(request("/api/users/author/journal"), owner);
+    expect(response.status).toBe(journalStatus);
+    if (journalStatus === 200) {
+      expect(await response.json()).toMatchObject({
+        entries: [{ id: 100, body: null }, { body: "Friends-only training" }],
+      });
+      expect(
+        await (
+          await journal(request("/api/users/author/journal?q=Friends-only%20note"), owner)
+        ).json(),
+      ).toMatchObject({ entries: [] });
+    }
+  },
+);

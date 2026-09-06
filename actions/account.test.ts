@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { setJournalVisibility, setUserPrivate } from "@/actions";
+import { setJournalVisibility, setSendCommentVisibility, setUserPrivate } from "@/actions";
 import { createDb } from "@/db/client";
 import { user } from "@/db/schema";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
@@ -46,7 +46,12 @@ beforeEach(async () => {
 
 async function privacy() {
   return db
-    .select({ id: user.id, isPrivate: user.isPrivate, journalVisibility: user.journalVisibility })
+    .select({
+      id: user.id,
+      isPrivate: user.isPrivate,
+      journalVisibility: user.journalVisibility,
+      sendCommentVisibility: user.sendCommentVisibility,
+    })
     .from(user)
     .orderBy(user.id);
 }
@@ -135,7 +140,7 @@ describe("setJournalVisibility action boundary", () => {
     expect(await db.select().from(user).where(eq(user.id, "other-user")).get()).toEqual(
       otherBefore,
     );
-    expect(result).toEqual({ ok: false, error: "Invalid journal visibility" });
+    expect(result).toEqual({ ok: false, error: "Invalid sharing audience" });
     expect(await privacy()).toEqual(before);
   });
 });
@@ -153,4 +158,78 @@ it("saves Friends sharing without accepting a pending request or changing the ot
   ).toBe("friends");
   expect(await db.select().from(friendships)).toEqual(before);
   expect(await db.select().from(user).where(eq(user.id, "other-user")).get()).toEqual(otherBefore);
+});
+
+describe("independent send commentary audience", () => {
+  it.each(["private", "friends", "public"] as const)(
+    "saves %s commentary without changing the journal, profile, other account, or pending requests",
+    async (audience) => {
+      const { friendships } = await import("@/db/schema");
+      await db
+        .insert(friendships)
+        .values({ userId: "other-user", friendId: "test-user", requestedBy: "other-user" });
+      await db
+        .update(user)
+        .set({
+          journalVisibility: "friends",
+          sendCommentVisibility: audience === "public" ? "private" : "public",
+        })
+        .where(eq(user.id, "test-user"));
+      const otherBefore = await db.select().from(user).where(eq(user.id, "other-user")).get();
+      const requestsBefore = await db.select().from(friendships);
+      expect(await setSendCommentVisibility(audience)).toEqual({ ok: true, value: undefined });
+      expect(await db.select().from(user).where(eq(user.id, "test-user")).get()).toMatchObject({
+        journalVisibility: "friends",
+        sendCommentVisibility: audience,
+        isPrivate: false,
+      });
+      expect(await db.select().from(user).where(eq(user.id, "other-user")).get()).toEqual(
+        otherBefore,
+      );
+      expect(await db.select().from(friendships)).toEqual(requestsBefore);
+    },
+  );
+
+  it("does not change send commentary when the journal audience changes", async () => {
+    await db.update(user).set({ sendCommentVisibility: "public" }).where(eq(user.id, "test-user"));
+    expect(await setJournalVisibility("friends")).toEqual({ ok: true, value: undefined });
+    expect(await db.select().from(user).where(eq(user.id, "test-user")).get()).toMatchObject({
+      journalVisibility: "friends",
+      sendCommentVisibility: "public",
+    });
+  });
+
+  it("keeps both saved audiences when profile privacy is enabled and disabled", async () => {
+    await db
+      .update(user)
+      .set({ journalVisibility: "friends", sendCommentVisibility: "public" })
+      .where(eq(user.id, "test-user"));
+    for (const isPrivate of [true, false]) {
+      expect(await setUserPrivate(isPrivate)).toEqual({ ok: true, value: undefined });
+      expect(await db.select().from(user).where(eq(user.id, "test-user")).get()).toMatchObject({
+        isPrivate,
+        journalVisibility: "friends",
+        sendCommentVisibility: "public",
+      });
+    }
+  });
+
+  it("rejects invalid commentary audiences without any saved changes", async () => {
+    const before = await privacy();
+    expect(await setSendCommentVisibility("invalid")).toEqual({
+      ok: false,
+      error: "Invalid sharing audience",
+    });
+    expect(await privacy()).toEqual(before);
+  });
+
+  it("requires authentication and leaves stored privacy unchanged", async () => {
+    const before = await privacy();
+    sessionState.userId = null;
+    expect(await setSendCommentVisibility("public")).toEqual({
+      ok: false,
+      error: SESSION_EXPIRED_MESSAGE,
+    });
+    expect(await privacy()).toEqual(before);
+  });
 });

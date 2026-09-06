@@ -20,7 +20,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { getDb } from "@/db/client";
 import { getJournalSessionsForAnalytics, getUserSendsForAnalytics } from "@/db/queries";
-import { canReadJournal } from "@/db/queries/journal-access";
+import { canReadJournal } from "@/db/queries/content-access";
 import { formatCount } from "@/lib/format";
 import type { ClimbType } from "@/lib/grades";
 import type { SearchParamsRecord } from "@/lib/search-params";

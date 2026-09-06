@@ -1,36 +1,33 @@
 "use client";
 
 import { Switch, Select, ListBox } from "@heroui/react";
+import { useId } from "react";
 
-import type { JournalVisibility } from "@/lib/journal";
+import { SHARING_AUDIENCES, type SharingAudience } from "@/lib/privacy";
 
-const audiences: { value: JournalVisibility; label: string }[] = [
-  { value: "private", label: "Only me" },
-  { value: "friends", label: "Friends" },
-  { value: "public", label: "Public" },
-];
-
-/** Controlled fields shared by Account and the local tutorial example. Saving belongs to the caller. */
+/** Controlled fields shared by Account and the local tutorial example. */
 export function PrivacyFields({
   isPrivate,
   journalVisibility,
+  sendCommentVisibility,
   onProfileChange,
   onJournalChange,
+  onSendCommentChange,
   isPending = false,
-  profileDescription,
-  journalDescription,
   profileError,
   journalError,
+  sendCommentError,
 }: {
   isPrivate: boolean;
-  journalVisibility: JournalVisibility;
+  journalVisibility: SharingAudience;
+  sendCommentVisibility: SharingAudience;
   onProfileChange: (value: boolean) => void;
-  onJournalChange: (value: JournalVisibility) => void;
+  onJournalChange: (value: SharingAudience) => void;
+  onSendCommentChange: (value: SharingAudience) => void;
   isPending?: boolean;
-  profileDescription?: string;
-  journalDescription?: string;
   profileError?: string | null;
   journalError?: string | null;
+  sendCommentError?: string | null;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -43,7 +40,11 @@ export function PrivacyFields({
             Private profile
           </Switch.Content>
         </Switch>
-        {profileDescription && <p className="text-xs text-muted">{profileDescription}</p>}
+        <p className="text-xs text-muted">
+          {isPrivate
+            ? "Only you can see your profile and climbing history. Friends and request recipients can still see your name. Your saved audiences will apply when your profile is public."
+            : "Everyone can see your profile and send details: climbs, dates, ascent styles, ratings, and grades. Choose who can read your commentary and journal below."}
+        </p>
         {profileError && (
           <p role="alert" className="text-sm text-danger">
             {profileError}
@@ -51,39 +52,85 @@ export function PrivacyFields({
         )}
       </div>
       <div
-        className={`flex flex-col gap-1 ${journalDescription ? "border-t border-border pt-4" : ""}`}
+        className={`flex flex-col gap-5 border-t border-separator pt-4 ${isPrivate ? "opacity-60" : ""}`}
       >
-        <p className="font-medium">Journal and notes</p>
-        <Select
-          aria-label="Journal privacy"
-          selectedKey={journalVisibility}
-          isDisabled={isPending}
-          onSelectionChange={(key) => {
-            const audience = audiences.find((option) => option.value === key);
-            if (audience) onJournalChange(audience.value);
-          }}
-        >
-          <Select.Trigger>
-            <Select.Value />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              {audiences.map(({ value, label }) => (
-                <ListBox.Item key={value} id={value} textValue={label}>
-                  {label}
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </Select.Popover>
-        </Select>
-        {journalDescription && <p className="text-xs text-muted">{journalDescription}</p>}
-        {journalError && (
-          <p role="alert" className="text-sm text-danger">
-            {journalError}
-          </p>
-        )}
+        <AudienceField
+          label="Send commentary"
+          description="Notes on original sends, including the matching ascent note in your journal."
+          value={isPrivate ? "private" : sendCommentVisibility}
+          onChange={onSendCommentChange}
+          disabled={isPrivate || isPending}
+          error={sendCommentError}
+        />
+        <AudienceField
+          label="Journal entries"
+          description="Sessions, repeats, training, and journal tags. Commentary on original sends uses the setting above."
+          value={isPrivate ? "private" : journalVisibility}
+          onChange={onJournalChange}
+          disabled={isPrivate || isPending}
+          error={journalError}
+        />
       </div>
+      <p className="text-xs text-muted">
+        {!isPrivate &&
+          "Friends means an accepted friend request. Audiences apply to past and future entries. "}
+        Your sends still count toward community ratings.
+      </p>
+    </div>
+  );
+}
+
+function AudienceField({
+  label,
+  description,
+  value,
+  onChange,
+  disabled,
+  error,
+}: {
+  label: string;
+  description: string;
+  value: SharingAudience;
+  onChange: (value: SharingAudience) => void;
+  disabled: boolean;
+  error?: string | null;
+}) {
+  const descriptionId = useId();
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="font-medium">{label}</p>
+      <Select
+        aria-label={`${label} audience`}
+        aria-describedby={descriptionId}
+        selectedKey={value}
+        isDisabled={disabled}
+        onSelectionChange={(key) => {
+          const audience = SHARING_AUDIENCES.find((option) => option.value === key);
+          if (audience) onChange(audience.value);
+        }}
+      >
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox>
+            {SHARING_AUDIENCES.map(({ value, label }) => (
+              <ListBox.Item key={value} id={value} textValue={label}>
+                {label}
+              </ListBox.Item>
+            ))}
+          </ListBox>
+        </Select.Popover>
+      </Select>
+      <p id={descriptionId} className="text-xs text-muted">
+        {description}
+      </p>
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

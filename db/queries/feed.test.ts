@@ -28,6 +28,7 @@ beforeEach(async () => {
       id,
       isPrivate: id === "private",
       journalVisibility: id === "quiet" ? "private" : "public",
+      sendCommentVisibility: id === "quiet" ? "private" : "public",
     });
   }
   for (const friend of ["public", "quiet", "private"])

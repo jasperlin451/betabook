@@ -2,23 +2,29 @@
 
 import { useState, useTransition } from "react";
 
-import { setJournalVisibility, setUserPrivate } from "@/actions";
+import { setJournalVisibility, setSendCommentVisibility, setUserPrivate } from "@/actions";
 import { PrivacyFields } from "@/components/privacy-fields";
 import { AppLink } from "@/components/ui/app-link";
-import type { JournalVisibility } from "@/lib/journal";
+import type { SharingAudience } from "@/lib/privacy";
+
+type ContentKind = "journal" | "sendComment";
 
 export function PrivacyControls({
   initialIsPrivate,
   initialJournalVisibility,
+  initialSendCommentVisibility,
 }: {
   initialIsPrivate: boolean;
-  initialJournalVisibility: JournalVisibility;
+  initialJournalVisibility: SharingAudience;
+  initialSendCommentVisibility: SharingAudience;
 }) {
   const [isPrivate, setIsPrivate] = useState(initialIsPrivate);
-  const [journalVisibility, setJournalVisibilityState] =
-    useState<JournalVisibility>(initialJournalVisibility);
+  const [audiences, setAudiences] = useState({
+    journal: initialJournalVisibility,
+    sendComment: initialSendCommentVisibility,
+  });
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [journalError, setJournalError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Partial<Record<ContentKind, string>>>({});
   const [isPending, startTransition] = useTransition();
 
   function handleProfileChange(next: boolean) {
@@ -38,20 +44,22 @@ export function PrivacyControls({
     });
   }
 
-  function handleJournalChange(next: JournalVisibility) {
-    const previous = journalVisibility;
-    setJournalVisibilityState(next);
-    setJournalError(null);
+  function handleAudienceChange(kind: ContentKind, next: SharingAudience) {
+    const previous = audiences[kind];
+    setAudiences((current) => ({ ...current, [kind]: next }));
+    setErrors((current) => ({ ...current, [kind]: undefined }));
     startTransition(async () => {
       try {
-        const result = await setJournalVisibility(next);
+        const result = await (kind === "journal" ? setJournalVisibility : setSendCommentVisibility)(
+          next,
+        );
         if (!result.ok) {
-          setJournalVisibilityState(previous);
-          setJournalError(result.error);
+          setAudiences((current) => ({ ...current, [kind]: previous }));
+          setErrors((current) => ({ ...current, [kind]: result.error }));
         }
       } catch {
-        setJournalVisibilityState(previous);
-        setJournalError("Couldn't save your journal privacy setting. Try again.");
+        setAudiences((current) => ({ ...current, [kind]: previous }));
+        setErrors((current) => ({ ...current, [kind]: "Couldn't save this audience. Try again." }));
       }
     });
   }
@@ -60,18 +68,15 @@ export function PrivacyControls({
     <div className="flex flex-col gap-4">
       <PrivacyFields
         isPrivate={isPrivate}
-        journalVisibility={journalVisibility}
+        journalVisibility={audiences.journal}
+        sendCommentVisibility={audiences.sendComment}
         onProfileChange={handleProfileChange}
-        onJournalChange={handleJournalChange}
+        onJournalChange={(next) => handleAudienceChange("journal", next)}
+        onSendCommentChange={(next) => handleAudienceChange("sendComment", next)}
         isPending={isPending}
         profileError={profileError}
-        journalError={journalError}
-        profileDescription="Hides your profile, sends, journal, and analytics from everyone but you. Sends still count toward community ratings. Your friends and people you send requests to can still see your name in Friends."
-        journalDescription={
-          isPrivate
-            ? "Only you can read your journal and notes while your profile is private. This setting applies if you make your profile public."
-            : "Choose who can read your journal and send notes, including past entries. You become friends when either of you accepts a friend request. Your sends are still public."
-        }
+        journalError={errors.journal}
+        sendCommentError={errors.sendComment}
       />
       <AppLink href="/friends">Manage friends and requests</AppLink>
     </div>

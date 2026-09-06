@@ -5,7 +5,7 @@ import type { FeedCursor, FeedView } from "@/lib/feed";
 import type { ClimbType } from "@/lib/grades";
 import type { AscentStyle } from "@/lib/sends";
 
-import { journalVisibleSql } from "./journal-access";
+import { journalVisibleSql, sendCommentVisibleSql } from "./content-access";
 
 type FeedActivity = {
   id: number;
@@ -51,19 +51,20 @@ export async function getFeedPage(
       UNION ALL
       SELECT user_id AS id FROM friendships WHERE friend_id = ${viewerId} AND status = 'accepted'
     ), authors AS (
-      SELECT u.id, u.name, u.image, ${journalVisibleSql(viewerId, sql`u.id`)} AS journalVisible
+      SELECT u.id, u.name, u.image, ${journalVisibleSql(viewerId, sql`u.id`)} AS journalVisible,
+        ${sendCommentVisibleSql(viewerId, sql`u.id`)} AS sendCommentVisible
       FROM friends f JOIN user u ON u.id = f.id
       WHERE u.is_private = 0
     ), activity AS (
       SELECT s.user_id AS userId, s.date_sent AS date, s.id, 'send' AS kind,
-        s.climb_id AS climbId, s.ascent_style AS ascentStyle, CASE WHEN u.journalVisible THEN s.comment ELSE NULL END AS body
+        s.climb_id AS climbId, s.ascent_style AS ascentStyle, CASE WHEN u.sendCommentVisible THEN s.comment ELSE NULL END AS body
       FROM authors u JOIN sends s ON s.user_id = u.id
       WHERE s.date_sent IS NOT NULL
         ${cursor ? sql`AND (s.date_sent, s.user_id) < (${cursor.date}, ${cursor.userId})` : sql``}
       UNION ALL
       SELECT j.user_id, j.entry_date, j.id,
         CASE WHEN j.kind = 'training' THEN 'training' WHEN j.sent = 1 THEN 'repeat' ELSE 'session' END,
-        j.climb_id, NULL, j.body
+        j.climb_id, NULL, CASE WHEN j.is_send_comment = 0 OR u.sendCommentVisible THEN j.body ELSE NULL END
       FROM authors u JOIN journal_entries j ON j.user_id = u.id
       WHERE ${view === "all"} AND u.journalVisible AND j.is_ascent = 0
         ${cursor ? sql`AND (j.entry_date, j.user_id) < (${cursor.date}, ${cursor.userId})` : sql``}

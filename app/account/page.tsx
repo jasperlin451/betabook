@@ -104,6 +104,7 @@ export default async function AccountPage() {
           <PrivacyControls
             initialIsPrivate={user?.isPrivate ?? false}
             initialJournalVisibility={user?.journalVisibility ?? "private"}
+            initialSendCommentVisibility={user?.sendCommentVisibility ?? "private"}
           />
         </AccountSection>
 

@@ -253,6 +253,20 @@
       "when": 1788643349047,
       "tag": "0035_magenta_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1788652818912,
+      "tag": "0036_fancy_ultimates",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1788654317302,
+      "tag": "0037_common_sharon_carter",
+      "breakpoints": true
     }
   ]
 }

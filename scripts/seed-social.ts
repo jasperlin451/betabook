@@ -8,7 +8,9 @@ export function seedSocialData(db: DatabaseSync, viewerId: string): number {
       "SELECT id, email FROM user WHERE email GLOB 'climber[0-9]*@example.com' ORDER BY CAST(substr(email, 8) AS INTEGER)",
     )
     .all() as { id: string; email: string }[];
-  const privacy = db.prepare("UPDATE user SET is_private = ?, journal_visibility = ? WHERE id = ?");
+  const privacy = db.prepare(
+    "UPDATE user SET is_private = ?, journal_visibility = ?, send_comment_visibility = ? WHERE id = ?",
+  );
   const clear = db.prepare("DELETE FROM friendships WHERE user_id = ? OR friend_id = ?");
   const clearTour = db.prepare(
     "DELETE FROM user_product_tours WHERE user_id = ? AND tour_id = 'journal'",
@@ -28,7 +30,8 @@ export function seedSocialData(db: DatabaseSync, viewerId: string): number {
   }
   for (const [i, person] of users.entries()) {
     if (person.id === viewerId) continue;
-    privacy.run(Number(i % 5 === 3), i % 5 === 2 ? "private" : "public", person.id);
+    const audiences = ["private", "friends", "public"];
+    privacy.run(Number(i % 5 === 3), audiences[i % 3], audiences[Math.floor(i / 3) % 3], person.id);
     clear.run(person.id, person.id);
     clearTour.run(person.id);
     if (person.email === "climber13@example.com") saveTour.run(person.id, 1, "completed");
@@ -42,22 +45,28 @@ export function seedSocialData(db: DatabaseSync, viewerId: string): number {
   for (const [i, person] of network.entries())
     for (let step = 1; step <= Math.min(3, network.length - 1); step += 1)
       add(person.id, network[(i + step) % network.length].id, "accepted");
-  for (const [number, audience, relationship] of [
-    [1, "public", "friends"],
-    [2, "public", "friends"],
-    [3, "private", "friends"],
-    [4, "public", "friends"],
-    [6, "friends", "friends"],
-    [7, "friends", "friends"],
-    [8, "friends", "outgoing"],
-    [9, "public", "incoming"],
-    [10, "friends", "none"],
-    [11, "public", "incoming"],
-    [12, "private", "friends"],
+  for (const [number, journalAudience, commentaryAudience, relationship] of [
+    [1, "public", "public", "friends"],
+    [2, "public", "private", "friends"],
+    [3, "private", "public", "friends"],
+    [4, "public", "public", "friends"],
+    [5, "private", "private", "none"],
+    [6, "friends", "public", "friends"],
+    [7, "friends", "private", "friends"],
+    [8, "friends", "friends", "outgoing"],
+    [9, "public", "public", "incoming"],
+    [10, "friends", "public", "none"],
+    [11, "public", "friends", "incoming"],
+    [12, "private", "friends", "friends"],
   ] as const) {
     const person = users.find((row) => row.email === `climber${number}@example.com`);
     if (!person || person.id === viewerId) continue;
-    privacy.run(Number(number === 4 || number === 9), audience, person.id);
+    privacy.run(
+      Number(number === 4 || number === 9),
+      journalAudience,
+      commentaryAudience,
+      person.id,
+    );
     if (relationship !== "none") {
       const incoming = relationship === "incoming" || number === 7 || number === 12;
       add(

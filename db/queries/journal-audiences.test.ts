@@ -4,8 +4,8 @@ import { beforeEach, expect, it } from "vitest";
 
 import { createDb } from "@/db/client";
 import { friendships, user } from "@/db/schema";
-import type { JournalVisibility } from "@/lib/journal";
 import { DEFAULT_JOURNAL_FILTER } from "@/lib/journal-filter";
+import type { SharingAudience } from "@/lib/privacy";
 import { DEFAULT_USER_SENDS_FILTER } from "@/lib/user-sends-filter";
 import {
   seedFixtureUser,
@@ -16,6 +16,7 @@ import {
 } from "@/test/fixtures";
 import { resetDb } from "@/test/reset-db";
 
+import { canReadJournal } from "./content-access";
 import { getFeedPage } from "./feed";
 import {
   getJournalPage,
@@ -24,7 +25,6 @@ import {
   getJournalSessionsForAnalytics,
   getOpenProjects,
 } from "./journal";
-import { canReadJournal } from "./journal-access";
 import { getSendsForClimb, getSendsForUserPage } from "./sends";
 
 const db = createDb(env.DB);
@@ -65,11 +65,14 @@ beforeEach(async () => {
   });
 });
 
-it.each<JournalVisibility>(["private", "public", "friends"])(
-  "enforces the %s audience across notes, journal data and feed",
+it.each<SharingAudience>(["private", "public", "friends"])(
+  "enforces a matching %s audience for commentary and journal data",
   // oxlint-disable-next-line complexity -- one explicit audience matrix covers every read surface
   async (journalVisibility) => {
-    await db.update(user).set({ journalVisibility }).where(eq(user.id, "author"));
+    await db
+      .update(user)
+      .set({ journalVisibility, sendCommentVisibility: journalVisibility })
+      .where(eq(user.id, "author"));
     const ownerId = "author";
     for (const viewer of ["connected", "outgoing", "incoming", "stranger", null, "author"]) {
       const isFriend = viewer === "connected";

@@ -6,7 +6,7 @@ import type { ClimbType } from "@/lib/grades";
 import type { JournalKind } from "@/lib/journal";
 import type { JournalFilter, JournalView } from "@/lib/journal-filter";
 
-import { journalVisibleSql } from "./journal-access";
+import { journalVisibleSql, sendCommentVisibleSql } from "./content-access";
 
 export type JournalEntry = {
   id: number;
@@ -22,6 +22,7 @@ export type JournalEntry = {
   areaId: number | null;
   areaName: string | null;
   isAscent: boolean;
+  isSendComment: boolean;
 };
 
 export type JournalCursor = { entryDate: string; id: number };
@@ -48,6 +49,7 @@ type JournalEntryRow = {
   areaId: number | null;
   areaName: string | null;
   isAscent: number;
+  isSendComment: number;
 };
 
 function toJournalEntry(row: JournalEntryRow): JournalEntry {
@@ -55,6 +57,7 @@ function toJournalEntry(row: JournalEntryRow): JournalEntry {
     ...row,
     sent: row.sent === 1,
     isAscent: row.isAscent === 1,
+    isSendComment: row.isSendComment === 1,
     tags: row.tags ? (JSON.parse(row.tags) as string[]) : [],
   };
 }
@@ -70,14 +73,19 @@ const VIEW_CONDITION: Record<JournalView, SQL | null> = {
   training: sql`j.kind = 'training'`,
 };
 
-function filterConditions(filter: JournalFilter): SQL[] {
+function visibleBody(viewerId: string | null): SQL {
+  return sql`CASE WHEN j.is_send_comment = 0 OR ${sendCommentVisibleSql(viewerId, sql`j.user_id`)}
+    THEN j.body ELSE NULL END`;
+}
+
+function filterConditions(filter: JournalFilter, viewerId: string | null): SQL[] {
   const view = VIEW_CONDITION[filter.view];
   const conditions: SQL[] = view ? [view] : [];
 
   if (filter.query) {
     conditions.push(sql`(
       instr(lower(COALESCE(climbs.name, '')), lower(${filter.query})) > 0
-      OR instr(lower(COALESCE(j.body, '')), lower(${filter.query})) > 0
+      OR instr(lower(COALESCE(${visibleBody(viewerId)}, '')), lower(${filter.query})) > 0
       OR instr(lower(COALESCE(j.tags, '')), lower(${filter.query})) > 0
       OR EXISTS (
         WITH RECURSIVE ancestors(id, parent_id, name) AS (
@@ -107,25 +115,27 @@ function filterConditions(filter: JournalFilter): SQL[] {
   return conditions;
 }
 
-const JOURNAL_ENTRY_SELECT = sql`
+function journalEntrySelect(viewerId: string | null): SQL {
+  return sql`
     SELECT
       j.id AS id,
       j.climb_id AS climbId,
       j.kind AS kind,
       j.sent AS sent,
       j.entry_date AS entryDate,
-      j.body AS body,
+      ${visibleBody(viewerId)} AS body,
       j.tags AS tags,
       climbs.name AS climbName,
       climbs.type AS climbType,
       climbs.grade AS climbGrade,
       climbs.area_id AS areaId,
       areas.name AS areaName,
-      j.is_ascent AS isAscent
+      j.is_ascent AS isAscent, j.is_send_comment AS isSendComment
     FROM journal_entries j
     LEFT JOIN climbs ON climbs.id = j.climb_id
     LEFT JOIN areas ON areas.id = climbs.area_id
 `;
+}
 
 export async function getJournalPage(
   db: Database,
@@ -138,14 +148,14 @@ export async function getJournalPage(
   const conditions = [
     sql`j.user_id = ${ownerId}`,
     journalVisibleSql(viewerId, sql`j.user_id`),
-    ...filterConditions(filter),
+    ...filterConditions(filter, viewerId),
   ];
   if (cursor) {
     conditions.push(sql`(j.entry_date, j.id) < (${cursor.entryDate}, ${cursor.id})`);
   }
 
   const rows = await db.all<JournalEntryRow>(sql`
-    ${JOURNAL_ENTRY_SELECT}
+    ${journalEntrySelect(viewerId)}
     WHERE ${sql.join(conditions, sql` AND `)}
     ORDER BY j.entry_date DESC, j.id DESC
     LIMIT ${pageSize + 1}
@@ -172,7 +182,7 @@ export async function getJournalForClimb(
   limit: number = CLIMB_JOURNAL_ENTRY_LIMIT,
 ): Promise<JournalEntry[]> {
   const rows = await db.all<JournalEntryRow>(sql`
-    ${JOURNAL_ENTRY_SELECT}
+    ${journalEntrySelect(viewerId)}
     WHERE j.user_id = ${ownerId} AND ${journalVisibleSql(viewerId, sql`j.user_id`)} AND j.climb_id = ${climbId}
     ORDER BY j.entry_date DESC, j.id DESC
     LIMIT ${limit}

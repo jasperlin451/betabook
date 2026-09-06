@@ -8,7 +8,7 @@ import { getUserIdByName } from "@/db/queries";
 import { user } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
 import { DISPLAY_NAME_TAKEN_MESSAGE, displayNameProblem } from "@/lib/display-name";
-import { parseJournalVisibility } from "@/lib/journal";
+import { parseSharingAudience } from "@/lib/privacy";
 import { requireSession } from "@/lib/session";
 import { requireTrimmed } from "@/lib/validation";
 
@@ -68,9 +68,22 @@ export async function setJournalVisibility(visibility: string): Promise<ActionRe
   return toActionResult(async () => {
     const session = await requireSession();
     const db = await getDb();
-    const journalVisibility = parseJournalVisibility(visibility);
+    const journalVisibility = parseSharingAudience(visibility);
 
     await db.update(user).set({ journalVisibility }).where(eq(user.id, session.user.id));
+
+    revalidateProfileSurfaces(session.user.id);
+    refresh();
+  });
+}
+
+export async function setSendCommentVisibility(visibility: string): Promise<ActionResult> {
+  return toActionResult(async () => {
+    const session = await requireSession();
+    const db = await getDb();
+    const sendCommentVisibility = parseSharingAudience(visibility);
+
+    await db.update(user).set({ sendCommentVisibility }).where(eq(user.id, session.user.id));
 
     revalidateProfileSurfaces(session.user.id);
     refresh();

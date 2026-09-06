@@ -267,11 +267,10 @@ function insertClimbs(db: DatabaseSync, count: number, areaIds: number[]): Climb
   return climbs;
 }
 
-/** Verified accounts with a repeatable mix of profile and journal privacy. */
+/** Social seeding assigns each synthetic account's privacy after its history is created. */
 function insertUsers(db: DatabaseSync, count: number, passwordHash: string): string[] {
   const insertUser = db.prepare(
-    "insert into user (id, name, email, email_verified, is_private, journal_visibility)" +
-      " values (?, ?, ?, 1, ?, ?)",
+    "insert into user (id, name, email, email_verified) values (?, ?, ?, 1)",
   );
   const insertAccount = db.prepare(
     "insert into account (id, account_id, provider_id, user_id, password, updated_at)" +
@@ -297,17 +296,7 @@ function insertUsers(db: DatabaseSync, count: number, passwordHash: string): str
     usedNames.add(name.toLowerCase());
     // Positional, not faker.internet.email(): unique by construction, and
     // `user.email` is unique under a case-sensitive collation.
-    // Cycle through public journals, fully private accounts, and public
-    // profiles with private journals, even in a small --users 3 dataset.
-    // Keep this independent of faker so existing ids and history stay stable.
-    const privacyCase = i % 3;
-    insertUser.run(
-      id,
-      name,
-      `climber${i + 1}@example.com`,
-      privacyCase === 1 ? 1 : 0,
-      privacyCase === 0 ? "public" : "private",
-    );
+    insertUser.run(id, name, `climber${i + 1}@example.com`);
     insertAccount.run(faker.string.uuid(), id, id, passwordHash);
     existing.push(id);
   }

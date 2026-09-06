@@ -13,7 +13,7 @@ import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } fr
 
 import { areaNameCondition } from "./areas";
 import type { Climb } from "./climbs";
-import { journalVisibleSql } from "./journal-access";
+import { sendCommentVisibleSql } from "./content-access";
 import { disciplineGradeCondition, toFtsPrefixQuery } from "./shared";
 
 export type Send = typeof sends.$inferSelect;
@@ -66,7 +66,7 @@ export async function getSendsForClimb(
       dateSent: sends.dateSent,
       comment: sql<
         string | null
-      >`CASE WHEN ${journalVisibleSql(viewerId, sql`sends.user_id`)} THEN ${sends.comment} ELSE NULL END`,
+      >`CASE WHEN ${sendCommentVisibleSql(viewerId, sql`sends.user_id`)} THEN ${sends.comment} ELSE NULL END`,
       rating: sends.rating,
       suggestedGrade: sends.suggestedGrade,
       gradeFeel: sends.gradeFeel,
@@ -260,7 +260,7 @@ function userSendColumns(viewerId: string | null) {
       sends.rating AS rating,
       sends.suggested_grade AS suggestedGrade,
       sends.grade_feel AS gradeFeel,
-      CASE WHEN ${journalVisibleSql(viewerId, sql`sends.user_id`)} THEN sends.comment ELSE NULL END AS comment
+      CASE WHEN ${sendCommentVisibleSql(viewerId, sql`sends.user_id`)} THEN sends.comment ELSE NULL END AS comment
 `;
 }
 

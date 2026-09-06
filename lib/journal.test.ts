@@ -7,11 +7,9 @@ import {
   MAX_JOURNAL_TAG_LENGTH,
   normalizeTag,
   normalizeTags,
-  parseJournalVisibility,
   validateJournalInput,
   type RawJournalEntryInput,
   type JournalKind,
-  type JournalVisibility,
 } from "@/lib/journal";
 
 const TODAY = "2026-03-15";
@@ -190,18 +188,5 @@ describe("validateJournalInput", () => {
     expect(() => validateJournalInput(raw({ entryDate: "2026-03-17" }), TODAY)).toThrow(
       "Entry date can't be in the future",
     );
-  });
-});
-
-describe("parseJournalVisibility", () => {
-  it("accepts every stored value", () => {
-    for (const visibility of ["private", "friends", "public"] satisfies JournalVisibility[]) {
-      expect(parseJournalVisibility(visibility)).toBe(visibility);
-    }
-  });
-
-  it("rejects anything else", () => {
-    expect(() => parseJournalVisibility("invalid")).toThrow(ActionError);
-    expect(() => parseJournalVisibility(null)).toThrow(ActionError);
   });
 });

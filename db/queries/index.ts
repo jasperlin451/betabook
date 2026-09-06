@@ -9,4 +9,4 @@ export * from "./imports";
 export * from "./friendships";
 export * from "./feed";
 
-export { canReadJournal } from "./journal-access";
+export { canReadJournal } from "./content-access";

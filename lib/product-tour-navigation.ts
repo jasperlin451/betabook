@@ -92,7 +92,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
       section: "Account",
       title: "Choose what you share",
       description:
-        "Choose Only me, Friends, or Public for your journal and send notes. This applies to past entries too. A private profile hides your climbing history from everyone else, including friends.",
+        "Send commentary and journal entries have separate audiences. Try Public commentary with a Friends-only journal. Turn on Private profile to hide your climbing history from everyone else. Both controls are disabled, and your choices are kept. Audience changes apply to past entries too.",
       target: "privacy-controls",
     },
   ],

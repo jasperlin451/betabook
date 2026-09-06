@@ -9,8 +9,15 @@ const db = new DatabaseSync(filename);
 db.exec("PRAGMA foreign_keys = ON");
 try {
   const viewer = db
-    .prepare("SELECT id, is_private, journal_visibility FROM user WHERE email = 'dev@example.com'")
-    .get() as { id: string; is_private: number; journal_visibility: string };
+    .prepare(
+      "SELECT id, is_private, journal_visibility, send_comment_visibility FROM user WHERE email = 'dev@example.com'",
+    )
+    .get() as {
+    id: string;
+    is_private: number;
+    journal_visibility: string;
+    send_comment_visibility: string;
+  };
   assert.ok(viewer);
   const viewerProgress = db
     .prepare("SELECT * FROM user_product_tours WHERE user_id = ?")
@@ -30,25 +37,36 @@ try {
     ["climber16@example.com", null, null],
   ];
   assert.deepEqual(tourProgress(), expectedTours);
-  const query = `SELECT u.email, u.is_private AS private, u.journal_visibility AS journal, f.status,
+  const query = `SELECT u.email, u.is_private AS private, u.journal_visibility AS journal, u.send_comment_visibility AS commentary, f.status,
     CASE WHEN f.status = 'accepted' THEN 'friends' WHEN f.requested_by = ? THEN 'outgoing' ELSE 'incoming' END AS relationship
     FROM friendships f JOIN user u ON u.id = CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END
     WHERE f.user_id = ? OR f.friend_id = ? ORDER BY CAST(substr(u.email, 8) AS INTEGER)`;
   const rows = db.prepare(query).all(viewer.id, viewer.id, viewer.id, viewer.id);
   assert.deepEqual(
-    rows.map((r) => [r.email, r.private, r.journal, r.relationship]),
+    rows.map((r) => [r.email, r.private, r.journal, r.commentary, r.relationship]),
     [
-      ["climber1@example.com", 0, "public", "friends"],
-      ["climber2@example.com", 0, "public", "friends"],
-      ["climber3@example.com", 0, "private", "friends"],
-      ["climber4@example.com", 1, "public", "friends"],
-      ["climber6@example.com", 0, "friends", "friends"],
-      ["climber7@example.com", 0, "friends", "friends"],
-      ["climber8@example.com", 0, "friends", "outgoing"],
-      ["climber9@example.com", 1, "public", "incoming"],
-      ["climber11@example.com", 0, "public", "incoming"],
-      ["climber12@example.com", 0, "private", "friends"],
+      ["climber1@example.com", 0, "public", "public", "friends"],
+      ["climber2@example.com", 0, "public", "private", "friends"],
+      ["climber3@example.com", 0, "private", "public", "friends"],
+      ["climber4@example.com", 1, "public", "public", "friends"],
+      ["climber6@example.com", 0, "friends", "public", "friends"],
+      ["climber7@example.com", 0, "friends", "private", "friends"],
+      ["climber8@example.com", 0, "friends", "friends", "outgoing"],
+      ["climber9@example.com", 1, "public", "public", "incoming"],
+      ["climber11@example.com", 0, "public", "friends", "incoming"],
+      ["climber12@example.com", 0, "private", "friends", "friends"],
     ],
+  );
+  const combinations = db
+    .prepare(
+      "SELECT DISTINCT journal_visibility, send_comment_visibility FROM user WHERE is_private = 0 AND email GLOB 'climber[0-9]*@example.com' ORDER BY journal_visibility, send_comment_visibility",
+    )
+    .all();
+  assert.deepEqual(
+    combinations.map((row) => [row.journal_visibility, row.send_comment_visibility]),
+    ["friends", "private", "public"].flatMap((journal) =>
+      ["friends", "private", "public"].map((commentary) => [journal, commentary]),
+    ),
   );
   for (const row of rows.filter((r) => r.status === "accepted")) {
     const other = db.prepare("SELECT id FROM user WHERE email = ?").get(row.email);
@@ -68,7 +86,11 @@ try {
     0,
   );
   assert.deepEqual(
-    db.prepare("SELECT id, is_private, journal_visibility FROM user WHERE id = ?").get(viewer.id),
+    db
+      .prepare(
+        "SELECT id, is_private, journal_visibility, send_comment_visibility FROM user WHERE id = ?",
+      )
+      .get(viewer.id),
     viewer,
   );
   const activities = db
@@ -95,7 +117,7 @@ try {
   assert.deepEqual(db.prepare(query).all(viewer.id, viewer.id, viewer.id, viewer.id), rows);
   assert.equal(db.prepare("SELECT count(*) AS n FROM journal_entries").get()?.n, count);
   console.log(
-    "Social seed passed: mutual friends, incoming/outgoing requests, all audiences, mixed days, empty feed, tour version upgrades and idempotency.",
+    "Social seed passed: mutual friends, incoming/outgoing requests, all nine independent audience combinations, mixed days, empty feed, tour version upgrades and idempotency.",
   );
 } finally {
   db.close();

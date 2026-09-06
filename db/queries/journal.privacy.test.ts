@@ -44,6 +44,7 @@ const expectedEntry = {
   kind: "session",
   sent: false,
   isAscent: false,
+  isSendComment: false,
   entryDate: "2026-02-01",
   body: "Nobody else's business.",
   tags: [],

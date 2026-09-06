@@ -48,13 +48,14 @@ Stop the dev server before running local database scripts and restart it afterwa
 
 `pnpm seed` creates 400 areas, 5,000 climbs, and 50 synthetic climbers by default, plus sends and journal history covering ascents, repeats, projects, and training. Synthetic accounts start at `climber1@example.com` and use `password` unless a different password is supplied when generating them.
 
-Synthetic climbers repeat these privacy settings in account-number order, so `--users 3` covers every case:
+Social seeding assigns a repeatable mix of profile, send commentary, and journal audiences. The first four accounts demonstrate independent sharing and the private-profile override:
 
-| Account                | Profile and sends | Journal |
-| ---------------------- | ----------------- | ------- |
-| `climber1@example.com` | Public            | Public  |
-| `climber2@example.com` | Private           | Private |
-| `climber3@example.com` | Public            | Private |
+| Account                | Profile | Send commentary         | Journal entries         |
+| ---------------------- | ------- | ----------------------- | ----------------------- |
+| `climber1@example.com` | Public  | Public                  | Public                  |
+| `climber2@example.com` | Public  | Only me                 | Public                  |
+| `climber3@example.com` | Public  | Public                  | Only me                 |
+| `climber4@example.com` | Private | Only me (saved: Public) | Only me (saved: Public) |
 
 Each account has journal history to exercise visibility as its owner, another climber, or a signed-out visitor. Projects remain owner-only for every account. Seeding preserves the development account's privacy preferences.
 
@@ -65,28 +66,29 @@ pnpm seed --social                       # add feed scenarios to an existing loc
 ```
 
 Fresh seeds include mutual friends, incoming/outgoing friend requests, and all
-three journal audiences. `pnpm seed --social` refreshes these scenarios without
+nine combinations of the three commentary and journal audiences. `pnpm seed --social` refreshes these scenarios without
 regenerating climbs or removing the development account's logs or privacy settings.
 It resets relationships and journal tour progress for synthetic accounts, while
 preserving connections between other accounts and dev's tour progress. Repeating
 it does not duplicate activity.
 
-| Account                                         | Social scenario                                                                          |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `dev@example.com`                               | Seven friends, one outgoing request, and two incoming requests                           |
-| `climber1@example.com`, `climber2@example.com`  | Friends of dev with public journals                                                      |
-| `climber3@example.com`                          | Friend with an Only me journal; send facts remain public, notes stay private             |
-| `climber4@example.com`                          | Friend with a private profile; hidden from discovery and feeds, name only in Friends     |
-| `climber5@example.com`                          | No relationships in either direction, for the empty-feed flow                            |
-| `climber6@example.com`, `climber7@example.com`  | Friends journals; dev initiated one connection and the other climber initiated the other |
-| `climber8@example.com`                          | Dev's outgoing request; Friends journal inaccessible until accepted                      |
-| `climber9@example.com`, `climber11@example.com` | Incoming requests from a private and a public profile respectively                       |
-| `climber10@example.com`                         | No connection to dev; Friends journal inaccessible                                       |
-| `climber12@example.com`                         | Friend of dev with an Only me journal                                                    |
-| `climber13@example.com`                         | Completed tour version 1; gets four What's new lessons                                   |
-| `climber14@example.com`                         | Dismissed tour version 1; gets four What's new lessons                                   |
-| `climber15@example.com`                         | Completed tour version 2; no invitation, full replay in Account                          |
-| `climber16@example.com`                         | No tour progress; gets the full nine-lesson tour                                         |
+| Account                                         | Social scenario                                                                                                         |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `dev@example.com`                               | Seven friends, one outgoing request, and two incoming requests                                                          |
+| `climber1@example.com`                          | Friend of dev with public commentary and journal                                                                        |
+| `climber2@example.com`                          | Friend with a public journal and private send commentary                                                                |
+| `climber3@example.com`                          | Friend with public send commentary and an Only me journal                                                               |
+| `climber4@example.com`                          | Friend with a private profile; hidden from discovery and feeds, name only in Friends                                    |
+| `climber5@example.com`                          | No relationships in either direction, for the empty-feed flow                                                           |
+| `climber6@example.com`, `climber7@example.com`  | Friends journals with Public commentary for climber 6 and Only me commentary for climber 7; opposite request directions |
+| `climber8@example.com`                          | Dev's outgoing request; Friends journal inaccessible until accepted                                                     |
+| `climber9@example.com`, `climber11@example.com` | Incoming requests from a private and a public profile respectively                                                      |
+| `climber10@example.com`                         | No connection to dev; Friends journal inaccessible                                                                      |
+| `climber12@example.com`                         | Friend of dev with Friends-only commentary and an Only me journal                                                       |
+| `climber13@example.com`                         | Completed tour version 1; gets four What's new lessons                                                                  |
+| `climber14@example.com`                         | Dismissed tour version 1; gets four What's new lessons                                                                  |
+| `climber15@example.com`                         | Completed tour version 2; no invitation, full replay in Account                                                         |
+| `climber16@example.com`                         | No tour progress; gets the full nine-lesson tour                                                                        |
 
 Use the seeded password (`password` by default). The full set requires at least
 16 synthetic users. Eight authors have a mixed-activity day on September 1, 2026;
@@ -110,9 +112,14 @@ Reloading should keep the request without another email. Cancel it afterward to
 restore the empty-feed fixture. The seed script writes directly to the database
 and never sends email; the product tour's sample controls also send nothing.
 
-Journal audiences protect every send note, including mirrored ascent notes.
-Public-profile send facts and anonymous community aggregates retain their existing
-visibility.
+Send commentary has its own audience, applied to original-send notes on climb
+pages, Sends, the feed, and mirrored ascent notes in the journal. The journal
+audience controls access to the journal, sessions, repeats, training, and tags.
+Deleting a send retains its journal entry and keeps its commentary audience, including
+after further edits. Database triggers classify original-send notes for every write path.
+Public-profile send facts remain public. Private profile overrides both audiences;
+the disabled selectors show Only me while retaining the saved choices. Anonymous
+community aggregates retain their existing visibility.
 
 To check social seeding against a disposable copy of a migrated, default-seeded
 SQLite database, run `pnpm test:seed-social /path/to/copy.sqlite`.
