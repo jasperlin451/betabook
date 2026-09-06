@@ -31,7 +31,7 @@ export function FeedDayCard({ day, view }: { day: FeedDay; view: FeedView }) {
     .join(" · ");
   const detail = `/users/${day.userId}/${view === "all" && day.journalVisible ? "journal" : "sends"}?date=${day.date}`;
   return (
-    <article className="overflow-hidden rounded-lg border border-separator bg-surface">
+    <article className="overflow-hidden rounded-panel border border-separator bg-surface">
       <header className="flex items-center gap-3 border-b border-separator px-4 py-4">
         <UserAvatar name={day.name} image={day.image} size="sm" />
         <div className="min-w-0 flex-1">

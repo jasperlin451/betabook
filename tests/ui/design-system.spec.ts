@@ -106,6 +106,40 @@ test("shared panel geometry and typography stay consistent", async ({ page }, te
   await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-size", "30px");
 });
 
+for (const panel of [
+  {
+    name: "feed card",
+    story: "components-journal-feed-day-card--activity-feed",
+    selector: "article",
+  },
+  {
+    name: "empty state",
+    story: "components-feedback-empty-state--no-results",
+    selector: "div.border-dashed",
+  },
+  {
+    name: "mobile helper",
+    story: "components-feedback-mobile-app-helper--instructions",
+    selector: "aside",
+  },
+  {
+    name: "loading card",
+    story: "components-feedback-skeleton--stat-card",
+    selector: ".bg-surface-secondary",
+  },
+]) {
+  test(`${panel.name} follows the shared panel radius`, async ({ page }, testInfo) => {
+    await openStory(page, testInfo, panel.story);
+    const surface = page.locator(panel.selector);
+    await expect(surface).toHaveCount(1);
+    await expect(surface).toHaveCSS("border-radius", "12px");
+    // A theme-token change must reach real feature surfaces, not just the
+    // card helper example. This catches a local hard-coded radius override.
+    await page.evaluate(() => document.documentElement.style.setProperty("--radius-panel", "20px"));
+    await expect(surface).toHaveCSS("border-radius", "20px");
+  });
+}
+
 test("native selects match HeroUI fields and keyboard focus is visible", async ({
   page,
 }, testInfo) => {

@@ -176,6 +176,11 @@
   }
 }
 
+/* Cards, bounded panels, and their loading placeholders share one geometry. */
+@theme {
+  --radius-panel: 0.75rem;
+}
+
 @theme inline {
   --font-sans: var(--font-geist-sans);
   /* The guidebook display voice — Barlow Condensed (loaded in

@@ -166,7 +166,7 @@ Geist fonts are copied from a dependency through `staticDirs`, outside the impor
 Keep component imports direct and shared preview decorators small; do not exclude
 visual dependencies with `untraced` just to reduce usage.
 
-At 77 stories across four modes, a full build costs 308 billed snapshots. Captured
+At 78 stories across four modes, a full build costs 312 billed snapshots. Captured
 snapshots cost 1 each, copied snapshots cost 0.2 each, and eligible builds with no
 affected stories are bypassed at zero cost ([billing](https://www.chromatic.com/docs/turbosnap/#pricing)).
 Batch related pushes and avoid unnecessary reruns while establishing the initial builds.

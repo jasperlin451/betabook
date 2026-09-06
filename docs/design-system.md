@@ -43,16 +43,16 @@ The artwork is transparent: light and dark reference panels use the theme's
 colors. Lettering follows ink/paper, with coral reserved for the sun. This
 addition does not change the site's navigation logo or global palette.
 
-| Concern                     | Source                                   | Rule                                                                                                                                              |
-| --------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Colors and theme roles      | `app/globals.css`                        | Use semantic utilities such as `bg-surface` and `text-muted`. New colors belong in the theme, not feature markup.                                 |
-| Panel surfaces and padding  | `components/ui/card.ts`                  | Use `cardClass` for ordinary panels. Compact panels have 16px padding; standard panels have 24px. Both currently use a 12px radius and no shadow. |
-| Titles and section headings | `components/ui/typography.tsx`           | Use `PageTitle` and `SectionHeading`; avoid local font/size overrides.                                                                            |
-| Climb and activity rows     | `components/ui/list-row.tsx`             | Square internal rows, separators, stable alignment, and room for grades even with long names.                                                     |
-| Form fields                 | HeroUI and `components/ui/field.ts`      | Native controls use `FIELD_CLASS`; preserve matching geometry and visible keyboard focus.                                                         |
-| Grades and category labels  | `Grade`, `DisciplineChip`, `AscentStyle` | Reuse the labels and colors. Grades stay in Geist; categories remain identifiable without color.                                                  |
-| Empty/loading states        | `EmptyState`, `Skeleton`                 | Match the eventual content and keep the next action clear.                                                                                        |
-| Delete confirmation         | `ConfirmDeleteDialog`                    | Preserve focus return and keyboard-accessible Cancel/confirmation. Alert dialogs intentionally do not dismiss on Escape.                          |
+| Concern                     | Source                                   | Rule                                                                                                                                                            |
+| --------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Colors and theme roles      | `app/globals.css`                        | Use semantic utilities such as `bg-surface` and `text-muted`. New colors belong in the theme, not feature markup.                                               |
+| Panel surfaces and padding  | `components/ui/card.ts`                  | Use `cardClass` for ordinary panels. Compact panels have 16px padding; standard panels have 24px. Both use the shared 12px `rounded-panel` token and no shadow. |
+| Titles and section headings | `components/ui/typography.tsx`           | Use `PageTitle` and `SectionHeading`; avoid local font/size overrides.                                                                                          |
+| Climb and activity rows     | `components/ui/list-row.tsx`             | Square internal rows, separators, stable alignment, and room for grades even with long names.                                                                   |
+| Form fields                 | HeroUI and `components/ui/field.ts`      | Native controls use `FIELD_CLASS`; preserve matching geometry and visible keyboard focus.                                                                       |
+| Grades and category labels  | `Grade`, `DisciplineChip`, `AscentStyle` | Reuse the labels and colors. Grades stay in Geist; categories remain identifiable without color.                                                                |
+| Empty/loading states        | `EmptyState`, `Skeleton`                 | Match the eventual content and keep the next action clear.                                                                                                      |
+| Delete confirmation         | `ConfirmDeleteDialog`                    | Preserve focus return and keyboard-accessible Cancel/confirmation. Alert dialogs intentionally do not dismiss on Escape.                                        |
 
 Use Barlow Condensed for page titles and Geist for reading, controls, and grades.
 The logo uses Barlow Condensed Bold for its lowercase wordmark and Geist Medium
@@ -62,11 +62,20 @@ The current stat tiles and avatar initials are explicit
 display-type exceptions. Keep labels in sentence case and use concrete language
 such as “Log session” and “No sends yet.”
 
-Panels group independent content; ordinary page sections can sit directly on the
-background. Chips and avatars may be fully rounded. Overlay elevation is a
-separate role from an in-page card. A different component role can justify a
-different treatment; record that reason instead of introducing an unexplained
-radius or shadow.
+Cards and bounded content panels use `rounded-panel`, backed by the single
+`--radius-panel: 0.75rem` token in `app/globals.css`. Use `cardClass` for the standard
+fill/padding; use the same radius utility directly for bordered feed cards,
+empty states, upload areas, journal summaries, selectable cards, tutorial panels,
+and the mobile installation helper. Panel-shaped loading placeholders use it too.
+Surface colors, borders, padding, and floating-panel elevation remain specific to
+their purpose; they do not justify a different card radius.
+
+Ordinary page sections can sit directly on the background, and internal list rows
+stay square. Controls (including the segmented search switch), HeroUI dialogs and
+popovers retain their control/overlay geometry. Pills, avatars, and progress bars
+may be fully rounded; tiny chart/calendar marks keep their small radii for
+legibility. The home-screen icon tile and tutorial spotlight outline are icon and
+focus treatments, not cards. Do not use these exceptions for a new content panel.
 
 ## Gallery map and coverage
 
@@ -130,9 +139,9 @@ recipes come from the same CSS source. Raw palette swatches are not a guarantee
 that a color works as text: inspect real foreground/fill pairs and run contrast
 checks on the components using them.
 
-Issue #149 still includes aligning feature-specific surfaces and migrating brand
-assets. Existing feed and navigation treatments are deliberately visible for
-review; their presence is not approval of every current radius or surface.
+The radius cleanup for issue #149 consolidates ordinary card/panel radii from
+8px, 12px, and 16px to 12px. Broader surface/color alignment and production brand
+asset migration remain separate follow-ups.
 
 Keep fixtures deterministic and interactions local. Do not import live server
 actions, database services, authenticated providers, or real account data.
@@ -143,7 +152,8 @@ Simulate effects only at external boundaries, retaining the production component
 `pnpm test:ui` discovers all stories from the built Storybook index and runs
 Chromium at desktop and mobile widths in both themes. New stories automatically
 receive accessibility, overflow and screenshot checks. Focused interaction tests
-check rendered panel geometry, typography, native/HeroUI field consistency,
+check rendered panel geometry (including feed, empty, mobile-helper, and loading
+components, with a live token-change check), typography, native/HeroUI field consistency,
 keyboard focus, dialog cancellation/confirmation, live token updates, search
 selection, menus, comment expansion, and tag editing. The gallery-wide checks
 cover horizontal overflow and automated WCAG A/AA findings. Tests inspect browser behavior and computed styles,
@@ -170,7 +180,7 @@ Agents discover this guide through the root `AGENTS.md`. That file requires
 reading the relevant stories and running the UI checks; the executable checks
 provide enforcement when instructions are missed. Keep the root link in place.
 
-Tutorial decision: no lesson steps change. Storybook folder organization only changes developer documentation and discovery. The privacy contrast correction,
+Tutorial decision: no lesson steps or versions change. Tutorial demo cards, status panels, and guide framing use the shared panel radius, matching the application without changing navigation, targets, or lesson content. Storybook folder organization only changes developer documentation and discovery. The privacy contrast correction,
 secondary-button token adjustment, keyboard-scrollable progression charts, and progress-bar labels improve shared
 presentation/accessibility without changing any workflow. Tutorial previews
 automatically inherit the shared fixes. Future primitive changes should also be checked

@@ -148,7 +148,7 @@ export const Geometry: Story = {
             <div className={cardClass(size)}>Panel content</div>
           </LiveSample>
         ))}
-        <LiveSample name="Card radius" property="border-radius">
+        <LiveSample name="Panel radius · --radius-panel" property="border-radius">
           <div className={cardClass()}>Shared panel</div>
         </LiveSample>
         <LiveSample name="Card elevation" property="box-shadow">

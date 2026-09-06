@@ -52,7 +52,7 @@ export const ActivityFeed: Story = {
   render: () => (
     <StoryPage
       title="Activity feed"
-      description="The existing feed surface is shown as shipped. Its separate radius and border treatment are visible here for the branding review."
+      description="Feed cards share the panel radius, with a border and surface fill to group each day."
     >
       <FeedDayCard day={day} view="all" />
     </StoryPage>
