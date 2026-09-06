@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { Brand } from "@/components/brand";
-import { PageTitle, SectionHeading } from "@/components/ui/typography";
+import { SectionHeading } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
   title: "About",
@@ -19,13 +19,9 @@ export default function AboutPage() {
     // — margins don't collapse in a flex container, so that opens a real
     // section break instead of being swallowed by the larger of the two.
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-      <PageTitle>About Betabook</PageTitle>
-      <Brand variant="lockup" className="mx-auto w-full max-w-90" />
-
-      {/* The one paragraph that isn't body copy — it's the subtitle the h1
-       * has no room for, so it takes text-lg and the muted colour to sit
-       * between the title and the prose proper. */}
-      <p className="text-lg leading-relaxed text-pretty text-muted">Welcome to Betabook</p>
+      <h1>
+        <Brand variant="lockup" className="mx-auto w-full max-w-90" />
+      </h1>
 
       <SectionHeading className="mt-4">What is Betabook</SectionHeading>
       <p className="leading-relaxed text-pretty">
