@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 
+import { appBaseURL } from "./app-server";
+
 // These checks exercise Next's real metadata and app shell alongside the gallery.
-test.use({ baseURL: "http://localhost:3002" });
+test.use({ baseURL: appBaseURL });
 
 test("production branding loads and fits navigation and About", async ({ page }, testInfo) => {
   await page.goto("/about");

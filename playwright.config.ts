@@ -1,5 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
+import { appBaseURL, appPort } from "@/tests/ui/app-server";
+
 export default defineConfig({
   testDir: "./tests/ui",
   fullyParallel: true,
@@ -39,8 +41,9 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: "pnpm db:migrate:local && pnpm dev --port 3002",
-      url: "http://localhost:3002/about",
+      command: `pnpm db:migrate:local && pnpm dev --port ${appPort}`,
+      // Warm the homepage's cold compilation before measuring home-link navigation.
+      url: appBaseURL,
       reuseExistingServer: true,
     },
   ],

@@ -151,10 +151,14 @@ Simulate effects only at external boundaries, retaining the production component
 
 `pnpm test:ui` discovers all stories from the built Storybook index and runs
 Chromium at desktop and mobile widths in both themes. The same command also runs
-real app branding checks against Next.js on port 3002, covering navigation, About,
+real app branding checks against Next.js, covering navigation, About,
 theme persistence, and favicon/touch/manifest/social assets. Playwright starts the
 gallery preview and the app, applying local D1 migrations before starting a new
-app server. It can reuse an existing app on port 3002; stop and migrate that app
+app server. It defaults to port 3000, matching `pnpm dev`; set `BETABOOK_UI_PORT`
+to the port of an existing app when it differs (for example,
+`BETABOOK_UI_PORT=3003 pnpm test:ui`). Both the server and tests use that port,
+and server readiness warms the homepage compilation before navigation checks.
+It can reuse an existing app; stop and migrate that app
 first if its database is out of date. Use the normal local `.dev.vars` setup;
 CI copies `.dev.vars.example` and needs no seed or account for these checks.
 Both suites share the same HTML report and four viewport/theme projects.
