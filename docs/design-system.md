@@ -64,46 +64,14 @@ The current stat tiles and avatar initials are explicit
 display-type exceptions. Keep labels in sentence case and use concrete language
 such as “Log session” and “No sends yet.”
 
-### Typography and control audit
+Reading copy is 16px; supporting text, labels, control values and feedback are
+normally 14px. Compact field descriptions and metadata are 12px. Use HeroUI
+`Label`, `Description` and `FieldError` to associate feedback with its control;
+announce dynamic errors and retain semantic invalid/focus treatments.
 
-The typography/control follow-up to #149 keeps one `PageTitle` treatment: 30px,
-semibold Barlow Condensed with tight tracking, including auth, recovery, import,
-moderation and not-found pages. Remove local size overrides even when the CSS
-cascade currently makes them ineffective. `SectionHeading` remains 18px
-semibold Geist. Reading copy is 16px; supporting paragraphs, labels, control
-values and feedback are normally 14px. Compact field descriptions and metadata
-remain 12px. Use HeroUI `Label` for a field's visible label and keep its
-description/error associated with the control.
-
-Privacy audience fields now use HeroUI labels, descriptions and invalid state
-presentation. Journal tags use the real HeroUI `Input`, `Description` and
-`FieldError`, preserving tag entry/removal and the full-list disabled state.
-Field errors use 14px danger text without extra horizontal padding; helper text
-uses HeroUI's compact description style. Announce dynamically displayed errors
-and expose them as the affected control's accessible description. HeroUI draws
-an unfocused invalid field with a danger outline, and a focused one with a
-two-pixel danger ring. Keyboard focus uses the semantic focus token.
-
-Match a field and its adjacent action with `FIELD_ACTION_CLASS`: the sort
-direction button includes the dark theme's semantic border and follows the
-field's responsive text sizing. Keep compact row/menu actions at their existing small size. Pagination
-uses the pending button state to prevent repeated requests while retaining
-keyboard focus, and associates its announced failure with the retry button.
-
-The audit also covered entity pages/forms, search/filter controls, feeds,
-profile/journal views, import, moderation, and tutorial previews. Retained
-exceptions are display stat values/avatar initials; compact feed/row headings;
-eyebrows/date separators; HeroUI overlay headings; and the self-contained global
-error fallback, which cannot depend on the failed root layout's fonts/styles.
-Native fields keep `FIELD_CLASS`; search palettes retain their inline geometry.
-Body copy, grades, ordinary section headings, empty states and panel spacing
-already follow the established system. No panel, palette or Chromatic settings
-change in this follow-up.
-
-Tutorial decision: retain lesson copy, IDs and versions because the workflows
-are unchanged. The Account privacy preview inherits the changed fields; verify
-it alongside the real application. The Sends preview retains its existing
-segmented sorting controls.
+Use `FIELD_ACTION_CLASS` to match an adjacent action to its field's responsive
+size and theme border width. Keep compact row/menu actions small. Pending
+buttons should prevent repeat requests while retaining keyboard focus.
 
 Cards and bounded content panels use `rounded-panel`, backed by the unchanged
 `--radius-panel: 0.75rem` (12px) token. Choose a treatment by purpose with
