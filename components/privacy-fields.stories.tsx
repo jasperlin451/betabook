@@ -41,6 +41,8 @@ function PrivacyExample({
           onSendCommentChange={setComment}
           isPending={pending}
           profileError={error ? "Could not save your changes. Try again." : null}
+          sendCommentError={error ? "Could not save commentary. Try again." : null}
+          journalError={error ? "Could not save journal audience. Try again." : null}
         />
       </div>
     </StoryPage>

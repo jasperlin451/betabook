@@ -41,7 +41,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   if (done) {
     return (
       <div className={FORM_CARD_CLASS}>
-        <PageTitle className="text-2xl">Password reset</PageTitle>
+        <PageTitle>Password reset</PageTitle>
         <p className="text-sm text-muted">
           Your password has been reset. <AppLink href="/sign-in">Sign in</AppLink> with your new
           password.
@@ -52,7 +52,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
 
   return (
     <form onSubmit={handleSubmit} className={FORM_CARD_CLASS}>
-      <PageTitle className="text-2xl">Reset password</PageTitle>
+      <PageTitle>Reset password</PageTitle>
       <TextField value={newPassword} onChange={setNewPassword} type="password" isRequired>
         <Label>New password</Label>
         <Input />

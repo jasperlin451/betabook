@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
+import { userEvent, within } from "storybook/test";
 
 import { MAX_JOURNAL_TAGS } from "@/lib/journal";
 import { StoryPage } from "@/stories/fixtures/story-layout";
@@ -12,11 +13,13 @@ const meta = { title: "Components/Journal/Tag input", component: TagInput } sati
 export default meta;
 // These local-state/comparison examples supply their own component props.
 type Story = StoryObj;
-function TagsExample({ full = false }: { full?: boolean }) {
+function TagsExample({ full = false, empty = false }: { full?: boolean; empty?: boolean }) {
   const [tags, setTags] = useState(
     full
       ? Array.from({ length: MAX_JOURNAL_TAGS }, (_, i) => `tag-${i + 1}`)
-      : ["outdoors", "technique"],
+      : empty
+        ? []
+        : ["outdoors", "technique"],
   );
   return (
     <StoryPage title="Journal tags">
@@ -26,3 +29,11 @@ function TagsExample({ full = false }: { full?: boolean }) {
 }
 export const JournalTags: Story = { render: () => <TagsExample /> };
 export const JournalTagsFull: Story = { render: () => <TagsExample full /> };
+export const Empty: Story = { render: () => <TagsExample empty /> };
+export const Invalid: Story = {
+  render: () => <TagsExample />,
+  play: async ({ canvasElement }) => {
+    const input = within(canvasElement).getByRole("textbox", { name: /Add a tag/ });
+    await userEvent.type(input, "bad!{Enter}");
+  },
+};

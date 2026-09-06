@@ -1,10 +1,9 @@
 "use client";
 
-import { Label, TextField } from "@heroui/react";
+import { Description, FieldError, Input, Label, TextField } from "@heroui/react";
 import { X } from "lucide-react";
 import { useState } from "react";
 
-import { FIELD_CLASS } from "@/components/ui/field";
 import {
   isValidJournalTag,
   MAX_JOURNAL_TAGS,
@@ -40,7 +39,7 @@ export function TagInput({
   }
 
   return (
-    <TextField>
+    <TextField aria-label="Add a tag" isInvalid={Boolean(tagError)} isDisabled={full}>
       <Label>Tags</Label>
       {value.length > 0 && (
         <ul className="mb-2 flex flex-wrap gap-1.5">
@@ -59,12 +58,9 @@ export function TagInput({
           ))}
         </ul>
       )}
-      <input
-        aria-label="Add a tag"
+      <Input
         value={draft}
-        disabled={full}
         maxLength={MAX_JOURNAL_TAG_LENGTH}
-        aria-invalid={tagError ? true : undefined}
         onChange={(e) => {
           const nextDraft = e.target.value;
           if (/\s/.test(nextDraft)) {
@@ -84,14 +80,19 @@ export function TagInput({
         }}
         onBlur={commit}
         placeholder={full ? "" : "hangboard, power-endurance…"}
-        className={`${FIELD_CLASS} w-full`}
+        fullWidth
       />
-      <p className={`mt-1 text-xs ${tagError ? "text-danger" : "text-muted"}`}>
-        {tagError ??
-          (full
+      {tagError ? (
+        <FieldError className="px-0 text-sm">
+          <span role="alert">{tagError}</span>
+        </FieldError>
+      ) : (
+        <Description>
+          {full
             ? `That's all ${MAX_JOURNAL_TAGS} tags — remove one to add another.`
-            : `Up to ${MAX_JOURNAL_TAGS} tags, ${MAX_JOURNAL_TAG_LENGTH} characters each. Letters, numbers and hyphens only.`)}
-      </p>
+            : `Up to ${MAX_JOURNAL_TAGS} tags, ${MAX_JOURNAL_TAG_LENGTH} characters each. Letters, numbers and hyphens only.`}
+        </Description>
+      )}
     </TextField>
   );
 }

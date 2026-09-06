@@ -19,7 +19,10 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <StoryPage title="Sort select">
+      <StoryPage
+        title="Sort select"
+        description="The direction button matches the field's responsive text size and semantic border. Tab to the direction button and press Enter to reverse the order."
+      >
         <Story />
       </StoryPage>
     ),

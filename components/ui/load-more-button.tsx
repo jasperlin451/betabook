@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@heroui/react";
+import { useId } from "react";
 
 type LoadMoreButtonProps = {
   onPress: () => void;
@@ -14,10 +15,20 @@ type LoadMoreButtonProps = {
  * that fetches the next page. Owns the copy so the seven lists that page
  * can't drift apart. */
 export function LoadMoreButton({ onPress, loading, failed = false }: LoadMoreButtonProps) {
+  const errorId = useId();
   return (
     <div className="flex flex-col items-center gap-2">
-      {failed && <p className="text-sm text-danger">Couldn&apos;t load more — try again.</p>}
-      <Button variant="ghost" onPress={onPress} isDisabled={loading}>
+      {failed && (
+        <p id={errorId} role="alert" className="text-sm text-danger">
+          Couldn&apos;t load more — try again.
+        </p>
+      )}
+      <Button
+        variant="ghost"
+        onPress={onPress}
+        isPending={loading}
+        aria-describedby={failed ? errorId : undefined}
+      >
         {loading ? "Loading…" : "Load more"}
       </Button>
     </div>

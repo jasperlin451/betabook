@@ -31,7 +31,7 @@ export function ForgotPasswordForm() {
   if (done) {
     return (
       <div className={FORM_CARD_CLASS}>
-        <PageTitle className="text-2xl">Check your email</PageTitle>
+        <PageTitle>Check your email</PageTitle>
         <p className="text-sm text-muted">
           If an account exists for {email}, we sent a link to reset your password.{" "}
           <AppLink href="/sign-in">Back to sign in</AppLink>.
@@ -42,7 +42,7 @@ export function ForgotPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} className={FORM_CARD_CLASS}>
-      <PageTitle className="text-2xl">Forgot password</PageTitle>
+      <PageTitle>Forgot password</PageTitle>
       <p className="text-sm text-muted">
         Enter your email and we&apos;ll send you a link to reset your password.
       </p>

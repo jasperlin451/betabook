@@ -1,7 +1,6 @@
 "use client";
 
-import { Switch, Select, ListBox } from "@heroui/react";
-import { useId } from "react";
+import { Description, FieldError, Label, Switch, Select, ListBox } from "@heroui/react";
 
 import { SHARING_AUDIENCES, type SharingAudience } from "@/lib/privacy";
 
@@ -93,42 +92,37 @@ function AudienceField({
   disabled: boolean;
   error?: string | null;
 }) {
-  const descriptionId = useId();
   return (
-    <div className="flex flex-col gap-1">
-      <p className="font-medium">{label}</p>
-      <Select
-        aria-label={`${label} audience`}
-        aria-describedby={descriptionId}
-        selectedKey={value}
-        isDisabled={disabled}
-        onSelectionChange={(key) => {
-          const audience = SHARING_AUDIENCES.find((option) => option.value === key);
-          if (audience) onChange(audience.value);
-        }}
-      >
-        <Select.Trigger>
-          <Select.Value />
-          <Select.Indicator />
-        </Select.Trigger>
-        <Select.Popover>
-          <ListBox>
-            {SHARING_AUDIENCES.map(({ value, label }) => (
-              <ListBox.Item key={value} id={value} textValue={label}>
-                {label}
-              </ListBox.Item>
-            ))}
-          </ListBox>
-        </Select.Popover>
-      </Select>
-      <p id={descriptionId} className="text-xs text-muted">
-        {description}
-      </p>
+    <Select
+      aria-label={`${label} audience`}
+      selectedKey={value}
+      isDisabled={disabled}
+      isInvalid={Boolean(error)}
+      onSelectionChange={(key) => {
+        const audience = SHARING_AUDIENCES.find((option) => option.value === key);
+        if (audience) onChange(audience.value);
+      }}
+    >
+      <Label>{label}</Label>
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          {SHARING_AUDIENCES.map(({ value, label }) => (
+            <ListBox.Item key={value} id={value} textValue={label}>
+              {label}
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+      <Description>{description}</Description>
       {error && (
-        <p role="alert" className="text-sm text-danger">
-          {error}
-        </p>
+        <FieldError className="px-0 text-sm">
+          <span role="alert">{error}</span>
+        </FieldError>
       )}
-    </div>
+    </Select>
   );
 }

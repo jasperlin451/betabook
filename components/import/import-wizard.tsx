@@ -668,7 +668,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
   return (
     <div className={`flex flex-col gap-6 ${cardClass("md")}`}>
       <div className="flex flex-col gap-3">
-        <PageTitle className="text-2xl">Import sends</PageTitle>
+        <PageTitle>Import sends</PageTitle>
         <WizardSteps step={step} onJump={pending || step === "result" ? null : goBack} />
       </div>
 

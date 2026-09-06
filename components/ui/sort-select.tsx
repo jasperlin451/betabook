@@ -3,6 +3,7 @@
 import { Button, ListBox, Select } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 
+import { FIELD_ACTION_CLASS } from "@/components/ui/field";
 import { useSortToggle } from "@/hooks/use-sort-toggle";
 
 /** The field-dropdown + direction-arrow-button sort control shared by every
@@ -62,7 +63,7 @@ export function SortSelect<Field extends string, Sort extends string>({
       <Button
         isIconOnly
         variant="ghost"
-        size="sm"
+        className={FIELD_ACTION_CLASS}
         aria-label={direction === "asc" ? "Sort ascending" : "Sort descending"}
         onPress={toggleDirection}
       >
