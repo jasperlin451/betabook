@@ -286,7 +286,7 @@ export function DemoAccount() {
           onSendCommentChange={setSendCommentVisibility}
         />
       </div>
-      <div role="status" className="rounded-lg bg-surface-secondary p-4 text-sm">
+      <div role="status" className="rounded-inset bg-surface-secondary p-4 text-sm">
         <p className="font-medium">What a visitor can see</p>
         {isPrivate ? (
           <p className="mt-1">Only Alex can see this profile and climbing history.</p>
