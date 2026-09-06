@@ -8,6 +8,7 @@ import { AscentStyle } from "@/components/ascent-style";
 import { PrivacyFields } from "@/components/privacy-fields";
 import { ProgressionChart } from "@/components/progression-chart";
 import { SendGradeCell } from "@/components/send-grade-cell";
+import { cardClass } from "@/components/ui/card";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { ListRow } from "@/components/ui/list-row";
 import { formatDate } from "@/lib/format-date";
@@ -286,7 +287,7 @@ export function DemoAccount() {
           onSendCommentChange={setSendCommentVisibility}
         />
       </div>
-      <div role="status" className="rounded-panel bg-surface-secondary p-4 text-sm">
+      <div role="status" className={`text-sm ${cardClass("sm")}`}>
         <p className="font-medium">What a visitor can see</p>
         {isPrivate ? (
           <p className="mt-1">Only Alex can see this profile and climbing history.</p>

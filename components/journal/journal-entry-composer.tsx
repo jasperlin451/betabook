@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { EntryKindStep, type EntryKindChoice } from "@/components/journal/entry-kind-step";
 import { JournalEntryForm } from "@/components/journal/journal-entry-form";
+import { cardClass } from "@/components/ui/card";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { Grade } from "@/components/ui/grade";
 import type { ClimbWithAreaName } from "@/db/queries";
@@ -22,7 +23,7 @@ function ChosenStrip({
   const climb = choice.kind === "session" ? choice.climb : undefined;
 
   return (
-    <div className="flex items-center justify-between gap-3 rounded-panel bg-surface-secondary px-4 py-3">
+    <div className={`flex items-center justify-between gap-3 ${cardClass("sm")}`}>
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-foreground">
           {climb ? climb.name : "Training"}

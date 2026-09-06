@@ -1,4 +1,4 @@
-import { cardClass } from "@/components/ui/card";
+import { cardClass, DANGER_CARD_CLASS } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /** Mirrors the account page's identity card, settings grid, and danger zone. */
@@ -18,7 +18,7 @@ export default function Loading() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {Array.from({ length: 4 }, (_, index) => (
+        {Array.from({ length: 6 }, (_, index) => (
           <div key={index} className={`flex flex-col gap-3 ${cardClass("md")}`}>
             <Skeleton tone="raised" className="h-5 w-28" />
             <Skeleton tone="raised" className="h-4 w-full" />
@@ -27,7 +27,7 @@ export default function Loading() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3 rounded-panel border border-separator p-6">
+      <div className={`flex flex-col gap-3 ${DANGER_CARD_CLASS}`}>
         <Skeleton className="h-5 w-28" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-9 w-32" rounded="rounded-lg" />

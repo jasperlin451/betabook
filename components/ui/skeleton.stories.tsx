@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
 import { Skeleton } from "./skeleton";
-import { SkeletonListRows, SkeletonStatCard } from "./skeleton";
+import { SkeletonFeedCard, SkeletonListRows, SkeletonStatCard } from "./skeleton";
 const meta = {
   title: "Components/Feedback/Skeleton",
   component: Skeleton,
@@ -28,3 +28,4 @@ export const Raised: Story = {
 };
 export const ListRows: Story = { render: () => <SkeletonListRows rows={3} /> };
 export const StatCard: Story = { render: () => <SkeletonStatCard stats={2} /> };
+export const FeedCard: Story = { render: () => <SkeletonFeedCard /> };

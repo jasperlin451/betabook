@@ -5,6 +5,7 @@ import { useState } from "react";
 import { FriendRequestBadge } from "@/components/friend-request-badge";
 import { FriendshipActionButton } from "@/components/friendship-action-button";
 import { ProfileSectionNav } from "@/components/profile-tabs";
+import { cardClass } from "@/components/ui/card";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { ListRow } from "@/components/ui/list-row";
 import { SectionHeading } from "@/components/ui/typography";
@@ -122,8 +123,8 @@ export function DemoFeed() {
             </button>
           ))}
         </div>
-        <article className="overflow-hidden rounded-panel border border-separator bg-surface">
-          <header className="flex items-center gap-3 border-b border-separator px-4 py-4">
+        <article className={`overflow-hidden ${cardClass("none", "bordered")}`}>
+          <header className="flex items-center gap-3 border-b border-separator p-4">
             <UserAvatar name={day.name} size="sm" />
             <div className="min-w-0 flex-1">
               <h3 className="font-semibold">{day.name}</h3>

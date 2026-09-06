@@ -13,7 +13,7 @@ import { ResetPasswordButton } from "@/components/reset-password-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeSelect } from "@/components/theme-select";
 import { AppLink } from "@/components/ui/app-link";
-import { cardClass } from "@/components/ui/card";
+import { cardClass, DANGER_CARD_CLASS } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageTitle, SectionHeading } from "@/components/ui/typography";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -150,7 +150,7 @@ export default async function AccountPage() {
         )}
       </div>
 
-      <section className="flex flex-col gap-4 rounded-panel border border-danger/30 bg-danger/5 p-6">
+      <section className={`flex flex-col gap-4 ${DANGER_CARD_CLASS}`}>
         <div className="flex flex-col gap-1">
           <SectionHeading>Danger zone</SectionHeading>
           <p className="text-sm text-muted">
