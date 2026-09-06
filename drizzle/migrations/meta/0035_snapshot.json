@@ -470,6 +470,14 @@
           "autoincrement": false,
           "default": "'private'"
         },
+        "send_comment_visibility": {
+          "name": "send_comment_visibility",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'private'"
+        },
         "product_tour_returning": {
           "name": "product_tour_returning",
           "type": "integer",
@@ -752,6 +760,14 @@
         },
         "is_ascent": {
           "name": "is_ascent",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "is_send_comment": {
+          "name": "is_send_comment",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

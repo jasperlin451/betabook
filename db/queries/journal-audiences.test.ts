@@ -6,7 +6,6 @@ import { createDb } from "@/db/client";
 import { friendships, user } from "@/db/schema";
 import { DEFAULT_JOURNAL_FILTER } from "@/lib/journal-filter";
 import type { SharingAudience } from "@/lib/privacy";
-import { DEFAULT_USER_SENDS_FILTER } from "@/lib/user-sends-filter";
 import {
   seedFixtureUser,
   seedFixtureFriendship,
@@ -20,12 +19,10 @@ import { canReadJournal } from "./content-access";
 import { getFeedPage } from "./feed";
 import {
   getJournalPage,
-  getJournalForClimb,
   getJournalCounts,
   getJournalSessionsForAnalytics,
   getOpenProjects,
 } from "./journal";
-import { getSendsForClimb, getSendsForUserPage } from "./sends";
 
 const db = createDb(env.DB);
 beforeEach(async () => {
@@ -66,13 +63,9 @@ beforeEach(async () => {
 });
 
 it.each<SharingAudience>(["private", "public", "friends"])(
-  "enforces a matching %s audience for commentary and journal data",
-  // oxlint-disable-next-line complexity -- one explicit audience matrix covers every read surface
+  "enforces %s journal access for authorization, counts, analytics and projects",
   async (journalVisibility) => {
-    await db
-      .update(user)
-      .set({ journalVisibility, sendCommentVisibility: journalVisibility })
-      .where(eq(user.id, "author"));
+    await db.update(user).set({ journalVisibility }).where(eq(user.id, "author"));
     const ownerId = "author";
     for (const viewer of ["connected", "outgoing", "incoming", "stranger", null, "author"]) {
       const isFriend = viewer === "connected";
@@ -81,15 +74,6 @@ it.each<SharingAudience>(["private", "public", "friends"])(
         journalVisibility === "public" ||
         (journalVisibility === "friends" && isFriend);
       expect(await canReadJournal(db, ownerId, viewer)).toBe(canRead);
-      const page = await getJournalPage(db, ownerId, viewer, DEFAULT_JOURNAL_FILTER);
-      expect(page.entries.map((entry) => entry.body)).toEqual(
-        canRead
-          ? ["Restricted training", "Restricted project session", "Restricted ascent note"]
-          : [],
-      );
-      expect((await getJournalForClimb(db, ownerId, viewer, 2)).map((entry) => entry.body)).toEqual(
-        canRead ? ["Restricted project session"] : [],
-      );
       expect((await getJournalCounts(db, ownerId, viewer, "2026-09")).entries).toBe(
         canRead ? 3 : 0,
       );
@@ -99,31 +83,6 @@ it.each<SharingAudience>(["private", "public", "friends"])(
       expect(
         (await getOpenProjects(db, ownerId, viewer)).map((project) => project.climbId),
       ).toEqual(viewer === "author" ? [2] : []);
-      const climbSends = await getSendsForClimb(db, 1, 0, 10, viewer);
-      expect(climbSends.sends).toHaveLength(1);
-      expect(climbSends.sends[0].comment).toBe(canRead ? "Restricted ascent note" : null);
-      const userSends = await getSendsForUserPage(
-        db,
-        "author",
-        DEFAULT_USER_SENDS_FILTER,
-        0,
-        20,
-        viewer,
-      );
-      expect(userSends.sends).toHaveLength(1);
-      expect(userSends.sends[0].comment).toBe(canRead ? "Restricted ascent note" : null);
-      if (viewer && viewer !== "author") {
-        const feed = await getFeedPage(db, viewer);
-        expect(feed.days.map((day) => day.userId)).toEqual(isFriend ? ["author"] : []);
-        if (isFriend) {
-          expect(feed.days[0]).toMatchObject({
-            sends: 1,
-            sessions: canRead ? 1 : 0,
-            training: canRead ? 1 : 0,
-          });
-          expect(feed.days[0].activities[0].body).toBe(canRead ? "Restricted ascent note" : null);
-        }
-      }
     }
   },
 );

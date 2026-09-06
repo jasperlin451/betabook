@@ -4,7 +4,6 @@ import { useState, useTransition } from "react";
 
 import { setJournalVisibility, setSendCommentVisibility, setUserPrivate } from "@/actions";
 import { PrivacyFields } from "@/components/privacy-fields";
-import { AppLink } from "@/components/ui/app-link";
 import type { SharingAudience } from "@/lib/privacy";
 
 type ContentKind = "journal" | "sendComment";
@@ -65,20 +64,17 @@ export function PrivacyControls({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <PrivacyFields
-        isPrivate={isPrivate}
-        journalVisibility={audiences.journal}
-        sendCommentVisibility={audiences.sendComment}
-        onProfileChange={handleProfileChange}
-        onJournalChange={(next) => handleAudienceChange("journal", next)}
-        onSendCommentChange={(next) => handleAudienceChange("sendComment", next)}
-        isPending={isPending}
-        profileError={profileError}
-        journalError={errors.journal}
-        sendCommentError={errors.sendComment}
-      />
-      <AppLink href="/friends">Manage friends and requests</AppLink>
-    </div>
+    <PrivacyFields
+      isPrivate={isPrivate}
+      journalVisibility={audiences.journal}
+      sendCommentVisibility={audiences.sendComment}
+      onProfileChange={handleProfileChange}
+      onJournalChange={(next) => handleAudienceChange("journal", next)}
+      onSendCommentChange={(next) => handleAudienceChange("sendComment", next)}
+      isPending={isPending}
+      profileError={profileError}
+      journalError={errors.journal}
+      sendCommentError={errors.sendComment}
+    />
   );
 }
