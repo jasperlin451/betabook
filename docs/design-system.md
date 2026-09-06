@@ -111,9 +111,8 @@ only inside compositions remain linked to those patterns in the inventory.
 
 Use explicit sidebar titles (`Components/Inputs/Search combobox`, for example),
 so moving files need not rename story URLs. Preserve titles and export names
-once Chromatic baselines exist, or treat renaming as a deliberate baseline
-migration. This initial organization changes IDs before the first publish;
-coverage links and browser checks use the new IDs.
+because published links and agent references depend on them; update coverage
+links and browser checks when a deliberate rename is needed.
 
 Storybook discovers both `components/**/*.stories.tsx` and
 `stories/**/*.stories.tsx`. Story files are excluded from the production component
@@ -162,8 +161,11 @@ not source-text patterns. Keep the Workers/D1 test suite separate.
 The CI **UI reference** job runs on every PR and main-branch push and is a
 deployment prerequisite. It uploads an HTML report with screenshots and failure
 traces. These Playwright screenshots are review evidence, not pixel-comparison baselines.
-The separate [Chromatic workflow](../.github/workflows/chromatic.yml) supplies reviewed pixel baselines
-for both themes and viewports, and publishes the Storybook documentation MCP.
+The separate [publishing workflow](../.github/workflows/chromatic.yml) hosts the
+gallery and Storybook documentation MCP on Chromatic. UI Tests and UI Review are
+disabled there, and the preview disables snapshots. Publishing incurs no snapshot
+usage. There is no automatic pixel comparison; review the Playwright screenshots
+and rely on the rendered geometry, accessibility, and interaction assertions for CI checks.
 The suite cannot detect every visual change or assess complete accessibility;
 inspect affected stories and real application screens before completing UI work.
 Repository branch protection must also require this job if merges should be

@@ -1,7 +1,7 @@
-name: Chromatic
+name: Publish Storybook
 
-# Real branch commits preserve Chromatic's baseline ancestry; PR merge refs
-# are temporary and can produce the wrong comparison base.
+# Publish real branch commits so the hosted gallery and MCP match the branch.
+# UI Tests and UI Review are disabled in Chromatic; Playwright owns UI checks.
 on:
   push:
     branches: ["**"]
@@ -16,14 +16,14 @@ permissions:
 
 jobs:
   chromatic:
-    name: Chromatic visual review
+    name: Publish Storybook
     if: github.repository == 'jasperlin451/betabook'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
-          # Chromatic uses git history to find the correct visual baseline.
+          # Preserve branch history for Chromatic's versioned Storybook hosting.
           fetch-depth: 0
 
       - uses: pnpm/setup@v2.1.0
@@ -33,16 +33,9 @@ jobs:
           require-lockfile: true
 
       - name: Build Storybook
-        run: |
-          pnpm storybook:build
-          # Missing dependency stats silently disables TurboSnap and spends
-          # the full snapshot budget, so catch a broken build setup here.
-          if [ ! -s storybook-static/preview-stats.json ]; then
-            echo "::error::Storybook dependency stats are missing; check the --stats-json build flag."
-            exit 1
-          fi
+        run: pnpm storybook:build
 
-      - name: Publish Storybook and run visual tests
+      - name: Publish Storybook
         env:
           CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
         run: |

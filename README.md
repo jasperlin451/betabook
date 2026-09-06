@@ -148,28 +148,19 @@ browser regression checks in light/dark themes at desktop/mobile sizes. Install
 Chromium once with `pnpm exec playwright install chromium`. Storybook uses real
 components and local fonts without requiring a running app or seeded database.
 
-Chromatic publishes upstream branch builds using the GitHub Actions secret
-`CHROMATIC_PROJECT_TOKEN`. Keep it advisory for fork PRs; require **Test & Build**
-and **UI reference** instead. The workflow lives in
-[`.github/workflows/chromatic.yml`](.github/workflows/chromatic.yml). After the first
-main-branch publish, connect the project MCP server by running
-`codex mcp login betabook-storybook` or signing in through Claude Code’s `/mcp`.
-Each collaborator authenticates individually; the CI token is not an MCP login.
+Chromatic hosts upstream branch Storybooks using the GitHub Actions secret
+`CHROMATIC_PROJECT_TOKEN`. Its workflow only publishes the gallery: **UI Tests
+and UI Review must both stay disabled** in Chromatic's Manage settings, which
+[avoids billed snapshots](https://www.chromatic.com/docs/faq/disable-ui-tests-and-or-review/).
+The shared Storybook preview also sets `chromatic.disableSnapshot: true` to prevent
+captures. There are no Chromatic visual baselines or review approvals to maintain.
+Require **Test & Build** and **UI reference** for PRs; publishing is advisory and
+fork PRs need no Chromatic secret.
 
-Snapshot usage is reduced by `onlyChanged` in
-[`chromatic.config.json`](chromatic.config.json). Storybook generates Vite dependency
-stats, and CI verifies they exist before publishing. [TurboSnap](https://www.chromatic.com/docs/turbosnap/setup/)
-unlocks after ten successful CI builds and then captures affected story files while
-reusing unchanged baselines. Shared styles and Storybook configuration still trigger
-full captures. Font assets and the lockfile are explicit full-capture triggers because
-Geist fonts are copied from a dependency through `staticDirs`, outside the import graph.
-Keep component imports direct and shared preview decorators small; do not exclude
-visual dependencies with `untraced` just to reduce usage.
-
-At 78 stories across four modes, a full build costs 312 billed snapshots. Captured
-snapshots cost 1 each, copied snapshots cost 0.2 each, and eligible builds with no
-affected stories are bypassed at zero cost ([billing](https://www.chromatic.com/docs/turbosnap/#pricing)).
-Batch related pushes and avoid unnecessary reruns while establishing the initial builds.
+The workflow lives in [`.github/workflows/chromatic.yml`](.github/workflows/chromatic.yml).
+After the first main-branch publish, connect the hosted project MCP server with
+`codex mcp login betabook-storybook` or Claude Code's `/mcp`. Each collaborator
+authenticates individually; the CI token is not an MCP login.
 
 ```bash
 pnpm check                                # lint, formatting, dead code, types, tests

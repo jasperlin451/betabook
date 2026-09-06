@@ -28,15 +28,9 @@ const preview: Preview = {
     },
     layout: "fullscreen",
     nextjs: { appDirectory: true },
-    chromatic: {
-      prefersReducedMotion: "reduce",
-      modes: {
-        "paper desktop": { theme: "light", viewport: { width: 1024, height: 900 } },
-        "ink desktop": { theme: "dark", viewport: { width: 1024, height: 900 } },
-        "paper mobile": { theme: "light", viewport: { width: 375, height: 812 } },
-        "ink mobile": { theme: "dark", viewport: { width: 375, height: 812 } },
-      },
-    },
+    // Hosting only: local Playwright owns UI checks; Chromatic must not
+    // capture snapshots even if remote testing settings are re-enabled.
+    chromatic: { disableSnapshot: true },
   },
   decorators: [
     function AppTheme(Story, context) {
