@@ -1,19 +1,32 @@
-/** Standard panel surface and spacing. Feature panels with different fills
- * or borders use rounded-panel directly; its radius lives in app/globals.css. */
-const CARD_CLASS = "rounded-panel bg-surface-secondary";
+/** Choose by purpose, not by page. Ordinary panels never cast a shadow.
+ * Only floating content uses elevation; all treatments retain rounded-panel. */
+const CARD_SURFACE = {
+  quiet: "bg-surface-secondary",
+  bordered: "border border-border bg-surface",
+  inset: "bg-surface-tertiary",
+  floating: "border border-border bg-overlay shadow-lg",
+} as const;
 
 /** Card paddings: `sm` for dense stat cards and expanded filter panels,
  * `md` for forms and settings, `fluid` for wide analytics cards that need
  * room on desktop but not on a phone. */
 export const CARD_PADDING = {
+  /** Edge-to-edge lists own their header and row padding. */
+  none: "p-0",
   sm: "p-4",
   md: "p-6",
   fluid: "p-4 sm:p-6",
 } as const;
 
-export function cardClass(padding: keyof typeof CARD_PADDING = "md"): string {
-  return `${CARD_CLASS} ${CARD_PADDING[padding]}`;
+export function cardClass(
+  padding: keyof typeof CARD_PADDING = "md",
+  surface: keyof typeof CARD_SURFACE = "quiet",
+): string {
+  return `rounded-panel ${CARD_SURFACE[surface]} ${CARD_PADDING[padding]}`;
 }
+
+/** Destructive section and its loading placeholder share the semantic warning. */
+export const DANGER_CARD_CLASS = "rounded-panel border border-danger/30 bg-danger/5 p-6";
 
 /** Narrow centered card for auth/account-style single-purpose pages. */
 export const FORM_CARD_CLASS = `mx-auto flex max-w-sm flex-col gap-4 ${cardClass("md")}`;
