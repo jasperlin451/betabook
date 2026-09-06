@@ -42,7 +42,7 @@ export async function ProfileHeader({
         since={new Date(user.createdAt).getFullYear()}
         action={
           isOwner ? (
-            <div className="flex flex-wrap items-start gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <LogEntryButton />
               {!user.isPrivate && <ShareProfileButton userId={user.id} />}
             </div>
