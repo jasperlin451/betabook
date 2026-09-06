@@ -30,7 +30,6 @@
     "storybook": "storybook dev --host 127.0.0.1 -p 6006 --no-open",
     "storybook:build": "storybook build --disable-telemetry",
     "test:ui": "pnpm storybook:build && playwright test",
-    "test:brand": "playwright test --config playwright.brand.config.ts",
     "brand:generate": "node scripts/generate-brand-assets.ts",
     "chromatic": "chromatic"
   },

@@ -31,10 +31,17 @@ export default defineConfig({
       use: { viewport: { width: 375, height: 812 }, colorScheme: "dark", hasTouch: true },
     },
   ],
-  webServer: {
-    command:
-      "pnpm exec vite preview --outDir storybook-static --host 127.0.0.1 --port 6007 --strictPort",
-    url: "http://127.0.0.1:6007/index.json",
-    reuseExistingServer: false,
-  },
+  webServer: [
+    {
+      command:
+        "pnpm exec vite preview --outDir storybook-static --host 127.0.0.1 --port 6007 --strictPort",
+      url: "http://127.0.0.1:6007/index.json",
+      reuseExistingServer: false,
+    },
+    {
+      command: "pnpm db:migrate:local && pnpm dev --port 3002",
+      url: "http://localhost:3002/about",
+      reuseExistingServer: true,
+    },
+  ],
 });

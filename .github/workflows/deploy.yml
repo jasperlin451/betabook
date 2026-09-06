@@ -76,7 +76,9 @@ jobs:
           require-lockfile: true
       - name: Install browser
         run: pnpm exec playwright install --with-deps chromium
-      - name: Check component gallery
+      - name: Prepare local app environment
+        run: cp .dev.vars.example .dev.vars
+      - name: Check component gallery and app branding
         run: pnpm test:ui
       - name: Upload UI report
         if: always()

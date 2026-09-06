@@ -9,8 +9,7 @@ language. Use existing patterns before adding a new visual treatment.
 ```sh
 pnpm storybook             # http://127.0.0.1:6006
 pnpm exec playwright install chromium  # once per browser-version upgrade
-pnpm test:ui               # build the gallery, then run browser checks
-pnpm test:brand            # real app branding, metadata and theme checks (port 3002)
+pnpm test:ui               # gallery plus real app branding/metadata checks
 ```
 
 Storybook is a development tool, separate from the deployed Next.js application.
@@ -151,7 +150,15 @@ Simulate effects only at external boundaries, retaining the production component
 ## Preventing regressions
 
 `pnpm test:ui` discovers all stories from the built Storybook index and runs
-Chromium at desktop and mobile widths in both themes. New stories automatically
+Chromium at desktop and mobile widths in both themes. The same command also runs
+real app branding checks against Next.js on port 3002, covering navigation, About,
+theme persistence, and favicon/touch/manifest/social assets. Playwright starts the
+gallery preview and the app, applying local D1 migrations before starting a new
+app server. It can reuse an existing app on port 3002; stop and migrate that app
+first if its database is out of date. Use the normal local `.dev.vars` setup;
+CI copies `.dev.vars.example` and needs no seed or account for these checks.
+Both suites share the same HTML report and four viewport/theme projects.
+New stories automatically
 receive accessibility, overflow and screenshot checks. Focused interaction tests
 check rendered panel geometry (including feed, empty, mobile-helper, and loading
 components, with a live token-change check), typography, native/HeroUI field consistency,
