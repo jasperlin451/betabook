@@ -1,3 +1,4 @@
+/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- The named scroll region needs keyboard focus so arrow keys can pan the chart on narrow screens. */
 import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 import { formatMonthLabel, type ProgressionPoint } from "@/lib/user-analytics";
@@ -84,7 +85,12 @@ export function ProgressionChart({
       </p>
       {/* min-w keeps the chart readable on phones — it scrolls inside its
           own container instead of shrinking the axis text away. */}
-      <div className="overflow-x-auto">
+      <div
+        role="region"
+        aria-label={`${type} grade progression`}
+        tabIndex={0}
+        className="overflow-x-auto focus-visible:status-focused"
+      >
         <svg
           viewBox={`0 0 ${W} ${H}`}
           className="h-auto w-full min-w-[560px] text-muted"

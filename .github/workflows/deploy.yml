@@ -63,9 +63,34 @@ jobs:
       - name: Build
         run: pnpm exec opennextjs-cloudflare build
 
+  ui:
+    name: UI reference
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/setup@v2.1.0
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Check component gallery
+        run: pnpm test:ui
+      - name: Upload UI report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-reference-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
   deploy:
     name: Deploy
-    needs: test
+    needs: [test, ui]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'jasperlin451/betabook'
     runs-on: ubuntu-latest
     timeout-minutes: 5

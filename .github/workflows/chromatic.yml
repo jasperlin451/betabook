@@ -1,0 +1,46 @@
+name: Chromatic
+
+# Real branch commits preserve Chromatic's baseline ancestry; PR merge refs
+# are temporary and can produce the wrong comparison base.
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  chromatic:
+    name: Chromatic visual review
+    if: github.repository == 'jasperlin451/betabook'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Chromatic uses git history to find the correct visual baseline.
+          fetch-depth: 0
+
+      - uses: pnpm/setup@v2.1.0
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+
+      - name: Build Storybook
+        run: pnpm storybook:build
+
+      - name: Publish Storybook and run visual tests
+        env:
+          CHROMATIC_PROJECT_TOKEN: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+        run: |
+          if [ -z "$CHROMATIC_PROJECT_TOKEN" ]; then
+            echo "::error::Add the CHROMATIC_PROJECT_TOKEN GitHub Actions secret with this project's Chromatic project token."
+            exit 1
+          fi
+          pnpm chromatic --ci --storybook-build-dir storybook-static

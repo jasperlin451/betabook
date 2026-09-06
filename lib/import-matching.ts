@@ -20,17 +20,7 @@ export function distinctClimbNames(rows: readonly NormalizedImportRow[]): string
   return [...byKey.values()];
 }
 
-/** Preserve the server's most-ascended-first candidate order. */
-export function indexCandidates(candidates: readonly ClimbCandidate[]): CandidateIndex {
-  const index = new Map<string, ClimbCandidate[]>();
-  for (const candidate of candidates) {
-    const list = index.get(candidate.key);
-    if (list) list.push(candidate);
-    else index.set(candidate.key, [candidate]);
-  }
-  return index;
-}
-
+/** Build or extend the lookup index while preserving server order within each name. */
 export function mergeCandidates(
   index: CandidateIndex,
   extra: readonly ClimbCandidate[],
@@ -123,12 +113,6 @@ function inArea(climb: ClimbCandidate, areaName: string): boolean {
 
 function underAreas(climb: ClimbCandidate, areaIds: ReadonlySet<number>): boolean {
   return pathAreas(climb).some((area) => areaIds.has(area.id));
-}
-
-export function candidatePath(climb: ClimbCandidate): string {
-  return pathAreas(climb)
-    .map((area) => area.name)
-    .join(" / ");
 }
 
 const TYPE_LABEL: Record<ClimbType, string> = { boulder: "boulder", sport: "sport", trad: "trad" };

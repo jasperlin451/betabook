@@ -1,0 +1,7 @@
+# Available after the first main-branch Chromatic publish. Each collaborator
+# signs in with `codex mcp login betabook-storybook`; no CI token belongs here.
+[mcp_servers.betabook-storybook]
+url = "https://main--6a9d99bf69b9b54453118dcf.chromatic.com/mcp"
+
+[mcp_servers.betabook-storybook.oauth]
+client_id = "cdf3737dff9d485485968e50b63fd8b4"

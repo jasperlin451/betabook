@@ -142,6 +142,20 @@ Once Husky hooks are installed, [`.husky/post-checkout`](.husky/post-checkout) r
 
 ## Development checks
 
+For UI work, read [the design system guide](docs/design-system.md).
+Run `pnpm storybook` for the internal component gallery, and `pnpm test:ui` for
+browser regression checks in light/dark themes at desktop/mobile sizes. Install
+Chromium once with `pnpm exec playwright install chromium`. Storybook uses real
+components and local fonts without requiring a running app or seeded database.
+
+Chromatic publishes upstream branch builds using the GitHub Actions secret
+`CHROMATIC_PROJECT_TOKEN`. Keep it advisory for fork PRs; require **Test & Build**
+and **UI reference** instead. The workflow lives in
+[`.github/workflows/chromatic.yml`](.github/workflows/chromatic.yml). After the first
+main-branch publish, connect the project MCP server by running
+`codex mcp login betabook-storybook` or signing in through Claude Code’s `/mcp`.
+Each collaborator authenticates individually; the CI token is not an MCP login.
+
 ```bash
 pnpm check                                # lint, formatting, dead code, types, tests
 pnpm test -- lib/journal.test.ts           # focused test run

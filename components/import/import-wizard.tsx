@@ -1060,7 +1060,11 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
               <p className="text-sm">
                 Importing… {progress.completed} / {progress.total} rows processed
               </p>
-              <ProgressBar value={progress.completed} max={progress.total} />
+              <ProgressBar
+                value={progress.completed}
+                max={progress.total}
+                label="Importing sends"
+              />
               <p className="text-xs text-muted">
                 {progress.imported} imported &middot;{" "}
                 {onConflict === "overwrite" && <>{progress.overwritten} overwritten &middot; </>}

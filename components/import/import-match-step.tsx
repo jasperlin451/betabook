@@ -477,7 +477,7 @@ export function ImportMatchStep({
           <p className="text-sm">
             Looking up climb names… {lookup.done} / {lookup.total}
           </p>
-          <ProgressBar value={lookup.done} max={lookup.total} />
+          <ProgressBar value={lookup.done} max={lookup.total} label="Matching climbs" />
         </div>
       )}
 
