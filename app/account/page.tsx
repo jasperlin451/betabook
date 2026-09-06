@@ -103,8 +103,8 @@ export default async function AccountPage() {
         <AccountSection title="Privacy" description="Control who can see your climbing log.">
           <PrivacyControls
             initialIsPrivate={user?.isPrivate ?? false}
-            initialJournalVisibility={user?.journalVisibility ?? "private"}
-            initialSendCommentVisibility={user?.sendCommentVisibility ?? "private"}
+            initialJournalVisibility={user?.journalVisibility ?? "friends"}
+            initialSendCommentVisibility={user?.sendCommentVisibility ?? "public"}
           />
         </AccountSection>
 

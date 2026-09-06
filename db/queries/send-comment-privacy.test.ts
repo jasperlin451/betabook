@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeEach, expect, it } from "vitest";
 
 import { createDb } from "@/db/client";
@@ -75,6 +75,43 @@ beforeEach(async () => {
     body: "Training notes",
   });
 });
+
+it.each(["Drizzle", "SQL"])(
+  "defaults new %s accounts to public commentary and a friends-only journal",
+  async (insert) => {
+    const author = "new-climber";
+    if (insert === "Drizzle") {
+      await seedFixtureUser(db, { id: author });
+    } else {
+      await db.run(sql`INSERT INTO user (id, name, email)
+        VALUES (${author}, 'New Climber', 'new-climber@example.com')`);
+    }
+    await seedFixtureFriendship(db, "a-friend", author);
+    await seedFixtureFriendship(db, author, "pending-out", "pending");
+    await seedFixtureSend(db, {
+      id: 12,
+      userId: author,
+      climbId: 2,
+      dateSent: null,
+      comment: "Public beta",
+    });
+    await seedFixtureJournalEntry(db, {
+      id: 23,
+      userId: author,
+      kind: "training",
+      entryDate: "2026-09-02",
+      body: "Training with friends",
+    });
+    for (const viewer of [author, "a-friend", "pending-out", "stranger", null]) {
+      const sends = await getSendsForUserPage(db, author, DEFAULT_USER_SENDS_FILTER, 0, 20, viewer);
+      expect.soft(sends.sends.map((row) => [row.id, row.comment])).toEqual([[12, "Public beta"]]);
+      const journal = await getJournalPage(db, author, viewer, DEFAULT_JOURNAL_FILTER);
+      expect
+        .soft(journal.entries.map((row) => [row.id, row.body]))
+        .toEqual(viewer === author || viewer === "a-friend" ? [[23, "Training with friends"]] : []);
+    }
+  },
+);
 
 it.each(
   audiences.flatMap((journalVisibility) =>

@@ -468,7 +468,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'private'"
+          "default": "'friends'"
         },
         "send_comment_visibility": {
           "name": "send_comment_visibility",
@@ -476,7 +476,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": "'private'"
+          "default": "'public'"
         },
         "product_tour_returning": {
           "name": "product_tour_returning",

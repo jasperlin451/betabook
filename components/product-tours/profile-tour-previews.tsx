@@ -272,7 +272,7 @@ export function DemoAnalytics() {
 
 export function DemoAccount() {
   const [isPrivate, setIsPrivate] = useState(false);
-  const [journalVisibility, setJournalVisibility] = useState<SharingAudience>("private");
+  const [journalVisibility, setJournalVisibility] = useState<SharingAudience>("friends");
   const [sendCommentVisibility, setSendCommentVisibility] = useState<SharingAudience>("public");
   return (
     <div className="flex flex-col gap-4">

@@ -112,6 +112,8 @@ Reloading should keep the request without another email. Cancel it afterward to
 restore the empty-feed fixture. The seed script writes directly to the database
 and never sends email; the product tour's sample controls also send nothing.
 
+New accounts default to **Public** send commentary and **Friends** journal entries.
+Existing journal audience choices are preserved when the migration runs.
 Send commentary has its own audience, applied to original-send notes on climb
 pages, Sends, the feed, and mirrored ascent notes in the journal. The journal
 audience controls access to the journal, sessions, repeats, training, and tags.

@@ -35,12 +35,12 @@ export const user = sqliteTable("user", {
   journalVisibility: text("journal_visibility", {
     enum: ["private", "friends", "public"],
   })
-    .default("private")
+    .default("friends")
     .notNull(),
   sendCommentVisibility: text("send_comment_visibility", {
     enum: ["private", "friends", "public"],
   })
-    .default("private")
+    .default("public")
     .notNull(),
   productTourReturning: integer("product_tour_returning", { mode: "boolean" })
     .default(false)

@@ -15,7 +15,17 @@ CREATE TABLE `friendships` (
 --> statement-breakpoint
 CREATE INDEX `friendships_friend_idx` ON `friendships` (`friend_id`);
 --> statement-breakpoint
-ALTER TABLE `user` ADD `send_comment_visibility` text DEFAULT 'private' NOT NULL;
+ALTER TABLE `user` ADD `send_comment_visibility` text DEFAULT 'public' NOT NULL;
+--> statement-breakpoint
+-- Replace the column to change its SQLite default without rebuilding user
+-- and its foreign-key relationships. Preserve every saved journal audience.
+ALTER TABLE `user` RENAME COLUMN `journal_visibility` TO `saved_journal_visibility`;
+--> statement-breakpoint
+ALTER TABLE `user` ADD `journal_visibility` text DEFAULT 'friends' NOT NULL;
+--> statement-breakpoint
+UPDATE `user` SET `journal_visibility` = `saved_journal_visibility`;
+--> statement-breakpoint
+ALTER TABLE `user` DROP COLUMN `saved_journal_visibility`;
 --> statement-breakpoint
 ALTER TABLE `journal_entries` ADD `is_send_comment` integer DEFAULT false NOT NULL;
 --> statement-breakpoint
