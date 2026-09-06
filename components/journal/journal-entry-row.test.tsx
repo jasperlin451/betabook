@@ -24,6 +24,7 @@ const entry: JournalEntry = {
   areaId: 3,
   areaName: "Granite Canyon",
   isAscent: false,
+  isSendComment: false,
 };
 
 function row(filter = DEFAULT_JOURNAL_FILTER, currentEntry = entry) {

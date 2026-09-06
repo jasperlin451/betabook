@@ -11,6 +11,7 @@ import { SendGradeCell } from "@/components/send-grade-cell";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { ListRow } from "@/components/ui/list-row";
 import { formatDate } from "@/lib/format-date";
+import type { SharingAudience } from "@/lib/privacy";
 import {
   getTourDemoJournalPage,
   TOUR_DEMO_ANALYTICS,
@@ -271,24 +272,47 @@ export function DemoAnalytics() {
 
 export function DemoAccount() {
   const [isPrivate, setIsPrivate] = useState(false);
-  const [privateJournal, setPrivateJournal] = useState(true);
+  const [journalVisibility, setJournalVisibility] = useState<SharingAudience>("friends");
+  const [sendCommentVisibility, setSendCommentVisibility] = useState<SharingAudience>("public");
   return (
     <div className="flex flex-col gap-4">
       <div data-tour-target="privacy-controls" className="flex flex-col gap-4">
         <PrivacyFields
           isPrivate={isPrivate}
-          privateJournal={privateJournal}
+          journalVisibility={journalVisibility}
+          sendCommentVisibility={sendCommentVisibility}
           onProfileChange={setIsPrivate}
-          onJournalChange={setPrivateJournal}
+          onJournalChange={setJournalVisibility}
+          onSendCommentChange={setSendCommentVisibility}
         />
       </div>
       <div role="status" className="rounded-lg bg-surface-secondary p-4 text-sm">
         <p className="font-medium">What a visitor can see</p>
-        <p className="mt-1">
-          {isPrivate
-            ? "Alex's profile, sends, journal, and analytics are hidden."
-            : `Alex's profile, sends, and analytics are visible. The journal is ${privateJournal ? "private" : "visible too"}.`}
-        </p>
+        {isPrivate ? (
+          <p className="mt-1">Only Alex can see this profile and climbing history.</p>
+        ) : (
+          <ul className="mt-2 flex flex-col gap-1">
+            <li>Profile and send details: everyone.</li>
+            <li>
+              Send commentary:{" "}
+              {sendCommentVisibility === "private"
+                ? "only Alex"
+                : sendCommentVisibility === "public"
+                  ? "everyone"
+                  : "Alex and friends"}
+              .
+            </li>
+            <li>
+              Journal entries:{" "}
+              {journalVisibility === "private"
+                ? "only Alex"
+                : journalVisibility === "public"
+                  ? "everyone"
+                  : "Alex and friends"}
+              .
+            </li>
+          </ul>
+        )}
       </div>
     </div>
   );

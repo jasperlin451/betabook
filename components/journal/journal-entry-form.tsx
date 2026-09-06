@@ -195,7 +195,7 @@ export function JournalEntryForm({
         </FormSection>
       )}
 
-      <FormSection label="Notes">
+      <FormSection label={isAscent || existingEntry?.isSendComment ? "Send commentary" : "Notes"}>
         <TextField value={body} onChange={setBody}>
           <Label>{kind === "training" ? "What did you do?" : "How'd it go?"}</Label>
           <TextArea
@@ -211,10 +211,10 @@ export function JournalEntryForm({
           </p>
         </TextField>
 
-        {(isAscent || existingEntry?.isAscent) && (
+        {(isAscent || existingEntry?.isSendComment) && (
           <p className="text-xs text-muted">
-            This note also appears on your send and follows your profile privacy settings, even if
-            your journal is private.
+            Uses your Send commentary audience wherever this note appears. Other journal notes have
+            a separate audience.
           </p>
         )}
         {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}
@@ -244,7 +244,8 @@ export function JournalEntryForm({
       </Button>
 
       <p className="text-center text-xs text-muted">
-        Journal visibility is managed in <AppLink href="/account">Account settings</AppLink>.
+        Set separate audiences for send commentary and journal entries in{" "}
+        <AppLink href="/account">Account settings</AppLink>.
       </p>
     </form>
   );

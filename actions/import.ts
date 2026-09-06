@@ -46,8 +46,8 @@ type SendValues = Omit<
   "id" | "userId" | "climbId" | "dateSent" | "comment" | "createdAt" | "updatedAt"
 > & { dateSent: string | null; comment: string | null };
 
-// Ten rows bind 80 values, below D1's 100-parameter limit.
-const INSERT_CHUNK_SIZE = 10;
+// A guarded journal insert binds 11 values per row; nine fit D1's 100-parameter limit.
+const INSERT_CHUNK_SIZE = 9;
 
 /** Authenticated batch lookup for the import wizard; results are capped per name. */
 export async function resolveImportClimbs(

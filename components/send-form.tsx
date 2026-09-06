@@ -88,7 +88,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         <GradeFeelField value={gradeFeel} onChange={setGradeFeel} />
       </FormSection>
 
-      <FormSection label="Notes">
+      <FormSection label="Send commentary">
         <TextField value={comment} onChange={setComment}>
           <Label>Comment</Label>
           <TextArea maxLength={MAX_COMMENT_LENGTH} placeholder="How'd it go?" />
@@ -96,6 +96,10 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
             {MAX_COMMENT_LENGTH - comment.length} characters left
           </p>
         </TextField>
+        <p className="text-xs text-muted">
+          Uses your Send commentary audience wherever this note appears. Other journal notes have a
+          separate audience.
+        </p>
       </FormSection>
 
       {error && <p className="text-sm text-danger">{error}</p>}
