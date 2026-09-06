@@ -1,8 +1,9 @@
 "use client";
 
 import { Button } from "@heroui/react";
-import { Download, MoreVertical, Mountain, Share, X } from "lucide-react";
+import { Download, MoreVertical, Share, X } from "lucide-react";
 
+import { Brand } from "@/components/brand";
 import { detectMobileBrowser, detectMobilePlatform } from "@/lib/mobile-detection";
 
 export interface BeforeInstallPromptEvent extends Event {
@@ -35,8 +36,8 @@ export function MobileAppHelperPanel({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/15 text-accent">
-            <Mountain className="size-5" />
+          <div className="shrink-0 rounded-xl border border-border bg-background">
+            <Brand className="size-12" decorative />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-foreground">Add to Home Screen</h3>

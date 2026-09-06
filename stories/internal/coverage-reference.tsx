@@ -7,6 +7,7 @@ declare const STORYBOOK_COMPONENT_FILES: string[];
 // Keys are source modules; values point to an example using their real exports.
 // This is a discovery aid, not a claim that one story covers every state.
 const examples: Record<string, string> = {
+  "brand.tsx": "components-navigation-brand--navigation",
   "mobile-app-helper-panel.tsx": "components-feedback-mobile-app-helper--instructions",
   "send-fields.tsx": "patterns-send-details--send-details",
   "filter-toolbar.tsx": "components-inputs-filter-toolbar--filters",

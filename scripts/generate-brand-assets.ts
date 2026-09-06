@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 import { chromium } from "@playwright/test";
@@ -7,6 +7,8 @@ async function main() {
   // Embed the exact system fonts so standalone SVGs and their PNG previews
   // render identically, without relying on fonts installed on the viewer's OS.
   const root = new URL("../", import.meta.url);
+  const publicBrand = new URL("public/branding/", root);
+  await mkdir(publicBrand, { recursive: true });
   const displayFont = await readFile(
     new URL("assets/fonts/barlow-condensed-700-latin.woff2", root),
     "base64",
@@ -49,12 +51,27 @@ ${mark}
 </svg>\n`;
       const base = new URL(`assets/branding/betabook-lockup-${treatment}`, root);
       await writeFile(`${fileURLToPath(base)}.svg`, svg);
+      await writeFile(new URL(`betabook-lockup-${treatment}.svg`, publicBrand), svg);
+      // Crop the approved wordmark without changing its font, spacing or geometry.
+      const wordmark = svg
+        .replace('viewBox="0 0 500 320"', 'viewBox="90 170 320 80"')
+        .replace(mark, "")
+        .replace(/<text x="250" y="274"[\s\S]*?<\/text>/, "");
+      await writeFile(new URL(`betabook-wordmark-${treatment}.svg`, publicBrand), wordmark);
       await page.setViewportSize({ width: 1000, height: 640 });
       await page.setContent(
         `<style>html,body{margin:0;background:transparent}svg{display:block;width:1000px;height:640px}</style>${svg}`,
       );
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: `${fileURLToPath(base)}.png`, omitBackground: true });
+      if (treatment === "dark") {
+        await page.setViewportSize({ width: 1200, height: 630 });
+        await page.setContent(
+          `<style>html,body{margin:0;background:${palette("ink")}}body{height:630px;display:grid;place-items:center}svg{width:800px;height:512px}</style>${svg}`,
+        );
+        await page.evaluate(() => document.fonts.ready);
+        await page.screenshot({ path: fileURLToPath(new URL("app/opengraph-image.png", root)) });
+      }
 
       // Square canvas centers the original mark with breathing room at the edges.
       // Share its geometry with the lockup so the icon cannot drift independently.
@@ -64,11 +81,29 @@ ${mark}
 </svg>\n`;
       const iconBase = fileURLToPath(new URL(`assets/branding/betabook-icon-${treatment}`, root));
       await writeFile(`${iconBase}.svg`, icon);
+      await writeFile(new URL(`betabook-icon-${treatment}.svg`, publicBrand), icon);
       await page.setViewportSize({ width: 512, height: 512 });
       await page.setContent(
         `<style>html,body{margin:0;background:transparent}svg{display:block;width:512px;height:512px}</style>${icon}`,
       );
       await page.screenshot({ path: `${iconBase}.png`, omitBackground: true });
+      if (treatment === "light") {
+        // Launchers need a stable opaque canvas; retain paper with the ink mark.
+        // These are ordinary icons, not maskable: no platform crop is promised.
+        for (const size of [180, 192, 512]) {
+          await page.setViewportSize({ width: size, height: size });
+          await page.setContent(
+            `<style>html,body{margin:0;background:${palette("paper")}}svg{display:block;width:${size}px;height:${size}px}</style>${icon}`,
+          );
+          await page.screenshot({
+            path: fileURLToPath(
+              size === 180
+                ? new URL("app/apple-icon.png", root)
+                : new URL(`app-icon-${size}.png`, publicBrand),
+            ),
+          });
+        }
+      }
 
       // Optical cut for 16–32px: taller silhouette, wider mountain strokes,
       // a larger sun, and a finite check tip instead of a subpixel hairline.
@@ -87,6 +122,55 @@ ${mark}
         `<style>html,body{margin:0;background:transparent}svg{display:block;width:64px;height:64px}</style>${smallIcon}`,
       );
       await page.screenshot({ path: `${smallBase}.png`, omitBackground: true });
+      if (treatment === "light") {
+        // Browser tabs follow the browser/OS scheme, independently of app theme.
+        const adaptiveIcon = smallIcon
+          .replace("<svg ", '<svg width="32" height="32" ')
+          .replace(
+            `<path fill="${color}"`,
+            `<style>:root{color:${palette("ink")}}@media(prefers-color-scheme:dark){:root{color:${palette("paper")}}}</style><path fill="currentColor"`,
+          );
+        await writeFile(new URL("app/icon.svg", root), adaptiveIcon);
+        const frames: Buffer[] = [];
+        for (const size of [16, 32]) {
+          await page.setViewportSize({ width: size, height: size });
+          await page.setContent(
+            `<style>html,body{margin:0;background:${palette("paper")}}svg{display:block;width:${size}px;height:${size}px}</style>${smallIcon}`,
+          );
+          // Canvas PNG encoding retains RGBA, required by Next's ICO decoder.
+          const png = await page.evaluate(async () => {
+            const image = new Image();
+            const svg = document.querySelector("svg");
+            if (!svg) throw new Error("Missing icon SVG");
+            image.src = `data:image/svg+xml;base64,${btoa(new XMLSerializer().serializeToString(svg))}`;
+            await image.decode();
+            const canvas = document.createElement("canvas");
+            canvas.width = canvas.height = window.innerWidth;
+            const context = canvas.getContext("2d");
+            if (!context) throw new Error("Canvas unavailable");
+            context.fillStyle = getComputedStyle(document.body).backgroundColor;
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL("image/png").split(",")[1];
+          });
+          frames.push(Buffer.from(png, "base64"));
+        }
+        // ICO directory with PNG frames, supported by modern browsers and OSes.
+        const directory = Buffer.alloc(6 + frames.length * 16);
+        directory.writeUInt16LE(1, 2);
+        directory.writeUInt16LE(frames.length, 4);
+        let offset = directory.length;
+        for (const [index, frame] of frames.entries()) {
+          const entry = 6 + index * 16;
+          directory[entry] = directory[entry + 1] = index === 0 ? 16 : 32;
+          directory.writeUInt16LE(1, entry + 4);
+          directory.writeUInt16LE(32, entry + 6);
+          directory.writeUInt32LE(frame.length, entry + 8);
+          directory.writeUInt32LE(offset, entry + 12);
+          offset += frame.length;
+        }
+        await writeFile(new URL("app/favicon.ico", root), Buffer.concat([directory, ...frames]));
+      }
     }
   } finally {
     await browser.close();

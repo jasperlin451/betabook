@@ -9,7 +9,7 @@ language. Use existing patterns before adding a new visual treatment.
 ```sh
 pnpm storybook             # http://127.0.0.1:6006
 pnpm exec playwright install chromium  # once per browser-version upgrade
-pnpm test:ui               # build the gallery, then run browser checks
+pnpm test:ui               # gallery plus real app branding/metadata checks
 ```
 
 Storybook is a development tool, separate from the deployed Next.js application.
@@ -40,8 +40,10 @@ the full wordmark into an icon or substitute a generic mountain.
 The reference assets live in [assets/branding](../assets/branding/README.md).
 The artwork is transparent: light and dark reference panels use the theme's
 `bg-background` (paper and ink) rather than introducing separate background
-colors. Lettering follows ink/paper, with coral reserved for the sun. This
-addition does not change the site's navigation logo or global palette.
+colors. Lettering follows ink/paper, with coral reserved for the sun. Production navigation and the home-screen helper reuse `components/brand.tsx`.
+The header pairs the original mark with the approved wordmark at 640px and wider;
+narrower screens keep a 48px icon-only home link. About and social previews preserve
+the full lockup and tagline. The global palette is unchanged.
 
 | Concern                     | Source                                   | Rule                                                                                                                                                            |
 | --------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -56,8 +58,8 @@ addition does not change the site's navigation logo or global palette.
 
 Use Barlow Condensed for page titles and Geist for reading, controls, and grades.
 The logo uses Barlow Condensed Bold for its lowercase wordmark and Geist Medium
-for its tagline. The existing application header still uses the previous
-uppercase composition until the logo migration.
+for its tagline. The header uses the approved lowercase wordmark, cropped by the asset generator
+without changing its lettering.
 The current stat tiles and avatar initials are explicit
 display-type exceptions. Keep labels in sentence case and use concrete language
 such as “Log session” and “No sends yet.”
@@ -139,8 +141,7 @@ that a color works as text: inspect real foreground/fill pairs and run contrast
 checks on the components using them.
 
 The radius cleanup for issue #149 consolidates ordinary card/panel radii from
-8px, 12px, and 16px to 12px. Broader surface/color alignment and production brand
-asset migration remain separate follow-ups.
+8px, 12px, and 16px to 12px. Broader surface/color alignment remains a separate follow-up.
 
 Keep fixtures deterministic and interactions local. Do not import live server
 actions, database services, authenticated providers, or real account data.
@@ -149,7 +150,19 @@ Simulate effects only at external boundaries, retaining the production component
 ## Preventing regressions
 
 `pnpm test:ui` discovers all stories from the built Storybook index and runs
-Chromium at desktop and mobile widths in both themes. New stories automatically
+Chromium at desktop and mobile widths in both themes. The same command also runs
+real app branding checks against Next.js, covering navigation, About,
+theme persistence, and favicon/touch/manifest/social assets. Playwright starts the
+gallery preview and the app, applying local D1 migrations before starting a new
+app server. It defaults to port 3000, matching `pnpm dev`; set `BETABOOK_UI_PORT`
+to the port of an existing app when it differs (for example,
+`BETABOOK_UI_PORT=3003 pnpm test:ui`). Both the server and tests use that port,
+and server readiness warms the homepage compilation before navigation checks.
+It can reuse an existing app; stop and migrate that app
+first if its database is out of date. Use the normal local `.dev.vars` setup;
+CI copies `.dev.vars.example` and needs no seed or account for these checks.
+Both suites share the same HTML report and four viewport/theme projects.
+New stories automatically
 receive accessibility, overflow and screenshot checks. Focused interaction tests
 check rendered panel geometry (including feed, empty, mobile-helper, and loading
 components, with a live token-change check), typography, native/HeroUI field consistency,

@@ -44,6 +44,31 @@ when regenerating these reference images. Do not bake a background into the
 artwork: the reference panels use `bg-background` under their explicit light
 or dark theme, so their backgrounds always come from `app/globals.css`.
 
-This reference is the approved visual composition from the branding discussion.
-Production header, favicon, manifest, and social preview integration remain part
-of the broader branding migration.
+## Production placements
+
+The same generator writes the production assets; do not edit generated files independently.
+
+| Placement                  | Treatment                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Header, at 640px and wider | Original 48px mark plus approved lowercase wordmark, cropped from the lockup without changing lettering |
+| Compact header             | 48px icon-only home link, named “Betabook home”                                                         |
+| About page                 | Transparent full lockup and tagline, at most 360px wide                                                 |
+| Home-screen helper         | 48px original mark on the current paper/ink canvas                                                      |
+| Browser tab                | `app/icon.svg`: optical small cut following the browser/OS color scheme                                 |
+| Legacy favicon             | `app/favicon.ico`: optical 16px and 32px PNG frames on paper                                            |
+| Apple touch icon           | `app/apple-icon.png`: opaque 180px paper tile                                                           |
+| Install manifest           | `public/branding/app-icon-{192,512}.png`: opaque paper tiles, purpose `any`                             |
+| Social previews            | `app/opengraph-image.png`: full ink lockup and tagline, 1200 × 630                                      |
+
+`public/branding/` contains the transparent SVGs used by the application and Storybook.
+The cropped wordmark keeps the embedded Barlow font. The original reference artwork
+remains unchanged. Only launcher tiles, the ICO fallback, and the social card have
+opaque canvases because those external surfaces need a stable background.
+The SVG favicon follows the browser scheme; in-page art follows the resolved app
+choice, including an explicit choice that differs from the OS.
+
+Next.js file metadata conventions advertise the favicon, SVG, Apple icon, and
+social image. `app/manifest.ts` advertises the two ordinary PNG launcher icons;
+they are not declared maskable. No installation workflow or tutorial steps change.
+Run `pnpm test:ui` for both real app placement, asset decoding and metadata checks
+and component/gallery checks in both themes and viewport sizes.

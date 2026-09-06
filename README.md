@@ -144,7 +144,12 @@ Once Husky hooks are installed, [`.husky/post-checkout`](.husky/post-checkout) r
 
 For UI work, read [the design system guide](docs/design-system.md).
 Run `pnpm storybook` for the internal component gallery, and `pnpm test:ui` for
-browser regression checks in light/dark themes at desktop/mobile sizes. Install
+gallery and real app branding checks in light/dark themes at desktop/mobile sizes.
+The UI suite starts a gallery preview on port 6007 and starts or reuses the app
+on port 3000, matching `pnpm dev`. If your app uses another port, run
+`BETABOOK_UI_PORT=3003 pnpm test:ui` with that port. The suite waits for the
+homepage to compile before testing navigation. It applies local migrations before starting a new app server;
+no seed or signed-in account is needed for the branding checks. Install
 Chromium once with `pnpm exec playwright install chromium`. Storybook uses real
 components and local fonts without requiring a running app or seeded database.
 

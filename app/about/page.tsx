@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
-import { PageTitle, SectionHeading } from "@/components/ui/typography";
+import { Brand } from "@/components/brand";
+import { SectionHeading } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
   title: "About",
@@ -18,17 +19,17 @@ export default function AboutPage() {
     // — margins don't collapse in a flex container, so that opens a real
     // section break instead of being swallowed by the larger of the two.
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-      <PageTitle>About Betabook</PageTitle>
-
-      {/* The one paragraph that isn't body copy — it's the subtitle the h1
-       * has no room for, so it takes text-lg and the muted colour to sit
-       * between the title and the prose proper. */}
-      <p className="text-lg leading-relaxed text-pretty text-muted">Welcome to Betabook</p>
+      <h1>
+        <Brand variant="lockup" className="mx-auto w-full max-w-90" />
+      </h1>
 
       <SectionHeading className="mt-4">What is Betabook</SectionHeading>
       <p className="leading-relaxed text-pretty">
-        Betabook is a climbing logbook and crag database — somewhere to keep the routes you&apos;ve
-        climbed and the places you climbed them.
+        Betabook is a journal for your personal climbing journey. It is not just for your sends, but
+        also for logging your sessions, your failures, and most importantly, your progress over the
+        years. Betabook is a place to share your climbing experiences with others, and to learn from
+        the experiences of others. It is a place to find beta, to find inspiration, and to find
+        community.
       </p>
 
       <SectionHeading className="mt-4">Not a Guidebook or Social Media</SectionHeading>
@@ -42,7 +43,7 @@ export default function AboutPage() {
       <SectionHeading className="mt-4">For the Community</SectionHeading>
       <p className="leading-relaxed text-pretty">
         The success of Betabook depends on its community. It will only hold value as users join,
-        keep information on this site accurate, and log sends to help drive consensus on climbs.
+        keep information on this site accurate, and log sessions to help drive consensus on climbs.
         Because this project relies on the community, its core philosophy is community-driven as
         well.
       </p>
@@ -56,7 +57,7 @@ export default function AboutPage() {
          * only its colour to identify it, and colour alone isn't a
          * distinguishing cue (WCAG 1.4.1). */}
         <a
-          href="https://github.com/smwoo/betabook"
+          href="https://github.com/jasperlin451/betabook"
           target="_blank"
           rel="noreferrer"
           className="link inline underline focus-visible:status-focused"

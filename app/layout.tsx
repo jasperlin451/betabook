@@ -1,9 +1,9 @@
 import { GeistSans } from "geist/font/sans";
-import { Mountain } from "lucide-react";
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 
 import { AuthNav } from "@/components/auth-nav";
+import { BrandHomeLink } from "@/components/brand";
 import { SearchPaletteProvider, SearchTrigger } from "@/components/command-palette";
 import { MobileAppHelper } from "@/components/mobile-app-helper";
 import { MobileNav } from "@/components/mobile-nav";
@@ -132,13 +132,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <div
                   className={`mx-auto flex w-full ${PAGE_MAX_WIDTH_CLASS} flex-wrap items-center justify-between gap-2`}
                 >
-                  <AppLink
-                    href="/"
-                    className="flex items-center gap-2 font-display text-xl font-bold tracking-wide text-foreground uppercase no-underline"
-                  >
-                    <Mountain className="size-5" />
-                    Betabook
-                  </AppLink>
+                  <BrandHomeLink />
                   <div className="flex items-center gap-3">
                     <SearchTrigger />
                     <nav aria-label="Primary" className="hidden items-center gap-6 text-sm md:flex">

@@ -9,6 +9,7 @@ const config: StorybookConfig = {
   features: { componentsManifest: true },
   stories: ["../stories/**/*.stories.tsx", "../components/**/*.stories.tsx"],
   staticDirs: [
+    "../public",
     { from: "../assets/fonts", to: "/fonts/barlow" },
     { from: "../node_modules/geist/dist/fonts/geist-sans", to: "/fonts/geist" },
   ],
