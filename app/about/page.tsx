@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { Brand } from "@/components/brand";
 import { PageTitle, SectionHeading } from "@/components/ui/typography";
 
 export const metadata: Metadata = {
@@ -19,6 +20,7 @@ export default function AboutPage() {
     // section break instead of being swallowed by the larger of the two.
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
       <PageTitle>About Betabook</PageTitle>
+      <Brand variant="lockup" className="mx-auto w-full max-w-90" />
 
       {/* The one paragraph that isn't body copy — it's the subtitle the h1
        * has no room for, so it takes text-lg and the muted colour to sit

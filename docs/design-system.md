@@ -10,6 +10,7 @@ language. Use existing patterns before adding a new visual treatment.
 pnpm storybook             # http://127.0.0.1:6006
 pnpm exec playwright install chromium  # once per browser-version upgrade
 pnpm test:ui               # build the gallery, then run browser checks
+pnpm test:brand            # real app branding, metadata and theme checks (port 3002)
 ```
 
 Storybook is a development tool, separate from the deployed Next.js application.
@@ -40,8 +41,10 @@ the full wordmark into an icon or substitute a generic mountain.
 The reference assets live in [assets/branding](../assets/branding/README.md).
 The artwork is transparent: light and dark reference panels use the theme's
 `bg-background` (paper and ink) rather than introducing separate background
-colors. Lettering follows ink/paper, with coral reserved for the sun. This
-addition does not change the site's navigation logo or global palette.
+colors. Lettering follows ink/paper, with coral reserved for the sun. Production navigation and the home-screen helper reuse `components/brand.tsx`.
+The header pairs the original mark with the approved wordmark at 640px and wider;
+narrower screens keep a 48px icon-only home link. About and social previews preserve
+the full lockup and tagline. The global palette is unchanged.
 
 | Concern                     | Source                                   | Rule                                                                                                                                                            |
 | --------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -56,8 +59,8 @@ addition does not change the site's navigation logo or global palette.
 
 Use Barlow Condensed for page titles and Geist for reading, controls, and grades.
 The logo uses Barlow Condensed Bold for its lowercase wordmark and Geist Medium
-for its tagline. The existing application header still uses the previous
-uppercase composition until the logo migration.
+for its tagline. The header uses the approved lowercase wordmark, cropped by the asset generator
+without changing its lettering.
 The current stat tiles and avatar initials are explicit
 display-type exceptions. Keep labels in sentence case and use concrete language
 such as “Log session” and “No sends yet.”
@@ -139,8 +142,7 @@ that a color works as text: inspect real foreground/fill pairs and run contrast
 checks on the components using them.
 
 The radius cleanup for issue #149 consolidates ordinary card/panel radii from
-8px, 12px, and 16px to 12px. Broader surface/color alignment and production brand
-asset migration remain separate follow-ups.
+8px, 12px, and 16px to 12px. Broader surface/color alignment remains a separate follow-up.
 
 Keep fixtures deterministic and interactions local. Do not import live server
 actions, database services, authenticated providers, or real account data.

@@ -40,7 +40,7 @@ export const Palette: Story = {
   render: () => (
     <ColorPage
       title="Paper and ink palette"
-      description="Five fixed brand anchors. Paper is the light canvas and ink is the dark canvas. Components normally use the semantic roles derived from these anchors. The proposed coral logo sun remains an artwork color, not an application token."
+      description="Five fixed brand anchors. Paper is the light canvas and ink is the dark canvas. Components normally use the semantic roles derived from these anchors. The approved coral logo sun remains an artwork color, not an application token."
       names={colorTokens.filter((name) => name.startsWith("--palette-"))}
     />
   ),
