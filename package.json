@@ -28,7 +28,7 @@
     "promote-admin": "node --disable-warning=ExperimentalWarning scripts/promote-admin.ts",
     "prepare": "husky",
     "storybook": "storybook dev --host 127.0.0.1 -p 6006 --no-open",
-    "storybook:build": "storybook build --disable-telemetry",
+    "storybook:build": "storybook build --disable-telemetry --stats-json",
     "test:ui": "pnpm storybook:build && playwright test",
     "brand:generate": "node scripts/generate-brand-assets.ts",
     "chromatic": "chromatic"

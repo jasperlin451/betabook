@@ -156,6 +156,21 @@ main-branch publish, connect the project MCP server by running
 `codex mcp login betabook-storybook` or signing in through Claude Code’s `/mcp`.
 Each collaborator authenticates individually; the CI token is not an MCP login.
 
+Snapshot usage is reduced by `onlyChanged` in
+[`chromatic.config.json`](chromatic.config.json). Storybook generates Vite dependency
+stats, and CI verifies they exist before publishing. [TurboSnap](https://www.chromatic.com/docs/turbosnap/setup/)
+unlocks after ten successful CI builds and then captures affected story files while
+reusing unchanged baselines. Shared styles and Storybook configuration still trigger
+full captures. Font assets and the lockfile are explicit full-capture triggers because
+Geist fonts are copied from a dependency through `staticDirs`, outside the import graph.
+Keep component imports direct and shared preview decorators small; do not exclude
+visual dependencies with `untraced` just to reduce usage.
+
+At 77 stories across four modes, a full build costs 308 billed snapshots. Captured
+snapshots cost 1 each, copied snapshots cost 0.2 each, and eligible builds with no
+affected stories are bypassed at zero cost ([billing](https://www.chromatic.com/docs/turbosnap/#pricing)).
+Batch related pushes and avoid unnecessary reruns while establishing the initial builds.
+
 ```bash
 pnpm check                                # lint, formatting, dead code, types, tests
 pnpm test -- lib/journal.test.ts           # focused test run

@@ -33,7 +33,14 @@ jobs:
           require-lockfile: true
 
       - name: Build Storybook
-        run: pnpm storybook:build
+        run: |
+          pnpm storybook:build
+          # Missing dependency stats silently disables TurboSnap and spends
+          # the full snapshot budget, so catch a broken build setup here.
+          if [ ! -s storybook-static/preview-stats.json ]; then
+            echo "::error::Storybook dependency stats are missing; check the --stats-json build flag."
+            exit 1
+          fi
 
       - name: Publish Storybook and run visual tests
         env:
