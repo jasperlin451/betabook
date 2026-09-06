@@ -10,6 +10,7 @@ import { TourOverlay } from "@/components/product-tours/tour-overlay";
 import type { ProductTourPage } from "@/components/product-tours/types";
 import { useTourFrame } from "@/components/product-tours/use-tour-frame";
 import { AppLink } from "@/components/ui/app-link";
+import { cardClass } from "@/components/ui/card";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
 import { suspendMobileHelper } from "@/lib/mobile-helper-suspension";
 import type { ProductTourDefinition } from "@/lib/product-tour";
@@ -119,7 +120,9 @@ export function TourExperience({
   if (index < 0) return children;
   return (
     <div ref={frame} style={{ height }} className="flex h-[80dvh] flex-col gap-4">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-panel border border-border bg-surface-secondary px-4 py-3 text-sm">
+      <div
+        className={`flex shrink-0 flex-wrap items-center justify-between gap-3 text-sm ${cardClass("sm")}`}
+      >
         <span className="font-medium">
           Demo account · {updates ? "What's new" : "Product tour"}
         </span>

@@ -4,6 +4,7 @@ import { Button } from "@heroui/react";
 import { Download, MoreVertical, Share, X } from "lucide-react";
 
 import { Brand } from "@/components/brand";
+import { cardClass } from "@/components/ui/card";
 import { detectMobileBrowser, detectMobilePlatform } from "@/lib/mobile-detection";
 
 export interface BeforeInstallPromptEvent extends Event {
@@ -32,7 +33,7 @@ export function MobileAppHelperPanel({
   return (
     <aside
       aria-label="Add Betabook to Home Screen"
-      className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-md rounded-panel border border-border bg-surface-secondary p-4 shadow-2xl ring-1 ring-border/50 backdrop-blur-md sm:inset-x-auto sm:right-6 sm:bottom-6 sm:max-w-sm"
+      className={`fixed inset-x-4 bottom-4 z-40 mx-auto max-w-md sm:inset-x-auto sm:right-6 sm:bottom-6 sm:max-w-sm ${cardClass("sm", "floating")}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -58,7 +59,7 @@ export function MobileAppHelperPanel({
         </Button>
       </div>
 
-      <div className="mt-3 rounded-panel border border-border/70 bg-surface-tertiary/70 p-3.5 text-xs leading-relaxed text-foreground">
+      <div className={`mt-3 text-xs leading-relaxed text-foreground ${cardClass("sm", "inset")}`}>
         {isIOS ? (
           <div className="flex flex-col gap-2">
             <p className="font-semibold text-foreground">

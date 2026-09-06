@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AreaSearchField } from "@/components/area-search-field";
+import { cardClass } from "@/components/ui/card";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -188,7 +189,7 @@ function CandidateList({
 /** The chosen climb, the way a send row will show it. */
 function ClimbLine({ climb, rowClimbName }: { climb: ClimbCandidate; rowClimbName: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-panel bg-surface px-3 py-2">
+    <div className={`flex items-center justify-between gap-3 ${cardClass("sm", "inset")}`}>
       <ClimbPlace climb={climb} rowClimbName={rowClimbName} />
       <span className="flex shrink-0 items-center gap-2">
         <DisciplineChip type={climb.type} />

@@ -1,4 +1,4 @@
-import { Skeleton, SkeletonListRows } from "@/components/ui/skeleton";
+import { Skeleton, SkeletonFeedCard } from "@/components/ui/skeleton";
 
 export default function Loading() {
   return (
@@ -6,7 +6,8 @@ export default function Loading() {
       <Skeleton className="h-9 w-32" />
       <Skeleton className="h-4 w-3/4" />
       <Skeleton className="h-8 w-48" rounded="rounded-full" />
-      <SkeletonListRows rows={6} />
+      <SkeletonFeedCard />
+      <SkeletonFeedCard />
     </div>
   );
 }

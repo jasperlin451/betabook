@@ -49,7 +49,7 @@ export const Surfaces: Story = {
   render: () => (
     <ColorPage
       title="Surfaces and elevation"
-      description="Background is the canvas. Surface is a raised panel; secondary and tertiary are successive grouping layers. Overlay is for portalled content, field-background for inputs, and segment for selected navigation."
+      description="Background is the canvas. Quiet panels use secondary, bordered content uses surface, and nested insets use tertiary. Only floating content adds a shadow to the overlay role. See Patterns / Layout and feedback / Surface treatments for recipes. Field-background is for inputs and segment for selected navigation."
       names={[
         "--background",
         "--surface",

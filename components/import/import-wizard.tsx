@@ -729,7 +729,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
               Which column holds each field? {formatCount(parsedCsv.rows.length, "row")} found.
             </p>
             {source !== "unknown" && (
-              <div className="rounded-panel border border-border bg-surface px-4 py-3">
+              <div className={cardClass("sm", "inset")}>
                 <p className="text-sm font-medium">Looks like a {IMPORT_SOURCE_LABELS[source]}</p>
                 <p className="mt-1 text-xs text-muted">
                   Columns were mapped automatically. Check them below. {SOURCE_NOTES[source]}

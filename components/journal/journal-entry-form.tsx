@@ -13,7 +13,7 @@ import {
   SuggestedGradeField,
 } from "@/components/send-fields";
 import { AppLink } from "@/components/ui/app-link";
-import { SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { cardClass, SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import type { JournalEntry, SendableClimb } from "@/db/queries";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
@@ -221,7 +221,7 @@ export function JournalEntryForm({
       </FormSection>
 
       {!existingEntry && (
-        <div className="flex flex-col gap-1 rounded-panel bg-surface-secondary px-4 py-3">
+        <div className={`flex flex-col gap-1 ${cardClass("sm", "inset")}`}>
           <p className="text-sm font-medium text-foreground">{summary.headline}</p>
           {summary.consequence && <p className="text-sm text-muted">{summary.consequence}</p>}
           {isUndatedSend && (

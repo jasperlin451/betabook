@@ -10,7 +10,10 @@ const meta = {
   args: { installPrompt: null, onDismiss: () => {}, onNativeInstall: () => {} },
   decorators: [
     (Story) => (
-      <StoryPage title="Home screen shortcut helper">
+      <StoryPage
+        title="Home screen shortcut helper"
+        description="Floating content uses overlay fill, one border and shadow. Nested instructions use an opaque inset and 16px padding."
+      >
         <div className="relative min-h-128 transform-[translateZ(0)]">
           <Story />
         </div>

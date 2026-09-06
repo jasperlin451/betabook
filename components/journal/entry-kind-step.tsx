@@ -4,6 +4,7 @@ import { Button } from "@heroui/react";
 import { useState } from "react";
 
 import { ClimbPicker } from "@/components/climb-picker";
+import { cardClass } from "@/components/ui/card";
 import type { ClimbWithAreaName } from "@/db/queries";
 
 export type EntryKindChoice =
@@ -69,7 +70,7 @@ export function EntryKindStep({
             onClick={() =>
               choice.id === "session" ? setChoosingClimb(true) : onChoose({ kind: "training" })
             }
-            className="cursor-pointer rounded-panel border border-border px-4 py-4 text-left transition-colors hover:bg-surface-secondary/60 focus-visible:status-focused"
+            className={`cursor-pointer text-left transition-colors hover:bg-surface-secondary/60 focus-visible:status-focused ${cardClass("sm", "bordered")}`}
           >
             <span className="block font-medium text-foreground">{choice.label}</span>
             <span className="mt-1 block text-sm text-muted">{choice.description}</span>

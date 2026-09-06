@@ -64,13 +64,56 @@ The current stat tiles and avatar initials are explicit
 display-type exceptions. Keep labels in sentence case and use concrete language
 such as “Log session” and “No sends yet.”
 
-Cards and bounded content panels use `rounded-panel`, backed by the single
-`--radius-panel: 0.75rem` token in `app/globals.css`. Use `cardClass` for the standard
-fill/padding; use the same radius utility directly for bordered feed cards,
-empty states, upload areas, journal summaries, selectable cards, tutorial panels,
-and the mobile installation helper. Panel-shaped loading placeholders use it too.
-Surface colors, borders, padding, and floating-panel elevation remain specific to
-their purpose; they do not justify a different card radius.
+Cards and bounded content panels use `rounded-panel`, backed by the unchanged
+`--radius-panel: 0.75rem` (12px) token. Choose a treatment by purpose with
+`cardClass(padding, surface)`; the default remains `cardClass("md", "quiet")`.
+
+| Treatment  | Purpose                                                                                                                 | Fill                      | Boundary / elevation                |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------- |
+| `quiet`    | Forms, settings, stats, expanded filters, journal choice summaries and tutorial status                                  | `surface-secondary`       | No border or shadow                 |
+| `bordered` | Feed days, selectable entry cards and the in-flow tutorial guide                                                        | `surface`                 | One `border-border`, no shadow      |
+| `inset`    | Supporting content inside another panel: journal form summaries, import selections/file details and helper instructions | Opaque `surface-tertiary` | No additional border or shadow      |
+| `floating` | Fixed mobile installation helper                                                                                        | `overlay`                 | One `border-border` and `shadow-lg` |
+
+Use `sm` (16px) for compact cards, including summaries and nested content;
+`md` (24px) for forms/settings; `fluid` (16px below 640px, 24px above) for wide
+content. Use `none` only for flush lists whose headers and rows own their spacing.
+Feed headers use 16px, while internal rows keep their existing 16px horizontal /
+12px vertical density and `separator` dividers. Outer bounded panels use `border`,
+not the weaker row separator. Do not stack translucent fills, rings, borders and
+shadows to distinguish ordinary content. Nested content needs one grouping layer.
+
+### Surface audit and retained exceptions
+
+The surface follow-up to #149 keeps existing quiet auth/entity forms, account
+settings, analytics, statistics and filters. It migrates feed cards and tutorial
+feed previews to the same bounded treatment; journal summaries to compact spacing;
+journal form summaries, import selections/file details and helper instructions to insets; selectable entry
+cards to bounded content; and tutorial status/guide panels to
+quiet/bordered recipes. The helper keeps floating elevation with one border.
+Feed loading now mirrors day cards, and account danger loading shares the real
+section's `DANGER_CARD_CLASS`.
+
+These purpose-specific exceptions remain:
+
+- Empty states and CSV upload targets: transparent, dashed `border-border`,
+  24px horizontal / 40px vertical padding to invite content. Upload hover/drag
+  feedback remains interactive, including its accent border.
+- Danger zone: `DANGER_CARD_CLASS` preserves the red semantic fill/border and
+  24px padding in both loaded and loading states.
+- HeroUI dialogs, menus and popovers retain their library overlay treatment;
+  the small histogram tooltip keeps its compact border/shadow. The tutorial
+  guide is in normal flow, so it uses `bordered`, not floating elevation.
+- Tutorial demo viewport: transparent 8px inset for spotlight clearance;
+  spotlight dimming and outline are focus treatments, not content surfaces.
+- Nested import candidate lists keep a transparent, bordered frame so the
+  selected row’s `surface` fill remains distinct. Their compact controls retain
+  12px horizontal / 8px vertical padding.
+- Internal list rows, sticky journal date headers, controls, chart marks and
+  avatar/icon treatments retain their density and interaction geometry.
+
+Tutorial previews and framing follow the real surfaces. Lesson copy, navigation,
+IDs and versions are unchanged because the logging/sharing workflows are unchanged.
 
 Ordinary page sections can sit directly on the background, and internal list rows
 stay square. Controls (including the segmented search switch), HeroUI dialogs and
@@ -141,7 +184,7 @@ that a color works as text: inspect real foreground/fill pairs and run contrast
 checks on the components using them.
 
 The radius cleanup for issue #149 consolidates ordinary card/panel radii from
-8px, 12px, and 16px to 12px. Broader surface/color alignment remains a separate follow-up.
+8px, 12px, and 16px to 12px. Surface treatments and spacing are standardized above.
 
 Keep fixtures deterministic and interactions local. Do not import live server
 actions, database services, authenticated providers, or real account data.
@@ -165,7 +208,8 @@ Both suites share the same HTML report and four viewport/theme projects.
 New stories automatically
 receive accessibility, overflow and screenshot checks. Focused interaction tests
 check rendered panel geometry (including feed, empty, mobile-helper, and loading
-components, with a live token-change check), typography, native/HeroUI field consistency,
+components, with a live token-change check), surface roles/borders, nested and
+responsive padding, feed loading structure, typography, native/HeroUI field consistency,
 keyboard focus, dialog cancellation/confirmation, live token updates, search
 selection, menus, comment expansion, and tag editing. The gallery-wide checks
 cover horizontal overflow and automated WCAG A/AA findings. Tests inspect browser behavior and computed styles,

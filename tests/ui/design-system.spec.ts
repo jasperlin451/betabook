@@ -12,6 +12,17 @@ async function openStory(page: Page, testInfo: TestInfo, story: string) {
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
+  // The theme decorator can start color transitions on the first render.
+  // Inspect settled colors, not an intermediate light-to-dark blend; leave
+  // infinite loading animations alone so skeleton stories can still be checked.
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => {})),
+    ),
+  );
 }
 
 // The build is the authoritative story index. New stories inherit the same
