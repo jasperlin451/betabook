@@ -1,3 +1,6 @@
+import { buttonVariants } from "@heroui/react";
+import { ExternalLink } from "lucide-react";
+
 import { AscentStyle } from "@/components/ascent-style";
 import { AppLink } from "@/components/ui/app-link";
 import { Grade } from "@/components/ui/grade";
@@ -37,9 +40,19 @@ export function FeedDayCard({ day, view }: { day: FeedDay; view: FeedView }) {
           </h2>
           <p className="text-sm text-muted">{summary}</p>
         </div>
-        <time dateTime={day.date} className="shrink-0 text-xs text-muted">
-          {formatDate(day.date)}
-        </time>
+        <div className="flex shrink-0 items-center gap-1 self-start">
+          <time dateTime={day.date} className="text-xs text-muted">
+            {formatDate(day.date)}
+          </time>
+          <AppLink
+            href={detail}
+            aria-label={`View activity for ${day.name} on ${formatDate(day.date)}`}
+            title="View this day"
+            className={buttonVariants({ variant: "ghost", size: "sm", isIconOnly: true })}
+          >
+            <ExternalLink aria-hidden="true" className="size-4" />
+          </AppLink>
+        </div>
       </header>
       <div className="divide-y divide-separator">
         {day.activities.map((activity) => (
@@ -77,9 +90,6 @@ export function FeedDayCard({ day, view }: { day: FeedDay; view: FeedView }) {
           />
         ))}
       </div>
-      <footer className="border-t border-separator px-4 py-3 text-sm">
-        <AppLink href={detail}>View this day</AppLink>
-      </footer>
     </article>
   );
 }
