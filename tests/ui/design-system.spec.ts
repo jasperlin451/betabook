@@ -4,6 +4,8 @@ import { AxeBuilder } from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Page, TestInfo } from "@playwright/test";
 
+import { auditEmailPreview } from "./email-accessibility";
+
 async function openStory(page: Page, testInfo: TestInfo, story: string) {
   const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
   await page.goto(
@@ -44,8 +46,19 @@ if (stories.length === 0) throw new Error("Storybook built no stories");
 for (const story of stories) {
   test(`${story} stays accessible and fits the viewport`, async ({ page }, testInfo) => {
     await openStory(page, testInfo, story);
+    const hasEmailPreview = story.startsWith("patterns-email--");
+    if (hasEmailPreview) {
+      const emailResults = await auditEmailPreview(page);
+      expect(emailResults.violations).toEqual([]);
+    }
     const results = await new AxeBuilder({ page })
       .include("main")
+      // Email documents are audited above. Their sandbox blocks the timers axe
+      // needs, which can hang a recursive scan or silently discard frame results.
+      // The default Playwright driver traverses frames even with iframes: false;
+      // legacy mode delegates traversal to axe, which honors that option.
+      .setLegacyMode(hasEmailPreview)
+      .options({ iframes: !hasEmailPreview })
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
       .analyze();
     expect(results.violations).toEqual([]);

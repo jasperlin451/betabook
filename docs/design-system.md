@@ -251,6 +251,13 @@ selection, menus, comment expansion, and tag editing. The gallery-wide checks
 cover horizontal overflow and automated WCAG A/AA findings. Tests inspect browser behavior and computed styles,
 not source-text patterns. Keep the Workers/D1 test suite separate.
 
+Email previews retain their scriptless iframe sandbox. Because that sandbox also
+blocks axe's asynchronous rule callbacks, the gallery audit checks the iframe
+element and audits its actual email HTML in a separate page at the same frame
+dimensions. Both use the full WCAG A/AA rules. Screenshots and interaction checks
+still exercise the sandboxed preview; a focused test verifies document, contrast,
+image, and link rules actually ran inside the email content.
+
 The CI **UI reference** job runs on every PR and main-branch push and is a
 deployment prerequisite. It uploads an HTML report with screenshots and failure
 traces. These Playwright screenshots are review evidence, not pixel-comparison baselines.
