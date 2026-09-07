@@ -6,6 +6,7 @@ import {
   appendDisciplineFilterParams,
   parseDisciplineFilter,
 } from "@/lib/discipline-filter";
+import { normalizeHashtagFilters } from "@/lib/hashtag-filter";
 import { parseAscentStyles, toArray, type SearchParamsRecord } from "@/lib/search-params";
 
 const USER_SENDS_SORTS = new Set<UserSendsSort>([
@@ -24,6 +25,7 @@ const USER_SENDS_SORTS = new Set<UserSendsSort>([
 export const DEFAULT_USER_SENDS_FILTER: UserSendsFilter = {
   ...DEFAULT_DISCIPLINE_FILTER,
   sort: "date_desc",
+  tags: [],
   ascentStyles: [],
   minRating: 0,
 };
@@ -41,6 +43,7 @@ export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilte
   return {
     ...parseDateFilter(params),
     ...parseDisciplineFilter(params),
+    tags: normalizeHashtagFilters(toArray(params.tag)),
     name: toArray(params.name)[0],
     areaName: toArray(params.areaName)[0],
     sort,
@@ -54,6 +57,7 @@ export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilte
 
 export function userSendsFilterToSearchParams(filter: UserSendsFilter): URLSearchParams {
   const params = new URLSearchParams();
+  for (const tag of normalizeHashtagFilters(filter.tags ?? [])) params.append("tag", tag);
   appendDateFilterParams(params, filter);
   appendDisciplineFilterParams(params, filter);
   if (filter.name) params.set("name", filter.name);

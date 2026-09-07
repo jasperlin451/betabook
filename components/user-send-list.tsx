@@ -8,6 +8,7 @@ import { AscentStyle, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { ClimbLogRow } from "@/components/climb-log-row";
 import { DateFilter } from "@/components/date-filter";
 import { FilterToolbar } from "@/components/filter-toolbar";
+import { HashtagFilter } from "@/components/hashtag-filter";
 import { LogEntryButton } from "@/components/journal";
 import { NavigationPendingRegion } from "@/components/navigation-pending";
 import { RouteSearchField } from "@/components/route-search-field";
@@ -85,6 +86,8 @@ type UserSendListProps = {
   currentUserId?: string | null;
 };
 
+const EMPTY_TAGS: string[] = [];
+
 type SortField = "date" | "grade" | "rating";
 
 const SORT_FIELDS: { id: SortField; label: string }[] = [
@@ -104,7 +107,9 @@ const DEFAULT_DIRECTION: Record<SortField, "asc" | "desc"> = {
 export function UserSendsFilterToolbar({
   filter,
   basePath,
+  tags = EMPTY_TAGS,
 }: {
+  tags?: string[];
   filter: UserSendsFilter;
   basePath: string;
 }) {
@@ -119,6 +124,7 @@ export function UserSendsFilterToolbar({
     reset,
   } = useFilterFormNavigation({
     initialFilter: {
+      tags: filter.tags,
       date: filter.date,
       dateFrom: filter.dateFrom,
       dateTo: filter.dateTo,
@@ -145,13 +151,15 @@ export function UserSendsFilterToolbar({
       onChange={setDisciplineFilter}
       onReset={reset}
       search={
-        <RouteSearchField
-          value={name}
-          onChange={setName}
-          onSelect={(route) => setName(route.name)}
-          ariaLabel="Search route name"
-          className="w-full sm:w-64"
-        />
+        <>
+          <RouteSearchField
+            value={name}
+            onChange={setName}
+            onSelect={(route) => setName(route.name)}
+            ariaLabel="Search route name"
+            className="w-full sm:w-64"
+          />
+        </>
       }
       sortControl={
         <SortSelect
@@ -168,7 +176,7 @@ export function UserSendsFilterToolbar({
       extraFilters={
         <>
           {/* Inline label, matching Ascent Style and Min Rating below. */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="grid items-center gap-3 sm:grid-cols-[5rem_16rem]">
             <span className="shrink-0 text-sm font-medium text-foreground">In area</span>
             <AreaSearchField
               value={areaName}
@@ -179,6 +187,12 @@ export function UserSendsFilterToolbar({
               className="w-full sm:w-64"
             />
           </div>
+          <HashtagFilter
+            inlineLabel
+            value={disciplineFilter.tags ?? EMPTY_TAGS}
+            tags={tags}
+            onChange={(tags) => setDisciplineFilter({ ...disciplineFilter, tags })}
+          />
           <DateFilter
             value={disciplineFilter}
             onChange={(dates) => setDisciplineFilter({ ...disciplineFilter, ...dates })}

@@ -66,7 +66,7 @@ describe("JournalEntryRow", () => {
   });
 
   it("lets the active tag chip clear its filter", () => {
-    const result = row({ ...DEFAULT_JOURNAL_FILTER, tag: "slab" });
+    const result = row({ ...DEFAULT_JOURNAL_FILTER, tags: ["slab"] });
     const tag = tagChildren(result).find(
       (child) => isValidElement(child) && child.type === AppLink,
     );

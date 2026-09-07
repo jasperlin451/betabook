@@ -15,6 +15,7 @@ import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } fr
 import { areaNameCondition } from "./areas";
 import type { Climb } from "./climbs";
 import { sendCommentVisibleSql } from "./content-access";
+import { sendHashtagCondition } from "./hashtag-filter";
 import { disciplineGradeCondition, toFtsPrefixQuery } from "./shared";
 
 export type Send = typeof sends.$inferSelect;
@@ -173,6 +174,7 @@ export type UserSendsSort =
 
 export type UserSendsFilter = DisciplineFilter &
   DateFilterValue & {
+    tags?: string[];
     name?: string;
     areaName?: string;
     sort?: UserSendsSort;
@@ -197,7 +199,7 @@ export type UserSendsPage = {
   hasMore: boolean;
 };
 
-function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
+function userSendsWhere(userId: string, filter: UserSendsFilter, viewerId: string | null): SQL {
   const disciplineClauses: SQL[] = [];
   if (filter.disciplines.includes("boulder")) {
     disciplineClauses.push(
@@ -217,6 +219,7 @@ function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
     disciplineClauses.length > 0 ? sql`(${sql.join(disciplineClauses, sql` OR `)})` : sql`1`;
 
   const conditions: SQL[] = [sql`sends.user_id = ${userId}`, disciplineWhere];
+  if (filter.tags?.length) conditions.push(sendHashtagCondition(filter.tags, viewerId));
   if (filter.date) conditions.push(sql`sends.date_sent = ${filter.date}`);
   else {
     if (filter.dateFrom) conditions.push(sql`sends.date_sent >= ${filter.dateFrom}`);
@@ -277,7 +280,7 @@ export async function getSendsForUserPage(
   pageSize: number = USER_SENDS_PAGE_SIZE,
   viewerId: string | null = null,
 ): Promise<UserSendsPage> {
-  const where = userSendsWhere(userId, filter);
+  const where = userSendsWhere(userId, filter, viewerId);
 
   const rows = await db.all<UserSendRow>(sql`
     SELECT ${userSendColumns(viewerId)}
@@ -479,6 +482,8 @@ export type AnalyticsSendRow = {
 export async function getUserSendsForAnalytics(
   db: Database,
   userId: string,
+  viewerId: string | null = null,
+  tags?: string[],
 ): Promise<AnalyticsSendRow[]> {
   return db
     .select({
@@ -494,6 +499,11 @@ export async function getUserSendsForAnalytics(
     .from(sends)
     .innerJoin(climbs, eq(sends.climbId, climbs.id))
     .innerJoin(areas, eq(climbs.areaId, areas.id))
-    .where(eq(sends.userId, userId))
+    .where(
+      and(
+        eq(sends.userId, userId),
+        tags?.length ? sendHashtagCondition(tags, viewerId) : undefined,
+      ),
+    )
     .orderBy(sends.dateSent, sends.id);
 }

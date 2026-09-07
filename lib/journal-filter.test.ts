@@ -24,13 +24,13 @@ describe("parseJournalFilter", () => {
   });
 
   it("normalizes the tag the same way the write path stores it", () => {
-    expect(parseJournalFilter({ tag: " Hangboard " }).tag).toBe("hangboard");
-    expect(parseJournalFilter({ tag: " Happy-Boulders " }).tag).toBe("happy-boulders");
-    expect(parseJournalFilter({ tag: "Happy Boulders" }).tag).toBeNull();
+    expect(parseJournalFilter({ tag: " Hangboard " }).tags).toEqual(["hangboard"]);
+    expect(parseJournalFilter({ tag: " Happy-Boulders " }).tags).toEqual(["happy-boulders"]);
+    expect(parseJournalFilter({ tag: "Happy Boulders" }).tags).toEqual([]);
   });
 
   it("reads a blank tag as absent", () => {
-    expect(parseJournalFilter({ tag: "   " }).tag).toBeNull();
+    expect(parseJournalFilter({ tag: "   " }).tags).toEqual([]);
   });
 
   it("normalizes and limits a journal search", () => {
@@ -66,7 +66,7 @@ describe("journalFilterToSearchParams", () => {
     const filter = {
       view: "training" as const,
       query: "top move",
-      tag: "happy-boulders",
+      tags: ["happy-boulders"],
       climbId: 7,
       year: 2025,
     };
