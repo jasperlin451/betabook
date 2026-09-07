@@ -101,8 +101,9 @@ To check request badges, open **Friends → Requests** as dev. The Friends and
 Requests tabs should each show **2**, excluding dev's outgoing request. Accepting
 one incoming request and declining the other should change both badges to **1**,
 then hide them. The mobile menu dot should also disappear. `climber5@example.com`
-has no badge. Counts load after the page renders and refresh after handling a
-request, navigation, and returning to the app. Run `pnpm seed --social` to restore
+has no badge. Counts load after the page renders and refresh immediately after
+handling a request. Navigation and returning to the app check at most once per
+minute; an idle tab does not poll. Run `pnpm seed --social` to restore
 these scenarios after testing.
 
 To check request emails locally, leave `RESEND_API_KEY` empty and send a new
