@@ -17,6 +17,10 @@ function FormExamples() {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle>Fields and actions</PageTitle>
+      <p className="text-sm text-muted">
+        Visual comparison of native and HeroUI fields, error and disabled states, and button
+        treatments. This is not a submission workflow.
+      </p>
       <section className={`flex flex-col gap-4 ${cardClass()}`}>
         <SectionHeading>Session details</SectionHeading>
         <TextField name="climb" defaultValue="Cedar Arete">
@@ -42,9 +46,9 @@ function FormExamples() {
           <Input />
         </TextField>
         <div className="flex flex-wrap gap-2">
-          <Button>Log session</Button>
-          <Button variant="outline">Cancel</Button>
-          <Button variant="ghost">More options</Button>
+          <Button>Primary</Button>
+          <Button variant="outline">Outline</Button>
+          <Button variant="ghost">Ghost</Button>
           <Button isDisabled>Saving…</Button>
         </div>
       </section>

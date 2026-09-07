@@ -46,3 +46,21 @@ export const Range: Story = {
     );
   },
 };
+
+export const UnboundedRange: Story = {
+  render: function UnboundedRange() {
+    const [range, setRange] = useState<[number, number]>([2, 0]);
+    return (
+      <IndexRangeSelect
+        label="Rating"
+        minLabel="Minimum rating"
+        maxLabel="Maximum rating"
+        minOptions={["Any", "1 star", "2 stars", "3 stars", "4 stars"]}
+        maxOptions={["Any", "1 star", "2 stars", "3 stars", "4 stars"]}
+        anyIndex={0}
+        range={range}
+        onChange={setRange}
+      />
+    );
+  },
+};

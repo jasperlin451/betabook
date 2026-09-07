@@ -1,4 +1,3 @@
-import { Button } from "@heroui/react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 import { StatTiles } from "@/components/analytics-stat-tiles";
@@ -14,11 +13,7 @@ type Story = StoryObj;
 export const Profile: Story = {
   render: () => (
     <div className="flex flex-col gap-6">
-      <ProfileHeading
-        name="Alexandra Rivera"
-        since={2019}
-        action={<Button variant="outline">Edit sample profile</Button>}
-      />
+      <ProfileHeading name="Alexandra Rivera" since={2019} />
       <StatTiles
         className="sm:grid-cols-3"
         tiles={[

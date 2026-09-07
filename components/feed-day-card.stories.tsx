@@ -127,7 +127,7 @@ export const MoreActivity: Story = {
       activities={[
         ...sendActivities,
         day.activities[1],
-        { ...day.activities[1], id: 3, body: "Finished with shoulder mobility and stretching." },
+        { ...day.activities[1], id: 4, body: "Finished with shoulder mobility and stretching." },
       ]}
     />
   ),
@@ -140,5 +140,31 @@ export const RemainingActivity: Story = {
       preview={{ ...day, sends: 0, repeats: 0, activities: [] }}
       activities={[day.activities[1]]}
     />
+  ),
+};
+
+export const SendsOnly: Story = {
+  render: () => (
+    <StoryPage
+      title="Public sends with a hidden journal"
+      description="Already-authorized send facts link to Sends when the author's journal is unavailable. This fixture does not test server authorization."
+    >
+      <FeedDayCard
+        view="sends"
+        day={{
+          ...day,
+          journalVisible: false,
+          sends: 3,
+          repeats: 0,
+          training: 0,
+          activities: [
+            {
+              ...sendActivities[0],
+              companions: [{ id: "sample-partner", name: "Jordan Lee", isSelf: false }],
+            },
+          ],
+        }}
+      />
+    </StoryPage>
   ),
 };

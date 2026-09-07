@@ -1,11 +1,9 @@
-import { expect, test } from "@playwright/test";
 import type { Page, TestInfo } from "@playwright/test";
 
+import { expect, test, openStory } from "./story";
+
 async function openDates(page: Page, testInfo: TestInfo, story = "any") {
-  const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-  await page.goto(
-    `/iframe.html?id=components-inputs-date-filter--${story}&viewMode=story&globals=theme:${theme}`,
-  );
+  await openStory(page, testInfo, `components-inputs-date-filter--${story}`);
 }
 
 async function choose(page: Page, option: string) {

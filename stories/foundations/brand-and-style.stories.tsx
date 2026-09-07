@@ -3,13 +3,6 @@ import Image from "next/image";
 
 import darkLogo from "@/assets/branding/betabook-lockup-dark.png";
 import lightLogo from "@/assets/branding/betabook-lockup-light.png";
-import { AscentStyle } from "@/components/ascent-style";
-import { cardClass } from "@/components/ui/card";
-import { DisciplineChip } from "@/components/ui/discipline-chip";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Grade } from "@/components/ui/grade";
-import { ListRow } from "@/components/ui/list-row";
-import { Skeleton } from "@/components/ui/skeleton";
 import { PageTitle, SectionHeading } from "@/components/ui/typography";
 
 import { BrandIconReference } from "./brand-icon-reference";
@@ -56,56 +49,6 @@ export const Foundations: Story = {
         </p>
       </section>
       <BrandIconReference />
-      <section className="flex flex-col gap-3">
-        <SectionHeading>Surfaces</SectionHeading>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div data-testid="card-small" className={cardClass("sm")}>
-            <p className="font-medium">Compact panel</p>
-            <p className="text-sm text-muted">Statistics and supporting controls</p>
-          </div>
-          <div data-testid="card-medium" className={cardClass("md")}>
-            <p className="font-medium">Standard panel</p>
-            <p className="text-sm text-muted">Forms and settings</p>
-          </div>
-        </div>
-      </section>
-      <section className="flex flex-col gap-3">
-        <SectionHeading>Climbing labels</SectionHeading>
-        <div className="flex flex-wrap items-center gap-2">
-          <DisciplineChip type="boulder" />
-          <DisciplineChip type="sport" />
-          <DisciplineChip type="trad" />
-          <AscentStyle type="onsight" />
-          <AscentStyle type="flash" />
-          <AscentStyle type="redpoint" />
-          <Grade>V4</Grade>
-          <Grade>5.11a</Grade>
-        </div>
-      </section>
-      <section className="flex flex-col gap-3">
-        <SectionHeading>Climb rows</SectionHeading>
-        <div data-testid="climb-rows" className="divide-y divide-separator">
-          <ListRow
-            title="Cedar Arete"
-            subtitle="North Woods"
-            trailing={<Grade>V4</Grade>}
-            comment="Found the high foot and linked the moves."
-          />
-          <ListRow
-            title="A very long climb name that still leaves room for the grade"
-            subtitle="A long area name near the edge of the valley"
-            trailing={<Grade>5.11a</Grade>}
-          />
-        </div>
-      </section>
-      <section className="flex flex-col gap-3">
-        <SectionHeading>Empty and loading</SectionHeading>
-        <EmptyState message="No sends yet." />
-        <div role="status" aria-label="Loading climbs" className="flex flex-col gap-2">
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-4 w-56" />
-        </div>
-      </section>
     </div>
   ),
 };

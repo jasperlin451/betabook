@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
-import { userEvent, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 
 import { MAX_JOURNAL_TAGS } from "@/lib/journal";
 import { StoryPage } from "@/stories/fixtures/story-layout";
@@ -35,5 +35,8 @@ export const Invalid: Story = {
   play: async ({ canvasElement }) => {
     const input = within(canvasElement).getByRole("textbox", { name: /Add a tag/ });
     await userEvent.type(input, "bad!{Enter}");
+    await expect(within(canvasElement).getByRole("alert")).toHaveTextContent(
+      "Tags can only contain letters, numbers and hyphens.",
+    );
   },
 };

@@ -226,6 +226,13 @@ Keep fixtures deterministic and interactions local. Do not import live server
 actions, database services, authenticated providers, or real account data.
 Simulate effects only at external boundaries, retaining the production component.
 
+Each example must document a distinct state, composition, or design decision.
+Prefer an existing component story to another composition containing the same
+examples. Sample actions need observable local outcomes; label inert button
+specimens as visual treatments. Error stories must reach the actual error state,
+and form stories should expose submitted values at the save boundary instead of
+inventing a success sentence that hides lost or incorrect data.
+
 ## Preventing regressions
 
 `pnpm test:ui` discovers all stories from the built Storybook index and runs
@@ -250,6 +257,26 @@ keyboard focus, dialog cancellation/confirmation, live token updates, search
 selection, menus, comment expansion, and tag editing. The gallery-wide checks
 cover horizontal overflow and automated WCAG A/AA findings. Tests inspect browser behavior and computed styles,
 not source-text patterns. Keep the Workers/D1 test suite separate.
+
+All UI specs use `tests/ui/story.ts`. Its `openStory` helper verifies the project
+theme, fixes the browser date, waits for Storybook's render/play completion and
+settles fonts/finite animations. The preview lifecycle sets the readiness signal;
+do not replace it with a timeout or a story heading alone. Unhandled browser
+errors and live API requests from a story fail the suite. Axe checks the complete
+story document, including open portals, with WCAG 2.0/2.1 A/AA rules.
+
+Behavior checks include exact journal payloads and friend IDs, rejected and
+pending saves, privacy audience restoration, clamped/unbounded grade ranges,
+tag capacity, calendar boundaries, read-only recorded dates, responsive child
+state, filter reset, sidebar placement, and keyboard chart scrolling. These
+checks exercise production components with local service boundaries; they do
+not establish server authorization or persistence.
+
+`artifacts.spec.ts` runs only in desktop-light because index/manifest integrity,
+metadata asset decoding and the email-audit harness are independent of theme and
+viewport. The other three CI projects still run all responsive and themed checks.
+Every coverage link must resolve, and the MCP manifest must contain every built
+story with a usable snippet. Do not replace these checks with a minimum count.
 
 Email previews retain their scriptless iframe sandbox. Because that sandbox also
 blocks axe's asynchronous rule callbacks, the gallery audit checks the iframe

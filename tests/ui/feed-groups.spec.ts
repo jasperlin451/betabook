@@ -1,12 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, openStory } from "./story";
 
 test("connected climb card deduplicates the climb while retaining separate author notes", async ({
   page,
 }, testInfo) => {
-  const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-  await page.goto(
-    `/iframe.html?id=components-journal-feed-group-card--shared-climb&viewMode=story&globals=theme:${theme}`,
-  );
+  await openStory(page, testInfo, `components-journal-feed-group-card--shared-climb`);
   await expect(page.getByRole("link", { name: "Cedar Arete", exact: true })).toHaveCount(1);
   const authors = page.getByRole("heading", { name: "Alex Rivera and Jordan Lee", exact: true });
   await expect(authors).toBeVisible();
@@ -32,10 +29,7 @@ test("connected climb card deduplicates the climb while retaining separate autho
 test("large connected group expands locally without additional requests", async ({
   page,
 }, testInfo) => {
-  const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-  await page.goto(
-    `/iframe.html?id=components-journal-feed-group-card--large-group&viewMode=story&globals=theme:${theme}`,
-  );
+  await openStory(page, testInfo, `components-journal-feed-group-card--large-group`);
   await expect(page.getByText("Notes from climber 2.", { exact: true })).toBeVisible();
   await expect(page.getByText("Notes from climber 3.", { exact: true })).toBeHidden();
   await expect(
@@ -65,10 +59,7 @@ test("large connected group expands locally without additional requests", async 
 test("the other authors are named in a tooltip on hover and keyboard focus", async ({
   page,
 }, testInfo) => {
-  const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-  await page.goto(
-    `/iframe.html?id=components-journal-feed-group-card--large-group&viewMode=story&globals=theme:${theme}`,
-  );
+  await openStory(page, testInfo, `components-journal-feed-group-card--large-group`);
   const trigger = page.getByText("7 others", { exact: true });
   await expect(trigger).toBeVisible();
   // Establish pointer modality before entering the trigger from the fresh page.
@@ -79,7 +70,11 @@ test("the other authors are named in a tooltip on hover and keyboard focus", asy
   await expect(tooltip.getByRole("listitem")).toHaveText(
     Array.from({ length: 7 }, (_, index) => `Climbing friend ${index + 2} with a long name`),
   );
-  await page.screenshot({ path: testInfo.outputPath("other-authors-tooltip.png"), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath("other-authors-tooltip.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
   await page.mouse.move(0, 0);
   await expect(tooltip).toBeHidden();
   const heading = page.getByRole("heading", {
