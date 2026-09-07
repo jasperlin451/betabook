@@ -70,7 +70,6 @@ export function AreaSearchField({
       label={label}
       ariaLabel={ariaLabel}
       placeholder={placeholder}
-      idleMessage="Type an area name…"
       emptyMessage={emptyMessage}
       isInvalid={isInvalid}
       className={className}

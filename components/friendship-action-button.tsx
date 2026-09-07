@@ -35,7 +35,7 @@ export function FriendshipActionButton({
       ? {
           title: `Remove ${name} as a friend?`,
           description:
-            "Their activity will leave your feed, and you'll both lose access to Friends-only journal entries and send notes.",
+            "Their activity will leave your feed, and you'll both lose access to Friends-only journal entries and send notes. Tags between you on journal entries are permanently removed.",
           cancelLabel: "Keep friend",
         }
       : action === "decline"

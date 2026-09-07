@@ -1,6 +1,9 @@
+import { Button } from "@heroui/react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useState } from "react";
 
 import type { FeedDay } from "@/db/queries/feed";
+import { feedStoryClimbs } from "@/stories/fixtures/feed-climbs";
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
 import { FeedDayCard } from "./feed-day-card";
@@ -18,19 +21,14 @@ const day: FeedDay = {
   date: "2026-09-01",
   journalVisible: true,
   sends: 1,
-  repeats: 0,
+  repeats: 1,
   sessions: 0,
   training: 1,
   activities: [
     {
       id: 1,
       kind: "send",
-      climbId: 1,
-      climbName: "Cedar Arete",
-      climbType: "boulder",
-      climbGrade: 5,
-      areaId: 1,
-      areaName: "North Woods",
+      ...feedStoryClimbs[0],
       ascentStyle: "flash",
       body: "Linked the moves with a high right foot.",
     },
@@ -45,6 +43,14 @@ const day: FeedDay = {
       areaName: null,
       ascentStyle: null,
       body: "Easy movement practice and a short hangboard session.",
+      companions: [{ id: "storybook-partner", name: "Jordan Lee", isSelf: false }],
+    },
+    {
+      id: 3,
+      kind: "repeat",
+      ...feedStoryClimbs[1],
+      ascentStyle: null,
+      body: "Repeated it with a smoother sequence.",
     },
   ],
 };
@@ -52,19 +58,87 @@ export const ActivityFeed: Story = {
   render: () => (
     <StoryPage
       title="Activity feed"
-      description="Bordered panels group each day with the shared boundary token and no shadow. Headers use 16px padding; flush rows retain their list density."
+      description="A complete day with a flash, training, and a repeat."
     >
       <FeedDayCard day={day} view="all" />
     </StoryPage>
   ),
 };
-export const SendOnlyFeed: Story = {
+const sendActivities: FeedDay["activities"] = feedStoryClimbs.map((climb, index) => ({
+  ...day.activities[0],
+  ...climb,
+  id: index + 1,
+  ascentStyle: index === 0 ? "flash" : "redpoint",
+  body: index === 0 ? day.activities[0].body : null,
+}));
+
+function DayNavigationExample({
+  title,
+  preview,
+  activities,
+}: {
+  title: string;
+  preview: FeedDay;
+  activities: FeedDay["activities"];
+}) {
+  const [showDay, setShowDay] = useState(false);
+  const destination = `/users/${preview.userId}/journal?date=${preview.date}`;
+  return (
+    <div
+      onClickCapture={(event) => {
+        const link = event.target instanceof Element ? event.target.closest("a") : null;
+        if (link?.getAttribute("href") !== destination) return;
+        // Storybook has no profile routes. Handle the real card's day links
+        // at the navigation boundary using only this story's complete fixture.
+        event.preventDefault();
+        setShowDay(true);
+      }}
+    >
+      <StoryPage
+        title={showDay ? `${preview.name}’s journal` : title}
+        description={
+          showDay
+            ? "Sample day destination with all entries."
+            : "See all activity opens a local preview of the complete day."
+        }
+      >
+        {showDay && (
+          <Button variant="ghost" className="self-start" onPress={() => setShowDay(false)}>
+            Back to feed
+          </Button>
+        )}
+        <FeedDayCard day={showDay ? { ...preview, activities } : preview} view="all" />
+      </StoryPage>
+    </div>
+  );
+}
+
+export const MoreActivity: Story = {
   render: () => (
-    <StoryPage title="Send-only feed">
-      <FeedDayCard
-        day={{ ...day, journalVisible: false, training: 0, activities: day.activities.slice(0, 1) }}
-        view="sends"
-      />
-    </StoryPage>
+    <DayNavigationExample
+      title="More from a mixed activity day"
+      preview={{
+        ...day,
+        sends: 3,
+        repeats: 0,
+        training: 2,
+        activities: [...sendActivities.slice(0, 2), day.activities[1]],
+      }}
+      activities={[
+        ...sendActivities,
+        day.activities[1],
+        { ...day.activities[1], id: 3, body: "Finished with shoulder mobility and stretching." },
+      ]}
+    />
+  ),
+};
+
+export const RemainingActivity: Story = {
+  render: () => (
+    <DayNavigationExample
+      title="Activity remaining after grouping"
+      preview={{ ...day, sends: 0, repeats: 0, activities: [] }}
+      activities={[day.activities[1]]}
+    />
   ),
 };

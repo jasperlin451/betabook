@@ -3,9 +3,11 @@ import { sql } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import type { FeedCursor, FeedView } from "@/lib/feed";
 import type { ClimbType } from "@/lib/grades";
+import type { JournalCompanion } from "@/lib/journal-companions";
 import type { AscentStyle } from "@/lib/sends";
 
 import { journalVisibleSql, sendCommentVisibleSql } from "./content-access";
+import { companionsJsonSql } from "./journal-companions";
 
 type FeedActivity = {
   id: number;
@@ -16,8 +18,10 @@ type FeedActivity = {
   climbGrade: number | null;
   areaId: number | null;
   areaName: string | null;
+  areaAncestors?: { id: number; name: string }[];
   ascentStyle: AscentStyle | null;
   body: string | null;
+  companions?: JournalCompanion[];
 };
 export type FeedDay = {
   userId: string;
@@ -42,9 +46,22 @@ export async function getFeedPage(
 ): Promise<FeedPage> {
   const limit = Number.isInteger(pageSize) ? Math.min(50, Math.max(1, pageSize)) : 20;
   type Row = Omit<FeedDay, "activities" | "journalVisible"> &
-    FeedActivity & { journalVisible: number };
+    Omit<FeedActivity, "companions" | "areaAncestors"> & {
+      journalVisible: number;
+      companions: string;
+      parentAreaId: number | null;
+      parentAreaName: string | null;
+      grandparentAreaId: number | null;
+      grandparentAreaName: string | null;
+    };
   // One statement keeps eligibility, counts and previews on the same database
   // snapshot. Only connected authors are scanned; full notes never cross JSON.
+  // Resolve a send's distinct journal identity only after preview pagination.
+  const companionEntryId = sql`CASE WHEN p.kind = 'send' THEN (
+    SELECT ascent.id FROM journal_entries ascent
+    WHERE ascent.user_id = p.userId AND ascent.climb_id = p.climbId AND ascent.is_ascent = 1
+    LIMIT 1
+  ) ELSE p.id END`;
   const rows = await db.all<Row>(sql`
     WITH friends AS (
       SELECT friend_id AS id FROM friendships WHERE user_id = ${viewerId} AND status = 'accepted'
@@ -85,12 +102,17 @@ export async function getFeedPage(
     )
     SELECT d.*, u.name, u.image, u.journalVisible AS journalVisible,
       p.id, p.kind, p.climbId, p.ascentStyle,
+      ${view === "all" ? sql`CASE WHEN u.journalVisible THEN ${companionsJsonSql(viewerId, companionEntryId)} ELSE '[]' END` : sql`'[]'`} AS companions,
       CASE WHEN length(p.body) > 240 THEN substr(p.body, 1, 240) || '…' ELSE p.body END AS body,
       c.name AS climbName, c.type AS climbType, c.grade AS climbGrade,
-      a.id AS areaId, a.name AS areaName
+      a.id AS areaId, a.name AS areaName,
+      area_parent.id AS parentAreaId, area_parent.name AS parentAreaName,
+      area_grandparent.id AS grandparentAreaId, area_grandparent.name AS grandparentAreaName
     FROM days d JOIN authors u ON u.id = d.userId
     JOIN previews p ON p.date = d.date AND p.userId = d.userId AND p.position <= 3
     LEFT JOIN climbs c ON c.id = p.climbId LEFT JOIN areas a ON a.id = c.area_id
+    LEFT JOIN areas area_parent ON area_parent.id = a.parent_id
+    LEFT JOIN areas area_grandparent ON area_grandparent.id = area_parent.parent_id
     ORDER BY d.date DESC, d.userId DESC, p.position
   `);
   const groups = new Map<string, FeedDay>();
@@ -105,6 +127,10 @@ export async function getFeedPage(
       repeats,
       sessions,
       training,
+      parentAreaId,
+      parentAreaName,
+      grandparentAreaId,
+      grandparentAreaName,
       ...activity
     } = row;
     const key = JSON.stringify([date, userId]);
@@ -124,7 +150,18 @@ export async function getFeedPage(
       };
       groups.set(key, day);
     }
-    day.activities.push(activity);
+    day.activities.push({
+      ...activity,
+      areaAncestors: [
+        ...(grandparentAreaId != null && grandparentAreaName != null
+          ? [{ id: grandparentAreaId, name: grandparentAreaName }]
+          : []),
+        ...(parentAreaId != null && parentAreaName != null
+          ? [{ id: parentAreaId, name: parentAreaName }]
+          : []),
+      ],
+      companions: JSON.parse(activity.companions) as JournalCompanion[],
+    });
   }
   return { days: [...groups.values()].slice(0, limit), hasMore: groups.size > limit };
 }

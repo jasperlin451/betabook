@@ -74,7 +74,6 @@ export function RouteSearchField({
       label={label}
       ariaLabel={ariaLabel}
       placeholder={placeholder}
-      idleMessage="Type a route name…"
       emptyMessage={emptyMessage}
       className={className}
       inputClassName={inputClassName}

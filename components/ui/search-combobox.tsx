@@ -30,8 +30,6 @@ export type SearchComboboxProps<T extends object> = {
    * result means for *this* field — a filter still filters on free text, a
    * navigator simply found nothing. */
   emptyMessage: string;
-  /** Shown before anything has been typed. */
-  idleMessage: string;
   /** Set when the field binds a value (the area picker), left null when it
    * only edits text — a filter has no "current selection" to restore. */
   selectedKey?: string | null;
@@ -44,7 +42,7 @@ export type SearchComboboxProps<T extends object> = {
 /** The one typeahead in the app: a combobox whose suggestions are fetched as
  * you type, wrapping `useTypeahead` (debounce, cancellation, out-of-order
  * discard, failures degrading to plain text) around consistent chrome and a
- * popover that always says which of its three states it's in.
+ * popover showing loading, results, or an empty result for the typed query.
  *
  * Free text is always valid (`allowsCustomValue`). Every field this backs is
  * usable without ever opening the popover — suggestions complete what you're
@@ -67,7 +65,6 @@ export function SearchCombobox<T extends object>({
   ariaLabel,
   placeholder,
   emptyMessage,
-  idleMessage,
   selectedKey = null,
   isInvalid,
   fullWidth,
@@ -81,10 +78,10 @@ export function SearchCombobox<T extends object>({
       aria-label={label ? undefined : ariaLabel}
       allowsCustomValue
       // Load-bearing: suggestions arrive asynchronously after the debounce,
-      // so the collection is empty at the moment the input event would open
-      // the popover. Without this the menu would never open at all — and the
-      // empty state below is what makes that first open informative.
-      allowsEmptyCollection
+      // so a nonempty query needs its loading/empty menu before results arrive.
+      // A cleared query must close it: pickers clear after selection, and the
+      // newly inserted chips can move the input while a reopened menu lags behind.
+      allowsEmptyCollection={value.trim().length > 0}
       menuTrigger="input"
       isInvalid={isInvalid}
       fullWidth={fullWidth}
@@ -115,7 +112,7 @@ export function SearchCombobox<T extends object>({
         <ListBox
           renderEmptyState={() => (
             <p className="px-3 py-2 text-sm text-muted">
-              {!value.trim() ? idleMessage : isPending ? "Searching…" : emptyMessage}
+              {isPending ? "Searching…" : emptyMessage}
             </p>
           )}
         >

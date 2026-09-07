@@ -23,7 +23,7 @@ function SearchExample() {
   return (
     <StoryPage
       title="Search combobox"
-      description="Type cedar for results, or zzz for an empty list. The real debounce and keyboard behavior run against a local fixture fetcher."
+      description="Type cedar for results, or zzz for an empty list. Clearing the input dismisses suggestions. The real debounce and keyboard behavior run against a local fixture fetcher."
     >
       <SearchCombobox
         label="Find a climb"
@@ -40,7 +40,6 @@ function SearchExample() {
           setSelected(climb.name);
         }}
         placeholder="Search climbs…"
-        idleMessage="Type a climb name."
         emptyMessage="No matching climbs."
         fullWidth
       />
