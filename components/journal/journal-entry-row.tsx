@@ -17,7 +17,9 @@ import { journalFilterToSearchParams, type JournalFilter } from "@/lib/journal-f
 function tagHref(userId: string, filter: JournalFilter, tag: string): string {
   const params = journalFilterToSearchParams({
     ...filter,
-    tag: filter.tag === tag ? null : tag,
+    tags: filter.tags.includes(tag)
+      ? filter.tags.filter((value) => value !== tag)
+      : [...filter.tags, tag],
   });
   const query = params.toString();
   const base = `/users/${userId}/journal`;
@@ -53,7 +55,7 @@ export function JournalEntryRow({
       <>
         <JournalCompanions entryId={entry.id} initialCompanions={entry.companions} />
         {entry.tags.map((tag) => {
-          const active = filter.tag === tag;
+          const active = filter.tags.includes(tag);
           return (
             <AppLink
               key={tag}

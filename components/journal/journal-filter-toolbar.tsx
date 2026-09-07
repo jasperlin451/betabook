@@ -2,16 +2,17 @@
 
 import { SearchField } from "@heroui/react";
 import { X } from "lucide-react";
-import { useState } from "react";
 
-import { useReportNavigationPending } from "@/components/navigation-pending";
+import { FilterToolbarLayout } from "@/components/filter-toolbar";
+import { HashtagFilter } from "@/components/hashtag-filter";
 import { AppLink } from "@/components/ui/app-link";
 import { choicePillClass } from "@/components/ui/choice-pill";
-import { useDebouncedReplace } from "@/hooks/use-debounced-replace";
+import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import { formatDate } from "@/lib/format-date";
 import {
   JOURNAL_VIEWS,
   MAX_JOURNAL_QUERY_LENGTH,
+  DEFAULT_JOURNAL_FILTER,
   journalFilterToSearchParams,
   type JournalFilter,
   type JournalView,
@@ -33,88 +34,94 @@ export function JournalFilterToolbar({
   userId,
   filter,
   climbName,
+  tags,
 }: {
   userId: string;
   filter: JournalFilter;
   climbName: string | null;
+  tags: string[];
 }) {
   const base = `/users/${userId}/journal`;
-  const incomingQuery = filter.query ?? "";
-  const [query, setQuery] = useState(incomingQuery);
-  const currentHref = href(base, filter);
-  const nextHref = href(base, { ...filter, query: query.trim() || null });
-  const { isPending, urlChangedExternally } = useDebouncedReplace(nextHref, currentHref);
-  const [previousIncomingQuery, setPreviousIncomingQuery] = useState(incomingQuery);
-
-  if (previousIncomingQuery !== incomingQuery) {
-    setPreviousIncomingQuery(incomingQuery);
-    if (urlChangedExternally) setQuery(incomingQuery);
-  }
-  useReportNavigationPending(isPending);
+  const {
+    filter: localFilter,
+    setFilter,
+    reset,
+  } = useFilterFormNavigation({
+    initialFilter: filter,
+    defaultFilter: DEFAULT_JOURNAL_FILTER,
+    buildHref: (value) => href(base, { ...value, query: value.query?.trim() || null }),
+  });
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <SearchField
-        aria-label="Search journal"
-        value={query}
-        onChange={setQuery}
-        className="w-full sm:w-64"
-      >
-        <SearchField.Group>
-          <SearchField.SearchIcon />
-          <SearchField.Input placeholder="Search journal…" maxLength={MAX_JOURNAL_QUERY_LENGTH} />
-          <SearchField.ClearButton />
-        </SearchField.Group>
-      </SearchField>
+    <FilterToolbarLayout
+      onReset={reset}
+      filters={
+        <HashtagFilter
+          inlineLabel
+          value={localFilter.tags}
+          tags={tags}
+          onChange={(tags) => setFilter({ ...localFilter, tags })}
+        />
+      }
+      controls={
+        <>
+          <SearchField
+            aria-label="Search journal"
+            value={localFilter.query ?? ""}
+            onChange={(query) => setFilter({ ...localFilter, query: query.trim() ? query : null })}
+            className="w-full sm:w-64"
+          >
+            <SearchField.Group className="h-auto">
+              <SearchField.SearchIcon />
+              <SearchField.Input
+                placeholder="Search journal…"
+                maxLength={MAX_JOURNAL_QUERY_LENGTH}
+              />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
 
-      {JOURNAL_VIEWS.map((view) => (
-        <AppLink
-          key={view}
-          href={href(base, { ...filter, view })}
-          aria-current={filter.view === view ? "page" : undefined}
-          className={choicePillClass(filter.view === view, "bg-foreground text-background")}
-        >
-          {VIEW_LABELS[view]}
-        </AppLink>
-      ))}
+          {JOURNAL_VIEWS.map((view) => (
+            <AppLink
+              key={view}
+              href={href(base, { ...localFilter, view })}
+              aria-current={filter.view === view ? "page" : undefined}
+              className={choicePillClass(filter.view === view, "bg-foreground text-background")}
+            >
+              {VIEW_LABELS[view]}
+            </AppLink>
+          ))}
 
-      {filter.year !== null && (
-        <AppLink
-          href={href(base, { ...filter, year: null })}
-          aria-label={`Clear ${filter.year} year filter`}
-          className={`${choicePillClass(true, "bg-surface-secondary text-foreground")} inline-flex items-center gap-1`}
-        >
-          {filter.year}
-          <X className="size-3.5" aria-hidden />
-        </AppLink>
-      )}
-      {filter.date && (
-        <AppLink
-          href={href(base, { ...filter, date: undefined })}
-          className={choicePillClass(true, "bg-surface-secondary text-foreground")}
-          aria-label="Clear day filter"
-        >
-          {formatDate(filter.date)} · Clear day
-        </AppLink>
-      )}
-      {filter.tag && (
-        <AppLink
-          href={href(base, { ...filter, tag: null })}
-          className={`${choicePillClass(true, "bg-surface-secondary text-foreground")} inline-flex items-center gap-1`}
-        >
-          {filter.tag}
-          <X className="size-3.5" aria-label="Clear tag filter" />
-        </AppLink>
-      )}
-      {filter.climbId !== null && (
-        <AppLink
-          href={href(base, { ...filter, climbId: null })}
-          className={`${choicePillClass(true, "bg-surface-secondary text-foreground")} inline-flex items-center gap-1`}
-        >
-          <span className="max-w-48 truncate">{climbName ?? "Unknown climb"}</span>
-          <X className="size-3.5 shrink-0" aria-label="Clear climb filter" />
-        </AppLink>
-      )}
-    </div>
+          {filter.year !== null && (
+            <AppLink
+              href={href(base, { ...localFilter, year: null })}
+              aria-label={`Clear ${filter.year} year filter`}
+              className={`${choicePillClass(true, "bg-surface-secondary text-foreground")} inline-flex items-center gap-1`}
+            >
+              {filter.year}
+              <X className="size-3.5" aria-hidden />
+            </AppLink>
+          )}
+          {filter.date && (
+            <AppLink
+              href={href(base, { ...localFilter, date: undefined })}
+              className={choicePillClass(true, "bg-surface-secondary text-foreground")}
+              aria-label="Clear day filter"
+            >
+              {formatDate(filter.date)} · Clear day
+            </AppLink>
+          )}
+          {filter.climbId !== null && (
+            <AppLink
+              href={href(base, { ...localFilter, climbId: null })}
+              className={`${choicePillClass(true, "bg-surface-secondary text-foreground")} inline-flex items-center gap-1`}
+            >
+              <span className="max-w-48 truncate">{climbName ?? "Unknown climb"}</span>
+              <X className="size-3.5 shrink-0" aria-label="Clear climb filter" />
+            </AppLink>
+          )}
+        </>
+      }
+    />
   );
 }

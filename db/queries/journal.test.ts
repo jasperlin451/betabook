@@ -149,12 +149,12 @@ describe("getJournalPage", () => {
   });
 
   it("filters by a hyphenated tag", async () => {
-    const page = await getJournalPage(db, OWNER_ID, OWNER_ID, filter({ tag: "happy-boulders" }));
+    const page = await getJournalPage(db, OWNER_ID, OWNER_ID, filter({ tags: ["happy-boulders"] }));
     expect(page.entries.map((e) => e.entryDate)).toEqual(["2025-04-01"]);
   });
 
   it("returns nothing for a tag nobody used", async () => {
-    const page = await getJournalPage(db, OWNER_ID, OWNER_ID, filter({ tag: "campus" }));
+    const page = await getJournalPage(db, OWNER_ID, OWNER_ID, filter({ tags: ["campus"] }));
     expect(page.entries).toEqual([]);
   });
 

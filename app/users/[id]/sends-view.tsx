@@ -9,6 +9,7 @@ import { UserSendList, UserSendsFilterToolbar } from "@/components/user-send-lis
 import { getDb } from "@/db/client";
 import { getAreaBreadcrumbs, getSendsForUserPage, getUserSendsSummary } from "@/db/queries";
 import type { UserSendsFilter } from "@/db/queries";
+import { getUserHashtags } from "@/db/queries/hashtag-filter";
 import { formatCount } from "@/lib/format";
 import { formatDate } from "@/lib/format-date";
 import { userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
@@ -26,9 +27,10 @@ export async function SendsView({
 }) {
   const db = await getDb();
 
-  const [summary, firstPage] = await Promise.all([
+  const [summary, firstPage, tags] = await Promise.all([
     getUserSendsSummary(db, userId),
     getSendsForUserPage(db, userId, filter, 0, undefined, viewerId),
+    getUserHashtags(db, userId, viewerId, true),
   ]);
 
   const areaBreadcrumbs = await getAreaBreadcrumbs(
@@ -81,7 +83,9 @@ export async function SendsView({
               </AppLink>
             </p>
           )}
-          {summary.sendCount > 0 && <UserSendsFilterToolbar filter={filter} basePath={basePath} />}
+          {summary.sendCount > 0 && (
+            <UserSendsFilterToolbar filter={filter} basePath={basePath} tags={tags} />
+          )}
           <UserSendList
             key={JSON.stringify(filter)}
             userId={userId}

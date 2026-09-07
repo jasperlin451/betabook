@@ -8,6 +8,7 @@ import type { JournalCompanion } from "@/lib/journal-companions";
 import type { JournalFilter, JournalView } from "@/lib/journal-filter";
 
 import { journalVisibleSql, sendCommentVisibleSql } from "./content-access";
+import { journalHashtagsCondition } from "./hashtag-filter";
 import { companionsJsonSql } from "./journal-companions";
 
 export type JournalEntry = {
@@ -105,10 +106,8 @@ function filterConditions(filter: JournalFilter, viewerId: string | null): SQL[]
       )
     )`);
   }
-  if (filter.tag) {
-    conditions.push(
-      sql`EXISTS (SELECT 1 FROM json_each(j.tags) WHERE json_each.value = ${filter.tag})`,
-    );
+  if (filter.tags.length > 0) {
+    conditions.push(journalHashtagsCondition(filter.tags, sql`j.tags`));
   }
   if (filter.climbId !== null) conditions.push(sql`j.climb_id = ${filter.climbId}`);
   if (filter.date) conditions.push(sql`j.entry_date = ${filter.date}`);
@@ -275,6 +274,7 @@ export async function getJournalSessionsForAnalytics(
   db: Database,
   ownerId: string,
   viewerId: string | null,
+  tags?: string[],
 ): Promise<AnalyticsSessionRow[]> {
   return db.all<AnalyticsSessionRow>(sql`
     SELECT
@@ -284,6 +284,7 @@ export async function getJournalSessionsForAnalytics(
     FROM journal_entries j
     JOIN climbs ON climbs.id = j.climb_id
     WHERE j.user_id = ${ownerId} AND ${journalVisibleSql(viewerId, sql`j.user_id`)} AND j.kind = 'session'
+      ${tags?.length ? sql`AND ${journalHashtagsCondition(tags, sql`j.tags`)}` : sql``}
     GROUP BY j.entry_date, climbs.type
     ORDER BY j.entry_date, climbs.type
   `);

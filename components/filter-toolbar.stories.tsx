@@ -2,6 +2,7 @@ import { Input, Label, TextField } from "@heroui/react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
 
+import { HashtagFilter } from "@/components/hashtag-filter";
 import { DEFAULT_DISCIPLINE_FILTER } from "@/lib/discipline-filter";
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
@@ -32,3 +33,39 @@ function FiltersExample() {
   );
 }
 export const Filters: Story = { render: () => <FiltersExample /> };
+
+function HashtagFiltersExample() {
+  const [filter, setFilter] = useState(DEFAULT_DISCIPLINE_FILTER);
+  const [tags, setTags] = useState<string[]>([]);
+  return (
+    <StoryPage
+      title="Hashtag toolbar"
+      description="Selected hashtags expand below the search fields."
+    >
+      <FilterToolbar
+        value={filter}
+        onChange={setFilter}
+        onReset={() => {
+          setFilter(DEFAULT_DISCIPLINE_FILTER);
+          setTags([]);
+        }}
+        search={
+          <>
+            <TextField aria-label="Search routes" className="w-full sm:w-64">
+              <Input placeholder="Search routes…" />
+            </TextField>
+          </>
+        }
+        extraFilters={
+          <HashtagFilter
+            inlineLabel
+            value={tags}
+            onChange={setTags}
+            tags={["power", "strength", "trip"]}
+          />
+        }
+      />
+    </StoryPage>
+  );
+}
+export const Hashtags: Story = { render: () => <HashtagFiltersExample /> };

@@ -9,7 +9,7 @@ export type JournalFilter = {
   date?: string;
   view: JournalView;
   query: string | null;
-  tag: string | null;
+  tags: string[];
   climbId: number | null;
   year: number | null;
 };
@@ -17,7 +17,7 @@ export type JournalFilter = {
 export const DEFAULT_JOURNAL_FILTER: JournalFilter = {
   view: "all",
   query: null,
-  tag: null,
+  tags: [],
   climbId: null,
   year: null,
 };
@@ -37,8 +37,7 @@ export function parseJournalFilter(params: SearchParamsRecord): JournalFilter {
     : DEFAULT_JOURNAL_FILTER.view;
 
   const query = normalizeQuery(toArray(params.q)[0] ?? "");
-  const normalizedTag = normalizeTag(toArray(params.tag)[0] ?? "");
-  const tag = isValidJournalTag(normalizedTag) ? normalizedTag : "";
+  const tags = [...new Set(toArray(params.tag).map(normalizeTag).filter(isValidJournalTag))];
 
   const climbId = Number(toArray(params.climbId)[0]);
   const year = Number(toArray(params.year)[0]);
@@ -48,7 +47,7 @@ export function parseJournalFilter(params: SearchParamsRecord): JournalFilter {
     ...(date && isRealIsoDate(date) ? { date } : {}),
     view,
     query: query || null,
-    tag: tag || null,
+    tags,
     climbId: Number.isInteger(climbId) && climbId > 0 ? climbId : null,
     year:
       Number.isInteger(year) && year >= MIN_JOURNAL_YEAR && year <= MAX_JOURNAL_YEAR ? year : null,
@@ -60,7 +59,7 @@ export function journalFilterToSearchParams(filter: JournalFilter): URLSearchPar
   if (filter.date) params.set("date", filter.date);
   if (filter.view !== DEFAULT_JOURNAL_FILTER.view) params.set("view", filter.view);
   if (filter.query) params.set("q", filter.query);
-  if (filter.tag) params.set("tag", filter.tag);
+  for (const tag of filter.tags) params.append("tag", tag);
   if (filter.climbId) params.set("climbId", String(filter.climbId));
   if (filter.year) params.set("year", String(filter.year));
   return params;

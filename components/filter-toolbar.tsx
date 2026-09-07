@@ -37,16 +37,46 @@ export function FilterToolbar<T extends DisciplineFilter>({
   extraFilters?: ReactNode;
 }) {
   return (
+    <FilterToolbarLayout
+      controls={
+        <>
+          {search}
+          <DisciplineChips
+            value={value.disciplines}
+            onChange={(disciplines) => onChange({ ...value, disciplines })}
+          />
+        </>
+      }
+      sortControl={sortControl}
+      filters={
+        <>
+          {extraFilters}
+          <DisciplineGradeSliders value={value} onChange={onChange} />
+        </>
+      }
+      onReset={onReset}
+    />
+  );
+}
+
+/** Shared disclosure, panel, and reset action for list filters. */
+export function FilterToolbarLayout({
+  controls,
+  sortControl,
+  filters,
+  onReset,
+}: {
+  controls: ReactNode;
+  sortControl?: ReactNode;
+  filters: ReactNode;
+  onReset: () => void;
+}) {
+  return (
     <Disclosure>
       {({ isExpanded }) => (
         <>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            {search}
-
-            <DisciplineChips
-              value={value.disciplines}
-              onChange={(disciplines) => onChange({ ...value, disciplines })}
-            />
+            {controls}
 
             {/* The disclosure and the sort travel together rather than the
              * sort being pushed off alone with ms-auto, which strands it
@@ -80,8 +110,7 @@ export function FilterToolbar<T extends DisciplineFilter>({
               {/* Its own surface, so the expanded filters read as one panel
                * belonging to the bar rather than loose page content. */}
               <div className={`mt-3 flex flex-col gap-4 ${cardClass("sm")}`}>
-                {extraFilters}
-                <DisciplineGradeSliders value={value} onChange={onChange} />
+                {filters}
                 {/* Separated footer so Reset reads as an action on the panel
                  * rather than one more filter in the stack. */}
                 <div className="flex justify-end border-t border-separator pt-3">
