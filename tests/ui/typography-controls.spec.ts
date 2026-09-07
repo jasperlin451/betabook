@@ -14,7 +14,8 @@ test("auth and recovery pages use the canonical page title", async ({ page }, in
     await expect(heading).toHaveCSS("font-family", /barlow/i);
     await expect(heading).toHaveCSS("font-weight", "600");
     await info.attach(title, {
-      body: await page.screenshot({ animations: "disabled" }),
+      // Hiding carets mutates SSR input styles and can race React hydration.
+      body: await page.screenshot({ animations: "disabled", caret: "initial" }),
       contentType: "image/png",
     });
   }
