@@ -95,10 +95,15 @@ describe("validateSendInput", () => {
     expect(validateSendInput("boulder", raw({ comment: "   " }), TODAY).comment).toBeNull();
   });
 
-  it("rejects a comment over the length limit", () => {
-    expect(() =>
-      validateSendInput("boulder", raw({ comment: "a".repeat(MAX_COMMENT_LENGTH + 1) }), TODAY),
-    ).toThrow(`${MAX_COMMENT_LENGTH} characters or fewer`);
+  it("accepts a 2,000-character comment without truncating it", () => {
+    const comment = "a".repeat(2000);
+    expect(validateSendInput("boulder", raw({ comment }), TODAY).comment).toBe(comment);
+  });
+
+  it("rejects a comment over 2,000 characters", () => {
+    expect(() => validateSendInput("boulder", raw({ comment: "a".repeat(2001) }), TODAY)).toThrow(
+      "2000 characters or fewer",
+    );
   });
 
   it("accepts a null rating (abstain)", () => {
