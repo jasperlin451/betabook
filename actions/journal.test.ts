@@ -333,6 +333,27 @@ describe("createJournalEntry", () => {
   });
 
   describe("an ascent", () => {
+    it("persists a 2,000-character note in both the journal and send", async () => {
+      const body = "x".repeat(2000);
+      expect(await createJournalEntry(ascentFormData({ body }))).toEqual({
+        ok: true,
+        value: undefined,
+      });
+      expect(await entriesFor("j-user")).toMatchObject([
+        { userId: "j-user", climbId: HIGHBALL, isAscent: true, body },
+      ]);
+      expect(await sendFor("j-user", HIGHBALL)).toMatchObject({ comment: body });
+    });
+
+    it("rejects a 2,001-character note without creating a journal entry or send", async () => {
+      expect(await createJournalEntry(ascentFormData({ body: "x".repeat(2001) }))).toEqual({
+        ok: false,
+        error: "Note is 2001 characters — the limit is 2,000",
+      });
+      expect(await entriesFor("j-user")).toEqual([]);
+      expect(await sendFor("j-user", HIGHBALL)).toBeUndefined();
+    });
+
     it("writes the entry and the send together", async () => {
       const result = await createJournalEntry(ascentFormData());
       expect(result.ok).toBe(true);
@@ -501,6 +522,28 @@ describe("updateJournalEntry", () => {
     expect(result.ok).toBe(true);
     expect((await entriesFor("j-user"))[0]?.body).toBe("After.");
     expect((await sendFor("j-user", HIGHBALL))?.comment).toBe("After.");
+  });
+
+  it("mirrors a 2,000-character edit and preserves both records when a longer edit is rejected", async () => {
+    expect((await createJournalEntry(ascentFormData({ body: "Before." }))).ok).toBe(true);
+    const [entry] = await entriesFor("j-user");
+    const body = "y".repeat(2000);
+
+    expect(await updateJournalEntry(entry.id, ascentFormData({ body }))).toEqual({
+      ok: true,
+      value: undefined,
+    });
+    const entriesBefore = await entriesFor("j-user");
+    const sendBefore = await sendFor("j-user", HIGHBALL);
+    expect(entriesBefore).toMatchObject([{ id: entry.id, isAscent: true, body }]);
+    expect(sendBefore).toMatchObject({ comment: body });
+
+    expect(await updateJournalEntry(entry.id, ascentFormData({ body: "z".repeat(2001) }))).toEqual({
+      ok: false,
+      error: "Note is 2001 characters — the limit is 2,000",
+    });
+    expect(await entriesFor("j-user")).toEqual(entriesBefore);
+    expect(await sendFor("j-user", HIGHBALL)).toEqual(sendBefore);
   });
 
   it("refuses somebody else's entry", async () => {

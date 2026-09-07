@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { ActionError } from "@/lib/action-result";
 import {
-  MAX_JOURNAL_BODY_LENGTH,
   MAX_JOURNAL_TAGS,
   MAX_JOURNAL_TAG_LENGTH,
   normalizeTag,
@@ -154,16 +153,20 @@ describe("validateJournalInput", () => {
     );
   });
 
-  it("accepts a 1,000-character note", () => {
-    const body = "x".repeat(1000);
-    expect(validateJournalInput(raw({ body }), TODAY).body).toBe(body);
-  });
+  describe.each(["session", "training"] as const)("%s notes", (kind) => {
+    const climbId = kind === "session" ? "7" : null;
 
-  it("rejects a note over 1,000 characters", () => {
-    const body = "x".repeat(MAX_JOURNAL_BODY_LENGTH + 1);
-    expect(() => validateJournalInput(raw({ body }), TODAY)).toThrow(
-      "Note is 1001 characters — the limit is 1,000",
-    );
+    it.each([1001, 2000])("accepts a %i-character note without truncating it", (length) => {
+      const body = "x".repeat(length);
+      expect(validateJournalInput(raw({ kind, climbId, body }), TODAY).body).toBe(body);
+    });
+
+    it("rejects a note over 2,000 characters", () => {
+      const body = "x".repeat(2001);
+      expect(() => validateJournalInput(raw({ kind, climbId, body }), TODAY)).toThrow(
+        "Note is 2001 characters — the limit is 2,000",
+      );
+    });
   });
 
   it("requires an entry date", () => {
