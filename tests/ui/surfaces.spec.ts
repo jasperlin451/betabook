@@ -1,12 +1,6 @@
-import { expect, test } from "@playwright/test";
-import type { Page, TestInfo } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
-async function openStory(page: Page, testInfo: TestInfo, story: string) {
-  const theme = testInfo.project.use.colorScheme ?? "light";
-  await page.goto(`/iframe.html?id=${story}&viewMode=story&globals=theme:${theme}`);
-  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-}
+import { expect, test, openStory } from "./story";
 
 async function tokenColor(page: Page, token: string) {
   return page.evaluate((name) => {
@@ -152,6 +146,10 @@ for (const panel of [
     await expect.soft(surface).toHaveCSS("padding", panel.padding);
     await expect(surface).toHaveCSS("box-shadow", "none");
     await expect(surface).toHaveCSS("border-radius", "12px");
-    await page.screenshot({ path: testInfo.outputPath("surface.png"), fullPage: true });
+    await page.screenshot({
+      path: testInfo.outputPath("surface.png"),
+      fullPage: true,
+      animations: "disabled",
+    });
   });
 }

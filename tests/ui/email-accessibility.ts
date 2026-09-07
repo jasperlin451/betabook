@@ -27,7 +27,7 @@ export async function auditEmailPreview(page: Page) {
       await Promise.all(Array.from(document.images, (image) => image.decode()));
     });
     return await new AxeBuilder({ page: emailPage })
-      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
   } finally {
     await emailPage.close();

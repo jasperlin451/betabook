@@ -167,6 +167,12 @@ workers. **UI reference** requires all four projects to pass; each project uploa
 its own `ui-reference-report-<project>` artifact. To run one project locally, use
 `pnpm test:ui --project=mobile-dark`.
 
+Story tests use shared theme/render readiness and a
+fixed date; live story API requests and unhandled browser errors fail the suite.
+Focused checks assert real component behavior and submitted form values.
+Viewport-independent artifact checks run once in desktop-light; visual and
+interactive coverage still runs across all four projects.
+
 The workflow lives in [`.github/workflows/chromatic.yml`](.github/workflows/chromatic.yml).
 After the first main-branch publish, connect the hosted project MCP server with
 `codex mcp login betabook-storybook` or Claude Code's `/mcp`. Each collaborator

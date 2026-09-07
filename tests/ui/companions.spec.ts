@@ -1,12 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, openStory } from "./story";
 
 test("friend-tag guidance is in a tooltip accessible by pointer and keyboard", async ({
   page,
 }, testInfo) => {
-  const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-  await page.goto(
-    `/iframe.html?id=components-journal-companion-picker--selection&viewMode=story&globals=theme:${theme}`,
-  );
+  await openStory(page, testInfo, `components-journal-companion-picker--selection`);
   const help = page.getByRole("button", { name: "About With friends", exact: true });
   const tooltip = page.getByRole("tooltip");
   await expect(help).toBeVisible();
@@ -25,7 +22,11 @@ test("friend-tag guidance is in a tooltip accessible by pointer and keyboard", a
   await expect(tooltip).toContainText("Changes replace all tags, including hidden ones.");
   await expect(tooltip).toHaveCSS("word-break", "normal");
   await expect(tooltip).toHaveCSS("opacity", "1");
-  await page.screenshot({ path: testInfo.outputPath("companion-help.png"), fullPage: true });
+  await page.screenshot({
+    path: testInfo.outputPath("companion-help.png"),
+    fullPage: true,
+    animations: "disabled",
+  });
   await page.mouse.move(0, 0);
   await page.getByRole("combobox").focus();
   await expect(tooltip).toBeHidden();
@@ -38,10 +39,7 @@ test("friend-tag guidance is in a tooltip accessible by pointer and keyboard", a
 
 for (const story of ["selection", "maximum"]) {
   test(`journal friend picker supports ${story}`, async ({ page }, testInfo) => {
-    const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-    await page.goto(
-      `/iframe.html?id=components-journal-companion-picker--${story}&viewMode=story&globals=theme:${theme}`,
-    );
+    await openStory(page, testInfo, `components-journal-companion-picker--${story}`);
     if (story === "maximum") {
       await expect(page.getByRole("status")).toContainText("All 10 places filled");
       await expect(page.getByRole("combobox")).toHaveCount(0);
@@ -63,7 +61,11 @@ for (const story of ["selection", "maximum"]) {
     }
     await expect(page.getByRole("listbox", { includeHidden: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Remove friend Alex Rivera" })).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath("selected-companions.png"), fullPage: true });
+    await page.screenshot({
+      path: testInfo.outputPath("selected-companions.png"),
+      fullPage: true,
+      animations: "disabled",
+    });
     await page.getByRole("button", { name: "Remove friend Alex Rivera" }).click();
     await expect(page.getByRole("button", { name: "Remove friend Alex Rivera" })).toHaveCount(0);
     // This explicit edit also works when all prior selections are now hidden.
@@ -80,10 +82,7 @@ for (const story of ["selection", "maximum"]) {
 test("friend suggestions follow the moved field when adding another friend", async ({
   page,
 }, testInfo) => {
-  const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-  await page.goto(
-    `/iframe.html?id=components-journal-companion-picker--selection&viewMode=story&globals=theme:${theme}`,
-  );
+  await openStory(page, testInfo, `components-journal-companion-picker--selection`);
   const input = page.getByRole("combobox", { name: "Find a friend to tag" });
   await input.fill("Alex");
   await page.getByRole("option", { name: "Alex Rivera", exact: true }).click();
@@ -102,6 +101,7 @@ test("friend suggestions follow the moved field when adding another friend", asy
   await page.screenshot({
     path: testInfo.outputPath("next-friend-suggestions.png"),
     fullPage: true,
+    animations: "disabled",
   });
   await page.getByRole("option", { name: "Sam With A Long Climbing Name", exact: true }).click();
   await expect(input).toHaveAttribute("aria-expanded", "false");
@@ -114,25 +114,30 @@ test("friend suggestions follow the moved field when adding another friend", asy
   await input.fill("");
   await expect(input).toHaveAttribute("aria-expanded", "false");
 });
-test("journal companion removal keeps the other companion visible", async ({ page }) => {
-  await page.goto("/iframe.html?id=components-journal-companion-list--companions&viewMode=story");
+test("journal companion removal keeps the other companion visible", async ({ page }, testInfo) => {
+  await openStory(page, testInfo, "components-journal-companion-list--companions");
   await page.getByRole("button", { name: "Remove my tag" }).click();
   await expect(page.getByText("With Alex Rivera", { exact: true })).toBeVisible();
   await expect(page.getByText("Sam With A Long Climbing Name")).toHaveCount(0);
 });
-test("friend lookup errors preserve selection and provide retry guidance", async ({ page }) => {
-  await page.goto(
-    "/iframe.html?id=components-journal-companion-picker--unavailable&viewMode=story",
-  );
+test("friend lookup errors preserve selection and recover on a new query", async ({
+  page,
+}, testInfo) => {
+  await openStory(page, testInfo, "components-journal-companion-picker--unavailable");
   await expect(
     page.getByRole("button", { name: "Remove friend Sam With A Long Climbing Name" }),
   ).toBeVisible();
-  await page.getByRole("combobox", { name: "Find a friend to tag" }).fill("Alex");
-  await expect(page.getByText("Couldn't load friends. Try typing again.")).toBeVisible();
-  await page.getByRole("combobox", { name: "Find a friend to tag" }).press("Tab");
   await expect(page.getByRole("alert")).toContainText("Couldn't load friends");
   await expect(page.getByRole("status")).toContainText("1 of 10");
   await expect(
     page.getByRole("button", { name: "Remove friend Sam With A Long Climbing Name" }),
   ).toBeVisible();
+  await page.getByRole("combobox", { name: "Find a friend to tag" }).fill("Alex R");
+  await page.getByRole("option", { name: "Alex Rivera", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Remove friend Alex Rivera" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Remove friend Sam With A Long Climbing Name" }),
+  ).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("2 of 10");
 });

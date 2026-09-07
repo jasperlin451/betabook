@@ -1,13 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, openStory } from "./story";
 
 test("production brand stories load the correct treatment and responsive home link", async ({
   page,
 }, testInfo) => {
   const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
   for (const variant of ["full-lockup", "compact", "navigation"]) {
-    await page.goto(
-      `/iframe.html?id=components-navigation-brand--${variant}&viewMode=story&globals=theme:${theme}`,
-    );
+    await openStory(page, testInfo, `components-navigation-brand--${variant}`);
     await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
     const images = page.locator("[data-brand] img:visible");
     const wideNavigation = variant === "navigation" && testInfo.project.name.startsWith("desktop");
@@ -43,9 +41,7 @@ test("production brand stories load the correct treatment and responsive home li
 
 test("home-screen helper uses the original compact brand", async ({ page }, testInfo) => {
   const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-  await page.goto(
-    `/iframe.html?id=components-feedback-mobile-app-helper--instructions&viewMode=story&globals=theme:${theme}`,
-  );
+  await openStory(page, testInfo, `components-feedback-mobile-app-helper--instructions`);
   const helper = page.getByRole("complementary", { name: "Add Betabook to Home Screen" });
   const icon = helper.locator('[data-brand="icon"]');
   await expect(icon).toHaveCSS("width", "48px");

@@ -1,11 +1,8 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, openStory } from "./story";
 
 for (const story of ["feed-day-card--activity-feed", "feed-group-card--shared-climb"]) {
   test(`${story} uses the app's climb, area, and grade layout`, async ({ page }, testInfo) => {
-    const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-    await page.goto(
-      `/iframe.html?id=components-journal-${story}&viewMode=story&globals=theme:${theme}`,
-    );
+    await openStory(page, testInfo, `components-journal-${story}`);
     const climb = page.getByRole("link", { name: "Cedar Arete", exact: true });
     const area = page.getByRole("link", { name: "Upper Boulders", exact: true });
     const root = page
@@ -36,6 +33,10 @@ for (const story of ["feed-day-card--activity-feed", "feed-group-card--shared-cl
     expect(gradeBox.x).toBeGreaterThan(climbBox.x + climbBox.width);
     await expect(page.getByText("Sent", { exact: true })).toHaveCount(0);
     await expect(page.getByText("Repeated", { exact: true })).toHaveCount(0);
-    await page.screenshot({ path: testInfo.outputPath("feed-card.png"), fullPage: true });
+    await page.screenshot({
+      path: testInfo.outputPath("feed-card.png"),
+      fullPage: true,
+      animations: "disabled",
+    });
   });
 }

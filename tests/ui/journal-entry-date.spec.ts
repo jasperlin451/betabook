@@ -1,18 +1,9 @@
-import { expect, test } from "@playwright/test";
-import type { Page, TestInfo } from "@playwright/test";
-
-async function openStory(page: Page, info: TestInfo, story: string) {
-  const theme = info.project.use.colorScheme;
-  await page.goto(
-    `/iframe.html?id=components-journal-entry-date--${story}&viewMode=story&globals=theme:${theme}`,
-  );
-  await expect(page.getByRole("heading", { name: "Entry date", exact: true })).toBeVisible();
-}
+import { expect, test, openStory } from "./story";
 
 test("unknown dates are discoverable before marking a send and reset when returning to a session", async ({
   page,
 }, info) => {
-  await openStory(page, info, "session");
+  await openStory(page, info, "components-journal-entry-date--session");
   const sent = page.getByRole("checkbox", { name: "I sent", exact: true });
   const unknown = page.getByRole("checkbox", { name: "I don't remember the date", exact: true });
   await expect(unknown).toBeVisible();
@@ -37,7 +28,7 @@ test("unknown dates are discoverable before marking a send and reset when return
   await expect(unknown).toBeChecked();
   await expect(date).toBeHidden();
   await info.attach("undated-send", {
-    body: await page.screenshot({ fullPage: true }),
+    body: await page.screenshot({ fullPage: true, animations: "disabled" }),
     contentType: "image/png",
   });
 
@@ -54,7 +45,7 @@ test("unknown dates are discoverable before marking a send and reset when return
 test("repeat and training date requirements are explained beside the date", async ({
   page,
 }, info) => {
-  await openStory(page, info, "repeat");
+  await openStory(page, info, "components-journal-entry-date--repeat");
   await expect(
     page.getByText("Sessions and repeats need a date to appear in your journal."),
   ).toBeVisible();
@@ -63,8 +54,25 @@ test("repeat and training date requirements are explained beside the date", asyn
   await expect(
     page.getByText("Sessions and repeats need a date to appear in your journal."),
   ).toBeVisible();
-  await openStory(page, info, "training");
+  await openStory(page, info, "components-journal-entry-date--training");
   await expect(
     page.getByText("Training entries need a date to appear in your journal."),
   ).toBeVisible();
 });
+
+for (const [story, guidance] of [
+  ["edit-ascent", "To change the ascent date, use Edit send on the climb page."],
+  ["edit-repeat", "To change this repeat’s date, delete the entry and log it again."],
+]) {
+  test(`${story} prevents changing the recorded date and explains where to edit it`, async ({
+    page,
+  }, info) => {
+    await openStory(page, info, `components-journal-entry-date--${story}`);
+    await expect(page.getByText(guidance, { exact: true })).toBeVisible();
+    await expect(page.getByRole("checkbox")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Calendar Date", exact: true })).toBeDisabled();
+    const day = page.getByRole("spinbutton", { name: "day, Date", exact: true });
+    await day.press("ArrowUp");
+    await expect(day).toHaveText("01");
+  });
+}

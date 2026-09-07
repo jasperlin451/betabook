@@ -1,47 +1,9 @@
 import { readFileSync } from "node:fs";
 
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
-import type { Page, TestInfo } from "@playwright/test";
 
 import { auditEmailPreview } from "./email-accessibility";
-
-async function openStory(page: Page, testInfo: TestInfo, story: string) {
-  const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-  await page.goto(
-    `/iframe.html?id=${story.includes("--") ? story : `foundations-brand-and-style--${story}`}&viewMode=story&globals=theme:${theme}`,
-  );
-  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  // This state is reached by the story's real keyboard interaction. Do not
-  // audit or capture its idle render if the play function hasn't completed.
-  if (story === "components-journal-tag-input--invalid") {
-    await expect(page.getByRole("alert")).toHaveText(
-      "Tags can only contain letters, numbers and hyphens.",
-    );
-  }
-  await page.evaluate(() => document.fonts.ready);
-  // The theme decorator can start color transitions on the first render.
-  // Inspect settled colors, not an intermediate light-to-dark blend; leave
-  // infinite loading animations alone so skeleton stories can still be checked.
-  await page.evaluate(() =>
-    Promise.all(
-      document
-        .getAnimations()
-        .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
-        // Chromium can leave finished promises pending inside closed details.
-        // Only rendered targets can affect the screenshot's settled colors.
-        .filter((animation) => {
-          const effect = animation.effect;
-          return (
-            !(effect instanceof KeyframeEffect && effect.target instanceof Element) ||
-            effect.target.checkVisibility()
-          );
-        })
-        .map((animation) => animation.finished.catch(() => {})),
-    ),
-  );
-}
+import { expect, test, openStory } from "./story";
 
 // The build is the authoritative story index. New stories inherit the same
 // accessibility, viewport and screenshot checks without a separate test list.
@@ -61,14 +23,13 @@ for (const story of stories) {
       expect(emailResults.violations).toEqual([]);
     }
     const results = await new AxeBuilder({ page })
-      .include("main")
       // Email documents are audited above. Their sandbox blocks the timers axe
       // needs, which can hang a recursive scan or silently discard frame results.
       // The default Playwright driver traverses frames even with iframes: false;
       // legacy mode delegates traversal to axe, which honors that option.
       .setLegacyMode(hasEmailPreview)
       .options({ iframes: !hasEmailPreview })
-      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
       .analyze();
     expect(results.violations).toEqual([]);
     const dimensions = await page.evaluate(() => ({
@@ -84,7 +45,7 @@ for (const story of stories) {
 }
 
 test("complete brand lockups load in both color treatments", async ({ page }, testInfo) => {
-  await openStory(page, testInfo, "foundations");
+  await openStory(page, testInfo, "foundations-brand-and-style--foundations");
   const logos = page.getByRole("img", {
     name: "Betabook — Climb · Log · Progress. A mountain turning into a checkmark, with a sun.",
   });
@@ -130,20 +91,23 @@ test("complete brand lockups load in both color treatments", async ({ page }, te
 });
 
 test("shared panel geometry and typography stay consistent", async ({ page }, testInfo) => {
-  await openStory(page, testInfo, "foundations");
-  const small = page.getByTestId("card-small");
-  const medium = page.getByTestId("card-medium");
-  await expect(small).toHaveCSS("border-radius", "12px");
-  await expect(medium).toHaveCSS("border-radius", "12px");
-  await expect(small).toHaveCSS("padding", "16px");
-  await expect(medium).toHaveCSS("padding", "24px");
-  await expect(small).toHaveCSS("box-shadow", "none");
-  const rows = page.getByTestId("climb-rows").locator(":scope > div");
-  await expect(rows).toHaveCount(2);
-  await expect(rows.first()).toHaveCSS("border-radius", "0px");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-family", /barlow/i);
-  await expect(page.getByText("V4", { exact: true }).first()).toHaveCSS("font-family", /geist/i);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveCSS("font-size", "30px");
+  await openStory(page, testInfo, "foundations-tokens--geometry");
+  for (const [size, padding] of [
+    ["sm", "16px"],
+    ["md", "24px"],
+    ["fluid", testInfo.project.name.startsWith("mobile") ? "16px" : "24px"],
+  ]) {
+    const panel = page
+      .locator(`[data-token="cardClass(${size}) · padding"]`)
+      .getByText("Panel content");
+    await expect(panel).toHaveCSS("padding", padding);
+    await expect(panel).toHaveCSS("border-radius", "12px");
+    await expect(panel).toHaveCSS("box-shadow", "none");
+  }
+  const heading = page.getByRole("heading", { level: 1 });
+  await expect(heading).toHaveCSS("font-family", /barlow/i);
+  await expect(heading).toHaveCSS("font-size", "30px");
+  await expect(heading).toHaveCSS("font-weight", "600");
 });
 
 for (const panel of [
@@ -213,7 +177,7 @@ test("delete dialog supports keyboard cancellation and explicit confirmation", a
   await expect(dialog).toContainText("Delete this send?");
   const results = await new AxeBuilder({ page })
     .include('[role="alertdialog"]')
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
   expect(results.violations).toEqual([]);
   // Alert dialogs intentionally require an explicit choice; HeroUI disables
@@ -270,7 +234,7 @@ test("actions menu keeps actions local and returns focus", async ({ page }, test
   await expect(page.getByRole("menu")).toBeVisible();
   const result = await new AxeBuilder({ page })
     .include('[role="menu"]')
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
   expect(result.violations).toEqual([]);
   await page.getByRole("menuitem", { name: "Edit climb" }).click();
@@ -278,67 +242,32 @@ test("actions menu keeps actions local and returns focus", async ({ page }, test
   await expect(trigger).toBeFocused();
 });
 
-test("long comments expand and collapse", async ({ page }, testInfo) => {
-  await openStory(page, testInfo, "patterns-climbing-data--rows-and-comments");
-  const expand = page.getByRole("button", { name: "Show more" });
-  await expand.click();
-  await expect(page.getByRole("button", { name: "Show less" })).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
-  await page.getByRole("button", { name: "Show less" }).click();
-  await expect(expand).toHaveAttribute("aria-expanded", "false");
-});
-
-test("journal tags add, reject invalid input, and remove", async ({ page }, testInfo) => {
-  await openStory(page, testInfo, "components-journal-tag-input--journal-tags");
-  const input = page.getByRole("textbox", { name: "Add a tag" });
-  await input.fill("hangboard");
-  await input.press("Enter");
-  const tag = page.getByRole("button", { name: "Remove tag hangboard" });
-  await expect(tag).toBeVisible();
-  await input.fill("bad!");
-  await input.press("Enter");
-  await expect(input).toHaveAttribute("aria-invalid", "true");
-  await expect(page.getByRole("button", { name: "Remove tag bad!" })).toHaveCount(0);
-  await input.fill("");
-  await tag.click();
-  await expect(tag).toHaveCount(0);
-});
-
-test("coverage links open the selected story in the Storybook manager", async ({
+test("long comments reveal the clipped text and collapse back to two lines", async ({
   page,
 }, testInfo) => {
-  await openStory(page, testInfo, "internal-coverage--inventory");
-  await page
-    .locator("li")
-    .filter({ hasText: "ui/actions-menu.tsx" })
-    .getByRole("link", { name: "View example" })
-    .click();
-  await expect(page).toHaveURL(/\/\?path=\/story\/components-navigation-actions-menu--actions$/);
-  await expect(
-    page.frameLocator("#storybook-preview-iframe").getByRole("heading", { name: "Actions menu" }),
-  ).toBeVisible();
-});
-
-test("MCP component manifest includes usable component documentation", async ({ request }) => {
-  const response = await request.get("/manifests/components.json");
-  expect(response.ok()).toBe(true);
-  const manifest = (await response.json()) as {
-    components: Record<string, { name: string; error?: unknown; stories: unknown[] }>;
-  };
-  const components = Object.values(manifest.components);
-  expect(components.map((component) => component.name)).toEqual(
-    expect.arrayContaining([
-      "SearchCombobox",
-      "ListRow",
-      "PrivacyFields",
-      "ColorPage",
-      "CoveragePage",
-    ]),
-  );
-  for (const component of components) {
-    expect(component.error, component.name).toBeUndefined();
-    expect(component.stories.length, component.name).toBeGreaterThan(0);
-  }
+  await openStory(page, testInfo, "components-data-display-clamped-comment--long");
+  const expand = page.getByRole("button", { name: "Show more" });
+  const id = await expand.getAttribute("aria-controls");
+  expect(id).toBeTruthy();
+  const paragraph = page.locator(`[id="${id}"]`);
+  const collapsed = await paragraph.evaluate((node) => ({
+    height: node.clientHeight,
+    full: node.scrollHeight,
+  }));
+  expect(collapsed.full).toBeGreaterThan(collapsed.height + 1);
+  await expand.press("Enter");
+  const collapse = page.getByRole("button", { name: "Show less" });
+  await expect(collapse).toHaveAttribute("aria-expanded", "true");
+  await expect
+    .poll(() => paragraph.evaluate((node) => node.clientHeight))
+    .toBeGreaterThan(collapsed.height);
+  expect(
+    await paragraph.evaluate((node) => node.scrollHeight - node.clientHeight),
+  ).toBeLessThanOrEqual(1);
+  await collapse.press("Enter");
+  await expect(expand).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(() => paragraph.evaluate((node) => node.clientHeight)).toBe(collapsed.height);
+  await openStory(page, testInfo, "components-data-display-clamped-comment--short");
+  await expect(page.getByText("A short note.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show more" })).toHaveCount(0);
 });
