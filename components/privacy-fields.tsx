@@ -61,7 +61,7 @@ export function PrivacyFields({
         />
         <AudienceField
           label="Journal entries"
-          description="Sessions, repeats, training, and journal tags. Commentary on original sends uses the setting above."
+          description="Sessions, repeats, training, and journal tags. Also limits who sees you tagged in a friend’s entry; its author can see their own selection. Commentary on original sends uses the setting above."
           value={isPrivate ? "private" : journalVisibility}
           onChange={onJournalChange}
           disabled={isPrivate || isPending}

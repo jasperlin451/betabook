@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 
+import { FeedActivityOutcome, FeedCardHeader } from "@/components/feed-card-content";
 import { FriendRequestBadge } from "@/components/friend-request-badge";
 import { FriendshipActionButton } from "@/components/friendship-action-button";
 import { ProfileSectionNav } from "@/components/profile-tabs";
 import { cardClass } from "@/components/ui/card";
 import { choicePillClass } from "@/components/ui/choice-pill";
+import { Grade } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
 import { SectionHeading } from "@/components/ui/typography";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { formatDate } from "@/lib/format-date";
 import { TOUR_DEMO_FRIEND_DAY, TOUR_DEMO_PEOPLE } from "@/lib/product-tour-demo";
 
 /** Sample interactions stay in this component; no friendship actions or profile links. */
@@ -105,7 +106,7 @@ export function DemoFriends({
 export function DemoFeed() {
   const [view, setView] = useState<"All" | "Sends">("All");
   const day = TOUR_DEMO_FRIEND_DAY;
-  const entries = day.entries.filter((entry) => view === "All" || entry.outcome === "Sent");
+  const entries = day.entries.filter((entry) => view === "All" || entry.kind === "send");
   return (
     <section aria-label="Friends' activity" className="flex w-full flex-col gap-3">
       <SectionHeading>Feed</SectionHeading>
@@ -124,25 +125,25 @@ export function DemoFeed() {
           ))}
         </div>
         <article className={`overflow-hidden ${cardClass("none", "bordered")}`}>
-          <header className="flex items-center gap-3 border-b border-separator p-4">
-            <UserAvatar name={day.name} size="sm" />
-            <div className="min-w-0 flex-1">
-              <h3 className="font-semibold">{day.name}</h3>
-              <p role="status" className="text-sm text-muted">
-                {view === "All" ? "1 send · 1 session · 1 training entry" : "1 send"}
-              </p>
-            </div>
-            <time dateTime={day.date} className="shrink-0 text-xs text-muted">
-              {formatDate(day.date)}
-            </time>
-          </header>
+          <FeedCardHeader
+            authors={[{ id: "tour-friend", name: day.name }]}
+            date={day.date}
+            activityCount={entries.length}
+            profileLinks={false}
+          />
           <div className="divide-y divide-separator">
             {entries.map((entry) => (
               <ListRow
                 key={entry.id}
                 title={entry.climb?.name ?? "Training"}
-                subtitle={entry.outcome === "Session" ? "Climbed on" : entry.outcome}
-                meta={entry.climb?.grade}
+                trailing={
+                  entry.climb ? (
+                    <div className="flex flex-col items-end gap-1 text-sm">
+                      <Grade>{entry.climb.grade}</Grade>
+                      <FeedActivityOutcome activity={entry} />
+                    </div>
+                  ) : undefined
+                }
                 comment={entry.note}
               />
             ))}

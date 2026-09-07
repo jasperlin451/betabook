@@ -74,10 +74,17 @@ test("surface rules: tutorial feed matches production and keeps filters local", 
   await expect(card).toHaveCSS("padding", styles.padding);
   await expect(card).toHaveCSS("box-shadow", styles.shadow);
   await expect(card.locator("header")).toHaveCSS("padding", "16px");
+  await expect(card.locator("header")).toContainText("3 activities");
+  await expect(card.getByText("Flash", { exact: true })).toHaveCount(1);
+  await expect(card.getByText("Session", { exact: true })).toHaveCount(1);
+  await expect(card.getByText("Training", { exact: true })).toHaveCount(1);
+  await expect(card).not.toContainText("Climbed on");
+  await expect(card.getByText("Sent", { exact: true })).toHaveCount(0);
   await expect(card).toContainText("Training");
   await page.getByRole("button", { name: "Sends", exact: true }).click();
   await expect(card).toContainText("Moss Ladder");
   await expect(card).not.toContainText("Training");
+  await expect(card.locator("header")).toContainText("1 activity");
   await expect(card.getByRole("link")).toHaveCount(0);
 });
 

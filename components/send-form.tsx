@@ -13,6 +13,7 @@ import {
 } from "@/components/send-fields";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { DatePickerField } from "@/components/ui/date-picker-field";
+import { HelpTooltip } from "@/components/ui/help-tooltip";
 import type { EditableSend, SendableClimb } from "@/db/queries";
 import { MAX_COMMENT_LENGTH, type AscentStyle, type GradeFeel } from "@/lib/sends";
 
@@ -90,16 +91,17 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
 
       <FormSection label="Send commentary">
         <TextField value={comment} onChange={setComment}>
-          <Label>Comment</Label>
+          <div className="flex items-center gap-1">
+            <Label>Comment</Label>
+            <HelpTooltip label="About Send commentary">
+              Uses your Send commentary audience wherever this note appears.
+            </HelpTooltip>
+          </div>
           <TextArea maxLength={MAX_COMMENT_LENGTH} placeholder="How'd it go?" />
           <p className="mt-1 text-xs text-muted">
             {MAX_COMMENT_LENGTH - comment.length} characters left
           </p>
         </TextField>
-        <p className="text-xs text-muted">
-          Uses your Send commentary audience wherever this note appears. Other journal notes have a
-          separate audience.
-        </p>
       </FormSection>
 
       {error && <p className="text-sm text-danger">{error}</p>}

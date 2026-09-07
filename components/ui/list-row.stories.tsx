@@ -31,3 +31,13 @@ export const LongContent: Story = {
     trailing: <Grade>5.11a</Grade>,
   },
 };
+export const AuthoredUpdate: Story = {
+  args: {
+    title: "Alex Rivera with a long display name",
+    wrapTitle: true,
+    subtitle: undefined,
+    trailing: undefined,
+    meta: "Session",
+    comment: "Found a comfortable high foot after working the opening moves.",
+  },
+};

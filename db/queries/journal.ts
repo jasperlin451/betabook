@@ -4,9 +4,11 @@ import type { Database } from "@/db/client";
 import { journalEntries } from "@/db/schema";
 import type { ClimbType } from "@/lib/grades";
 import type { JournalKind } from "@/lib/journal";
+import type { JournalCompanion } from "@/lib/journal-companions";
 import type { JournalFilter, JournalView } from "@/lib/journal-filter";
 
 import { journalVisibleSql, sendCommentVisibleSql } from "./content-access";
+import { companionsJsonSql } from "./journal-companions";
 
 export type JournalEntry = {
   id: number;
@@ -16,6 +18,7 @@ export type JournalEntry = {
   entryDate: string;
   body: string | null;
   tags: string[];
+  companions?: JournalCompanion[];
   climbName: string | null;
   climbType: ClimbType | null;
   climbGrade: number | null;
@@ -43,6 +46,7 @@ type JournalEntryRow = {
   entryDate: string;
   body: string | null;
   tags: string | null;
+  companions: string;
   climbName: string | null;
   climbType: ClimbType | null;
   climbGrade: number | null;
@@ -55,6 +59,7 @@ type JournalEntryRow = {
 function toJournalEntry(row: JournalEntryRow): JournalEntry {
   return {
     ...row,
+    companions: JSON.parse(row.companions) as JournalCompanion[],
     sent: row.sent === 1,
     isAscent: row.isAscent === 1,
     isSendComment: row.isSendComment === 1,
@@ -125,6 +130,7 @@ function journalEntrySelect(viewerId: string | null): SQL {
       j.entry_date AS entryDate,
       ${visibleBody(viewerId)} AS body,
       j.tags AS tags,
+      ${companionsJsonSql(viewerId, sql`j.id`)} AS companions,
       climbs.name AS climbName,
       climbs.type AS climbType,
       climbs.grade AS climbGrade,

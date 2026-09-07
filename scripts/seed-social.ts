@@ -77,7 +77,106 @@ export function seedSocialData(db: DatabaseSync, viewerId: string): number {
     }
     if ([1, 2, 3, 4, 6, 7, 8, 10].includes(number)) addDay(db, person.id);
   }
+  addCompanionScenarios(db, users, viewerId);
   return total;
+}
+
+function addCompanionScenarios(
+  db: DatabaseSync,
+  users: { id: string; email: string }[],
+  viewerId: string,
+) {
+  const person = (number: number) =>
+    users.find((row) => row.email === `climber${number}@example.com` && row.id !== viewerId);
+  const first = person(1);
+  const second = person(2);
+  if (!first || !second) return;
+  const sharedArea = db
+    .prepare(
+      "SELECT c.area_id FROM climbs c WHERE NOT EXISTS (SELECT 1 FROM areas child WHERE child.parent_id = c.area_id) GROUP BY c.area_id HAVING count(*) >= 2 ORDER BY c.area_id LIMIT 1",
+    )
+    .get() as { area_id: number } | undefined;
+  // Tiny seeds may not contain two climbs in one leaf area. Their existing
+  // mixed-day fixtures remain useful without these additional comparisons.
+  if (!sharedArea) return;
+  const climbs = db
+    .prepare("SELECT id FROM climbs WHERE area_id = ? ORDER BY id LIMIT 2")
+    .all(sharedArea.area_id) as { id: number }[];
+  const [sharedClimb, unrelatedClimb] = climbs;
+  const findEntry = db.prepare(
+    "SELECT id FROM journal_entries WHERE user_id = ? AND entry_date = ? AND tags = ? ORDER BY id LIMIT 1",
+  );
+  const insertEntry = db.prepare(
+    "INSERT INTO journal_entries (user_id, climb_id, kind, sent, is_ascent, entry_date, body, tags) VALUES (?, ?, ?, 0, 0, ?, ?, ?) RETURNING id",
+  );
+  const insertCompanion = db.prepare(
+    "INSERT INTO journal_companions (entry_id, user_id, friendship_user_id, friendship_friend_id) VALUES (?, ?, ?, ?) ON CONFLICT (entry_id, user_id) DO NOTHING",
+  );
+  const date = "2026-09-02";
+  function addEntry(
+    authorId: string,
+    scenario: string,
+    climbId: number | null,
+    note: string,
+    companionId?: string,
+  ) {
+    const tags = JSON.stringify(["companion-demo", scenario]);
+    const existing = findEntry.get(authorId, date, tags) as { id: number } | undefined;
+    const entry =
+      existing ??
+      (insertEntry.get(
+        authorId,
+        climbId,
+        climbId === null ? "training" : "session",
+        date,
+        note,
+        tags,
+      ) as { id: number });
+    // Every social refresh resets synthetic friendships, cascading old tags.
+    // Reattach these explicit fixture tags even when their entry already exists.
+    if (companionId) {
+      const [a, b] = authorId < companionId ? [authorId, companionId] : [companionId, authorId];
+      insertCompanion.run(entry.id, companionId, a, b);
+    }
+  }
+  addEntry(
+    first.id,
+    "connected-outdoor",
+    sharedClimb.id,
+    "Worked the opening moves with a friend.",
+    second.id,
+  );
+  addEntry(
+    second.id,
+    "connected-outdoor",
+    sharedClimb.id,
+    "Tried another sequence on the same climb.",
+  );
+  addEntry(
+    first.id,
+    "unrelated-outdoor",
+    unrelatedClimb.id,
+    "A separate session on another climb in this area.",
+  );
+  addEntry(first.id, "connected-training", null, "Easy mobility and shoulder work.");
+  addEntry(
+    second.id,
+    "connected-training",
+    null,
+    "A short strength session with a friend.",
+    first.id,
+  );
+  for (const number of [3, 4]) {
+    const hidden = person(number);
+    if (hidden)
+      addEntry(
+        hidden.id,
+        "hidden-outdoor",
+        sharedClimb.id,
+        "A session whose journal or profile is private.",
+        first.id,
+      );
+  }
 }
 
 function addDay(db: DatabaseSync, userId: string) {

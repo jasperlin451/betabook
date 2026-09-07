@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, expect, it } from "vitest";
 
 import { createDb } from "@/db/client";
-import { friendships, journalEntries, sends, user } from "@/db/schema";
+import { areas, climbs, friendships, journalEntries, sends, user } from "@/db/schema";
 import { DEFAULT_JOURNAL_FILTER } from "@/lib/journal-filter";
 import { DEFAULT_USER_SENDS_FILTER } from "@/lib/user-sends-filter";
 import {
@@ -12,7 +12,9 @@ import {
   seedFixtureSend,
   seedFixtureTree,
   seedFixtureUser,
+  seedManyAreas,
 } from "@/test/fixtures";
+import { explainQueries } from "@/test/query-plans";
 import { resetDb } from "@/test/reset-db";
 
 import { getFeedPage } from "./feed";
@@ -99,6 +101,53 @@ it("returns connected public climber/day groups, deduplicates ascents, and bound
   expect(JSON.stringify(page)).not.toContain("quiet training note");
   expect(JSON.stringify(page)).not.toContain("Undated");
 });
+
+it.each(["all", "sends"] as const)(
+  "returns the nearest two area ancestors in %s previews with indexed lookups",
+  async (view) => {
+    await db.insert(areas).values({ id: 10, name: "Test Region" });
+    await db.update(areas).set({ parentId: 10 }).where(eq(areas.id, 1));
+    await db.update(climbs).set({ areaId: 1 }).where(eq(climbs.id, 3));
+    await db.update(climbs).set({ areaId: 10 }).where(eq(climbs.id, 4));
+    for (const climbId of [3, 4]) {
+      await seedFixtureSend(db, { userId: "public", climbId, dateSent: "2026-09-02" });
+    }
+    await seedFixtureJournalEntry(db, {
+      userId: "public",
+      kind: "training",
+      entryDate: "2026-09-03",
+      body: "Mobility",
+    });
+
+    const page = await getFeedPage(db, "viewer", view);
+    expect(page.days.find((day) => day.userId === "quiet")?.activities).toMatchObject([
+      {
+        climbId: 1,
+        areaId: 4,
+        areaName: "Test Highball Alcove",
+        areaAncestors: [
+          { id: 1, name: "Test Crag" },
+          { id: 2, name: "Test Boulders" },
+        ],
+      },
+    ]);
+    expect(page.days.find((day) => day.date === "2026-09-02")?.activities).toMatchObject([
+      { climbId: 3, areaId: 1, areaAncestors: [{ id: 10, name: "Test Region" }] },
+      { climbId: 4, areaId: 10, areaAncestors: [] },
+    ]);
+    expect(page.days.filter((day) => day.date === "2026-09-03")).toMatchObject(
+      view === "all" ? [{ activities: [{ kind: "training", areaAncestors: [] }] }] : [],
+    );
+
+    await seedManyAreas(db, 200, 100);
+    expect(await getFeedPage(db, "viewer", view)).toEqual(page);
+    const plans = await explainQueries(db, () => getFeedPage(db, "viewer", view));
+    expect(plans).toHaveLength(1);
+    const details = plans[0].map((row) => row.detail).join("\n");
+    expect(details).toMatch(/SEARCH area_parent USING INTEGER PRIMARY KEY/);
+    expect(details).toMatch(/SEARCH area_grandparent USING INTEGER PRIMARY KEY/);
+  },
+);
 
 it("pages whole days across tied dates without missing or duplicating climbers", async () => {
   const first = await getFeedPage(db, "viewer", "all", null, 1);

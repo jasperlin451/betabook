@@ -26,24 +26,27 @@ export const TOUR_DEMO_FRIEND_DAY = {
   entries: [
     {
       id: "friend-send",
-      outcome: "Sent",
+      kind: "send",
+      ascentStyle: "flash",
       climb: climbs.flash,
       note: "Flashed it. The right heel hook helped.",
     },
     {
       id: "friend-session",
-      outcome: "Session",
+      kind: "session",
+      ascentStyle: null,
       climb: climbs.project,
       note: "Kept the left foot on through the crux.",
     },
     {
       id: "friend-training",
-      outcome: "Training",
+      kind: "training",
+      ascentStyle: null,
       climb: null,
       note: "Easy mobility after climbing.",
     },
   ],
-};
+} as const;
 
 type DemoEntry = {
   id: string;
