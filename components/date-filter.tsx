@@ -9,7 +9,7 @@ import { OptionSelect } from "@/components/ui/option-select";
 import { datePresetFilter, type DateFilterValue, type RelativeDatePreset } from "@/lib/date-filter";
 
 const OPTIONS = [
-  { value: "any", label: "Any" },
+  { value: "any", label: "All time" },
   { value: "this-month", label: "This month" },
   { value: "this-year", label: "This year" },
   { value: "last-year", label: "Last year" },

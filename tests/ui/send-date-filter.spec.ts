@@ -13,10 +13,10 @@ async function choose(page: Page, option: string) {
   await page.getByRole("option", { name: option, exact: true }).click();
 }
 
-test("Dates defaults to Any and applies calendar presets", async ({ page }, testInfo) => {
+test("Dates defaults to All time and applies calendar presets", async ({ page }, testInfo) => {
   await openDates(page, testInfo);
   const dates = page.getByRole("status", { name: "Selected dates" });
-  await expect(page.getByRole("button", { name: "Any Dates" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "All time Dates" })).toBeVisible();
   await expect(page.getByRole("spinbutton")).toHaveCount(0);
   for (const [label, preset, start, end] of [
     ["This month", "this-month", "2026-09-01", "2026-09-30"],
@@ -29,7 +29,7 @@ test("Dates defaults to Any and applies calendar presets", async ({ page }, test
     );
     await expect(page.getByRole("spinbutton")).toHaveCount(0);
   }
-  await choose(page, "Any");
+  await choose(page, "All time");
   await expect(dates).toHaveText("{}");
 });
 
@@ -56,7 +56,7 @@ test("custom dates accept typing, validate order, and support a single day", asy
   await segments.nth(4).fill("1");
   await segments.nth(5).fill("2025");
   await expect(dates).toHaveText('{"date":"2025-06-01"}');
-  await choose(page, "Any");
+  await choose(page, "All time");
   await expect(dates).toHaveText("{}");
   await expect(segments).toHaveCount(0);
 });

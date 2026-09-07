@@ -21,7 +21,7 @@ function Example({ initial = EMPTY_DATES }: { initial?: DateFilterValue }) {
     </StoryPage>
   );
 }
-export const Any: Story = { render: () => <Example /> };
+export const Any: Story = { name: "All time", render: () => <Example /> };
 export const SpecificDay: Story = { render: () => <Example initial={{ date: "2025-06-01" }} /> };
 export const DateRange: Story = {
   render: () => <Example initial={{ dateFrom: "2025-06-01", dateTo: "2025-08-31" }} />,
