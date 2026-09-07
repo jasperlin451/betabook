@@ -284,9 +284,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         <section className={cardClass("fluid")}>
           <div className="mb-4 flex flex-col gap-1">
             <Eyebrow>Breakthroughs</Eyebrow>
-            <p className="text-xs text-muted">
-              Every send that raised the ceiling, and the wait before it.
-            </p>
+            <p className="text-xs text-muted">New highest grades and the time between them.</p>
           </div>
           {analytics.breakthroughs.length === 0 ? (
             <p className="text-sm text-muted">
