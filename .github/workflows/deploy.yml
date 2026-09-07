@@ -63,10 +63,14 @@ jobs:
       - name: Build
         run: pnpm exec opennextjs-cloudflare build
 
-  ui:
-    name: UI reference
+  ui-tests:
+    name: UI (${{ matrix.project }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop-light, desktop-dark, mobile-light, mobile-dark]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/setup@v2.1.0
@@ -78,17 +82,31 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Prepare local app environment
         run: cp .dev.vars.example .dev.vars
+      - name: Build component gallery
+        run: pnpm storybook:build
       - name: Check component gallery and app branding
-        run: pnpm test:ui
+        run: pnpm exec playwright test --project=${{ matrix.project }}
       - name: Upload UI report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ui-reference-report
+          name: ui-reference-report-${{ matrix.project }}
           path: |
             playwright-report/
             test-results/
           retention-days: 14
+
+  ui:
+    name: UI reference
+    needs: [ui-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Require every viewport and theme to pass
+        env:
+          UI_RESULT: ${{ needs.ui-tests.result }}
+        run: test "$UI_RESULT" = success
 
   deploy:
     name: Deploy

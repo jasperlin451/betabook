@@ -162,6 +162,10 @@ The shared Storybook preview also sets `chromatic.disableSnapshot: true` to prev
 captures. There are no Chromatic visual baselines or review approvals to maintain.
 Require **Test & Build** and **UI reference** for PRs; publishing is advisory and
 fork PRs need no Chromatic secret.
+CI runs each viewport/theme project on a separate runner with two Playwright
+workers. **UI reference** requires all four projects to pass; each project uploads
+its own `ui-reference-report-<project>` artifact. To run one project locally, use
+`pnpm test:ui --project=mobile-dark`.
 
 The workflow lives in [`.github/workflows/chromatic.yml`](.github/workflows/chromatic.yml).
 After the first main-branch publish, connect the hosted project MCP server with
