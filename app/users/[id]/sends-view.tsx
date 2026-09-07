@@ -71,13 +71,16 @@ export async function SendsView({
       <SidebarLayout sidebar={<StatStrip cards={statCards} />}>
         <div className="flex flex-col gap-3">
           <SectionHeading>Sends</SectionHeading>
-          {filter.date && (
+          {(filter.date || filter.dateFrom || filter.dateTo) && (
             <p className="text-sm text-muted">
-              {formatDate(filter.date)} ·{" "}
+              {filter.date
+                ? formatDate(filter.date)
+                : `${filter.dateFrom ? formatDate(filter.dateFrom) : "Any time"} – ${filter.dateTo ? formatDate(filter.dateTo) : "Any time"}`}{" "}
+              ·{" "}
               <AppLink
-                href={`${basePath}?${userSendsFilterToSearchParams({ ...filter, date: undefined })}`}
+                href={`${basePath}?${userSendsFilterToSearchParams({ ...filter, date: undefined, dateFrom: undefined, dateTo: undefined, datePreset: undefined })}`}
               >
-                Clear day filter
+                Clear date filter
               </AppLink>
             </p>
           )}

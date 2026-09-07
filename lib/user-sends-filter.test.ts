@@ -53,3 +53,29 @@ describe("user sends filter serialization", () => {
     expect(reserialize(params)).toBe(params.toString());
   });
 });
+
+describe("send date filters", () => {
+  it("round-trips inclusive date ranges", () => {
+    const params = new URLSearchParams("dateFrom=2026-06-01&dateTo=2026-06-03");
+    const filter = parseUserSendsFilter(searchParamsToRecord(params));
+    expect(filter).toMatchObject({ dateFrom: "2026-06-01", dateTo: "2026-06-03" });
+    expect(userSendsFilterToSearchParams(filter).get("dateFrom")).toBe("2026-06-01");
+    expect(userSendsFilterToSearchParams(filter).get("dateTo")).toBe("2026-06-03");
+  });
+  it("normalizes reversed ranges and ignores invalid dates", () => {
+    expect(parseUserSendsFilter({ dateFrom: "2026-06-03", dateTo: "2026-06-01" })).toMatchObject({
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-03",
+    });
+    expect(parseUserSendsFilter({ dateFrom: "2026-02-30", dateTo: "bad" })).not.toHaveProperty(
+      "dateFrom",
+    );
+  });
+  it("preserves single-day links in preference to a range", () => {
+    const params = userSendsFilterToSearchParams(
+      parseUserSendsFilter({ date: "2026-06-02", dateFrom: "2026-06-01" }),
+    );
+    expect(params.get("date")).toBe("2026-06-02");
+    expect(params.has("dateFrom")).toBe(false);
+  });
+});

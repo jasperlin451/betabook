@@ -10,6 +10,7 @@ const examples: Record<string, string> = {
   "brand.tsx": "components-navigation-brand--navigation",
   "mobile-app-helper-panel.tsx": "components-feedback-mobile-app-helper--instructions",
   "send-fields.tsx": "patterns-send-details--send-details",
+  "date-filter.tsx": "components-inputs-date-filter--date-range",
   "filter-toolbar.tsx": "components-inputs-filter-toolbar--filters",
   "discipline-chips.tsx": "components-inputs-filter-toolbar--filters",
   "discipline-grade-sliders.tsx": "components-inputs-filter-toolbar--filters",

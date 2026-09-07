@@ -2,6 +2,7 @@ import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
 import { areas, climbs, sends, user } from "@/db/schema";
+import type { DateFilterValue } from "@/lib/date-filter";
 import {
   DEFAULT_BOULDER_RANGE,
   DEFAULT_SPORT_RANGE,
@@ -170,14 +171,14 @@ export type UserSendsSort =
   | "rating_desc"
   | "rating_asc";
 
-export type UserSendsFilter = DisciplineFilter & {
-  date?: string;
-  name?: string;
-  areaName?: string;
-  sort?: UserSendsSort;
-  ascentStyles: AscentStyle[];
-  minRating: number;
-};
+export type UserSendsFilter = DisciplineFilter &
+  DateFilterValue & {
+    name?: string;
+    areaName?: string;
+    sort?: UserSendsSort;
+    ascentStyles: AscentStyle[];
+    minRating: number;
+  };
 
 // Unknown values sort last. ID breaks ties in the paginated query.
 const USER_SENDS_ORDER_BY: Record<UserSendsSort, SQL> = {
@@ -217,6 +218,10 @@ function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
 
   const conditions: SQL[] = [sql`sends.user_id = ${userId}`, disciplineWhere];
   if (filter.date) conditions.push(sql`sends.date_sent = ${filter.date}`);
+  else {
+    if (filter.dateFrom) conditions.push(sql`sends.date_sent >= ${filter.dateFrom}`);
+    if (filter.dateTo) conditions.push(sql`sends.date_sent <= ${filter.dateTo}`);
+  }
 
   if (filter.ascentStyles.length > 0) {
     conditions.push(

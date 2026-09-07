@@ -17,7 +17,13 @@ function DateExamples() {
   const [date, setDate] = useState("");
   return (
     <StoryPage title="Date field states">
-      <DatePickerField label="Empty date" value={date} onChange={setDate} max="2026-09-06" />
+      <DatePickerField
+        label="Empty date"
+        value={date}
+        onChange={setDate}
+        max="2026-09-06"
+        description="Type a date or choose one from the calendar."
+      />
       <DatePickerField label="Read-only date" value="2026-09-01" onChange={() => {}} isReadOnly />
       <Button variant="outline" onPress={() => setDate("")}>
         Clear date

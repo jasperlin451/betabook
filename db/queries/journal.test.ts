@@ -391,3 +391,22 @@ describe("the timeline's query plan", () => {
     expect(detail).not.toContain("TEMP B-TREE");
   });
 });
+
+describe("journal date ranges", () => {
+  it("includes boundary sessions and keeps the range when paging", async () => {
+    const dates = { dateFrom: "2025-03-05", dateTo: "2025-04-01" };
+    const first = await getJournalPage(db, OWNER_ID, OWNER_ID, filter(dates), null, 2);
+    expect(first.entries.map((entry) => entry.entryDate)).toEqual(["2025-04-01", "2025-03-06"]);
+    expect(first.hasMore).toBe(true);
+    const second = await getJournalPage(db, OWNER_ID, OWNER_ID, filter(dates), first.nextCursor, 2);
+    expect(second.entries.map((entry) => entry.entryDate)).toEqual(["2025-03-05"]);
+    expect(second.hasMore).toBe(false);
+    const sessions = await getJournalPage(
+      db,
+      OWNER_ID,
+      OWNER_ID,
+      filter({ ...dates, view: "sessions" }),
+    );
+    expect(sessions.entries.map((entry) => entry.entryDate)).toEqual(["2025-03-06", "2025-03-05"]);
+  });
+});

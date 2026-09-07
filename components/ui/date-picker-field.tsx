@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, DateField, DatePicker, Label } from "@heroui/react";
+import { Calendar, DateField, DatePicker, Description, Label } from "@heroui/react";
 import { parseDate, type CalendarDate } from "@internationalized/date";
 
 function toCalendarDate(value: string | undefined): CalendarDate | null {
@@ -20,12 +20,20 @@ export type DatePickerFieldProps = {
   /** Latest selectable day, ISO — later days render struck through. */
   max?: string;
   isReadOnly?: boolean;
+  description?: string;
 };
 
 /** The app's date field: a segmented input plus a calendar popover, themed from
  * the same tokens as every other surface. A native `<input type="date">` draws
  * its own popover instead, which no CSS here can reach. */
-export function DatePickerField({ label, value, onChange, max, isReadOnly }: DatePickerFieldProps) {
+export function DatePickerField({
+  label,
+  value,
+  onChange,
+  max,
+  isReadOnly,
+  description,
+}: DatePickerFieldProps) {
   const maxDate = toCalendarDate(max);
 
   return (
@@ -53,6 +61,7 @@ export function DatePickerField({ label, value, onChange, max, isReadOnly }: Dat
           </DatePicker.Trigger>
         </DateField.Suffix>
       </DateField.Group>
+      {description && <Description>{description}</Description>}
       <DatePicker.Popover>
         {/* Not redundant: HeroUI's Calendar always passes its grid an explicit
          * maxValue, defaulting to 2099-12-31, which overrides the DatePicker's. */}

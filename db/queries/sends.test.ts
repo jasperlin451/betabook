@@ -1015,3 +1015,32 @@ describe("getSendsForClimb private-user filtering", () => {
     expect(stats[PRIVATE_CLIMB_ID]).toEqual({ avgRating: 4, sendCount: 2, avgSuggestedGrade: 3 });
   });
 });
+
+describe("send date ranges", () => {
+  beforeEach(seedSortSends);
+  it("includes both endpoints, excludes undated sends, and paginates within the range", async () => {
+    const filter = { ...ALL_SENDS_FILTER, dateFrom: "2026-06-01", dateTo: "2026-06-02" };
+    const first = await getSendsForUserPage(db, "test-user-11", filter, 0, 1);
+    expect(first.sends.map((send) => send.climbId)).toEqual([3]);
+    expect(first.hasMore).toBe(true);
+    const second = await getSendsForUserPage(db, "test-user-11", filter, 1, 1);
+    expect(second.sends.map((send) => send.climbId)).toEqual([2]);
+    expect(second.hasMore).toBe(false);
+  });
+  it("supports either open endpoint and other filters", async () => {
+    const from = await getSendsForUserPage(
+      db,
+      "test-user-11",
+      { ...ALL_SENDS_FILTER, dateFrom: "2026-06-02" },
+      0,
+    );
+    expect(from.sends.map((send) => send.climbId)).toEqual([1, 3]);
+    const to = await getSendsForUserPage(
+      db,
+      "test-user-11",
+      { ...ALL_SENDS_FILTER, dateTo: "2026-06-02", minRating: 3 },
+      0,
+    );
+    expect(to.sends.map((send) => send.climbId)).toEqual([2]);
+  });
+});
