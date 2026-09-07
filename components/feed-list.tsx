@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
 import { FeedDayCard } from "@/components/feed-day-card";
+import { FeedGroupCard } from "@/components/feed-group-card";
 import { AppLink } from "@/components/ui/app-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
@@ -13,6 +14,7 @@ import { useMounted } from "@/hooks/use-mounted";
 import { usePagedList } from "@/hooks/use-paged-list";
 import { authClient } from "@/lib/auth-client";
 import type { FeedCursor, FeedView } from "@/lib/feed";
+import { buildFeedCards } from "@/lib/feed-groups";
 import { signInUrl } from "@/lib/sign-in-redirect";
 
 export function FeedList({
@@ -96,9 +98,13 @@ export function FeedList({
       ) : (
         <>
           <div className="grid items-start gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-            {items.map((day) => (
-              <FeedDayCard key={JSON.stringify([day.date, day.userId])} day={day} view={view} />
-            ))}
+            {buildFeedCards(items, view).map((card) =>
+              card.kind === "group" ? (
+                <FeedGroupCard key={card.key} group={card} />
+              ) : (
+                <FeedDayCard key={card.key} day={card.day} view={view} />
+              ),
+            )}
           </div>
           {hasMore ? (
             <LoadMoreButton onPress={loadMore} loading={loadingMore} failed={loadMoreFailed} />

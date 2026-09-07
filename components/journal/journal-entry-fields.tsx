@@ -1,0 +1,250 @@
+"use client";
+
+import { Button, Label, TextArea, TextField } from "@heroui/react";
+import { useState, useTransition } from "react";
+
+import { CompanionPicker } from "@/components/journal/companion-picker";
+import { JournalEntryDateFields } from "@/components/journal/journal-entry-date-fields";
+import { TagInput } from "@/components/journal/tag-input";
+import {
+  AscentStylePicker,
+  FormSection,
+  GradeFeelField,
+  RatingField,
+  SuggestedGradeField,
+} from "@/components/send-fields";
+import { AppLink } from "@/components/ui/app-link";
+import { cardClass, SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { HelpTooltip } from "@/components/ui/help-tooltip";
+import type { JournalEntry, SendableClimb } from "@/db/queries";
+import type { TypeaheadFetcher } from "@/hooks/use-typeahead";
+import { GENERIC_ERROR_MESSAGE, type ActionResult } from "@/lib/action-result";
+import { MAX_JOURNAL_BODY_LENGTH, type JournalKind } from "@/lib/journal";
+import type { CompanionOption } from "@/lib/journal-companions";
+import type { AscentStyle, GradeFeel } from "@/lib/sends";
+
+export type JournalEntryFieldsProps = {
+  today: string;
+  onSave: (formData: FormData, undated: boolean) => Promise<ActionResult>;
+  companionFetcher?: TypeaheadFetcher<CompanionOption>;
+  kind: JournalKind;
+  climb?: (SendableClimb & { name: string }) | null;
+  hasPriorSend?: boolean;
+  existingEntry?: JournalEntry;
+  onDone?: () => void;
+  onPendingChange?: (pending: boolean) => void;
+};
+
+function describePendingEntry(input: {
+  kind: JournalKind;
+  climbName?: string | null;
+  sent: boolean;
+  hasPriorSend: boolean;
+}): { headline: string; consequence: string | null } {
+  if (input.kind === "training") {
+    return { headline: "Logging training.", consequence: null };
+  }
+
+  const climb = input.climbName?.trim();
+  if (!climb) return { headline: "Logging an outdoor session.", consequence: null };
+
+  if (!input.sent) {
+    return { headline: `Logging an outdoor session on ${climb}.`, consequence: null };
+  }
+
+  if (input.hasPriorSend) {
+    return {
+      headline: `Logging a repeat of ${climb}.`,
+      consequence: `Your ascent of ${climb} is already recorded — a repeat doesn't change it.`,
+    };
+  }
+
+  return {
+    headline: `Logging an ascent of ${climb}.`,
+    consequence: `Records a send on ${climb}, counting toward its send total and grade consensus.`,
+  };
+}
+
+// oxlint-disable-next-line complexity
+export function JournalEntryFields({
+  today,
+  onSave,
+  companionFetcher,
+  kind,
+  climb,
+  hasPriorSend = false,
+  existingEntry,
+  onDone,
+  onPendingChange,
+}: JournalEntryFieldsProps) {
+  const [entryDate, setEntryDate] = useState(existingEntry?.entryDate ?? today);
+  const [dateUnknown, setDateUnknown] = useState(false);
+  const [sent, setSent] = useState(existingEntry?.sent ?? false);
+  const [body, setBody] = useState(existingEntry?.body ?? "");
+  const [companions, setCompanions] = useState<CompanionOption[]>(existingEntry?.companions ?? []);
+  const [companionsChanged, setCompanionsChanged] = useState(false);
+  const [tags, setTags] = useState<string[]>(existingEntry?.tags ?? []);
+
+  const [ascentStyle, setAscentStyle] = useState<AscentStyle>("redpoint");
+  const [rating, setRating] = useState<number | null>(null);
+  const [suggestedGrade, setSuggestedGrade] = useState(String(climb?.grade ?? ""));
+  const [gradeFeel, setGradeFeel] = useState<GradeFeel>("solid");
+
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const isAscent = !existingEntry && sent && climb != null && !hasPriorSend;
+  const isUndatedSend = isAscent && dateUnknown;
+  const summary = describePendingEntry({ kind, climbName: climb?.name, sent, hasPriorSend });
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (pending) return;
+    setError(null);
+    if (isUndatedSend && companions.length > 0) {
+      setError("Add a date to keep With friends.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.set("kind", kind);
+    formData.set("entryDate", entryDate);
+    formData.set("body", body);
+    if (climb) formData.set("climbId", String(climb.id));
+    if (sent) formData.set("sent", "true");
+    if (!isUndatedSend) {
+      for (const tag of tags) formData.append("tag", tag);
+    }
+
+    if (!existingEntry || companionsChanged) {
+      formData.set("companionsChanged", "true");
+      for (const friend of companions) formData.append("companion", friend.id);
+    }
+
+    if (isAscent) {
+      formData.set("ascentStyle", ascentStyle);
+      formData.set("rating", rating == null ? "" : String(rating));
+      formData.set("suggestedGrade", suggestedGrade);
+      formData.set("gradeFeel", gradeFeel);
+    }
+    if (isUndatedSend) {
+      formData.set("dateSent", "");
+      formData.set("comment", body);
+    }
+
+    onPendingChange?.(true);
+    startTransition(async () => {
+      try {
+        const result = await onSave(formData, isUndatedSend);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        onDone?.();
+      } catch {
+        setError(GENERIC_ERROR_MESSAGE);
+      } finally {
+        onPendingChange?.(false);
+      }
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-6`}>
+      <JournalEntryDateFields
+        kind={kind}
+        hasClimb={climb != null}
+        hasPriorSend={hasPriorSend}
+        existingEntry={existingEntry}
+        today={today}
+        entryDate={entryDate}
+        sent={sent}
+        dateUnknown={dateUnknown}
+        onDateChange={setEntryDate}
+        onSentChange={setSent}
+        onDateUnknownChange={setDateUnknown}
+      />
+
+      <CompanionPicker
+        value={companions}
+        onChange={(value) => {
+          if (pending) return;
+          setCompanions(value);
+          setCompanionsChanged(true);
+        }}
+        disabled={pending}
+        editing={!!existingEntry}
+        fetcher={companionFetcher}
+      />
+
+      {isAscent && climb && (
+        <FormSection label="The ascent">
+          <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <RatingField value={rating} onValueChange={setRating} />
+            <SuggestedGradeField
+              climbType={climb.type}
+              value={suggestedGrade}
+              onChange={setSuggestedGrade}
+            />
+          </div>
+          <GradeFeelField value={gradeFeel} onChange={setGradeFeel} />
+        </FormSection>
+      )}
+
+      <FormSection label={isAscent || existingEntry?.isSendComment ? "Send commentary" : "Notes"}>
+        <TextField value={body} onChange={setBody}>
+          <div className="flex items-center gap-1">
+            <Label>{kind === "training" ? "What did you do?" : "How'd it go?"}</Label>
+            {(isAscent || existingEntry?.isSendComment) && (
+              <HelpTooltip label="About Send commentary">
+                Uses your Send commentary audience wherever this note appears.
+              </HelpTooltip>
+            )}
+          </div>
+          <TextArea
+            maxLength={MAX_JOURNAL_BODY_LENGTH}
+            placeholder={
+              kind === "training"
+                ? "Climbs, drills, sets, weights, how it felt…"
+                : "Conditions, beta, how it felt…"
+            }
+          />
+          <p className="mt-1 text-xs text-muted">
+            {MAX_JOURNAL_BODY_LENGTH - body.length} characters left
+          </p>
+        </TextField>
+
+        {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}
+      </FormSection>
+
+      {!existingEntry && (
+        <div className={`flex flex-col gap-1 ${cardClass("sm", "inset")}`}>
+          <p className="text-sm font-medium text-foreground">{summary.headline}</p>
+          {summary.consequence && <p className="text-sm text-muted">{summary.consequence}</p>}
+          {isUndatedSend && (
+            <p className="text-sm text-muted">
+              Saved in your logbook with Date unknown. Add a date later to include it in your
+              journal. Tags and With friends require a date.
+            </p>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
+
+      <Button type="submit" isDisabled={pending} fullWidth>
+        {existingEntry ? "Save changes" : isUndatedSend ? "Save send" : "Save entry"}
+      </Button>
+
+      <p className="text-center text-xs text-muted">
+        Set separate audiences for send commentary and journal entries in{" "}
+        <AppLink href="/account">Account settings</AppLink>.
+      </p>
+    </form>
+  );
+}

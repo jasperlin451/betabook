@@ -29,6 +29,15 @@ async function openStory(page: Page, testInfo: TestInfo, story: string) {
       document
         .getAnimations()
         .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+        // Chromium can leave finished promises pending inside closed details.
+        // Only rendered targets can affect the screenshot's settled colors.
+        .filter((animation) => {
+          const effect = animation.effect;
+          return (
+            !(effect instanceof KeyframeEffect && effect.target instanceof Element) ||
+            effect.target.checkVisibility()
+          );
+        })
         .map((animation) => animation.finished.catch(() => {})),
     ),
   );

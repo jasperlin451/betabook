@@ -7,13 +7,20 @@ import { getDb } from "@/db/client";
 import { getClimb, getUserSendForClimb } from "@/db/queries";
 import { journalEntries, sends } from "@/db/schema";
 import { ActionError, toActionResult, type ActionResult } from "@/lib/action-result";
+import { readCompanionSelection } from "@/lib/journal-companions";
 import { allowJournalWrite } from "@/lib/rate-limit";
 import { validateSendInput, type RawSendInput } from "@/lib/sends";
 import { requireSession } from "@/lib/session";
 import { pickFormFields } from "@/lib/validation";
 
 import {
+  buildCompanionInsert,
+  buildCompanionReplacement,
+  saveJournalBatch,
+} from "./journal-companion-statements";
+import {
   assertAscentDateChange,
+  buildJournalEntryGuard,
   buildSentJournalInsert,
   getSentJournalEntries,
   journalEntryFromSend,
@@ -43,6 +50,7 @@ export async function createUndatedSend(formData: FormData): Promise<ActionResul
         "You're logging entries faster than we can save them — give it a minute",
       );
     }
+    if (formData.getAll("companion").length) throw new ActionError("Add a date to tag friends");
     const climbId = Number(formData.get("climbId"));
     if (!Number.isInteger(climbId) || climbId < 1) throw new ActionError("Invalid climb");
     const db = await getDb();
@@ -76,6 +84,8 @@ export async function updateSend(sendId: number, formData: FormData): Promise<Ac
     if (!climb) throw new ActionError("Climb not found");
 
     const input = validateSendInput(climb.type, readSendFormData(formData));
+    const companions = readCompanionSelection(formData);
+    if (companions?.length && !input.dateSent) throw new ActionError("Add a date to tag friends");
     const sentEntries = await getSentJournalEntries(db, session.user.id, [existing.climbId]);
     const ascent = sentEntries.find((entry) => entry.isAscent);
     const sendStatement = buildMirroredSendUpdate(db, {
@@ -102,8 +112,26 @@ export async function updateSend(sendId: number, formData: FormData): Promise<Ac
             journalEntryFromSend(session.user.id, existing.climbId, input.dateSent, input.comment),
           );
       try {
-        await db.batch(
-          ascent ? [journalStatement, sendStatement] : [sendStatement, journalStatement],
+        await saveJournalBatch(
+          db,
+          ascent
+            ? [
+                buildJournalEntryGuard(db, {
+                  ...ascent,
+                  userId: session.user.id,
+                  sent: true,
+                }),
+                journalStatement,
+                sendStatement,
+                ...buildCompanionReplacement(db, session.user.id, ascent.id, companions),
+              ]
+            : [
+                sendStatement,
+                journalStatement,
+                ...(companions?.length
+                  ? [buildCompanionInsert(db, session.user.id, companions)]
+                  : []),
+              ],
         );
       } catch (error) {
         rethrowJournalSendInvariant(

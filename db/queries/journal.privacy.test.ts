@@ -47,6 +47,7 @@ const expectedEntry = {
   isSendComment: false,
   entryDate: "2026-02-01",
   body: "Nobody else's business.",
+  companions: [],
   tags: [],
   climbName: "Test Highball",
   climbType: "boulder",

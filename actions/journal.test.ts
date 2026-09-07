@@ -618,9 +618,10 @@ describe("deleteJournalEntry", () => {
   it("does not delete a replacement send created after the ascent was read", async () => {
     await createJournalEntry(ascentFormData());
     const [entry] = await entriesFor("j-user");
-    const getAscentEntryId = queries.getAscentEntryId;
-    const spy = vi.spyOn(queries, "getAscentEntryId").mockImplementationOnce(async (...args) => {
-      const id = await getAscentEntryId(...args);
+    const getJournalEntry = queries.getJournalEntry;
+    let beforeDelete: Awaited<ReturnType<typeof entriesFor>> = [];
+    const spy = vi.spyOn(queries, "getJournalEntry").mockImplementationOnce(async (...args) => {
+      const existing = await getJournalEntry(...args);
       await db.delete(sends).where(eq(sends.userId, "j-user"));
       await seedFixtureSend(db, {
         userId: "j-user",
@@ -636,15 +637,24 @@ describe("deleteJournalEntry", () => {
         sent: true,
         isAscent: true,
       });
-      return id;
+      beforeDelete = await entriesFor("j-user");
+      return existing;
     });
 
     try {
-      expect((await deleteJournalEntry(entry.id)).ok).toBe(true);
+      expect(await deleteJournalEntry(entry.id)).toEqual({
+        ok: false,
+        error: "The entry changed — refresh and try again",
+      });
       expect(await sendFor("j-user", HIGHBALL)).toMatchObject({ dateSent: "2026-04-01" });
-      expect(await entriesFor("j-user")).toMatchObject([
-        { entryDate: "2026-04-01", sent: true, body: "Replacement." },
-      ]);
+      expect(beforeDelete).toHaveLength(2);
+      expect(beforeDelete).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: entry.id, sent: false, isAscent: false }),
+          expect.objectContaining({ entryDate: "2026-04-01", sent: true, body: "Replacement." }),
+        ]),
+      );
+      expect(await entriesFor("j-user")).toEqual(beforeDelete);
     } finally {
       spy.mockRestore();
     }

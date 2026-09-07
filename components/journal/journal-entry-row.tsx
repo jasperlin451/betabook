@@ -5,6 +5,7 @@ import { CircleCheckBig } from "lucide-react";
 
 import { ClimbLogRow } from "@/components/climb-log-row";
 import { EntryActionsMenu } from "@/components/journal/entry-actions-menu";
+import { JournalCompanions } from "@/components/journal/journal-companions";
 import { AppLink } from "@/components/ui/app-link";
 import { Grade } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
@@ -48,8 +49,9 @@ export function JournalEntryRow({
     </span>
   );
   const tags =
-    entry.tags.length > 0 ? (
+    entry.tags.length > 0 || (entry.companions?.length ?? 0) > 0 ? (
       <>
+        <JournalCompanions entryId={entry.id} initialCompanions={entry.companions} />
         {entry.tags.map((tag) => {
           const active = filter.tag === tag;
           return (

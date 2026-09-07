@@ -107,6 +107,109 @@ try {
       ["training", 0, 0, 8],
     ],
   );
+  const companionEntries = () =>
+    db
+      .prepare(
+        "SELECT j.id, u.email, j.kind, j.climb_id, c.area_id, j.entry_date, j.sent, j.is_ascent, j.is_send_comment, j.body, j.tags FROM journal_entries j JOIN user u ON u.id = j.user_id LEFT JOIN climbs c ON c.id = j.climb_id WHERE j.tags LIKE '%companion-demo%' ORDER BY u.email, j.id",
+      )
+      .all();
+  const companionTags = () =>
+    db
+      .prepare(
+        "SELECT jc.entry_id, author.email AS author, companion.email AS companion, jc.suppressed, f.status, companion.is_private FROM journal_companions jc JOIN journal_entries j ON j.id = jc.entry_id JOIN user author ON author.id = j.user_id JOIN user companion ON companion.id = jc.user_id JOIN friendships f ON f.user_id = jc.friendship_user_id AND f.friend_id = jc.friendship_friend_id WHERE j.tags LIKE '%companion-demo%' ORDER BY author.email, jc.entry_id, companion.email",
+      )
+      .all();
+  const scenarios = companionEntries();
+  assert.equal(scenarios.length, 7, "seed the connected and unrelated companion scenarios");
+  const scenarioKey = (row: (typeof scenarios)[number]) => {
+    const tags = JSON.parse(String(row.tags)) as string[];
+    assert.ok(tags.includes("companion-demo"));
+    const scenario = tags.find((tag) => tag !== "companion-demo");
+    assert.ok(scenario);
+    return `${String(row.email)}:${scenario}`;
+  };
+  assert.deepEqual(scenarios.map(scenarioKey).sort(), [
+    "climber1@example.com:connected-outdoor",
+    "climber1@example.com:connected-training",
+    "climber1@example.com:unrelated-outdoor",
+    "climber2@example.com:connected-outdoor",
+    "climber2@example.com:connected-training",
+    "climber3@example.com:hidden-outdoor",
+    "climber4@example.com:hidden-outdoor",
+  ]);
+  const scenario = (key: string) => {
+    const row = scenarios.find((entry) => scenarioKey(entry) === key);
+    assert.ok(row, key);
+    return row;
+  };
+  for (const row of scenarios) {
+    assert.equal(row.entry_date, "2026-09-02");
+    assert.deepEqual([row.sent, row.is_ascent, row.is_send_comment], [0, 0, 0]);
+    assert.ok(row.body);
+  }
+  const firstOutdoor = scenario("climber1@example.com:connected-outdoor");
+  const secondOutdoor = scenario("climber2@example.com:connected-outdoor");
+  const unrelated = scenario("climber1@example.com:unrelated-outdoor");
+  assert.equal(firstOutdoor.kind, "session");
+  assert.equal(secondOutdoor.kind, "session");
+  assert.ok(firstOutdoor.area_id);
+  assert.equal(firstOutdoor.climb_id, secondOutdoor.climb_id);
+  assert.equal(firstOutdoor.area_id, secondOutdoor.area_id);
+  assert.equal(
+    db.prepare("SELECT count(*) AS n FROM areas WHERE parent_id = ?").get(firstOutdoor.area_id)?.n,
+    0,
+  );
+  assert.equal(unrelated.kind, "session");
+  assert.equal(unrelated.area_id, firstOutdoor.area_id);
+  assert.notEqual(unrelated.climb_id, firstOutdoor.climb_id);
+  for (const email of ["climber1@example.com", "climber2@example.com"]) {
+    const training = scenario(`${email}:connected-training`);
+    assert.equal(training.kind, "training");
+    assert.equal(training.climb_id, null);
+  }
+  for (const email of ["climber3@example.com", "climber4@example.com"]) {
+    const hidden = scenario(`${email}:hidden-outdoor`);
+    assert.equal(hidden.kind, "session");
+    assert.equal(hidden.climb_id, firstOutdoor.climb_id);
+  }
+  const tags = companionTags();
+  assert.deepEqual(
+    tags.map((row) => [
+      row.entry_id,
+      row.author,
+      row.companion,
+      row.suppressed,
+      row.status,
+      row.is_private,
+    ]),
+    [
+      [firstOutdoor.id, "climber1@example.com", "climber2@example.com", 0, "accepted", 0],
+      [
+        scenario("climber2@example.com:connected-training").id,
+        "climber2@example.com",
+        "climber1@example.com",
+        0,
+        "accepted",
+        0,
+      ],
+      [
+        scenario("climber3@example.com:hidden-outdoor").id,
+        "climber3@example.com",
+        "climber1@example.com",
+        0,
+        "accepted",
+        0,
+      ],
+      [
+        scenario("climber4@example.com:hidden-outdoor").id,
+        "climber4@example.com",
+        "climber1@example.com",
+        0,
+        "accepted",
+        0,
+      ],
+    ],
+  );
   const count = db.prepare("SELECT count(*) AS n FROM journal_entries").get()?.n;
   seedSocialData(db, viewer.id);
   assert.deepEqual(tourProgress(), expectedTours);
@@ -116,8 +219,10 @@ try {
   );
   assert.deepEqual(db.prepare(query).all(viewer.id, viewer.id, viewer.id, viewer.id), rows);
   assert.equal(db.prepare("SELECT count(*) AS n FROM journal_entries").get()?.n, count);
+  assert.deepEqual(companionEntries(), scenarios);
+  assert.deepEqual(companionTags(), tags, "restore tags after the friendship reset cascades them");
   console.log(
-    "Social seed passed: mutual friends, incoming/outgoing requests, all nine independent audience combinations, mixed days, empty feed, tour version upgrades and idempotency.",
+    "Social seed passed: mutual friends, incoming/outgoing requests, all nine independent audience combinations, mixed days, connected outdoor/training previews, unrelated and hidden entries, empty feed, tour version upgrades and idempotency.",
   );
 } finally {
   db.close();

@@ -19,7 +19,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
       section: "Journal",
       title: "Start in Journal",
       description:
-        "Use Log for outdoor sessions and training. Your entries keep Sends, Projects, and Analytics up to date.",
+        "Use Log for outdoor sessions, sends, repeats, and training. Add With friends to record who joined you. Each friend logs their own activity.",
       target: "journal-log",
     },
     {
@@ -82,7 +82,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
       section: "Feed",
       title: "Catch up with friends",
       description:
-        "Open the Feed tab to see your friends' sends and journal entries, grouped by day. Select Sends to hide sessions, repeats, and training. You'll only see journal entries and notes they've shared with you.",
+        "See what your friends have been climbing. Switch to Sends to see just their sends.",
       target: "friend-feed",
     },
     {
