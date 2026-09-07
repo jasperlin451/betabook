@@ -265,19 +265,6 @@ do not replace it with a timeout or a story heading alone. Unhandled browser
 errors and live API requests from a story fail the suite. Axe checks the complete
 story document, including open portals, with WCAG 2.0/2.1 A/AA rules.
 
-Behavior checks include exact journal payloads and friend IDs, rejected and
-pending saves, privacy audience restoration, clamped/unbounded grade ranges,
-tag capacity, calendar boundaries, read-only recorded dates, responsive child
-state, filter reset, sidebar placement, and keyboard chart scrolling. These
-checks exercise production components with local service boundaries; they do
-not establish server authorization or persistence.
-
-`artifacts.spec.ts` runs only in desktop-light because index/manifest integrity,
-metadata asset decoding and the email-audit harness are independent of theme and
-viewport. The other three CI projects still run all responsive and themed checks.
-Every coverage link must resolve, and the MCP manifest must contain every built
-story with a usable snippet. Do not replace these checks with a minimum count.
-
 Email previews retain their scriptless iframe sandbox. Because that sandbox also
 blocks axe's asynchronous rule callbacks, the gallery audit checks the iframe
 element and audits its actual email HTML in a separate page at the same frame
