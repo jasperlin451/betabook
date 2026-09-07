@@ -1,4 +1,6 @@
+import { Button } from "@heroui/react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useState } from "react";
 
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
@@ -8,6 +10,17 @@ const meta = {
   title: "Components/Feedback/Mobile app helper",
   component: MobileAppHelperPanel,
   args: { installPrompt: null, onDismiss: () => {}, onNativeInstall: () => {} },
+  render: function Example(args) {
+    const [dismissed, setDismissed] = useState(false);
+    return dismissed ? (
+      <>
+        <p role="status">Shortcut helper dismissed.</p>
+        <Button onPress={() => setDismissed(false)}>Show helper again</Button>
+      </>
+    ) : (
+      <MobileAppHelperPanel {...args} onDismiss={() => setDismissed(true)} />
+    );
+  },
   decorators: [
     (Story) => (
       <StoryPage

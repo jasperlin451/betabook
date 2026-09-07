@@ -226,6 +226,13 @@ Keep fixtures deterministic and interactions local. Do not import live server
 actions, database services, authenticated providers, or real account data.
 Simulate effects only at external boundaries, retaining the production component.
 
+Each example must document a distinct state, composition, or design decision.
+Prefer an existing component story to another composition containing the same
+examples. Sample actions need observable local outcomes; label inert button
+specimens as visual treatments. Error stories must reach the actual error state,
+and form stories should expose submitted values at the save boundary instead of
+inventing a success sentence that hides lost or incorrect data.
+
 ## Preventing regressions
 
 `pnpm test:ui` discovers all stories from the built Storybook index and runs
@@ -250,6 +257,13 @@ keyboard focus, dialog cancellation/confirmation, live token updates, search
 selection, menus, comment expansion, and tag editing. The gallery-wide checks
 cover horizontal overflow and automated WCAG A/AA findings. Tests inspect browser behavior and computed styles,
 not source-text patterns. Keep the Workers/D1 test suite separate.
+
+All UI specs use `tests/ui/story.ts`. Its `openStory` helper verifies the project
+theme, fixes the browser date, waits for Storybook's render/play completion and
+settles fonts/finite animations. The preview lifecycle sets the readiness signal;
+do not replace it with a timeout or a story heading alone. Unhandled browser
+errors and live API requests from a story fail the suite. Axe checks the complete
+story document, including open portals, with WCAG 2.0/2.1 A/AA rules.
 
 Email previews retain their scriptless iframe sandbox. Because that sandbox also
 blocks axe's asynchronous rule callbacks, the gallery audit checks the iframe
@@ -307,3 +321,19 @@ also filters outdoor session counts by each session’s tags. Removing the selec
 tag clears the filter and restores the field to `#`. See **Components / Inputs / Hashtag filter**.
 Tutorials remain unchanged: current lessons describe journal tags and analytics
 without demonstrating these filter controls; existing lesson instructions remain accurate.
+
+Sends and Journal share `DateFilter`, labeled Dates. The options are All time (default),
+This month, This year, Last year, and Custom dates. Presets apply immediately using
+the viewer's local calendar date and store concrete inclusive bounds in the URL.
+Custom dates reveal Start date and End date fields using `DatePickerField`, with
+both keyboard entry and calendar popovers. Custom edits update automatically through
+the toolbar's existing debounce
+when a start date is complete and any end date is on or after it.
+Incomplete or reversed dates preserve the last valid filter. A start date
+alone selects one day. Field descriptions explain this; Clear end date returns
+a range to one day. Selecting
+All time clears the constraint. Selecting dates in Journal replaces its year filter.
+See **Components / Inputs / Date filter** for default, preset, single-day, and
+summer 2025 examples. This replaces the mode selector and always-visible calendar.
+Existing tutorial guidance on notes, entry types, tags, and Sends sorting remains
+accurate, so lesson steps and versions are unchanged.

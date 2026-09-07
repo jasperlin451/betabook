@@ -23,13 +23,19 @@ export default defineConfig({
       name: "desktop-light",
       use: { viewport: { width: 1024, height: 900 }, colorScheme: "light" },
     },
-    { name: "desktop-dark", use: { viewport: { width: 1024, height: 900 }, colorScheme: "dark" } },
+    {
+      name: "desktop-dark",
+      testIgnore: "**/artifacts.spec.ts",
+      use: { viewport: { width: 1024, height: 900 }, colorScheme: "dark" },
+    },
     {
       name: "mobile-light",
+      testIgnore: "**/artifacts.spec.ts",
       use: { viewport: { width: 375, height: 812 }, colorScheme: "light", hasTouch: true },
     },
     {
       name: "mobile-dark",
+      testIgnore: "**/artifacts.spec.ts",
       use: { viewport: { width: 375, height: 812 }, colorScheme: "dark", hasTouch: true },
     },
   ],

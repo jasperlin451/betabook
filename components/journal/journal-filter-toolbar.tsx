@@ -3,6 +3,7 @@
 import { SearchField } from "@heroui/react";
 import { X } from "lucide-react";
 
+import { DateFilter } from "@/components/date-filter";
 import { FilterToolbarLayout } from "@/components/filter-toolbar";
 import { HashtagFilter } from "@/components/hashtag-filter";
 import { AppLink } from "@/components/ui/app-link";
@@ -10,9 +11,9 @@ import { choicePillClass } from "@/components/ui/choice-pill";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import { formatDate } from "@/lib/format-date";
 import {
+  DEFAULT_JOURNAL_FILTER,
   JOURNAL_VIEWS,
   MAX_JOURNAL_QUERY_LENGTH,
-  DEFAULT_JOURNAL_FILTER,
   journalFilterToSearchParams,
   type JournalFilter,
   type JournalView,
@@ -56,12 +57,18 @@ export function JournalFilterToolbar({
     <FilterToolbarLayout
       onReset={reset}
       filters={
-        <HashtagFilter
-          inlineLabel
-          value={localFilter.tags}
-          tags={tags}
-          onChange={(tags) => setFilter({ ...localFilter, tags })}
-        />
+        <>
+          <DateFilter
+            value={localFilter}
+            onChange={(dates) => setFilter({ ...localFilter, ...dates, year: null })}
+          />
+          <HashtagFilter
+            inlineLabel
+            value={localFilter.tags}
+            tags={tags}
+            onChange={(tags) => setFilter({ ...localFilter, tags })}
+          />
+        </>
       }
       controls={
         <>
@@ -102,13 +109,22 @@ export function JournalFilterToolbar({
               <X className="size-3.5" aria-hidden />
             </AppLink>
           )}
-          {filter.date && (
+          {(filter.date || filter.dateFrom || filter.dateTo) && (
             <AppLink
-              href={href(base, { ...localFilter, date: undefined })}
+              href={href(base, {
+                ...localFilter,
+                date: undefined,
+                dateFrom: undefined,
+                dateTo: undefined,
+                datePreset: undefined,
+              })}
               className={choicePillClass(true, "bg-surface-secondary text-foreground")}
-              aria-label="Clear day filter"
+              aria-label="Clear date filter"
             >
-              {formatDate(filter.date)} · Clear day
+              {filter.date
+                ? formatDate(filter.date)
+                : `${filter.dateFrom ? formatDate(filter.dateFrom) : "Any time"} – ${filter.dateTo ? formatDate(filter.dateTo) : "Any time"}`}{" "}
+              · Clear dates
             </AppLink>
           )}
           {filter.climbId !== null && (

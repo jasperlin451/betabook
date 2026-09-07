@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AreaSearchField } from "@/components/area-search-field";
 import { AscentStyle, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
 import { ClimbLogRow } from "@/components/climb-log-row";
+import { DateFilter } from "@/components/date-filter";
 import { FilterToolbar } from "@/components/filter-toolbar";
 import { HashtagFilter } from "@/components/hashtag-filter";
 import { LogEntryButton } from "@/components/journal";
@@ -125,6 +126,9 @@ export function UserSendsFilterToolbar({
     initialFilter: {
       tags: filter.tags,
       date: filter.date,
+      dateFrom: filter.dateFrom,
+      dateTo: filter.dateTo,
+      datePreset: filter.datePreset,
       disciplines: filter.disciplines,
       boulderRange: filter.boulderRange,
       sportRange: filter.sportRange,
@@ -188,6 +192,10 @@ export function UserSendsFilterToolbar({
             value={disciplineFilter.tags ?? EMPTY_TAGS}
             tags={tags}
             onChange={(tags) => setDisciplineFilter({ ...disciplineFilter, tags })}
+          />
+          <DateFilter
+            value={disciplineFilter}
+            onChange={(dates) => setDisciplineFilter({ ...disciplineFilter, ...dates })}
           />
           <AscentStyleFields
             value={disciplineFilter.ascentStyles}

@@ -19,7 +19,7 @@ function ImportExample() {
       title="Import steps"
       description="Completed steps can be revisited. The sample step controls do not start an import."
     >
-      <WizardSteps step={step} onJump={setStep} />
+      <WizardSteps step={step} onJump={step === "result" ? null : setStep} />
       <p role="status">Current step: {step}</p>
       <div className="flex gap-2">
         <Button onPress={() => setStep("review")}>Review sample</Button>

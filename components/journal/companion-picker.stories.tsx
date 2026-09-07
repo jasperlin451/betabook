@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { expect, userEvent, within } from "storybook/test";
 
 import type { CompanionOption } from "@/lib/journal-companions";
 import { StoryPage } from "@/stories/fixtures/story-layout";
@@ -26,6 +27,7 @@ function Example({
   failure?: boolean;
   disabled?: boolean;
 }) {
+  const failedOnce = useRef(false);
   const [selected, setSelected] = useState<CompanionOption[]>(
     full
       ? Array.from({ length: 10 }, (_, id) => ({
@@ -47,7 +49,10 @@ function Example({
         editing
         disabled={disabled}
         fetcher={async (query) => {
-          if (failure) throw new Error("Sample connection failure");
+          if (failure && !failedOnce.current) {
+            failedOnce.current = true;
+            throw new Error("Sample connection failure");
+          }
           return friends.filter((friend) =>
             friend.name.toLowerCase().startsWith(query.toLowerCase()),
           );
@@ -58,5 +63,13 @@ function Example({
 }
 export const Selection: Story = { render: () => <Example /> };
 export const Maximum: Story = { render: () => <Example full /> };
-export const Unavailable: Story = { render: () => <Example failure /> };
+export const Unavailable: Story = {
+  render: () => <Example failure />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.type(canvas.getByRole("combobox", { name: "Find a friend to tag" }), "Alex");
+    await userEvent.tab();
+    await expect(await canvas.findByRole("alert")).toHaveTextContent("Couldn't load friends");
+  },
+};
 export const Saving: Story = { render: () => <Example full disabled /> };

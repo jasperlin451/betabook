@@ -74,3 +74,23 @@ describe("journalFilterToSearchParams", () => {
     expect(parseJournalFilter(Object.fromEntries(params))).toEqual(filter);
   });
 });
+
+describe("journal date ranges", () => {
+  it("parses and serializes a summer date range alongside session search", () => {
+    const filter = parseJournalFilter({
+      dateFrom: "2025-06-01",
+      dateTo: "2025-08-31",
+      view: "sessions",
+      q: "granite",
+    });
+    expect(filter).toMatchObject({
+      dateFrom: "2025-06-01",
+      dateTo: "2025-08-31",
+      view: "sessions",
+      query: "granite",
+    });
+    const params = journalFilterToSearchParams(filter);
+    expect(params.get("dateFrom")).toBe("2025-06-01");
+    expect(params.get("dateTo")).toBe("2025-08-31");
+  });
+});
