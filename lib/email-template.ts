@@ -1,3 +1,5 @@
+import { SITE_LOCKUP_ALT, SITE_NAME, SITE_TAGLINE } from "@/lib/site";
+
 type EmailLink = { href: string; label: string };
 
 export type EmailTemplateOptions = {
@@ -58,10 +60,10 @@ export function renderEmail({
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#eaf7ef;"><tr><td align="center" style="padding:24px 16px;">
 <!--[if mso]><table role="presentation" width="560"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;table-layout:fixed;"><tr><td style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;color:#000000;">
-<a href="${base}" style="display:block;max-width:350px;margin:0 auto;"><img src="${base}/branding/betabook-lockup-email.png" alt="Betabook — Climb · Log · Progress" width="350" height="224" style="display:block;width:100%;max-width:350px;height:auto;border:0;"></a>
+<a href="${base}" style="display:block;max-width:350px;margin:0 auto;"><img src="${base}/branding/betabook-lockup-email.png" alt="${SITE_LOCKUP_ALT}" width="350" height="224" style="display:block;width:100%;max-width:350px;height:auto;border:0;"></a>
 <h1 style="margin:16px 0 24px;font-size:26px;line-height:1.25;overflow-wrap:anywhere;word-wrap:break-word;">${escapeHtml(title)}</h1>
 ${body}
-<p style="margin:32px 0 0;font-size:12px;"><a href="${base}" style="color:#000000;">Betabook</a> · Climb · Log · Progress</p>
+<p style="margin:32px 0 0;font-size:12px;"><a href="${base}" style="color:#000000;">${SITE_NAME}</a> — ${SITE_TAGLINE}</p>
 </td></tr></table>
 <!--[if mso]></td></tr></table><![endif]-->
 </td></tr></table>

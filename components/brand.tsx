@@ -2,6 +2,7 @@ import { clsx } from "clsx";
 import Image from "next/image";
 
 import { AppLink } from "@/components/ui/app-link";
+import { SITE_LOCKUP_ALT, SITE_NAME } from "@/lib/site";
 
 /** Approved generated artwork; CSS follows the resolved app theme without hydration. */
 export function Brand({
@@ -19,13 +20,7 @@ export function Brand({
     <span
       data-brand={variant}
       role={decorative ? undefined : "img"}
-      aria-label={
-        decorative
-          ? undefined
-          : variant === "lockup"
-            ? "Betabook — Climb · Log · Progress"
-            : "Betabook"
-      }
+      aria-label={decorative ? undefined : variant === "lockup" ? SITE_LOCKUP_ALT : SITE_NAME}
       aria-hidden={decorative || undefined}
       className={clsx("block shrink-0", className)}
     >
