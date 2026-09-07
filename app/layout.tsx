@@ -13,7 +13,7 @@ import { AppLink } from "@/components/ui/app-link";
 import { JsonLd } from "@/components/ui/json-ld";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import { websiteJsonLd } from "@/lib/seo";
-import { OG_IMAGE, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
+import { OG_IMAGE, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 
 import { Providers } from "./providers";
 
@@ -160,8 +160,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                 <div
                   className={`mx-auto flex w-full ${PAGE_MAX_WIDTH_CLASS} flex-wrap items-center justify-between gap-2`}
                 >
-                  {/* oxlint-disable-next-line node/no-process-env */}
-                  <span>&copy; {process.env.NEXT_PUBLIC_BUILD_YEAR} Betabook</span>
+                  <span>
+                    {/* oxlint-disable-next-line node/no-process-env */}
+                    &copy; {process.env.NEXT_PUBLIC_BUILD_YEAR} {SITE_NAME} —{" "}
+                    <span className="whitespace-nowrap">{SITE_TAGLINE}</span>
+                  </span>
                   <div className="flex items-center gap-4">
                     <AppLink href="/about">About</AppLink>
                     <AppLink href="/contact">Contact</AppLink>
