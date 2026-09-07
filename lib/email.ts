@@ -88,7 +88,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
     `Already tracking sends somewhere else? Export a CSV and bring the whole history across.\n${base}/account/import`,
     // Browsing areas and climbs starts with the search on the home page.
     `Search for a climb and record your first ascent.\n${base}`,
-    `Betabook is free, ad-free, and open source. Questions or corrections? Get in touch:\n${base}/contact`,
+    `Betabook is free, ad-free, and source available. Questions or corrections? Get in touch:\n${base}/contact`,
   ].join("\n\n");
 
   if (!resend) {
