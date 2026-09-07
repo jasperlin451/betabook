@@ -302,26 +302,6 @@ presentation/accessibility without changing any workflow. Tutorial previews
 automatically inherit the shared fixes. Future primitive changes should also be checked
 in the tutorial previews, which reuse application components.
 
-Hashtag filters on Journal, Sends, and Analytics reuse `SearchCombobox` to search existing
-visible journal tags. Journal and Sends keep Hashtag inside the shared “More filters”
-disclosure with a matching panel and Reset filters action. In Sends, Hashtag is the
-second field, directly after In area; their input boxes share the same column.
-Analytics keeps its hashtag field visible. The field uses no magnifying glass icon.
-Selected hashtag pills wrap downward without shifting the search fields. Journal search
-uses content height rather than HeroUI’s fixed search-group height, matching the
-route search box’s responsive height and theme border width. Journal includes training tags. Clicking the field immediately shows all
-available tags; typing narrows the list, and selected tags are excluded. Only existing tags can be selected; unmatched text stays
-as a draft and never changes the filter. The field starts with `#`; typing
-edits a draft, and Enter, Space, or choosing a suggestion commits the exact tag.
-Each selection appears as a removable tag with an × button. Multiple selections
-require all selected tags on the same entry; duplicates are ignored. The caret
-and text selection stay after the protected `#` prefix, including Arrow Up
-navigation. Helper text uses “X to remove.” Sends uses original ascent tags, while Analytics
-also filters outdoor session counts by each session’s tags. Removing the selected
-tag clears the filter and restores the field to `#`. See **Components / Inputs / Hashtag filter**.
-Tutorials remain unchanged: current lessons describe journal tags and analytics
-without demonstrating these filter controls; existing lesson instructions remain accurate.
-
 Sends and Journal share `DateFilter`, labeled Dates. The options are All time (default),
 This month, This year, Last year, and Custom dates. Presets apply immediately using
 the viewer's local calendar date and store concrete inclusive bounds in the URL.
