@@ -16,30 +16,37 @@ CREATE INDEX `journal_companions_user_idx` ON `journal_companions` (`user_id`,`e
 CREATE INDEX `journal_companions_active_idx` ON `journal_companions` (`entry_id`,`user_id`) WHERE "journal_companions"."suppressed" = 0;--> statement-breakpoint
 -- Companions describe company on any journal entry, independently of its outcome.
 -- Guards run inside the entry/send batch, including after a concurrent unfriend.
-CREATE TRIGGER journal_companions_insert_guard BEFORE INSERT ON journal_companions BEGIN
-  SELECT CASE WHEN NOT EXISTS (
+-- Use conditional RAISE statements to avoid nested CASE/END blocks in the
+-- remote D1 migration parser, which differs from the local statement splitter.
+CREATE TRIGGER journal_companions_insert_guard BEFORE INSERT ON journal_companions
+BEGIN
+  SELECT RAISE(ABORT, 'journal companion: unavailable friend')
+  WHERE NOT EXISTS (
     SELECT 1 FROM journal_entries j JOIN friendships f
       ON f.user_id = NEW.friendship_user_id AND f.friend_id = NEW.friendship_friend_id
     JOIN user u ON u.id = NEW.user_id
     WHERE j.id = NEW.entry_id AND j.user_id <> NEW.user_id
       AND f.user_id = min(j.user_id, NEW.user_id) AND f.friend_id = max(j.user_id, NEW.user_id)
       AND f.status = 'accepted' AND u.is_private = 0
-  ) THEN RAISE(ABORT, 'journal companion: unavailable friend') END;
-  SELECT CASE WHEN EXISTS (
+  );
+  SELECT RAISE(ABORT, 'journal companion: removed by companion')
+  WHERE EXISTS (
     SELECT 1 FROM journal_companions WHERE entry_id = NEW.entry_id AND user_id = NEW.user_id AND suppressed = 1
-  ) THEN RAISE(ABORT, 'journal companion: removed by companion') END;
-  SELECT CASE WHEN NEW.suppressed <> 0 OR (
+  );
+  SELECT RAISE(ABORT, 'journal companion: too many friends')
+  WHERE NEW.suppressed <> 0 OR (
     NOT EXISTS (SELECT 1 FROM journal_companions WHERE entry_id = NEW.entry_id AND user_id = NEW.user_id)
     AND (SELECT count(*) FROM journal_companions WHERE entry_id = NEW.entry_id AND suppressed = 0) >= 10
-  ) THEN RAISE(ABORT, 'journal companion: too many friends') END;
+  );
 END;
 --> statement-breakpoint
 -- A companion remains anchored to the same entry and cannot be unsuppressed.
-CREATE TRIGGER journal_companions_update_guard BEFORE UPDATE ON journal_companions BEGIN
-  SELECT CASE WHEN NEW.entry_id <> OLD.entry_id OR NEW.user_id <> OLD.user_id
+CREATE TRIGGER journal_companions_update_guard BEFORE UPDATE ON journal_companions
+BEGIN
+  SELECT RAISE(ABORT, 'journal companion: invalid update')
+  WHERE NEW.entry_id <> OLD.entry_id OR NEW.user_id <> OLD.user_id
     OR NEW.friendship_user_id <> OLD.friendship_user_id OR NEW.friendship_friend_id <> OLD.friendship_friend_id
-    OR NEW.suppressed < OLD.suppressed
-    THEN RAISE(ABORT, 'journal companion: invalid update') END;
+    OR NEW.suppressed < OLD.suppressed;
 END;
 --> statement-breakpoint
 CREATE TRIGGER journal_companions_entry_guard BEFORE UPDATE OF user_id ON journal_entries
