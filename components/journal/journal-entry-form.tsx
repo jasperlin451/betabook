@@ -1,9 +1,10 @@
 "use client";
 
-import { Button, Checkbox, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Label, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
 import { createJournalEntry, createUndatedSend, updateJournalEntry } from "@/actions";
+import { JournalEntryDateFields } from "@/components/journal/journal-entry-date-fields";
 import { TagInput } from "@/components/journal/tag-input";
 import {
   AscentStylePicker,
@@ -14,7 +15,6 @@ import {
 } from "@/components/send-fields";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass, SURFACE_CARD_CLASS } from "@/components/ui/card";
-import { DatePickerField } from "@/components/ui/date-picker-field";
 import type { JournalEntry, SendableClimb } from "@/db/queries";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
 import { MAX_JOURNAL_BODY_LENGTH, type JournalKind } from "@/lib/journal";
@@ -137,48 +137,19 @@ export function JournalEntryForm({
 
   return (
     <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-6`}>
-      <FormSection label="The day">
-        {!isUndatedSend && (
-          <DatePickerField
-            label="Date"
-            value={entryDate}
-            max={today}
-            isReadOnly={existingEntry?.sent}
-            onChange={setEntryDate}
-          />
-        )}
-
-        {isAscent && (
-          <Checkbox isSelected={dateUnknown} onChange={setDateUnknown}>
-            <Checkbox.Content>
-              <Checkbox.Control>
-                <Checkbox.Indicator />
-              </Checkbox.Control>
-              I don&apos;t remember the date
-            </Checkbox.Content>
-          </Checkbox>
-        )}
-
-        {climb &&
-          (existingEntry ? (
-            sent && (
-              <p className="text-sm text-muted">
-                {existingEntry.isAscent
-                  ? "To change the ascent date, use Edit send on the climb page."
-                  : "To change this repeat’s date, delete the entry and log it again."}
-              </p>
-            )
-          ) : (
-            <Checkbox isSelected={sent} onChange={setSent}>
-              <Checkbox.Content>
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
-                I sent
-              </Checkbox.Content>
-            </Checkbox>
-          ))}
-      </FormSection>
+      <JournalEntryDateFields
+        kind={kind}
+        hasClimb={climb != null}
+        hasPriorSend={hasPriorSend}
+        existingEntry={existingEntry}
+        today={today}
+        entryDate={entryDate}
+        sent={sent}
+        dateUnknown={dateUnknown}
+        onDateChange={setEntryDate}
+        onSentChange={setSent}
+        onDateUnknownChange={setDateUnknown}
+      />
 
       {isAscent && climb && (
         <FormSection label="The ascent">

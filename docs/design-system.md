@@ -91,6 +91,15 @@ Use `FIELD_ACTION_CLASS` to match an adjacent action to its field's responsive
 size and theme border width. Keep compact row/menu actions small. Pending
 buttons should prevent repeat requests while retaining keyboard focus.
 
+In the journal form, put “I sent” before the date controls. For a climb without a
+recorded send, keep “I don't remember the date” visible and disabled until “I sent”
+is selected, with an associated explanation. Explain that undated sends stay in
+Sends until a date places them in the journal; sessions, repeats, and training need
+a date. Switching back to a session clears the unknown-date choice and restores
+the entered date. See **Components / Journal / Entry date** for these states.
+Tutorials remain unchanged: the Log lesson describes entry types and does not
+demonstrate the date controls; its instructions remain accurate.
+
 Cards and bounded content panels use `rounded-panel`, backed by the unchanged
 `--radius-panel: 0.75rem` (12px) token. Choose a treatment by purpose with
 `cardClass(padding, surface)`; the default remains `cardClass("md", "quiet")`.

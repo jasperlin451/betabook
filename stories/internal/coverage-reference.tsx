@@ -54,6 +54,7 @@ const examples: Record<string, string> = {
   "import/wizard-steps.tsx": "components-import-wizard-steps--import-steps",
   "journal/tag-input.tsx": "components-journal-tag-input--journal-tags",
   "journal/entry-kind-step.tsx": "components-journal-entry-kind--choices",
+  "journal/journal-entry-date-fields.tsx": "components-journal-entry-date--session",
   "product-tours/social-tour-previews.tsx": "components-tutorials-social-previews--feed",
   "logged-grade-histogram.tsx": "components-charts-logged-grade-histogram--logged-grades",
   "privacy-fields.tsx": "components-account-privacy-fields--privacy",
