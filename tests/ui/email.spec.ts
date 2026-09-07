@@ -1,5 +1,26 @@
 import { expect, test } from "@playwright/test";
 
+import { auditEmailPreview } from "./email-accessibility";
+
+test("email accessibility checks cover the document inside the sandbox", async ({ page }) => {
+  await page.goto("/iframe.html?id=patterns-email--contact&viewMode=story");
+  const results = await auditEmailPreview(page);
+  expect(results.violations).toEqual([]);
+  expect(results.passes).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: "document-title" }),
+      expect.objectContaining({ id: "html-has-lang" }),
+      expect.objectContaining({ id: "color-contrast" }),
+      expect.objectContaining({ id: "image-alt" }),
+      expect.objectContaining({ id: "link-name" }),
+    ]),
+  );
+  await expect(page.locator('iframe[title="Email preview"]')).toHaveAttribute(
+    "sandbox",
+    "allow-same-origin",
+  );
+});
+
 test("email documents load the full logo PNG, fit the viewport, and keep literal visitor content", async ({
   page,
 }, testInfo) => {
