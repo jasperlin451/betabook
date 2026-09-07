@@ -64,6 +64,15 @@ The current stat tiles and avatar initials are explicit
 display-type exceptions. Keep labels in sentence case and use concrete language
 such as “Log session” and “No sends yet.”
 
+Reading copy is 16px; supporting text, labels, control values and feedback are
+normally 14px. Compact field descriptions and metadata are 12px. Use HeroUI
+`Label`, `Description` and `FieldError` to associate feedback with its control;
+announce dynamic errors and retain semantic invalid/focus treatments.
+
+Use `FIELD_ACTION_CLASS` to match an adjacent action to its field's responsive
+size and theme border width. Keep compact row/menu actions small. Pending
+buttons should prevent repeat requests while retaining keyboard focus.
+
 Cards and bounded content panels use `rounded-panel`, backed by the unchanged
 `--radius-panel: 0.75rem` (12px) token. Choose a treatment by purpose with
 `cardClass(padding, surface)`; the default remains `cardClass("md", "quiet")`.

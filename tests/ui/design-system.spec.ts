@@ -11,6 +11,13 @@ async function openStory(page: Page, testInfo: TestInfo, story: string) {
   );
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  // This state is reached by the story's real keyboard interaction. Do not
+  // audit or capture its idle render if the play function hasn't completed.
+  if (story === "components-journal-tag-input--invalid") {
+    await expect(page.getByRole("alert")).toHaveText(
+      "Tags can only contain letters, numbers and hyphens.",
+    );
+  }
   await page.evaluate(() => document.fonts.ready);
   // The theme decorator can start color transitions on the first render.
   // Inspect settled colors, not an intermediate light-to-dark blend; leave

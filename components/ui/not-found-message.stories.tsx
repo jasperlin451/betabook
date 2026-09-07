@@ -17,3 +17,11 @@ export const NotFound: Story = {
     />
   ),
 };
+export const LongHeading: Story = {
+  render: () => (
+    <NotFoundMessage
+      heading="This climbing area could not be found"
+      message="Search for a nearby area to keep exploring."
+    />
+  ),
+};

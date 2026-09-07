@@ -19,7 +19,7 @@ export function NotFoundMessage({
 }: NotFoundMessageProps) {
   return (
     <div className="flex flex-col gap-2">
-      <PageTitle className="text-2xl">{heading}</PageTitle>
+      <PageTitle>{heading}</PageTitle>
       <p className="text-muted">{message}</p>
       <AppLink href={linkHref} className="self-start">
         {linkText}

@@ -23,7 +23,7 @@ export default function ErrorPage({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <PageTitle className="text-2xl">Something went wrong</PageTitle>
+        <PageTitle>Something went wrong</PageTitle>
         <p className="text-muted">
           An unexpected error kept this page from loading. It may be temporary — trying again often
           fixes it.

@@ -73,7 +73,7 @@ export function SignUpForm({
   if (done) {
     return (
       <div className={FORM_CARD_CLASS}>
-        <PageTitle className="text-2xl">Check your email</PageTitle>
+        <PageTitle>Check your email</PageTitle>
         <p className="text-sm text-muted">
           We sent a verification link to {email}. Verify your address, then{" "}
           <AppLink href={signInUrl(nextPath)}>sign in</AppLink>.
@@ -88,7 +88,7 @@ export function SignUpForm({
 
   return (
     <form onSubmit={handleSubmit} className={FORM_CARD_CLASS}>
-      <PageTitle className="text-2xl">Sign up</PageTitle>
+      <PageTitle>Sign up</PageTitle>
       {googleEnabled && (
         <>
           <GoogleSignInButton nextPath={nextPath} onError={setError} disabled={pending} />

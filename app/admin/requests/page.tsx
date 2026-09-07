@@ -70,7 +70,7 @@ export default async function AdminRequestsPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <PageTitle className="text-2xl">Review requests</PageTitle>
+        <PageTitle>Review requests</PageTitle>
         {/* Just the granted areas — each one covers its whole subtree, so
             expanding the tree here would bury the actual grants. */}
         {managedAreas.length > 0 ? (

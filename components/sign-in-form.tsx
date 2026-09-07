@@ -97,7 +97,7 @@ export function SignInForm({
 
   return (
     <form onSubmit={handleSubmit} className={FORM_CARD_CLASS}>
-      <PageTitle className="text-2xl">Sign in</PageTitle>
+      <PageTitle>Sign in</PageTitle>
       {googleEnabled && (
         <>
           <GoogleSignInButton nextPath={nextPath} onError={setError} disabled={pending} />
