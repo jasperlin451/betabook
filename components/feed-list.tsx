@@ -2,7 +2,7 @@
 
 import { Button } from "@heroui/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useTransition } from "react";
+import { useTransition } from "react";
 
 import { FeedDayCard } from "@/components/feed-day-card";
 import { AppLink } from "@/components/ui/app-link";
@@ -30,17 +30,7 @@ export function FeedList({
   const [refreshing, startRefresh] = useTransition();
   const mounted = useMounted();
   const { data: session, isPending } = authClient.useSession();
-  useEffect(() => {
-    const refresh = () => {
-      if (document.visibilityState === "visible") router.refresh();
-    };
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", refresh);
-    };
-  }, [router]);
+  // The page's ViewerBoundary refreshes permissions and data on return.
   const { items, hasMore, loadingMore, loadMoreFailed, loadMore } = usePagedList<FeedDay, null>({
     initialItems: initialPage.days,
     initialHasMore: initialPage.hasMore,

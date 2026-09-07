@@ -1,6 +1,60 @@
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 
 import { createFriendRequestCountStore } from "@/lib/friend-request-count";
+
+afterEach(() => vi.useRealTimers());
+
+it("shares passive count checks across navigation and focus for one minute", async () => {
+  vi.useFakeTimers();
+  const fetcher = vi
+    .fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json({ userId: "owner", count: 2 }))
+    .mockResolvedValueOnce(Response.json({ userId: "owner", count: 3 }));
+  const store = createFriendRequestCountStore(fetcher);
+  store.setUser("owner");
+  await store.refresh({ ifStale: true });
+  await store.refresh({ ifStale: true });
+  await vi.advanceTimersByTimeAsync(59_999);
+  await store.refresh({ ifStale: true });
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(store.getSnapshot()).toEqual({ userId: "owner", count: 2 });
+
+  await vi.advanceTimersByTimeAsync(1);
+  await store.refresh({ ifStale: true });
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(store.getSnapshot()).toEqual({ userId: "owner", count: 3 });
+});
+
+it("does not cancel and restart an in-flight count for passive checks", async () => {
+  const pending = deferred();
+  const fetcher = vi.fn<typeof fetch>().mockReturnValue(pending.promise);
+  const store = createFriendRequestCountStore(fetcher);
+  store.setUser("owner");
+  const first = store.refresh({ ifStale: true });
+  const second = store.refresh({ ifStale: true });
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(fetcher.mock.calls[0][1]!.signal?.aborted).toBe(false);
+  pending.resolve(Response.json({ userId: "owner", count: 3 }));
+  await Promise.all([first, second]);
+  expect(store.getSnapshot()).toEqual({ userId: "owner", count: 3 });
+});
+
+it("bypasses the passive cooldown after a mutation or account change", async () => {
+  const fetcher = vi
+    .fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json({ userId: "owner", count: 2 }))
+    .mockResolvedValueOnce(Response.json({ userId: "owner", count: 1 }))
+    .mockResolvedValueOnce(Response.json({ userId: "second", count: 4 }));
+  const store = createFriendRequestCountStore(fetcher);
+  store.setUser("owner");
+  await store.refresh({ ifStale: true });
+  await store.refresh();
+  expect(store.getSnapshot()).toEqual({ userId: "owner", count: 1 });
+  store.setUser("second");
+  await store.refresh({ ifStale: true });
+  expect(fetcher).toHaveBeenCalledTimes(3);
+  expect(store.getSnapshot()).toEqual({ userId: "second", count: 4 });
+});
 
 function deferred() {
   let resolve!: (response: Response) => void;
