@@ -13,7 +13,10 @@ test("send commentary explains its audience in a tooltip without submitting the 
   await expect(help).toBeVisible();
   const tooltip = page.getByRole("tooltip");
   await expect(tooltip).toBeHidden();
-  await help.click();
+  // Finish scrolling before activation; tooltips dismiss on ancestor scroll events.
+  await help.scrollIntoViewIfNeeded();
+  if (testInfo.project.use.hasTouch) await help.tap();
+  else await help.click();
   await expect(tooltip).toHaveText(
     "Uses your Send commentary audience wherever this note appears.",
   );
