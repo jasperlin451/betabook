@@ -217,8 +217,5 @@ Betabook is source available under the [PolyForm Noncommercial License 1.0.0](LI
 Use is permitted for the purposes defined in that license; commercial use outside
 those permissions requires a separate license from the copyright holder.
 
-Versions previously released under MIT remain available under their original terms.
-Third-party dependencies retain their own licenses.
-
 The app serves a copy at `/license.txt`. Keep `public/license.txt` synchronized with
 `LICENSE` when updating the license or required notices.
