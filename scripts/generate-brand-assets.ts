@@ -64,6 +64,14 @@ ${mark}
       );
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: `${fileURLToPath(base)}.png`, omitBackground: true });
+      if (treatment === "light") {
+        // The complete About-page artwork, on a stable paper canvas for inboxes
+        // that recolor HTML backgrounds. Preserve the original 500:320 proportions.
+        await page.addStyleTag({ content: `html,body{background:${palette("paper")}}` });
+        await page.screenshot({
+          path: fileURLToPath(new URL("betabook-lockup-email.png", publicBrand)),
+        });
+      }
       if (treatment === "dark") {
         await page.setViewportSize({ width: 1200, height: 630 });
         await page.setContent(

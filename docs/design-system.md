@@ -45,6 +45,24 @@ The header pairs the original mark with the approved wordmark at 640px and wider
 narrower screens keep a 48px icon-only home link. About and social previews preserve
 the full lockup and tagline. The global palette is unchanged.
 
+Transactional emails use `lib/email-template.ts` and the complete About-page
+logo: mountain, sun, wordmark, and tagline. The generator exports that same artwork
+to `public/branding/betabook-lockup-email.png` at 1000 × 640 on a paper canvas.
+Display it centered at up to 350px wide, shrinking proportionally on narrow screens.
+PNG works across inbox apps where SVG
+support varies. Email documents use inline ink/paper/primary colors, Arial/Helvetica
+fallback fonts, and a table layout because they cannot load the app's Tailwind
+theme or bundled fonts. Keep these literal colors aligned with the palette.
+The paper-backed logo remains legible when inbox apps recolor surrounding content;
+the gallery does not simulate every client's dark-mode transformations.
+Inspect **Patterns / Email** for auth, welcome, friend request, contact, and
+moderation examples, including long links and literal visitor input. Every email
+also carries plain text, and its message and links remain usable with images blocked.
+The welcome email shows labeled buttons without duplicate visible URLs underneath;
+its plain-text alternative retains every destination. Other emails keep their
+copyable URLs below the buttons.
+Tutorials stay unchanged: this changes email presentation without changing a workflow.
+
 | Concern                     | Source                                   | Rule                                                                                                                                                            |
 | --------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Colors and theme roles      | `app/globals.css`                        | Use semantic utilities such as `bg-surface` and `text-muted`. New colors belong in the theme, not feature markup.                                               |

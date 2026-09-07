@@ -94,6 +94,7 @@ it("persists one pending pair for concurrent duplicate requests and preserves it
     from: "Betabook <noreply@betabook.ca>",
     to: "bob@example.com",
     subject: "New friend request on Betabook",
+    html: expect.stringContaining('alt="Betabook — Climb · Log · Progress"'),
     text: "Test Climber alice sent you a friend request on Betabook.\n\nAccept or decline the request:\nhttps://preview.betabook.ca/friends?view=requests",
   });
   const before = await rows();
@@ -131,6 +132,7 @@ it.each(["alice", "bob"])(
       from: "Betabook <noreply@betabook.ca>",
       to: "recipient-updated@example.com",
       subject: "New friend request on Betabook",
+      html: expect.stringContaining('alt="Betabook — Climb · Log · Progress"'),
       text: `${name} sent you a friend request on Betabook.\n\nAccept or decline the request:\nhttps://preview.betabook.ca/friends?view=requests`,
     });
   },
