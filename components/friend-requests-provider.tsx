@@ -35,14 +35,12 @@ export function FriendRequestsProvider({ children }: { children: ReactNode }) {
     store.setUser(userId);
     if (!userId) return;
     function refreshVisible() {
-      if (document.visibilityState === "visible") void store.refresh();
+      if (document.visibilityState === "visible") void store.refresh({ ifStale: true });
     }
     refreshVisible();
     window.addEventListener("focus", refreshVisible);
     document.addEventListener("visibilitychange", refreshVisible);
-    const timer = window.setInterval(refreshVisible, 60_000);
     return () => {
-      window.clearInterval(timer);
       window.removeEventListener("focus", refreshVisible);
       document.removeEventListener("visibilitychange", refreshVisible);
       store.setUser(null);
@@ -52,7 +50,7 @@ export function FriendRequestsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (previousPath.current !== pathname) {
       previousPath.current = pathname;
-      void store.refresh();
+      if (document.visibilityState === "visible") void store.refresh({ ifStale: true });
     }
   }, [pathname, store]);
 

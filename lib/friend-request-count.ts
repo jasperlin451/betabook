@@ -5,6 +5,7 @@ export function createFriendRequestCountStore(fetcher: typeof fetch = fetch) {
   let snapshot: Snapshot = { userId: null, count: null };
   let sequence = 0;
   let controller: AbortController | null = null;
+  let lastAttemptAt = -Infinity;
   const listeners = new Set<() => void>();
   function publish(next: Snapshot) {
     snapshot = next;
@@ -22,11 +23,17 @@ export function createFriendRequestCountStore(fetcher: typeof fetch = fetch) {
       if (snapshot.userId === userId) return;
       sequence += 1;
       controller?.abort();
+      controller = null;
+      lastAttemptAt = -Infinity;
       publish({ userId, count: null });
     },
-    async refresh() {
+    // Passive navigation/focus checks share a one-minute cooldown, including
+    // failed attempts. Mutation callers omit ifStale to refresh immediately.
+    async refresh({ ifStale = false }: { ifStale?: boolean } = {}) {
       const userId = snapshot.userId;
       if (!userId) return;
+      if (ifStale && (controller !== null || Date.now() - lastAttemptAt < 60_000)) return;
+      lastAttemptAt = Date.now();
       sequence += 1;
       const request = sequence;
       controller?.abort();
@@ -52,6 +59,8 @@ export function createFriendRequestCountStore(fetcher: typeof fetch = fetch) {
         publish({ userId, count: result.count });
       } catch {
         if (request === sequence) publish({ userId, count: null });
+      } finally {
+        if (request === sequence) controller = null;
       }
     },
   };
