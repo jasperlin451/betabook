@@ -112,6 +112,10 @@ function filterConditions(filter: JournalFilter, viewerId: string | null): SQL[]
   }
   if (filter.climbId !== null) conditions.push(sql`j.climb_id = ${filter.climbId}`);
   if (filter.date) conditions.push(sql`j.entry_date = ${filter.date}`);
+  else {
+    if (filter.dateFrom) conditions.push(sql`j.entry_date >= ${filter.dateFrom}`);
+    if (filter.dateTo) conditions.push(sql`j.entry_date <= ${filter.dateTo}`);
+  }
   if (filter.year !== null) {
     conditions.push(
       sql`j.entry_date >= ${`${filter.year}-01-01`} AND j.entry_date <= ${`${filter.year}-12-31`}`,

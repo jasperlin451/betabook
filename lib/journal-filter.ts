@@ -1,12 +1,11 @@
+import { appendDateFilterParams, parseDateFilter, type DateFilterValue } from "@/lib/date-filter";
 import { isValidJournalTag, normalizeTag } from "@/lib/journal";
 import { toArray, type SearchParamsRecord } from "@/lib/search-params";
-import { isRealIsoDate } from "@/lib/sends";
 
 export const JOURNAL_VIEWS = ["all", "sessions", "training"] as const;
 export type JournalView = (typeof JOURNAL_VIEWS)[number];
 
-export type JournalFilter = {
-  date?: string;
+export type JournalFilter = DateFilterValue & {
   view: JournalView;
   query: string | null;
   tag: string | null;
@@ -42,10 +41,9 @@ export function parseJournalFilter(params: SearchParamsRecord): JournalFilter {
 
   const climbId = Number(toArray(params.climbId)[0]);
   const year = Number(toArray(params.year)[0]);
-  const date = toArray(params.date)[0];
 
   return {
-    ...(date && isRealIsoDate(date) ? { date } : {}),
+    ...parseDateFilter(params),
     view,
     query: query || null,
     tag: tag || null,
@@ -57,7 +55,7 @@ export function parseJournalFilter(params: SearchParamsRecord): JournalFilter {
 
 export function journalFilterToSearchParams(filter: JournalFilter): URLSearchParams {
   const params = new URLSearchParams();
-  if (filter.date) params.set("date", filter.date);
+  appendDateFilterParams(params, filter);
   if (filter.view !== DEFAULT_JOURNAL_FILTER.view) params.set("view", filter.view);
   if (filter.query) params.set("q", filter.query);
   if (filter.tag) params.set("tag", filter.tag);

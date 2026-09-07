@@ -1,12 +1,12 @@
 import type { UserSendsFilter, UserSendsSort } from "@/db/queries";
 import { MAX_RATING } from "@/lib/climb-stats-filter";
+import { appendDateFilterParams, parseDateFilter } from "@/lib/date-filter";
 import {
   DEFAULT_DISCIPLINE_FILTER,
   appendDisciplineFilterParams,
   parseDisciplineFilter,
 } from "@/lib/discipline-filter";
 import { parseAscentStyles, toArray, type SearchParamsRecord } from "@/lib/search-params";
-import { isRealIsoDate } from "@/lib/sends";
 
 const USER_SENDS_SORTS = new Set<UserSendsSort>([
   "date_desc",
@@ -37,10 +37,9 @@ export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilte
     : DEFAULT_USER_SENDS_FILTER.sort;
 
   const minRating = Number(toArray(params.minRating)[0]);
-  const date = toArray(params.date)[0];
 
   return {
-    ...(date && isRealIsoDate(date) ? { date } : {}),
+    ...parseDateFilter(params),
     ...parseDisciplineFilter(params),
     name: toArray(params.name)[0],
     areaName: toArray(params.areaName)[0],
@@ -55,7 +54,7 @@ export function parseUserSendsFilter(params: SearchParamsRecord): UserSendsFilte
 
 export function userSendsFilterToSearchParams(filter: UserSendsFilter): URLSearchParams {
   const params = new URLSearchParams();
-  if (filter.date) params.set("date", filter.date);
+  appendDateFilterParams(params, filter);
   appendDisciplineFilterParams(params, filter);
   if (filter.name) params.set("name", filter.name);
   if (filter.areaName) params.set("areaName", filter.areaName);

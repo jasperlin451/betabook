@@ -287,3 +287,19 @@ secondary-button token adjustment, keyboard-scrollable progression charts, and p
 presentation/accessibility without changing any workflow. Tutorial previews
 automatically inherit the shared fixes. Future primitive changes should also be checked
 in the tutorial previews, which reuse application components.
+
+Sends and Journal share `DateFilter`, labeled Dates. The options are All time (default),
+This month, This year, Last year, and Custom dates. Presets apply immediately using
+the viewer's local calendar date and store concrete inclusive bounds in the URL.
+Custom dates reveal Start date and End date fields using `DatePickerField`, with
+both keyboard entry and calendar popovers. Custom edits update automatically through
+the toolbar's existing debounce
+when a start date is complete and any end date is on or after it.
+Incomplete or reversed dates preserve the last valid filter. A start date
+alone selects one day. Field descriptions explain this; Clear end date returns
+a range to one day. Selecting
+All time clears the constraint. Selecting dates in Journal replaces its year filter.
+See **Components / Inputs / Date filter** for default, preset, single-day, and
+summer 2025 examples. This replaces the mode selector and always-visible calendar.
+Existing tutorial guidance on notes, entry types, tags, and Sends sorting remains
+accurate, so lesson steps and versions are unchanged.
