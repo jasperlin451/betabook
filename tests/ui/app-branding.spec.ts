@@ -99,4 +99,24 @@ test("tab, touch, install and social metadata point to decodable approved assets
     expect(dimensions.width, url).toBe(size);
     expect(dimensions.height, url).toBe(size === 1200 ? 630 : size);
   }
+  const socialAlt = await page.locator('meta[property="og:image:alt"]').getAttribute("content");
+  expect(socialAlt).toBe("Betabook — Climb · Log · Progress. Climbing logbook and crag database.");
+});
+
+test("the footer colophon carries the wordmark's tagline as text", async ({ page }, testInfo) => {
+  await page.goto("/about");
+  const colophon = page.getByRole("contentinfo");
+  await expect(colophon).toContainText(/© \d{4} Betabook — Climb · Log · Progress/);
+  await expect(colophon.getByRole("link", { name: "About" })).toBeVisible();
+  await expect(colophon.getByRole("link", { name: "Contact" })).toBeVisible();
+  // Unbroken at every width — the line wraps before the tagline, not at a middle dot.
+  expect(
+    await colophon
+      .getByText("Climb · Log · Progress")
+      .evaluate((node) => node.getClientRects().length),
+  ).toBe(1);
+  await testInfo.attach("footer-colophon", {
+    body: await colophon.screenshot({ path: testInfo.outputPath("footer-colophon.png") }),
+    contentType: "image/png",
+  });
 });
