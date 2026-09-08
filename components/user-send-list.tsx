@@ -30,8 +30,8 @@ type UserSendsPageResponse = {
   areaBreadcrumbs: AreaBreadcrumbs;
 };
 
-/** Key the list by filters. Same-key refreshes supply a new initialSends
- * identity, resetting loaded pages after send edits or deletion. */
+/** Key the list by filters. Same-key refreshes revalidate the loaded depth
+ * after send edits, deletion or returning to the tab. */
 export function UserSendList({
   userId,
   filter,
@@ -54,10 +54,13 @@ export function UserSendList({
     initialMeta: initialAreaBreadcrumbs,
     itemKey: (send) => send.id,
     mergeMeta: (current, incoming) => ({ ...current, ...incoming }),
-    fetchPage: async (offset) => {
+    fetchPage: async (offset, _page, _last, signal) => {
       const params = userSendsFilterToSearchParams(filter);
       params.set("offset", String(offset));
-      const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`);
+      const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`, {
+        cache: "no-store",
+        signal,
+      });
       if (!res.ok) throw new Error(`Loading sends failed: ${res.status}`);
       const data: UserSendsPageResponse = await res.json();
       return {

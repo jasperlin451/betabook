@@ -39,7 +39,7 @@ export function FeedList({
     initialMeta: null,
     itemKey: (day) => JSON.stringify([day.date, day.userId]),
     mergeMeta: () => null,
-    fetchPage: async (_offset, _page, last) => {
+    fetchPage: async (_offset, _page, last, signal) => {
       const params = new URLSearchParams({ view });
       if (last)
         params.set(
@@ -51,7 +51,7 @@ export function FeedList({
             view,
           } satisfies FeedCursor),
         );
-      const response = await fetch(`/api/feed?${params}`, { cache: "no-store" });
+      const response = await fetch(`/api/feed?${params}`, { cache: "no-store", signal });
       if (response.status === 401) router.replace(signInUrl("/feed"));
       if (!response.ok) throw new Error("Couldn't load feed");
       const page = (await response.json()) as FeedPage;
