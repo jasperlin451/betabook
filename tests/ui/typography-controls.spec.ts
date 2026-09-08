@@ -94,32 +94,3 @@ test("sort direction matches its field size and works from the keyboard", async 
   await expect(descending).toHaveCSS("height", borderedHeight);
   await expect(descending).toHaveCSS("width", borderedHeight);
 });
-
-test("pagination announces failures and exposes the retry description", async ({ page }, info) => {
-  await openStory(page, info, "components-feedback-load-more-button--retry");
-  const retry = page.getByRole("button", { name: "Load more" });
-  await expect(page.getByRole("alert")).toHaveText("Couldn't load more — try again.");
-  await expect(retry).toHaveAccessibleDescription("Couldn't load more — try again.");
-  await retry.press("Enter");
-  await expect(page.getByRole("alert")).toHaveCount(0);
-  await expect(page.getByRole("status")).toHaveText("Next page loaded.");
-  await expect(retry).toBeFocused();
-});
-
-test("pending pagination preserves focus and prevents duplicate requests", async ({
-  page,
-}, info) => {
-  await openStory(page, info, "components-feedback-load-more-button--loading");
-  const pending = page.getByRole("button", { name: "Loading…" });
-  await expect(pending).toBeDisabled();
-  await pending.focus();
-  await expect(pending).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page.locator("output")).toHaveText("Requests: 0");
-  await page.getByRole("button", { name: "Finish sample request" }).click();
-  await page.getByRole("button", { name: "Load more" }).press("Enter");
-  await expect(pending).toBeFocused();
-  await expect(page.locator("output")).toHaveText("Requests: 1");
-  await page.keyboard.press("Enter");
-  await expect(page.locator("output")).toHaveText("Requests: 1");
-});

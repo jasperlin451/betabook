@@ -303,75 +303,6 @@ presentation states. The discovery tutorial uses the same controller with local
 sample transport and friend-request actions. Its stable lesson IDs and version
 remain unchanged because the current version 2 update is unreleased.
 
-## Preventing regressions
-
-`pnpm test:ui` discovers all stories from the built Storybook index and runs
-Chromium at desktop and mobile widths in both themes. The same command also runs
-real app branding checks against Next.js, covering navigation, About,
-theme persistence, and favicon/touch/manifest/social assets. Playwright starts the
-gallery preview and the app, applying local D1 migrations before starting a new
-app server. It defaults to port 3000, matching `pnpm dev`; set `BETABOOK_UI_PORT`
-to the port of an existing app when it differs (for example,
-`BETABOOK_UI_PORT=3003 pnpm test:ui`). Both the server and tests use that port,
-and server readiness warms the homepage compilation before navigation checks.
-It can reuse an existing app; stop and migrate that app
-first if its database is out of date. Use the normal local `.dev.vars` setup;
-CI copies `.dev.vars.example` and needs no seed or account for these checks.
-Both suites share the same HTML report and four viewport/theme projects.
-New stories automatically
-receive accessibility, overflow and screenshot checks. Focused interaction tests
-check rendered panel geometry (including feed, empty, mobile-helper, and loading
-components, with a live token-change check), surface roles/borders, nested and
-responsive padding, feed loading structure, typography, native/HeroUI field consistency,
-keyboard focus, dialog cancellation/confirmation, live token updates, search
-selection, menus, comment expansion, and tag editing. The gallery-wide checks
-cover horizontal overflow and automated WCAG A/AA findings. Tests inspect browser behavior and computed styles,
-not source-text patterns. Keep the Workers/D1 test suite separate.
-
-All UI specs use `tests/ui/story.ts`. Its `openStory` helper verifies the project
-theme, fixes the browser date, waits for Storybook's render/play completion and
-settles fonts/finite animations. The preview lifecycle sets the readiness signal;
-do not replace it with a timeout or a story heading alone. Unhandled browser
-errors and live API requests from a story fail the suite. Axe checks the complete
-story document, including open portals, with WCAG 2.0/2.1 A/AA rules.
-
-Email previews retain their scriptless iframe sandbox. Because that sandbox also
-blocks axe's asynchronous rule callbacks, the gallery audit checks the iframe
-element and audits its actual email HTML in a separate page at the same frame
-dimensions. Both use the full WCAG A/AA rules. Screenshots and interaction checks
-still exercise the sandboxed preview; a focused test verifies document, contrast,
-image, and link rules actually ran inside the email content.
-
-The CI **UI reference** job runs on every PR and main-branch push and is a
-deployment prerequisite. It uploads an HTML report with screenshots and failure
-traces. These Playwright screenshots are review evidence, not pixel-comparison baselines.
-The separate [publishing workflow](../.github/workflows/chromatic.yml) hosts the
-gallery and Storybook documentation MCP on Chromatic. UI Tests and UI Review are
-disabled there, and the preview disables snapshots. Publishing incurs no snapshot
-usage. There is no automatic pixel comparison; review the Playwright screenshots
-and rely on the rendered geometry, accessibility, and interaction assertions for CI checks.
-The suite cannot detect every visual change or assess complete accessibility;
-inspect affected stories and real application screens before completing UI work.
-Repository branch protection must also require this job if merges should be
-blocked; a workflow alone does not configure GitHub merge rules.
-
-For a deliberate design change, update the primitive/token, the example, this
-guide, and relevant assertions together. Explain the intended before/after in
-the PR. Do not blindly accept new expected values or disable accessibility
-rules. When adding coverage for existing behavior, temporarily introduce a
-targeted regression, observe the expected failure, restore production code, and
-record both failing and passing commands.
-
-Agents discover this guide through the root `AGENTS.md`. That file requires
-reading the relevant stories and running the UI checks; the executable checks
-provide enforcement when instructions are missed. Keep the root link in place.
-
-Tutorial decision: no lesson steps or versions change. Tutorial demo cards, status panels, and guide framing use the shared panel radius, matching the application without changing navigation, targets, or lesson content. Storybook folder organization only changes developer documentation and discovery. The privacy contrast correction,
-secondary-button token adjustment, keyboard-scrollable progression charts, and progress-bar labels improve shared
-presentation/accessibility without changing any workflow. Tutorial previews
-automatically inherit the shared fixes. Future primitive changes should also be checked
-in the tutorial previews, which reuse application components.
-
 Sends and Journal share `DateFilter`, labeled Dates. The options are All time (default),
 This month, This year, Last year, and Custom dates. Presets apply immediately using
 the viewer's local calendar date and store concrete inclusive bounds in the URL.
@@ -387,3 +318,26 @@ See **Components / Inputs / Date filter** for default, preset, single-day, and
 summer 2025 examples. This replaces the mode selector and always-visible calendar.
 Existing tutorial guidance on notes, entry types, tags, and Sends sorting remains
 accurate, so lesson steps and versions are unchanged.
+
+## Visual review
+
+Inspect affected stories and real application screens at mobile and desktop
+sizes in light and dark themes. Include tutorial previews when shared primitives
+change. Automated checks cannot detect every visual change or assess complete
+accessibility; review the screenshots and the actual rendered states.
+
+For a deliberate design change, update the primitive/token, the example, this
+guide and relevant assertions together. Explain the intended before/after in the
+PR. Do not blindly accept new expected values or disable accessibility rules.
+
+Use [Choosing and writing tests](component-testing.md) for test selection,
+[the browser rules](component-testing.md#browser-rules) for focused assertions,
+and [Running browser checks](component-testing.md#running-browser-checks) for
+local setup, accessibility audits and CI evidence. The root `AGENTS.md` contents
+page links both guides; keep those links in place.
+
+Tutorial decision: no lesson steps or versions change. Tutorial demo cards, status panels, and guide framing use the shared panel radius, matching the application without changing navigation, targets, or lesson content. Storybook folder organization only changes developer documentation and discovery. The privacy contrast correction,
+secondary-button token adjustment, keyboard-scrollable progression charts, and progress-bar labels improve shared
+presentation/accessibility without changing any workflow. Tutorial previews
+automatically inherit the shared fixes. Future primitive changes should also be checked
+in the tutorial previews, which reuse application components.

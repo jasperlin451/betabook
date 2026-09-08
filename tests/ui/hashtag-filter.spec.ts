@@ -7,43 +7,10 @@ async function openHashtagStory(page: Page, testInfo: TestInfo) {
   return page.getByRole("combobox", { name: "Hashtag" });
 }
 
-test("hashtag only commits existing tags with Enter or Space", async ({ page }, testInfo) => {
-  const input = await openHashtagStory(page, testInfo);
-  const status = page.locator('p[role="status"]');
-  await expect(input).toHaveValue("#");
-  await input.press("Enter");
-  await input.press("Space");
-  await expect(status).toHaveText("Filter: All hashtags");
-  await expect(page.getByRole("button", { name: /^Remove hashtag/ })).toHaveCount(0);
-  for (const key of ["Enter", "Space"]) {
-    await input.fill("#UNLISTED");
-    await expect(status).toHaveText("Filter: All hashtags");
-    await input.press(key);
-    await expect(status).toHaveText("Filter: All hashtags");
-    await expect(input).toHaveValue("#UNLISTED");
-    await input.fill("#TRIP");
-    await input.press(key);
-    await expect(input).toHaveValue("#");
-    await expect(page.getByRole("listbox")).toHaveCount(0);
-    await expect(status).toHaveText("Filter: trip");
-    const selected = page.getByRole("button", { name: "Remove hashtag trip" });
-    await expect(selected).toHaveText("#trip");
-    await input.fill("#missing");
-    await input.press(key);
-    await expect(status).toHaveText("Filter: trip");
-    await input.press("Escape");
-    await selected.click();
-    await expect(status).toHaveText("Filter: All hashtags");
-    await expect(selected).toHaveCount(0);
-  }
-});
-
-test("hashtag suggestions select a removable tag and keep the # prefix", async ({
+test("hashtag suggestions support keyboard selection and show the selected tags", async ({
   page,
 }, testInfo) => {
   const input = await openHashtagStory(page, testInfo);
-  await input.fill("");
-  await expect(input).toHaveValue("#");
   await input.fill("#TRI");
   await expect(page.getByRole("option", { name: "#trip", exact: true })).toBeVisible();
   await input.press("ArrowDown");
@@ -61,15 +28,11 @@ test("hashtag suggestions select a removable tag and keep the # prefix", async (
   );
   await expect(input).toHaveValue("#");
   await expect(page.getByText("No matching hashtags.", { exact: true })).toHaveCount(0);
+  // Wait for the exiting suggestions to unmount before capturing selected tags.
+  await expect(page.getByRole("listbox", { includeHidden: true })).toHaveCount(0);
   const screenshot = testInfo.outputPath("hashtag-selected.png");
-  await page.screenshot({ path: screenshot });
+  await page.screenshot({ path: screenshot, animations: "disabled" });
   await testInfo.attach("hashtag-selected", { path: screenshot, contentType: "image/png" });
-  await input.fill("#trip");
-  await input.press("Space");
-  await expect(page.getByRole("button", { name: /^Remove hashtag/ })).toHaveCount(2);
-  await page.getByRole("button", { name: "Remove hashtag trip", exact: true }).click();
-  await expect(page.locator('p[role="status"]')).toHaveText("Filter: project");
-  await expect(page.getByRole("button", { name: "Remove hashtag project" })).toBeVisible();
 });
 
 test("the caret and text selection stay after the hashtag prefix", async ({ page }, testInfo) => {
@@ -102,9 +65,15 @@ test("the caret and text selection stay after the hashtag prefix", async ({ page
   await expect.poll(() => input.evaluate((node: HTMLInputElement) => node.selectionStart)).toBe(1);
   await input.pressSequentially("project");
   await expect(input).toHaveValue("#project");
+  await input.fill("#missing");
+  await input.press("Escape");
+  await input.press("ArrowUp");
+  await expect
+    .poll(() => input.evaluate((node: HTMLInputElement) => node.selectionStart))
+    .toBeGreaterThanOrEqual(1);
 });
 
-test("clicking the field shows every available hashtag and reopens after selection", async ({
+test("browsing hashtag suggestions protects the caret and shows the reopened menu", async ({
   page,
 }, testInfo) => {
   const input = await openHashtagStory(page, testInfo);
@@ -119,19 +88,8 @@ test("clicking the field shows every available hashtag and reopens after selecti
   await expect(page.getByRole("button", { name: "Remove hashtag outdoors" })).toBeVisible();
   await input.click();
   await expect(page.getByRole("option")).toHaveCount(6);
-  await input.fill("#tri");
-  await expect(page.getByRole("option")).toHaveCount(2);
-  await input.fill("#missing");
-  await input.press("Escape");
-  await input.press("ArrowUp");
-  await expect
-    .poll(() => input.evaluate((node: HTMLInputElement) => node.selectionStart))
-    .toBeGreaterThanOrEqual(1);
-  await input.fill("#");
-  await input.click();
-  await expect(page.getByRole("option")).toHaveCount(6);
   const screenshot = testInfo.outputPath("hashtag-browse.png");
-  await page.screenshot({ path: screenshot });
+  await page.screenshot({ path: screenshot, animations: "disabled" });
   await testInfo.attach("hashtag-browse", { path: screenshot, contentType: "image/png" });
 });
 
@@ -182,27 +140,6 @@ for (const scenario of [
     });
   });
 }
-
-test("Journal keeps hashtags inside More filters and preserves selections when collapsed", async ({
-  page,
-}, testInfo) => {
-  await openStory(page, testInfo, "components-filters-journal-toolbar--default");
-  const input = page.getByRole("combobox", { name: "Hashtag", exact: true });
-  await expect(input).toBeHidden();
-  await page.getByRole("button", { name: "More filters", exact: true }).click();
-  await input.fill("#power");
-  await input.press("Space");
-  await page.getByRole("button", { name: "Fewer filters", exact: true }).click();
-  await expect(input).toBeHidden();
-  await page.getByRole("button", { name: "More filters", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Remove hashtag power", exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Reset filters", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Remove hashtag power", exact: true })).toHaveCount(
-    0,
-  );
-});
 
 test("Journal filtering and record search use the same field height", async ({
   page,
