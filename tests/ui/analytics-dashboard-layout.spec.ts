@@ -1,5 +1,7 @@
 import { AxeBuilder } from "@axe-core/playwright";
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import type { Page, TestInfo } from "@playwright/test";
+
+import { expect, openStory, test } from "./story";
 
 async function moveEarlier(
   page: Page,
@@ -19,6 +21,7 @@ async function moveEarlier(
   await expect(page.getByRole("button", { name: `Drag ${name}`, exact: true })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-dragging]")).toHaveCount(1);
+  await expect(page.locator('[data-drop-target] [role="button"]')).toBeFocused();
   await page.keyboard.press("Home");
   await expect(page.locator("[data-drop-target]")).toContainText(`Insert before ${before}`);
   await page.keyboard.press("Enter");
@@ -27,9 +30,7 @@ async function moveEarlier(
 test("calendar years scroll horizontally with bounded previous and next controls", async ({
   page,
 }, info) => {
-  await page.goto(
-    `/iframe.html?id=components-charts-analytics-dashboard--multiple-years&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
-  );
+  await openStory(page, info, "components-charts-analytics-dashboard--multiple-years");
   const older = page.getByRole("button", { name: "Older calendar year" });
   const newer = page.getByRole("button", { name: "Newer calendar year" });
   const year = page.getByLabel("Displayed calendar year");
@@ -56,9 +57,7 @@ test("calendar years scroll horizontally with bounded previous and next controls
 test("customization reorders and hides cards and charts within their sections", async ({
   page,
 }, info) => {
-  await page.goto(
-    `/iframe.html?id=components-charts-analytics-dashboard--multiple-years&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
-  );
+  await openStory(page, info, "components-charts-analytics-dashboard--multiple-years");
   const glance = page.getByRole("region", { name: "At a glance", exact: true });
   const charts = page.getByRole("region", { name: "Charts", exact: true });
   await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
@@ -73,10 +72,10 @@ test("customization reorders and hides cards and charts within their sections", 
   await expect(glance.getByRole("article").first()).toHaveAccessibleName("Sends");
   await moveEarlier(page, info, "Hardest", "cards", "Sends");
   await expect(glance.getByRole("article").first()).toHaveAccessibleName("Hardest");
-  await page.getByRole("button", { name: "Hide Areas", exact: true }).click();
-  await expect(glance.getByRole("article", { name: "Areas", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Add Areas", exact: true }).click();
-  await expect(glance.getByRole("article", { name: "Areas", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Hide First try", exact: true }).click();
+  await expect(glance.getByRole("article", { name: "First try", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Add First try", exact: true }).click();
+  await expect(glance.getByRole("article", { name: "First try", exact: true })).toBeVisible();
   await moveEarlier(page, info, "Grade pyramid", "charts", "Progression");
   await expect(charts.getByRole("article").first()).toHaveAccessibleName("Grade pyramid");
   await page.getByRole("button", { name: "Hide Breakthroughs", exact: true }).click();
@@ -98,9 +97,7 @@ test("customization reorders and hides cards and charts within their sections", 
 test("saved account layout is displayed on entry and preserved through year changes", async ({
   page,
 }, info) => {
-  await page.goto(
-    `/iframe.html?id=components-charts-analytics-dashboard--saved-layout&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
-  );
+  await openStory(page, info, "components-charts-analytics-dashboard--saved-layout");
   const glance = page.getByRole("region", { name: "At a glance", exact: true });
   await expect(glance.getByRole("article").first()).toHaveAccessibleName("Hardest");
   await expect(glance.getByRole("article", { name: "Areas", exact: true })).toHaveCount(0);
@@ -116,9 +113,7 @@ test("saved account layout is displayed on entry and preserved through year chan
 });
 
 test("keyboard drag reorders a card without crossing into charts", async ({ page }, info) => {
-  await page.goto(
-    `/iframe.html?id=components-charts-analytics-dashboard--multiple-years&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
-  );
+  await openStory(page, info, "components-charts-analytics-dashboard--multiple-years");
   const glance = page.getByRole("region", { name: "At a glance", exact: true });
   await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
   const grid = page.getByRole("grid", { name: "Reorder cards", exact: true });
@@ -130,6 +125,7 @@ test("keyboard drag reorders a card without crossing into charts", async ({ page
   await expect(page.getByRole("button", { name: "Drag Hardest", exact: true })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-dragging]")).toHaveCount(1);
+  await expect(page.locator('[data-drop-target] [role="button"]')).toBeFocused();
   await page.keyboard.press("Home");
   await expect(page.locator("[data-drop-target]")).toContainText("Insert before Sends");
   await page.keyboard.press("Enter");
@@ -142,25 +138,21 @@ test("keyboard drag reorders a card without crossing into charts", async ({ page
 test("failed account save keeps changes editable and cancel restores the saved layout", async ({
   page,
 }, info) => {
-  await page.goto(
-    `/iframe.html?id=components-charts-analytics-dashboard--save-failure&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
-  );
+  await openStory(page, info, "components-charts-analytics-dashboard--save-failure");
   await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
-  await page.getByRole("button", { name: "Hide Areas", exact: true }).click();
+  await page.getByRole("button", { name: "Hide First try", exact: true }).click();
   await page.getByRole("button", { name: "Save layout", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveText(
     "Your layout couldn’t be saved. Please try again.",
   );
   await expect(page.getByRole("button", { name: "Save layout", exact: true })).toBeVisible();
-  await expect(page.getByRole("article", { name: "Areas", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("article", { name: "First try", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(page.getByRole("article", { name: "Areas", exact: true })).toBeVisible();
+  await expect(page.getByRole("article", { name: "First try", exact: true })).toBeVisible();
 });
 
 test("another profile has no customization controls", async ({ page }, info) => {
-  await page.goto(
-    `/iframe.html?id=components-charts-analytics-dashboard--another-profile&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
-  );
+  await openStory(page, info, "components-charts-analytics-dashboard--another-profile");
   await expect(page.getByRole("heading", { name: "At a glance", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Customize dashboard", exact: true })).toHaveCount(
     0,
@@ -169,9 +161,7 @@ test("another profile has no customization controls", async ({ page }, info) => 
 });
 
 test("move arrows are available only on small screens", async ({ page }, info) => {
-  await page.goto(
-    `/iframe.html?id=components-charts-analytics-dashboard--multiple-years&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
-  );
+  await openStory(page, info, "components-charts-analytics-dashboard--multiple-years");
   await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
   const arrow = page.getByRole("button", { name: "Move Hardest earlier", exact: true });
   if (info.project.name.startsWith("mobile")) await expect(arrow).toBeVisible();
@@ -179,9 +169,7 @@ test("move arrows are available only on small screens", async ({ page }, info) =
 });
 
 test("dragging shows an insertion marker at the destination card", async ({ page }, info) => {
-  await page.goto(
-    `/iframe.html?id=components-charts-analytics-dashboard--multiple-years&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
-  );
+  await openStory(page, info, "components-charts-analytics-dashboard--multiple-years");
   await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
   const grid = page.getByRole("grid", { name: "Reorder cards", exact: true });
   await page
@@ -214,19 +202,17 @@ test("dragging shows an insertion marker at the destination card", async ({ page
 });
 
 test("addable cards and charts are separate from dashboard actions", async ({ page }, info) => {
-  await page.goto(
-    `/iframe.html?id=components-charts-analytics-dashboard--saved-layout&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
-  );
+  await openStory(page, info, "components-charts-analytics-dashboard--saved-layout");
   await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
   await page.getByRole("button", { name: "Hide Breakthroughs", exact: true }).click();
   await expect(
     page
-      .getByRole("group", { name: "Add cards", exact: true })
+      .getByRole("group", { name: "At a glance", exact: true })
       .getByRole("button", { name: "Add Areas", exact: true }),
   ).toBeVisible();
   await expect(
     page
-      .getByRole("group", { name: "Add charts", exact: true })
+      .getByRole("group", { name: "Charts", exact: true })
       .getByRole("button", { name: "Add Breakthroughs", exact: true }),
   ).toBeVisible();
   const actions = page.getByRole("group", { name: "Dashboard actions", exact: true });
@@ -240,6 +226,30 @@ test("addable cards and charts are separate from dashboard actions", async ({ pa
     contentType: "image/png",
   });
   await page.getByRole("button", { name: "Add Areas", exact: true }).click();
-  await expect(page.getByRole("group", { name: "Add cards", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add Areas", exact: true })).toHaveCount(0);
   await expect(page.getByRole("article", { name: "Areas", exact: true })).toBeVisible();
+});
+
+test("Customize placeholders fit their sections and bring the layout editor into view", async ({
+  page,
+}, info) => {
+  await openStory(page, info, "components-charts-analytics-dashboard--hidden-chart");
+  const cards = page.getByRole("region", { name: "At a glance", exact: true });
+  const placeholder = cards.getByRole("button", { name: "Customize cards", exact: true });
+  const stat = await cards.getByRole("article").first().boundingBox();
+  const blank = await placeholder.boundingBox();
+  if (!stat || !blank) throw new Error("Card and placeholder must have bounds");
+  expect(Math.abs(stat.width - blank.width)).toBeLessThan(1);
+  await page.getByRole("button", { name: "Customize charts", exact: true }).click();
+  const title = page.getByRole("heading", { name: "Customize your analytics layout", exact: true });
+  await expect(title).toBeInViewport();
+  await expect(
+    page
+      .getByRole("group", { name: "Dashboard actions", exact: true })
+      .getByRole("button", { name: "Save layout", exact: true }),
+  ).toBeVisible();
+  await info.attach("customize-panel", {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: "image/png",
+  });
 });

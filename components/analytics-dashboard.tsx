@@ -10,6 +10,7 @@ import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { SectionHeading } from "@/components/ui/typography";
 import type { ActionResult } from "@/lib/action-result";
+import { buildAnalyticsHighlights } from "@/lib/analytics-highlights";
 import type { AnalyticsLayout } from "@/lib/analytics-layout";
 import { DEFAULT_CARDS, type AnalyticsCardId } from "@/lib/analytics-layout";
 import { formatAnalyticsYears } from "@/lib/analytics-years";
@@ -29,8 +30,10 @@ export function AnalyticsDashboard({
   canCustomize = false,
   initialLayout,
   onSave,
+  highlights = buildAnalyticsHighlights([], scope, selectedYears),
 }: {
   analytics: UserAnalytics;
+  highlights?: ReturnType<typeof buildAnalyticsHighlights>;
   undatedCount: number;
   scope: ClimbType;
   journalVisible: boolean;
@@ -47,6 +50,41 @@ export function AnalyticsDashboard({
   const hardest = analytics.hardest[0] ?? null;
   const firstTryCount = analytics.flashCount + analytics.onsightCount;
   const tiles: Record<AnalyticsCardId, StatTile> = {
+    partner: {
+      label: "Most frequent partner",
+      value: highlights.partner?.name ?? "—",
+      sub: highlights.partner
+        ? formatCount(highlights.partner.days, "shared day")
+        : "no visible tagged partners",
+    },
+    biggestProject: {
+      label: "Biggest project",
+      value: highlights.biggestProject
+        ? formatCount(highlights.biggestProject.sessions, "session")
+        : "—",
+      sub: highlights.biggestProject
+        ? `${highlights.biggestProject.name} · ${highlights.biggestProject.firstSend ? "sent" : highlights.biggestProject.repeats ? "repeated" : "no first send in this period"}`
+        : "no logged sessions",
+    },
+    persistence: {
+      label: "Persistence paid off",
+      value: highlights.persistence ? formatCount(highlights.persistence.attempts, "session") : "—",
+      sub: highlights.persistence
+        ? `${highlights.persistence.name} · sessions through the send`
+        : "no sends after multiple logged sessions",
+    },
+    climbingStreak: {
+      label: "Climbing streak",
+      value: highlights.climbingStreak ? formatCount(highlights.climbingStreak, "week") : "—",
+      sub: "consecutive weeks with climbing sessions",
+    },
+    favoriteRepeat: {
+      label: "Favorite repeat",
+      value: highlights.favoriteRepeat
+        ? formatCount(highlights.favoriteRepeat.repeats, "repeat")
+        : "—",
+      sub: highlights.favoriteRepeat?.name ?? "no repeat ascents logged",
+    },
     sends: {
       label: "Sends",
       value: analytics.sendCount,
@@ -115,9 +153,27 @@ export function AnalyticsDashboard({
         : "no gaps between dated activity",
     },
   };
+  const descriptions: Record<AnalyticsCardId, string> = {
+    partner: "Who you shared the most tagged climbing days with.",
+    biggestProject: "The climb with the most logged sessions, sent or unsent.",
+    persistence: "The most sessions leading up to a first send in this period.",
+    climbingStreak: "Your longest run of Monday–Sunday weeks with climbing sessions.",
+    favoriteRepeat: "The climb you repeated most after its original ascent.",
+    sends: "How many climbs you’ve sent.",
+    hardest: "Your highest graded send.",
+    days: "Days with climbing activity.",
+    firstTry: "The share of sends you flashed or onsighted.",
+    bestYear: "The year with the most sends.",
+    streak: "Your longest run of consecutive climbing days.",
+    busiestMonth: "The month with the most sends.",
+    areas: "How many areas you’ve sent climbs in.",
+    favoriteDay: "The day of the week you send most often.",
+    layoff: "The longest gap between climbing days.",
+  };
   const cards: AnalyticsPanel[] = DEFAULT_CARDS.map((id) => ({
     id,
     title: tiles[id].label,
+    description: descriptions[id],
     content: <StatTileContent tile={tiles[id]} />,
   }));
   const pyramidRows = analytics.pyramid[0]?.rows ?? [];

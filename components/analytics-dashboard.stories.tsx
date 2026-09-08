@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
+import { userEvent, within } from "storybook/test";
 
 import { AnalyticsYearFilter } from "@/components/analytics-year-filter";
 import type { AnalyticsSendRow } from "@/db/queries";
-import { DEFAULT_ANALYTICS_LAYOUT } from "@/lib/analytics-layout";
+import { buildAnalyticsHighlights, type HighlightSession } from "@/lib/analytics-highlights";
+import { DEFAULT_ANALYTICS_LAYOUT, parseAnalyticsLayout } from "@/lib/analytics-layout";
 import { buildUserAnalytics } from "@/lib/user-analytics";
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
@@ -12,6 +14,14 @@ import { AnalyticsDashboard } from "./analytics-dashboard";
 const meta = {
   title: "Components/Charts/Analytics dashboard",
   component: AnalyticsDashboard,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "New dashboards start with Sends, Hardest, Days out, First try, and Best year. Customize placeholders appear when a section has hidden items and open the same layout editor; Save layout persists the selection. Existing saved layouts remain unchanged. All cards and charts follow the selected years.",
+      },
+    },
+  },
 } satisfies Meta<typeof AnalyticsDashboard>;
 export default meta;
 type Story = StoryObj;
@@ -33,6 +43,49 @@ const sends: AnalyticsSendRow[] = [
   ascentStyle: index === 2 ? "flash" : "redpoint",
 }));
 
+const sessions: HighlightSession[] = [
+  {
+    id: 1,
+    entryDate: "2025-01-01",
+    climbId: 2,
+    climbName: "Winter warmup",
+    climbType: "boulder",
+    sent: false,
+    isAscent: false,
+    companions: [{ id: "sample-partner", name: "Alex" }],
+  },
+  {
+    id: 2,
+    entryDate: "2025-01-08",
+    climbId: 2,
+    climbName: "Winter warmup",
+    climbType: "boulder",
+    sent: false,
+    isAscent: false,
+    companions: [{ id: "sample-partner", name: "Alex" }],
+  },
+  {
+    id: 3,
+    entryDate: "2025-01-15",
+    climbId: 2,
+    climbName: "Winter warmup",
+    climbType: "boulder",
+    sent: true,
+    isAscent: true,
+    companions: [],
+  },
+  {
+    id: 4,
+    entryDate: "2025-01-22",
+    climbId: 2,
+    climbName: "Winter warmup",
+    climbType: "boulder",
+    sent: true,
+    isAscent: false,
+    companions: [{ id: "sample-partner", name: "Alex" }],
+  },
+];
+
 const ALL_YEARS: number[] = [];
 
 function DashboardExample({
@@ -41,12 +94,16 @@ function DashboardExample({
   persistent = false,
   visitor = false,
   saveFails = false,
+  showHighlights = false,
+  hiddenCharts = false,
 }: {
   initialPeriod?: number[];
   undatedOnly?: boolean;
   persistent?: boolean;
   visitor?: boolean;
   saveFails?: boolean;
+  showHighlights?: boolean;
+  hiddenCharts?: boolean;
 }) {
   const [period, setPeriod] = useState<number[]>(initialPeriod);
   const rows = undatedOnly ? sends.filter((send) => send.dateSent == null) : sends;
@@ -57,22 +114,35 @@ function DashboardExample({
       <AnalyticsDashboard
         canCustomize={!visitor}
         initialLayout={
-          persistent
+          showHighlights
             ? {
                 ...DEFAULT_ANALYTICS_LAYOUT,
-                cards: [
-                  "hardest",
-                  ...DEFAULT_ANALYTICS_LAYOUT.cards.filter((id) => id !== "hardest"),
-                ],
-                hidden: ["areas"],
+                hidden: ["streak", "busiestMonth", "areas", "favoriteDay", "layoff"],
               }
-            : undefined
+            : hiddenCharts
+              ? {
+                  ...DEFAULT_ANALYTICS_LAYOUT,
+                  hidden: [...DEFAULT_ANALYTICS_LAYOUT.hidden, "calendar"],
+                }
+              : persistent
+                ? parseAnalyticsLayout({
+                    ...DEFAULT_ANALYTICS_LAYOUT,
+                    cards: [
+                      "hardest",
+                      ...DEFAULT_ANALYTICS_LAYOUT.cards
+                        .slice(0, 10)
+                        .filter((id) => id !== "hardest"),
+                    ],
+                    hidden: ["areas"],
+                  })
+                : undefined
         }
         onSave={async () =>
           saveFails
             ? { ok: false, error: "Your layout couldn’t be saved. Please try again." }
             : { ok: true, value: undefined }
         }
+        highlights={buildAnalyticsHighlights(undatedOnly ? [] : sessions, "boulder", period)}
         analytics={analytics}
         undatedCount={lifetime.datelessCount}
         scope="boulder"
@@ -107,3 +177,15 @@ export const AnotherProfile: Story = { render: () => <DashboardExample visitor /
 export const SaveFailure: Story = {
   render: () => <DashboardExample saveFails initialPeriod={[2024, 2025]} />,
 };
+
+export const AddCards: Story = {
+  render: () => <DashboardExample initialPeriod={[2024, 2025]} />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Customize cards" }));
+  },
+};
+
+export const Highlights: Story = {
+  render: () => <DashboardExample showHighlights initialPeriod={[2025]} />,
+};
+export const HiddenChart: Story = { render: () => <DashboardExample hiddenCharts /> };

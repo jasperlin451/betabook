@@ -24,7 +24,12 @@ import {
   type AnalyticsLayout,
 } from "@/lib/analytics-layout";
 
-export type AnalyticsPanel = { id: AnalyticsItemId; title: string; content: ReactNode };
+export type AnalyticsPanel = {
+  id: AnalyticsItemId;
+  title: string;
+  description?: string;
+  content: ReactNode;
+};
 type Group = "cards" | "charts";
 
 /** Anchor the insertion line to the destination card, without taking a grid cell. */
@@ -91,6 +96,7 @@ function DashboardGroup({
   editing,
   onMove,
   onHide,
+  onCustomize,
 }: {
   group: Group;
   items: AnalyticsPanel[];
@@ -102,6 +108,7 @@ function DashboardGroup({
     position?: "before" | "after",
   ) => void;
   onHide: (id: AnalyticsItemId) => void;
+  onCustomize?: () => void;
 }) {
   const gridRef = useRef<HTMLDivElement>(null);
   const orderKey = items.map((item) => item.id).join(",");
@@ -225,7 +232,7 @@ function DashboardGroup({
       {item.content}
     </article>
   );
-  if (!items.length)
+  if (!items.length && !onCustomize)
     return (
       <p className="text-sm text-muted">
         No {group === "cards" ? "cards" : "charts"} shown. Use Customize dashboard to add them back.
@@ -239,6 +246,17 @@ function DashboardGroup({
             {panel(item, index)}
           </div>
         ))}
+        {onCustomize && (
+          <Button
+            variant="outline"
+            aria-label={`Customize ${group}`}
+            onPress={onCustomize}
+            className={`h-full min-h-28 w-full flex-col gap-2 border-dashed text-muted ${cardClass("sm", "bordered")}`}
+          >
+            <SlidersHorizontal size={20} />
+            Customize
+          </Button>
+        )}
       </div>
     );
   return (
@@ -285,6 +303,19 @@ export function AnalyticsWorkspace({
   const [layout, setLayout] = useState(initialLayout);
   const [saved, setSaved] = useState(initialLayout);
   const [editing, setEditing] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const focusEditor = useRef(false);
+  const openEditor = () => {
+    focusEditor.current = true;
+    setEditing(true);
+  };
+  useIsomorphicLayoutEffect(() => {
+    if (editing && focusEditor.current) {
+      editorRef.current?.focus({ preventScroll: true });
+      editorRef.current?.scrollIntoView({ block: "start" });
+      focusEditor.current = false;
+    }
+  }, [editing]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -333,63 +364,68 @@ export function AnalyticsWorkspace({
       return item && !layout.hidden.includes(id) ? [item] : [];
     });
   const hiddenGroups = [
-    { label: "Add cards", items: cards.filter((item) => layout.hidden.includes(item.id)) },
-    { label: "Add charts", items: charts.filter((item) => layout.hidden.includes(item.id)) },
+    { label: "At a glance", items: cards.filter((item) => layout.hidden.includes(item.id)) },
+    { label: "Charts", items: charts.filter((item) => layout.hidden.includes(item.id)) },
   ];
   return (
     <div className="flex flex-col gap-6">
       <section aria-label="At a glance" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionHeading>At a glance</SectionHeading>
-          {canCustomize && (
+          {canCustomize && !editing && (
             <Button
               variant="outline"
               size="sm"
-              aria-label={editing ? "Save layout" : "Customize dashboard"}
-              isDisabled={saving}
-              onPress={async () => {
-                if (editing) await finish();
-                else setEditing(true);
-              }}
+              aria-label="Customize dashboard"
+              onPress={openEditor}
             >
-              {!editing && <SlidersHorizontal size={16} />}
-              {saving ? "Saving…" : editing ? "Save layout" : "Customize"}
+              <SlidersHorizontal size={16} />
+              Customize
             </Button>
           )}
         </div>
         {editing && canCustomize && (
-          <div className={`flex flex-col gap-3 ${cardClass("sm", "bordered")}`}>
+          <div
+            ref={editorRef}
+            tabIndex={-1}
+            aria-label="Customize your analytics layout"
+            className={`flex flex-col gap-3 ${cardClass("sm", "bordered")}`}
+          >
+            <SectionHeading>Customize your analytics layout</SectionHeading>
             <p className="text-sm text-muted">
-              Drag to reorder within each section.
-              <span className="sm:hidden"> You can also use the arrows.</span> Hide items with × and
-              add them back below.
-            </p>
-            <p className="text-xs text-muted">
-              Note: Only you see this layout. Your stats and who can see them stay the same.
+              Drag to reorder or use X to hide items in your view without changing your stats or who
+              can see them.
             </p>
             {hiddenGroups
               .filter((group) => group.items.length > 0)
               .map((group) => (
                 <fieldset key={group.label} className="min-w-0">
                   <legend className={`${EYEBROW_CLASS} mb-2`}>{group.label}</legend>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {group.items.map((item) => (
-                      <Button
-                        key={item.id}
-                        variant="secondary"
-                        size="sm"
-                        isDisabled={saving}
-                        aria-label={`Add ${item.title}`}
-                        onPress={() =>
-                          change(
-                            { ...layout, hidden: layout.hidden.filter((id) => id !== item.id) },
-                            `${item.title} added.`,
-                          )
-                        }
-                      >
-                        <Plus size={14} />
-                        {item.title}
-                      </Button>
+                      <div key={item.id} className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{item.title}</p>
+                          {item.description && (
+                            <p className="text-xs text-muted">{item.description}</p>
+                          )}
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          isDisabled={saving}
+                          aria-label={`Add ${item.title}`}
+                          onPress={() =>
+                            change(
+                              { ...layout, hidden: layout.hidden.filter((id) => id !== item.id) },
+                              `${item.title} added.`,
+                            )
+                          }
+                        >
+                          <Plus size={14} />
+                          Add
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 </fieldset>
@@ -420,6 +456,15 @@ export function AnalyticsWorkspace({
               >
                 Cancel
               </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                aria-label="Save layout"
+                isDisabled={saving}
+                onPress={finish}
+              >
+                {saving ? "Saving…" : "Save layout"}
+              </Button>
             </div>
           </div>
         )}
@@ -432,6 +477,9 @@ export function AnalyticsWorkspace({
           {message}
         </p>
         <DashboardGroup
+          onCustomize={
+            canCustomize && !editing && hiddenGroups[0].items.length > 0 ? openEditor : undefined
+          }
           group="cards"
           items={visible("cards", cards)}
           editing={editing && canCustomize}
@@ -442,6 +490,9 @@ export function AnalyticsWorkspace({
       <section aria-label="Charts" className="flex flex-col gap-4">
         <SectionHeading>Charts</SectionHeading>
         <DashboardGroup
+          onCustomize={
+            canCustomize && !editing && hiddenGroups[1].items.length > 0 ? openEditor : undefined
+          }
           group="charts"
           items={visible("charts", charts)}
           editing={editing && canCustomize}

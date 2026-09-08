@@ -13,9 +13,11 @@ import { DISCIPLINE_CHIP_CLASSNAME, DISCIPLINE_LABELS } from "@/components/ui/di
 import { EmptyState } from "@/components/ui/empty-state";
 import { getDb } from "@/db/client";
 import { getJournalSessionsForAnalytics, getUserSendsForAnalytics } from "@/db/queries";
+import { getAnalyticsHighlightSessions } from "@/db/queries/analytics-highlights";
 import { getAnalyticsLayout } from "@/db/queries/analytics-layout";
 import { canReadJournal } from "@/db/queries/content-access";
 import { getUserHashtags } from "@/db/queries/hashtag-filter";
+import { buildAnalyticsHighlights } from "@/lib/analytics-highlights";
 import { parseAnalyticsYears } from "@/lib/analytics-years";
 import { normalizeHashtagFilters } from "@/lib/filters/hashtag-filter";
 import type { ClimbType } from "@/lib/grades";
@@ -110,6 +112,9 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
 
   const isOwner = viewerId === id;
   const initialLayout = await getAnalyticsLayout(db, id, viewerId);
+  const highlightSessions = journalVisible
+    ? await getAnalyticsHighlightSessions(db, id, viewerId, selectedTags)
+    : [];
   const lifetime = buildUserAnalytics(rows, scope, journalSessions);
   // Offer the same years across disciplines so switching never silently resets the period.
   const all = buildUserAnalytics(rows, "all", journalSessions);
@@ -153,6 +158,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         initialLayout={initialLayout}
         onSave={isOwner ? saveAnalyticsLayout : undefined}
         analytics={analytics}
+        highlights={buildAnalyticsHighlights(highlightSessions, scope, selectedYears)}
         undatedCount={lifetime.datelessCount}
         scope={scope}
         journalVisible={journalVisible}

@@ -25,9 +25,22 @@ describe("saved analytics layouts", () => {
       "areas",
       "favoriteDay",
       "layoff",
+      "partner",
+      "biggestProject",
+      "persistence",
+      "climbingStreak",
+      "favoriteRepeat",
     ]);
     expect(layout.charts).toEqual(["calendar", "progression", "pyramid", "breakthroughs"]);
-    expect(layout.hidden).toEqual(["areas", "calendar"]);
+    expect(layout.hidden).toEqual([
+      "areas",
+      "calendar",
+      "partner",
+      "biggestProject",
+      "persistence",
+      "climbingStreak",
+      "favoriteRepeat",
+    ]);
   });
   it("recovers corrupt or unsupported preferences", () => {
     for (const value of [

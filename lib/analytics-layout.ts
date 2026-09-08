@@ -1,14 +1,22 @@
+const NEW_CARDS = [
+  "partner",
+  "biggestProject",
+  "persistence",
+  "climbingStreak",
+  "favoriteRepeat",
+] as const;
 export const DEFAULT_CARDS = [
   "sends",
   "hardest",
   "days",
   "firstTry",
-  "streak",
   "bestYear",
+  "streak",
   "busiestMonth",
   "areas",
   "favoriteDay",
   "layoff",
+  ...NEW_CARDS,
 ] as const;
 const DEFAULT_CHARTS = ["progression", "pyramid", "breakthroughs", "calendar"] as const;
 export type AnalyticsCardId = (typeof DEFAULT_CARDS)[number];
@@ -24,7 +32,7 @@ export const DEFAULT_ANALYTICS_LAYOUT: AnalyticsLayout = {
   version: 1,
   cards: [...DEFAULT_CARDS],
   charts: [...DEFAULT_CHARTS],
-  hidden: [],
+  hidden: ["streak", "busiestMonth", "areas", "favoriteDay", "layoff", ...NEW_CARDS],
 };
 
 function normalizeOrder<T extends string>(value: unknown, defaults: readonly T[]): T[] {
@@ -41,12 +49,15 @@ export function parseAnalyticsLayout(value: unknown): AnalyticsLayout {
   const allowed = new Set<string>([...DEFAULT_CARDS, ...DEFAULT_CHARTS]);
   const hidden = Array.isArray(saved.hidden)
     ? saved.hidden.filter((id): id is AnalyticsItemId => typeof id === "string" && allowed.has(id))
-    : [];
+    : DEFAULT_ANALYTICS_LAYOUT.hidden;
+  const missingNewCards = Array.isArray(saved.cards)
+    ? NEW_CARDS.filter((id) => !(saved.cards as unknown[]).includes(id))
+    : NEW_CARDS;
   return {
     version: 1,
     cards: normalizeOrder(saved.cards, DEFAULT_CARDS),
     charts: normalizeOrder(saved.charts, DEFAULT_CHARTS),
-    hidden: [...new Set(hidden)],
+    hidden: [...new Set([...hidden, ...missingNewCards])],
   };
 }
 
