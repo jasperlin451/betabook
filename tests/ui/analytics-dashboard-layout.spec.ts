@@ -1,0 +1,245 @@
+import { AxeBuilder } from "@axe-core/playwright";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
+
+async function moveEarlier(
+  page: Page,
+  info: TestInfo,
+  name: string,
+  section: "cards" | "charts",
+  before: string,
+) {
+  if (info.project.name.startsWith("mobile")) {
+    await page.getByRole("button", { name: `Move ${name} earlier`, exact: true }).click();
+    return;
+  }
+  const grid = page.getByRole("grid", { name: `Reorder ${section}`, exact: true });
+  await grid.focus();
+  await grid.getByRole("row", { name, exact: true }).focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: `Drag ${name}`, exact: true })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-dragging]")).toHaveCount(1);
+  await page.keyboard.press("Home");
+  await expect(page.locator("[data-drop-target]")).toContainText(`Insert before ${before}`);
+  await page.keyboard.press("Enter");
+}
+
+test("calendar years scroll horizontally with bounded previous and next controls", async ({
+  page,
+}, info) => {
+  await page.goto(
+    `/iframe.html?id=components-charts-analytics-dashboard--multiple-years&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
+  );
+  const older = page.getByRole("button", { name: "Older calendar year" });
+  const newer = page.getByRole("button", { name: "Newer calendar year" });
+  const year = page.getByLabel("Displayed calendar year");
+  await expect(older).toBeDisabled();
+  await expect(year).toHaveText("2024");
+  const leftBounds = await older.boundingBox();
+  const yearBounds = await year.boundingBox();
+  const rightBounds = await newer.boundingBox();
+  if (!leftBounds || !yearBounds || !rightBounds)
+    throw new Error("Calendar controls must be visible");
+  expect(leftBounds.x + leftBounds.width).toBeLessThanOrEqual(yearBounds.x);
+  expect(yearBounds.x + yearBounds.width).toBeLessThanOrEqual(rightBounds.x);
+  await newer.click();
+  await expect(year).toHaveText("2025");
+  await expect(newer).toBeDisabled();
+  await older.click();
+  await expect(year).toHaveText("2024");
+  await info.attach("calendar-carousel", {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: "image/png",
+  });
+});
+
+test("customization reorders and hides cards and charts within their sections", async ({
+  page,
+}, info) => {
+  await page.goto(
+    `/iframe.html?id=components-charts-analytics-dashboard--multiple-years&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
+  );
+  const glance = page.getByRole("region", { name: "At a glance", exact: true });
+  const charts = page.getByRole("region", { name: "Charts", exact: true });
+  await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+  await info.attach("dashboard-editor", {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: "image/png",
+  });
+  await expect(glance.getByRole("article").first()).toHaveAccessibleName("Sends");
+  await moveEarlier(page, info, "Hardest", "cards", "Sends");
+  await expect(glance.getByRole("article").first()).toHaveAccessibleName("Hardest");
+  await page.getByRole("button", { name: "Hide Areas", exact: true }).click();
+  await expect(glance.getByRole("article", { name: "Areas", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Add Areas", exact: true }).click();
+  await expect(glance.getByRole("article", { name: "Areas", exact: true })).toBeVisible();
+  await moveEarlier(page, info, "Grade pyramid", "charts", "Progression");
+  await expect(charts.getByRole("article").first()).toHaveAccessibleName("Grade pyramid");
+  await page.getByRole("button", { name: "Hide Breakthroughs", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Breakthroughs", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Save layout", exact: true }).click();
+  await expect(glance.getByRole("article").first()).toHaveAccessibleName("Hardest");
+  await expect(charts.getByRole("article").first()).toHaveAccessibleName("Grade pyramid");
+  await info.attach("custom-dashboard", {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: "image/png",
+  });
+  await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
+  await page.getByRole("button", { name: "Restore default layout", exact: true }).click();
+  await expect(glance.getByRole("article").first()).toHaveAccessibleName("Sends");
+  await expect(charts.getByRole("article").first()).toHaveAccessibleName("Progression");
+  await expect(page.getByRole("region", { name: "Breakthroughs", exact: true })).toBeVisible();
+});
+
+test("saved account layout is displayed on entry and preserved through year changes", async ({
+  page,
+}, info) => {
+  await page.goto(
+    `/iframe.html?id=components-charts-analytics-dashboard--saved-layout&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
+  );
+  const glance = page.getByRole("region", { name: "At a glance", exact: true });
+  await expect(glance.getByRole("article").first()).toHaveAccessibleName("Hardest");
+  await expect(glance.getByRole("article", { name: "Areas", exact: true })).toHaveCount(0);
+  await page
+    .getByRole("group", { name: "Years", exact: true })
+    .getByRole("button", { name: "2026", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Activity in 2024–2026", exact: true }),
+  ).toBeVisible();
+  await expect(glance.getByRole("article").first()).toHaveAccessibleName("Hardest");
+  await expect(glance.getByRole("article", { name: "Areas", exact: true })).toHaveCount(0);
+});
+
+test("keyboard drag reorders a card without crossing into charts", async ({ page }, info) => {
+  await page.goto(
+    `/iframe.html?id=components-charts-analytics-dashboard--multiple-years&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
+  );
+  const glance = page.getByRole("region", { name: "At a glance", exact: true });
+  await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
+  const grid = page.getByRole("grid", { name: "Reorder cards", exact: true });
+  await grid.focus();
+  await expect(grid.getByRole("row", { name: "Sends", exact: true })).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(grid.getByRole("row", { name: "Hardest", exact: true })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Drag Hardest", exact: true })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-dragging]")).toHaveCount(1);
+  await page.keyboard.press("Home");
+  await expect(page.locator("[data-drop-target]")).toContainText("Insert before Sends");
+  await page.keyboard.press("Enter");
+  await expect(glance.getByRole("article").first()).toHaveAccessibleName("Hardest");
+  await expect(
+    page.getByRole("region", { name: "Charts", exact: true }).getByRole("article").first(),
+  ).toHaveAccessibleName("Progression");
+});
+
+test("failed account save keeps changes editable and cancel restores the saved layout", async ({
+  page,
+}, info) => {
+  await page.goto(
+    `/iframe.html?id=components-charts-analytics-dashboard--save-failure&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
+  );
+  await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
+  await page.getByRole("button", { name: "Hide Areas", exact: true }).click();
+  await page.getByRole("button", { name: "Save layout", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText(
+    "Your layout couldn’t be saved. Please try again.",
+  );
+  await expect(page.getByRole("button", { name: "Save layout", exact: true })).toBeVisible();
+  await expect(page.getByRole("article", { name: "Areas", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("article", { name: "Areas", exact: true })).toBeVisible();
+});
+
+test("another profile has no customization controls", async ({ page }, info) => {
+  await page.goto(
+    `/iframe.html?id=components-charts-analytics-dashboard--another-profile&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
+  );
+  await expect(page.getByRole("heading", { name: "At a glance", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Customize dashboard", exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("button", { name: /^Move |^Hide |^Drag / })).toHaveCount(0);
+});
+
+test("move arrows are available only on small screens", async ({ page }, info) => {
+  await page.goto(
+    `/iframe.html?id=components-charts-analytics-dashboard--multiple-years&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
+  );
+  await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
+  const arrow = page.getByRole("button", { name: "Move Hardest earlier", exact: true });
+  if (info.project.name.startsWith("mobile")) await expect(arrow).toBeVisible();
+  else await expect(arrow).toBeHidden();
+});
+
+test("dragging shows an insertion marker at the destination card", async ({ page }, info) => {
+  await page.goto(
+    `/iframe.html?id=components-charts-analytics-dashboard--multiple-years&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
+  );
+  await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
+  const grid = page.getByRole("grid", { name: "Reorder cards", exact: true });
+  await page
+    .getByRole("button", { name: "Drag Sending days", exact: true })
+    .scrollIntoViewIfNeeded();
+  const source = await page
+    .getByRole("button", { name: "Drag Sending days", exact: true })
+    .boundingBox();
+  const destination = await grid.getByRole("row", { name: "Hardest", exact: true }).boundingBox();
+  if (!source || !destination) throw new Error("Drag cards must be visible");
+  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(source.x + source.width / 2 + 15, source.y + source.height / 2, {
+    steps: 4,
+  });
+  await page.mouse.move(destination.x + 3, destination.y + destination.height / 2, { steps: 10 });
+  const marker = page
+    .locator("[data-drop-target]")
+    .getByText("Insert before Hardest", { exact: true });
+  await expect(marker).toBeVisible();
+  const markerBounds = await marker.boundingBox();
+  if (!markerBounds) throw new Error("Insertion marker must be visible");
+  expect(Math.abs(markerBounds.x - destination.x)).toBeLessThan(16);
+  await info.attach("drag-destination", {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: "image/png",
+  });
+  await page.mouse.up();
+  await expect(grid.getByRole("article").nth(1)).toHaveAccessibleName("Sending days");
+});
+
+test("addable cards and charts are separate from dashboard actions", async ({ page }, info) => {
+  await page.goto(
+    `/iframe.html?id=components-charts-analytics-dashboard--saved-layout&viewMode=story&globals=theme:${info.project.use.colorScheme}`,
+  );
+  await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
+  await page.getByRole("button", { name: "Hide Breakthroughs", exact: true }).click();
+  await expect(
+    page
+      .getByRole("group", { name: "Add cards", exact: true })
+      .getByRole("button", { name: "Add Areas", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("group", { name: "Add charts", exact: true })
+      .getByRole("button", { name: "Add Breakthroughs", exact: true }),
+  ).toBeVisible();
+  const actions = page.getByRole("group", { name: "Dashboard actions", exact: true });
+  await expect(actions.getByRole("button", { name: "Cancel", exact: true })).toBeVisible();
+  await expect(
+    actions.getByRole("button", { name: "Restore default layout", exact: true }),
+  ).toBeVisible();
+  await expect(actions.getByRole("button", { name: /^Add / })).toHaveCount(0);
+  await info.attach("add-back-controls", {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: "image/png",
+  });
+  await page.getByRole("button", { name: "Add Areas", exact: true }).click();
+  await expect(page.getByRole("group", { name: "Add cards", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("article", { name: "Areas", exact: true })).toBeVisible();
+});

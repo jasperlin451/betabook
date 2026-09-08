@@ -173,14 +173,22 @@ export function buildPyramid(sends: AnalyticsSendRow[], type: ClimbType): Pyrami
 }
 
 /** Aggregates one user's full send log into everything the analytics page
- * shows, filtered to `scope`. Pure — see user-analytics.test.ts. */
+ * shows, filtered to `scope` and optionally selected years. An empty selection
+ * includes all dates and undated sends. Pure — see user-analytics.test.ts. */
 // oxlint-disable-next-line complexity -- one branch per independent stat computed in a single pass
 export function buildUserAnalytics(
   allSends: AnalyticsSendRow[],
   scope: DisciplineScope,
   journalSessions?: readonly AnalyticsJournalSession[],
+  selectedYears: readonly number[] = [],
 ): UserAnalytics {
-  const sends = scope === "all" ? allSends : allSends.filter((s) => s.climbType === scope);
+  const inYear = (date: string | null) =>
+    selectedYears.length === 0 ||
+    (date != null && selectedYears.includes(Number(date.slice(0, 4))));
+  const sends = allSends.filter(
+    (s) => (scope === "all" || s.climbType === scope) && inYear(s.dateSent),
+  );
+  const periodSessions = journalSessions?.filter((session) => inYear(session.entryDate));
   const dated = sends
     .filter((s): s is AnalyticsSendRow & { dateSent: string } => s.dateSent != null)
     .sort((a, b) => (a.dateSent < b.dateSent ? -1 : a.dateSent > b.dateSent ? 1 : 0));
@@ -241,14 +249,14 @@ export function buildUserAnalytics(
   for (const s of dated) sendsByDay[s.dateSent] = (sendsByDay[s.dateSent] ?? 0) + 1;
   const sendDays = Object.keys(sendsByDay).sort();
   const sessionCounts: Record<string, number> = {};
-  if (journalSessions !== undefined) {
-    for (const session of journalSessions) {
+  if (periodSessions !== undefined) {
+    for (const session of periodSessions) {
       if (scope !== "all" && session.climbType !== scope) continue;
       sessionCounts[session.entryDate] =
         (sessionCounts[session.entryDate] ?? 0) + (session.count ?? 1);
     }
   }
-  const calendarCounts = journalSessions === undefined ? sendsByDay : sessionCounts;
+  const calendarCounts = periodSessions === undefined ? sendsByDay : sessionCounts;
   const days = Object.keys(calendarCounts).sort();
   const calendarYears = [...new Set(days.map((day) => Number(day.slice(0, 4))))].sort(
     (a, b) => a - b,

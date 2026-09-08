@@ -8,3 +8,4 @@ export * from "./product-tour";
 export * from "./moderation";
 export * from "./friendships";
 export * from "./journal-companions";
+export * from "./analytics";
