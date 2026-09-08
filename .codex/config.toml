@@ -1,3 +1,6 @@
+model_context_window = 1000000
+model_auto_compact_token_limit = 800000
+
 # Available after the first main-branch Chromatic publish. Each collaborator
 # signs in with `codex mcp login betabook-storybook`; no CI token belongs here.
 [mcp_servers.betabook-storybook]
