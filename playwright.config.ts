@@ -18,6 +18,8 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
+  // Behavior that needs a browser but is independent of viewport/theme runs
+  // once in desktop-light. Visual and responsive checks keep the full matrix.
   projects: [
     {
       name: "desktop-light",
@@ -26,16 +28,19 @@ export default defineConfig({
     {
       name: "desktop-dark",
       testIgnore: "**/artifacts.spec.ts",
+      grepInvert: /@behavior/,
       use: { viewport: { width: 1024, height: 900 }, colorScheme: "dark" },
     },
     {
       name: "mobile-light",
       testIgnore: "**/artifacts.spec.ts",
+      grepInvert: /@behavior/,
       use: { viewport: { width: 375, height: 812 }, colorScheme: "light", hasTouch: true },
     },
     {
       name: "mobile-dark",
       testIgnore: "**/artifacts.spec.ts",
+      grepInvert: /@behavior/,
       use: { viewport: { width: 375, height: 812 }, colorScheme: "dark", hasTouch: true },
     },
   ],

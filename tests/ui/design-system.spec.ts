@@ -14,9 +14,19 @@ const stories = Object.values(index.entries)
   .filter((entry) => entry.type === "story")
   .map((entry) => entry.id);
 if (stories.length === 0) throw new Error("Storybook built no stories");
+const openSearchOverlays = new Set([
+  "patterns-search--quick-initial",
+  "patterns-search--quick-loading",
+  "patterns-search--quick-no-matches",
+  "patterns-search--quick-failed",
+  "patterns-search--quick-partial-failure",
+]);
 for (const story of stories) {
   test(`${story} stays accessible and fits the viewport`, async ({ page }, testInfo) => {
     await openStory(page, testInfo, story);
+    // These stories start open. Audit the visible overlay here so a second
+    // browser test does not repeat the same story setup and accessibility scan.
+    if (openSearchOverlays.has(story)) await expect(page.getByRole("dialog")).toBeVisible();
     const hasEmailPreview = story.startsWith("patterns-email--");
     if (hasEmailPreview) {
       const emailResults = await auditEmailPreview(page);
