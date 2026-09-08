@@ -5,9 +5,9 @@ import {
   AscentStylePicker,
   FormSection,
   GradeFeelField,
-  RatingField,
   SuggestedGradeField,
 } from "@/components/send-fields";
+import { RatingField } from "@/components/ui/rating-field";
 import type { AscentStyle, GradeFeel } from "@/lib/sends";
 import { StoryPage } from "@/stories/fixtures/story-layout";
 

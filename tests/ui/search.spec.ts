@@ -65,7 +65,7 @@ test("full filters and climb picker fit 320 pixels", async ({ page }, testInfo) 
   await openSearchStory(page, testInfo, "full-results");
   await page.getByRole("button", { name: "Climbs", exact: true }).click();
   await page.getByRole("button", { name: "Boulder", exact: true }).click();
-  await page.getByRole("button", { name: "Filters", exact: true }).click();
+  await page.getByRole("button", { name: "Expand filters", exact: true }).click();
   await expect(page.getByRole("button", { name: /Min grade/ })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Open Cedar Arete, North Woods / Cedar Grove", exact: true }),

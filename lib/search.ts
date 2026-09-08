@@ -21,7 +21,15 @@ export type SearchResult = {
   detail: string;
   disabledReason?: string;
   image?: string | null;
-} & ({ kind: "climb"; discipline: ClimbType; grade: number | null } | { kind: "area" | "climber" });
+} & (
+  | {
+      kind: "climb";
+      discipline: ClimbType;
+      grade: number | null;
+      stats?: { avgRating: number | null; sendCount: number };
+    }
+  | { kind: "area" | "climber" }
+);
 export type SearchSection = {
   kind: SearchKind;
   items: SearchResult[];
@@ -95,6 +103,10 @@ export function climbSearchItems(page: ClimbListPage): AppSearchResult[] {
       detail: [...ancestors.map((a) => a.name), climb.areaName].join(" / "),
       discipline: climb.type,
       grade: climb.grade,
+      stats: {
+        avgRating: page.sendStats[climb.id]?.avgRating ?? null,
+        sendCount: page.sendStats[climb.id]?.sendCount ?? 0,
+      },
       href: climbHref(climb.id, climb.name),
       climb,
       context: {

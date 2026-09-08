@@ -88,6 +88,9 @@ export function ClimbList({
                       avgSuggestedGrade={sendStats?.[climb.id]?.avgSuggestedGrade ?? null}
                     />
                   </Grade>
+                  <span aria-hidden className="text-sm text-muted">
+                    ·
+                  </span>
                   <RatingStars
                     rating={sendStats?.[climb.id]?.avgRating ?? null}
                     precision="decimal"

@@ -8,12 +8,13 @@ import {
   AscentStylePicker,
   FormSection,
   GradeFeelField,
-  RatingField,
   SuggestedGradeField,
 } from "@/components/send-fields";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { DatePickerField } from "@/components/ui/date-picker-field";
+import { FieldHeader } from "@/components/ui/field-support";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
+import { RatingField } from "@/components/ui/rating-field";
 import type { EditableSend, SendableClimb } from "@/db/queries";
 import { MAX_COMMENT_LENGTH, type AscentStyle, type GradeFeel } from "@/lib/sends";
 
@@ -91,16 +92,15 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
 
       <FormSection label="Send commentary">
         <TextField value={comment} onChange={setComment}>
-          <div className="flex items-center gap-1">
+          <FieldHeader
+            usage={{ used: comment.length, limit: MAX_COMMENT_LENGTH, unit: "characters" }}
+          >
             <Label>Comment</Label>
             <HelpTooltip label="About Send commentary">
               Uses your Send commentary audience wherever this note appears.
             </HelpTooltip>
-          </div>
+          </FieldHeader>
           <TextArea maxLength={MAX_COMMENT_LENGTH} placeholder="How'd it go?" />
-          <p className="mt-1 text-xs text-muted">
-            {MAX_COMMENT_LENGTH - comment.length} characters left
-          </p>
         </TextField>
       </FormSection>
 

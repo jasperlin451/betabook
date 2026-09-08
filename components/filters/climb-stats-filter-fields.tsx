@@ -2,34 +2,8 @@
 
 import { NumberField } from "@heroui/react";
 
-import { IndexRangeSelect } from "@/components/ui/index-select";
-import { RATING_OPTIONS } from "@/lib/filters/climb-stats-filter";
-
-/** Climb search's and the area page's rating-range filter — shared since
- * both list climbs via the same <ClimbList> and filter on the same
- * denormalized climbs.avg_rating column. Index = rating value on both
- * sides, with 0 ("Any", `anyIndex`) meaning that bound is inactive — see
- * RATING_OPTIONS in lib/filters/climb-stats-filter.ts. */
-function RatingRangeSelect({
-  range,
-  onChange,
-}: {
-  range: [number, number];
-  onChange: (range: [number, number]) => void;
-}) {
-  return (
-    <IndexRangeSelect
-      label="Rating"
-      minOptions={RATING_OPTIONS}
-      maxOptions={RATING_OPTIONS}
-      minLabel="Min rating"
-      maxLabel="Max rating"
-      range={range}
-      onChange={onChange}
-      anyIndex={0}
-    />
-  );
-}
+import { RatingRangeFilter } from "@/components/filters/min-rating-filter";
+import { FIELD_WIDTH_CLASS, FILTER_ROW_CLASS, FILTER_LABEL_CLASS } from "@/components/ui/field";
 
 /** Minimum logged-ascent-count filter, over climbs.send_count — a free-form
  * count rather than a fixed set of steps, so a plain number input fits
@@ -42,22 +16,18 @@ function MinAscentsField({
   onChange: (value: number) => void;
 }) {
   return (
-    // Inline label + compact stepper, matching the Rating row's
-    // label-beside-controls rhythm — a count field has no business
-    // spanning the whole filter panel.
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="text-sm font-medium text-foreground">Min ascents</span>
+    <div className={FILTER_ROW_CLASS}>
+      <span className={FILTER_LABEL_CLASS}>Min ascents</span>
       <NumberField
         value={value}
-        onChange={onChange}
+        onChange={(next) => onChange(Number.isFinite(next) ? Math.max(0, Math.floor(next)) : 0)}
+        step={1}
         minValue={0}
         aria-label="Min ascents"
-        className="w-32"
+        className={FIELD_WIDTH_CLASS.short}
       >
         <NumberField.Group>
-          <NumberField.DecrementButton />
           <NumberField.Input />
-          <NumberField.IncrementButton />
         </NumberField.Group>
       </NumberField>
     </div>
@@ -69,16 +39,22 @@ export function ClimbStatsFields({
   onRatingRangeChange,
   minAscents,
   onMinAscentsChange,
+  showMinAscents = true,
+  showRatingFilters = true,
 }: {
   ratingRange: [number, number];
   onRatingRangeChange: (range: [number, number]) => void;
+  showMinAscents?: boolean;
+  showRatingFilters?: boolean;
   minAscents: number;
   onMinAscentsChange: (value: number) => void;
 }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:gap-6">
-      <RatingRangeSelect range={ratingRange} onChange={onRatingRangeChange} />
-      <MinAscentsField value={minAscents} onChange={onMinAscentsChange} />
+    <div className="flex flex-col gap-4">
+      {showRatingFilters && (
+        <RatingRangeFilter value={ratingRange} onChange={onRatingRangeChange} />
+      )}
+      {showMinAscents && <MinAscentsField value={minAscents} onChange={onMinAscentsChange} />}
     </div>
   );
 }

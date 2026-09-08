@@ -1,13 +1,14 @@
 "use client";
 
 import { Button } from "@heroui/react";
-import { SlidersHorizontal, X } from "lucide-react";
-import { useId, useState } from "react";
+import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { DisciplineChips } from "@/components/filters/discipline-chips";
-import { DisciplineGradeSliders } from "@/components/filters/discipline-grade-sliders";
-import { cardClass } from "@/components/ui/card";
+import type { ActiveFilter } from "@/components/filters/active-filter-summary";
+import { ratingActiveFilters } from "@/components/filters/active-filter-values";
+import { FilterToolbar } from "@/components/filters/filter-toolbar";
+import { RatingRangeFilter } from "@/components/filters/min-rating-filter";
+import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
 import { OptionSelect } from "@/components/ui/option-select";
 import type { ClimbRefinements } from "@/lib/filters/climb-refinements";
 import { DEFAULT_DISCIPLINE_FILTER } from "@/lib/filters/discipline-filter";
@@ -19,6 +20,7 @@ export function ClimbFilters({
   sortControl,
   ratingControl,
   onReset,
+  activeFilters,
 }: {
   value: ClimbRefinements;
   onChange: (value: ClimbRefinements) => void;
@@ -26,9 +28,8 @@ export function ClimbFilters({
   sortControl?: ReactNode;
   ratingControl?: ReactNode;
   onReset?: () => void;
+  activeFilters?: ActiveFilter[];
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const panelId = useId();
   return (
     <div className="flex flex-col gap-3">
       {areaControl}
@@ -44,72 +45,60 @@ export function ClimbFilters({
           <X className="size-3.5 shrink-0" aria-hidden />
         </Button>
       )}
-      <div className="flex flex-wrap items-center gap-3">
-        <DisciplineChips
-          value={value.disciplines}
-          onChange={(disciplines) => onChange({ ...value, disciplines })}
-        />
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-expanded={expanded}
-          aria-controls={panelId}
-          onPress={() => setExpanded(!expanded)}
-        >
-          <SlidersHorizontal className="size-4" aria-hidden />
-          Filters{value.minRating > 0 ? " · 1" : ""}
-        </Button>
-        {sortControl ?? (
-          <OptionSelect
-            ariaLabel="Sort results"
-            value={value.sort}
-            onChange={(sort) => onChange({ ...value, sort })}
-            options={[
-              { value: "name_asc", label: "Name A–Z" },
-              { value: "name_desc", label: "Name Z–A" },
-            ]}
-            className="w-36 sm:ml-auto"
-          />
-        )}
-      </div>
-      {expanded && (
-        <div id={panelId} className={`${cardClass("sm")} flex flex-col gap-4`}>
-          <DisciplineGradeSliders value={value} onChange={onChange} />
-          {ratingControl ?? (
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-medium">Minimum rating</span>
-              <OptionSelect
-                ariaLabel="Minimum rating"
-                value={String(value.minRating)}
-                onChange={(rating) => onChange({ ...value, minRating: Number(rating) })}
-                options={[
-                  { value: "0", label: "Any rating" },
-                  { value: "3", label: "3 stars" },
-                  { value: "4", label: "4 stars" },
-                ]}
-                className="w-36"
+      <FilterToolbar
+        value={value}
+        onChange={onChange}
+        activeFilters={[
+          ...(activeFilters ??
+            ratingActiveFilters([value.minRating, value.maxRating], ([minRating, maxRating]) =>
+              onChange({ ...value, minRating, maxRating }),
+            )),
+          ...(value.area
+            ? [
+                {
+                  id: "area",
+                  label: `Area: ${value.area.name}`,
+                  onRemove: () => onChange({ ...value, area: null }),
+                },
+              ]
+            : []),
+        ]}
+        sortControl={
+          sortControl ?? (
+            <OptionSelect
+              ariaLabel="Sort results"
+              value={value.sort}
+              onChange={(sort) => onChange({ ...value, sort })}
+              options={[
+                { value: "name_asc", label: "Name A–Z" },
+                { value: "name_desc", label: "Name Z–A" },
+              ]}
+              className={FIELD_WIDTH_CLASS.medium}
+            />
+          )
+        }
+        extraFilters={
+          ratingControl ?? (
+            <>
+              <RatingRangeFilter
+                value={[value.minRating, value.maxRating]}
+                onChange={([minRating, maxRating]) => onChange({ ...value, minRating, maxRating })}
               />
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="self-end"
-            onPress={
-              onReset ??
-              (() =>
-                onChange({
-                  ...DEFAULT_DISCIPLINE_FILTER,
-                  area: null,
-                  minRating: 0,
-                  sort: "name_asc",
-                }))
-            }
-          >
-            Reset filters
-          </Button>
-        </div>
-      )}
+            </>
+          )
+        }
+        onReset={
+          onReset ??
+          (() =>
+            onChange({
+              ...DEFAULT_DISCIPLINE_FILTER,
+              area: null,
+              minRating: 0,
+              maxRating: 0,
+              sort: "name_asc",
+            }))
+        }
+      />
     </div>
   );
 }

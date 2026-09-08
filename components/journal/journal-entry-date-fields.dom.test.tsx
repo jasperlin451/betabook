@@ -24,23 +24,20 @@ function Dates(props: Partial<ComponentProps<typeof JournalEntryDateFields>> = {
     />
   );
 }
-it("only permits an unknown date for a send and restores the date when returning to a session", async () => {
+it("selects a send for an unknown date and restores the date when unchecked", async () => {
   const user = userEvent.setup();
   render(<Dates />);
   const sent = screen.getByRole("checkbox", { name: "I sent" });
-  const unknown = screen.getByRole("checkbox", { name: "I don't remember the date" });
-  expect(unknown).toBeDisabled();
-  expect(unknown).toHaveAccessibleDescription(
-    "Sessions need a date. Select “I sent” to record a send without one.",
-  );
-  await user.click(sent);
+  const unknown = screen.getByRole("checkbox", { name: "Record a send without a date" });
   expect(unknown).toBeEnabled();
+  expect(unknown).not.toHaveAccessibleDescription();
   await user.click(unknown);
+  expect(sent).toBeChecked();
   expect(unknown).toBeChecked();
   expect(screen.queryByRole("spinbutton", { name: /day, Date/ })).not.toBeInTheDocument();
-  await user.click(sent);
+  await user.click(unknown);
   expect(unknown).not.toBeChecked();
-  expect(unknown).toBeDisabled();
+  expect(sent).toBeChecked();
   expect(screen.getByRole("spinbutton", { name: /day, Date/ })).toHaveTextContent("01");
   await user.click(sent);
   expect(unknown).not.toBeChecked();
@@ -62,7 +59,7 @@ it.each(["repeat", "training"])(
         : "Sessions and repeats need a date to appear in your journal.";
     expect(screen.getByText(guidance)).toBeInTheDocument();
     expect(
-      screen.queryByRole("checkbox", { name: "I don't remember the date" }),
+      screen.queryByRole("checkbox", { name: "Record a send without a date" }),
     ).not.toBeInTheDocument();
     if (kind === "repeat") {
       await user.click(screen.getByRole("checkbox", { name: "I sent" }));

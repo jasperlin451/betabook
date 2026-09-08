@@ -181,6 +181,7 @@ export type UserSendsFilter = DisciplineFilter &
     sort?: UserSendsSort;
     ascentStyles: AscentStyle[];
     minRating: number;
+    maxRating: number;
   };
 
 // Unknown values sort last. ID breaks ties in the paginated query.
@@ -236,7 +237,13 @@ function userSendsWhere(userId: string, filter: UserSendsFilter, viewerId: strin
     );
   }
 
-  if (filter.minRating > 0) {
+  // Unrated sends store NULL. The full 1–5 range omits rating predicates;
+  // narrowing either bound excludes NULLs through the SQL comparison.
+  // Zero is a legacy unbounded filter value, never a stored zero-star rating.
+  if (filter.maxRating > 0 && filter.maxRating < 5) {
+    conditions.push(sql`sends.rating <= ${filter.maxRating}`);
+  }
+  if (filter.minRating > 1) {
     conditions.push(sql`sends.rating >= ${filter.minRating}`);
   }
 

@@ -14,15 +14,14 @@ export const RATING_OPTIONS = ["Any", "1", "2", "3", "4", "5"];
 
 /** [min, max] avg-rating bounds. 0 on either side is the "Any" sentinel
  * (that side is unbounded — see RATING_OPTIONS); a max of MAX_RATING is
- * also unbounded, since no average rating can exceed it. So the default
- * range means "filter inactive". */
-export const DEFAULT_RATING_RANGE: [number, number] = [0, MAX_RATING];
+ * also unbounded, since no average rating can exceed it. Legacy zero bounds display as the full 1–5 range in the shared rating control. */
+export const DEFAULT_RATING_RANGE: [number, number] = [0, 0];
 
 export const DEFAULT_MIN_ASCENTS = 0;
 
 /** Parses a `?ratingRange=min&ratingRange=max` pair, clamping each bound
  * onto the 0..MAX_RATING scale (0 = "Any") so a hand-edited URL can't put
- * the rating dropdowns in an unrepresentable state. Shared by climb search
+ * the rating bounds in an unrepresentable state. Shared by climb search
  * and the area page so their parse paths can't drift apart. */
 export function parseRatingRange(value: string | string[] | undefined): [number, number] {
   const [min, max] = toArray(value).map(Number);

@@ -1,21 +1,32 @@
 "use client";
 
-import { Button, Checkbox } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { ComponentProps } from "react";
 
-import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import { ASCENT_STYLE_CHIP_CLASSNAME, ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import {
+  dateActiveFilters,
+  hashtagActiveFilters,
+  ratingActiveFilters,
+} from "@/components/filters/active-filter-values";
 import { DateFilter } from "@/components/filters/date-filter";
 import { FilterInput } from "@/components/filters/filter-input";
 import { FilterToolbar } from "@/components/filters/filter-toolbar";
 import { HashtagFilter } from "@/components/filters/hashtag-filter";
+import { RatingRangeFilter } from "@/components/filters/min-rating-filter";
 import { AreaLookup } from "@/components/search/area-lookup";
-import { LabeledIndexSelect } from "@/components/ui/index-select";
+import { choicePillClass } from "@/components/ui/choice-pill";
+import {
+  FIELD_WIDTH_CLASS,
+  FILTER_ROW_CLASS,
+  FILTER_LABEL_CLASS,
+  FILTER_CONTROL_CLASS,
+} from "@/components/ui/field";
 import { SortSelect } from "@/components/ui/sort-select";
 import type { UserSendsFilter } from "@/db/queries";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
-import { RATING_OPTIONS } from "@/lib/filters/climb-stats-filter";
 import {
   DEFAULT_USER_SENDS_FILTER,
   userSendsFilterToSearchParams,
@@ -32,44 +43,28 @@ function AscentStyleFields({
   onChange: (value: AscentStyleType[]) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-start gap-3">
-      <span className="text-sm font-medium text-foreground">Ascent style</span>
-      <div className="flex flex-wrap items-center justify-start gap-4">
+    <div className={FILTER_ROW_CLASS}>
+      <span className={FILTER_LABEL_CLASS}>Ascent style</span>
+      <div
+        className={`${FILTER_CONTROL_CLASS} flex flex-wrap items-center gap-1.5`}
+        role="group"
+        aria-label="Ascent style"
+      >
         {ASCENT_STYLES.map((style) => (
-          <Checkbox
+          <button
             key={style}
-            isSelected={value.includes(style)}
-            onChange={(checked) =>
-              onChange(checked ? [...value, style] : value.filter((s) => s !== style))
+            type="button"
+            aria-pressed={value.includes(style)}
+            className={choicePillClass(value.includes(style), ASCENT_STYLE_CHIP_CLASSNAME[style])}
+            onClick={() =>
+              onChange(value.includes(style) ? value.filter((s) => s !== style) : [...value, style])
             }
           >
-            <Checkbox.Content>
-              <Checkbox.Control>
-                <Checkbox.Indicator />
-              </Checkbox.Control>
-              {ASCENT_STYLE_LABELS[style]}
-            </Checkbox.Content>
-          </Checkbox>
+            {ASCENT_STYLE_LABELS[style]}
+          </button>
         ))}
       </div>
     </div>
-  );
-}
-
-function MinRatingSelect({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <LabeledIndexSelect
-      label="Min rating"
-      options={RATING_OPTIONS}
-      index={value}
-      onChange={onChange}
-    />
   );
 }
 
@@ -123,6 +118,7 @@ export function UserSendsFilterToolbar({
       tradRange: filter.tradRange,
       ascentStyles: filter.ascentStyles,
       minRating: filter.minRating,
+      maxRating: filter.maxRating,
     },
     initialName: filter.name ?? "",
     initialAreaName: filter.areaName ?? "",
@@ -138,8 +134,43 @@ export function UserSendsFilterToolbar({
       value={disciplineFilter}
       onChange={setDisciplineFilter}
       onReset={reset}
+      activeFilters={[
+        ...dateActiveFilters(disciplineFilter, setDisciplineFilter),
+        ...hashtagActiveFilters(disciplineFilter.tags ?? EMPTY_TAGS, (tags) =>
+          setDisciplineFilter({ ...disciplineFilter, tags }),
+        ),
+        ...ratingActiveFilters(
+          [disciplineFilter.minRating, disciplineFilter.maxRating],
+          ([minRating, maxRating]) =>
+            setDisciplineFilter({ ...disciplineFilter, minRating, maxRating }),
+        ),
+        ...disciplineFilter.ascentStyles.map((style) => ({
+          id: `ascent-${style}`,
+          label: ASCENT_STYLE_LABELS[style],
+          onRemove: () =>
+            setDisciplineFilter({
+              ...disciplineFilter,
+              ascentStyles: disciplineFilter.ascentStyles.filter((s) => s !== style),
+            }),
+        })),
+        ...(name.trim()
+          ? [{ id: "query", label: `Text: ${name}`, onRemove: () => setName("") }]
+          : []),
+        ...(areaName || disciplineFilter.areaId !== undefined
+          ? [
+              {
+                id: "area",
+                label: `Area: ${areaName || "Selected area"}`,
+                onRemove: () => {
+                  setAreaName("");
+                  setDisciplineFilter({ ...disciplineFilter, areaId: undefined });
+                },
+              },
+            ]
+          : []),
+      ]}
       textFilter={
-        <div className="w-full sm:w-64">
+        <div className={FIELD_WIDTH_CLASS.long}>
           <FilterInput
             value={name}
             onChange={setName}
@@ -175,12 +206,14 @@ export function UserSendsFilterToolbar({
             </Button>
           )}
           {/* Inline label, matching Ascent Style and Min Rating below. */}
-          <div className="grid items-center gap-3 sm:grid-cols-[5rem_16rem]">
-            <span className="shrink-0 text-sm font-medium text-foreground">In area</span>
-            <div className="w-full sm:w-64">
+          <div className={FILTER_ROW_CLASS}>
+            <span className={FILTER_LABEL_CLASS}>Area</span>
+            <div className={FIELD_WIDTH_CLASS.long}>
               <AreaLookup
                 fetcher={areaFetcher}
                 label="Filter by area"
+                hideLabel
+                placeholder="Filter by area…"
                 value={
                   disciplineFilter.areaId === undefined
                     ? null
@@ -214,9 +247,11 @@ export function UserSendsFilterToolbar({
             value={disciplineFilter.ascentStyles}
             onChange={(ascentStyles) => setDisciplineFilter({ ...disciplineFilter, ascentStyles })}
           />
-          <MinRatingSelect
-            value={disciplineFilter.minRating}
-            onChange={(minRating) => setDisciplineFilter({ ...disciplineFilter, minRating })}
+          <RatingRangeFilter
+            value={[disciplineFilter.minRating, disciplineFilter.maxRating]}
+            onChange={([minRating, maxRating]) =>
+              setDisciplineFilter({ ...disciplineFilter, minRating, maxRating })
+            }
           />
         </>
       }

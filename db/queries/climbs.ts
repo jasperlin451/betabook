@@ -170,12 +170,14 @@ export type ClimbStatsFilter = {
   minAscents?: number;
 };
 
-/** Default bounds must omit rating predicates so unrated climbs remain visible. */
+/** Unrated averages are SQL NULL, not zero. The displayed 1–5 range is
+ * inactive, so omit both predicates to keep NULLs. Any narrowed bound uses
+ * a normal comparison, which excludes NULLs. Zero is a legacy unbounded sentinel. */
 function climbStatsConditions(filter: ClimbStatsFilter): SQL[] {
   const clauses: SQL[] = [];
   if (filter.ratingRange) {
     const [min, max] = filter.ratingRange;
-    if (min > 0) clauses.push(sql`climbs.avg_rating >= ${min}`);
+    if (min > 1) clauses.push(sql`climbs.avg_rating >= ${min}`);
     if (max > 0 && max < MAX_RATING) clauses.push(sql`climbs.avg_rating <= ${max}`);
   }
   if (filter.minAscents) {

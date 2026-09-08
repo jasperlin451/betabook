@@ -52,15 +52,19 @@ export const UnboundedRange: Story = {
     const [range, setRange] = useState<[number, number]>([2, 0]);
     return (
       <IndexRangeSelect
-        label="Rating"
-        minLabel="Minimum rating"
-        maxLabel="Maximum rating"
-        minOptions={["Any", "1 star", "2 stars", "3 stars", "4 stars"]}
-        maxOptions={["Any", "1 star", "2 stars", "3 stars", "4 stars"]}
+        label="Count"
+        minLabel="Minimum count"
+        maxLabel="Maximum count"
+        minOptions={["Any", "1", "2", "3", "4"]}
+        maxOptions={["Any", "1", "2", "3", "4"]}
         anyIndex={0}
         range={range}
         onChange={setRange}
       />
     );
   },
+};
+
+export const RopeGrades: Story = {
+  args: { label: "Min grade", options: ["5.9", "5.10a", "5.11b", "5.12c"], index: 2 },
 };

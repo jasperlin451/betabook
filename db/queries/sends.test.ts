@@ -29,6 +29,7 @@ const ALL_SENDS_FILTER: UserSendsFilter = {
   tradRange: [0, ROPE_YDS.length - 1],
   ascentStyles: [],
   minRating: 0,
+  maxRating: 0,
 };
 
 let db: Database;
@@ -711,6 +712,21 @@ describe("getSendsForUserPage ascentStyles/minRating filtering", () => {
     ]);
   });
 
+  it("includes unrated sends in the full one-to-five rating range", async () => {
+    const result = await getSendsForUserPage(
+      db,
+      "test-user-12",
+      { ...ALL_SENDS_FILTER, minRating: 1, maxRating: 5 },
+      0,
+    );
+    expect(result.sends.map((send) => send.climbName).sort()).toEqual([
+      "Test Crimper",
+      "Test Highball",
+      "Test Slab",
+    ]);
+    expect(result.sends.find((send) => send.climbName === "Test Crimper")?.rating).toBeNull();
+  });
+
   it("filters down to a single selected ascent style", async () => {
     const results = await getSendsForUserPage(
       db,
@@ -741,11 +757,28 @@ describe("getSendsForUserPage ascentStyles/minRating filtering", () => {
     expect(results.sends.map((s) => s.climbName)).toEqual(["Test Highball"]);
   });
 
+  it("filters by maximum rating and combines inclusive bounds, excluding unrated sends", async () => {
+    const maximum = await getSendsForUserPage(
+      db,
+      "test-user-12",
+      { ...ALL_SENDS_FILTER, maxRating: 2 },
+      0,
+    );
+    expect(maximum.sends.map((send) => send.climbName)).toEqual(["Test Slab"]);
+    const bounded = await getSendsForUserPage(
+      db,
+      "test-user-12",
+      { ...ALL_SENDS_FILTER, minRating: 2, maxRating: 2 },
+      0,
+    );
+    expect(bounded.sends.map((send) => send.climbName)).toEqual(["Test Slab"]);
+  });
+
   it("combines ascent-style and minimum-rating filters", async () => {
     const results = await getSendsForUserPage(
       db,
       "test-user-12",
-      { ...ALL_SENDS_FILTER, ascentStyles: ["redpoint", "onsight"], minRating: 1 },
+      { ...ALL_SENDS_FILTER, ascentStyles: ["redpoint", "onsight"], minRating: 2 },
       0,
     );
     expect(results.sends.map((s) => s.climbName)).toEqual(["Test Slab"]);

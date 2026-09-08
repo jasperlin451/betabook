@@ -13,7 +13,10 @@ export default meta;
 type Story = StoryObj;
 export const Ratings: Story = {
   render: () => (
-    <StoryPage title="Rating states">
+    <StoryPage
+      title="Rating states"
+      description="Numbers precede the shared star icon in results and active rating ranges."
+    >
       {[null, 0, 1, 2.5, 4].map((value) => (
         <Example key={String(value)} title={value === null ? "Unrated" : `${value} stars`}>
           <RatingStars rating={value} precision="decimal" />

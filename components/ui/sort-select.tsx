@@ -1,9 +1,9 @@
 "use client";
 
-import { Button, ListBox, Select } from "@heroui/react";
+import { Button, Label, ListBox, Select } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 
-import { FIELD_ACTION_CLASS } from "@/components/ui/field";
+import { FIELD_ACTION_CLASS, FIELD_WIDTH_CLASS } from "@/components/ui/field";
 import { useSortToggle } from "@/hooks/use-sort-toggle";
 
 /** The field-dropdown + direction-arrow-button sort control shared by every
@@ -33,20 +33,13 @@ export function SortSelect<Field extends string, Sort extends string>({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Static label so the control reads as "Sort by: X", not a bare
-       * value dropdown that could pass for a filter. Dropped on phones,
-       * where the row it sits in has no width to spare and the trigger's
-       * own value plus the direction arrow already read as a sort; the
-       * Select keeps its aria-label, so this is only ever visual. */}
-      <span className="hidden shrink-0 text-sm text-muted sm:inline" aria-hidden>
-        Sort by
-      </span>
       <Select
-        aria-label="Sort by"
+        className="flex-row items-center gap-2"
         selectedKey={field}
         onSelectionChange={(key) => handleFieldChange(key as Field)}
       >
-        <Select.Trigger className="w-32">
+        <Label className="shrink-0 text-xs text-muted">Sort by</Label>
+        <Select.Trigger className={FIELD_WIDTH_CLASS.short}>
           <Select.Value />
           <Select.Indicator />
         </Select.Trigger>

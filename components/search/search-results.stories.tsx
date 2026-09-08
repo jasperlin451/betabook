@@ -23,7 +23,15 @@ function Example({ status = "ready" }: { status?: SearchStatus }) {
             kind: "climb",
             items:
               current === "ready"
-                ? CATALOG_FIXTURES.filter((item) => item.kind === "climb").slice(0, 3)
+                ? CATALOG_FIXTURES.filter((item) => item.kind === "climb")
+                    .slice(0, 3)
+                    .map((item, index) => ({
+                      ...item,
+                      stats: {
+                        avgRating: index === 2 ? null : 4.5 - index,
+                        sendCount: [12, 1, 0][index],
+                      },
+                    }))
                 : [],
             status: current,
           },

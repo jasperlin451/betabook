@@ -25,7 +25,7 @@ test("tag feedback is associated, readable and uses the invalid field treatment"
   page,
 }, info) => {
   await openStory(page, info, "components-journal-tag-input--journal-tags");
-  const input = page.getByRole("textbox", { name: "Add a tag" });
+  const input = page.getByRole("combobox", { name: "Tags" });
   await input.fill("bad!");
   await input.press("Enter");
   await expect(input).toHaveAccessibleDescription(
@@ -43,8 +43,10 @@ test("tag feedback is associated, readable and uses the invalid field treatment"
   await expect(page.getByRole("button", { name: "Remove tag hangboard" })).toBeVisible();
   await expect(input).not.toHaveAttribute("aria-invalid", "true");
   await expect(error).toHaveCount(0);
-  await expect(input).toHaveAccessibleDescription(/Up to 8 tags/);
-  await input.press("Shift+Tab");
+  await expect(input).toHaveAccessibleDescription("Enter, Space, or comma to add.");
+  await input.press("Tab");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
   const remove = page.getByRole("button", { name: "Remove tag hangboard" });
   await expect(remove).toBeFocused();
   await expect(remove).toHaveCSS("box-shadow", /0px 0px 0px 2px/);
@@ -76,6 +78,15 @@ test("sort direction matches its field size and works from the keyboard", async 
   await openStory(page, info, "components-inputs-sort-select--default");
   const select = page.getByRole("button", { name: /Sort by/ });
   const direction = page.getByRole("button", { name: "Sort ascending", exact: true });
+  const label = page.getByText("Sort by", { exact: true });
+  await expect(label).toBeVisible();
+  const labelBox = await label.boundingBox();
+  const fieldBox = await select.boundingBox();
+  const directionBox = await direction.boundingBox();
+  if (!labelBox || !fieldBox || !directionBox) throw new Error("Missing sort controls");
+  expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(fieldBox.x);
+  expect(labelBox.y + labelBox.height / 2).toBeCloseTo(fieldBox.y + fieldBox.height / 2);
+  expect(directionBox.y).toBeCloseTo(fieldBox.y);
   const height = await select.evaluate((element) => getComputedStyle(element).height);
   await expect(direction).toHaveCSS("height", height);
   await expect(direction).toHaveCSS("width", height);

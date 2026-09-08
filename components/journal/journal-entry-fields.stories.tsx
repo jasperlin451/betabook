@@ -2,6 +2,7 @@ import { Button } from "@heroui/react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { userEvent, within } from "storybook/test";
 
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
@@ -15,11 +16,13 @@ export default meta;
 type Story = StoryObj;
 
 function Example({
+  rope = false,
   repeat = false,
   training = false,
   failure = false,
   slow = false,
 }: {
+  rope?: boolean;
   repeat?: boolean;
   training?: boolean;
   failure?: boolean;
@@ -33,7 +36,7 @@ function Example({
   return (
     <StoryPage
       title="Log an entry"
-      description="Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
+      description="Date comes first; send style appears beside I sent. Notes fill the form width, followed by friends and Tags. Redundant section headings are omitted. Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
     >
       <JournalEntryFields
         today="2026-09-06"
@@ -41,7 +44,13 @@ function Example({
         climb={
           training
             ? undefined
-            : { id: -1, areaId: -1, name: "Cedar Arete", type: "boulder", grade: 5 }
+            : {
+                id: -1,
+                areaId: -1,
+                name: "Cedar Arete",
+                type: rope ? "sport" : "boulder",
+                grade: 5,
+              }
         }
         hasPriorSend={repeat}
         companionFetcher={async (query) =>
@@ -92,3 +101,11 @@ export const Repeat: Story = { render: () => <Example repeat /> };
 export const Training: Story = { render: () => <Example training /> };
 export const SaveFailure: Story = { render: () => <Example failure /> };
 export const Saving: Story = { render: () => <Example slow /> };
+
+export const Ascent: Story = {
+  render: () => <Example />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByText("I sent", { exact: true }));
+  },
+};
+export const RopeAscent: Story = { render: () => <Example rope />, play: Ascent.play };

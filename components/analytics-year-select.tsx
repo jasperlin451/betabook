@@ -1,7 +1,9 @@
 "use client";
 
-import { ListBox, Select } from "@heroui/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
+import { OptionSelect } from "@/components/ui/option-select";
 
 const ALL_KEY = "all";
 
@@ -36,29 +38,15 @@ export function AnalyticsYearSelect({
   };
 
   return (
-    <Select
-      aria-label={label}
-      selectedKey={selected == null ? ALL_KEY : String(selected)}
-      onSelectionChange={(key) => navigate(String(key))}
-    >
-      <Select.Trigger className="w-28">
-        <Select.Value />
-        <Select.Indicator />
-      </Select.Trigger>
-      <Select.Popover>
-        <ListBox>
-          {allLabel != null && (
-            <ListBox.Item key={ALL_KEY} id={ALL_KEY}>
-              {allLabel}
-            </ListBox.Item>
-          )}
-          {years.map((year) => (
-            <ListBox.Item key={year} id={String(year)} textValue={String(year)}>
-              {year}
-            </ListBox.Item>
-          ))}
-        </ListBox>
-      </Select.Popover>
-    </Select>
+    <OptionSelect
+      ariaLabel={label}
+      value={selected == null ? ALL_KEY : String(selected)}
+      onChange={navigate}
+      className={FIELD_WIDTH_CLASS.medium}
+      options={[
+        ...(allLabel == null ? [] : [{ value: ALL_KEY, label: allLabel }]),
+        ...years.map((year) => ({ value: String(year), label: String(year) })),
+      ]}
+    />
   );
 }

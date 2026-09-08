@@ -28,6 +28,7 @@ export const DEFAULT_USER_SENDS_FILTER: UserSendsFilter = {
   tags: [],
   ascentStyles: [],
   minRating: 0,
+  maxRating: 0,
 };
 
 /** No `discipline` params means no disciplines are checked — an unfiltered
@@ -38,6 +39,7 @@ export function parseUserSendsFilter(params: UrlParamsRecord): UserSendsFilter {
     ? (rawSort as UserSendsSort)
     : DEFAULT_USER_SENDS_FILTER.sort;
 
+  const maxRating = Number(toArray(params.maxRating)[0]);
   const minRating = Number(toArray(params.minRating)[0]);
 
   return {
@@ -49,6 +51,8 @@ export function parseUserSendsFilter(params: UrlParamsRecord): UserSendsFilter {
     areaId: parseAreaId(toArray(params.areaId)[0]),
     sort,
     ascentStyles: parseAscentStyles(params),
+    maxRating:
+      Number.isInteger(maxRating) && maxRating >= 0 && maxRating <= MAX_RATING ? maxRating : 0,
     minRating:
       Number.isFinite(minRating) && minRating >= 0 && minRating <= MAX_RATING
         ? minRating
@@ -69,5 +73,6 @@ export function userSendsFilterToSearchParams(filter: UserSendsFilter): URLSearc
     params.append("ascentStyle", style);
   }
   if (filter.minRating) params.set("minRating", String(filter.minRating));
+  if (filter.maxRating) params.set("maxRating", String(filter.maxRating));
   return params;
 }

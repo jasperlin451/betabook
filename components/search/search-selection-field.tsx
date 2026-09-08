@@ -1,6 +1,11 @@
 "use client";
 
 import { Button, ComboBox, Input, Label, ListBox } from "@heroui/react";
+import type { ReactNode } from "react";
+import { ButtonContext } from "react-aria-components";
+
+import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
+import { FieldHeader, FieldFeedback, type FieldUsage } from "@/components/ui/field-support";
 
 import { SearchResultContent } from "./search-results";
 import type { SearchResult, SearchStatus } from "./search-types";
@@ -8,6 +13,11 @@ import type { SearchResult, SearchStatus } from "./search-types";
 /** Lookup results are supplied by the caller; free text never selects an ID. */
 export function SearchSelectionField({
   label,
+  labelSuffix,
+  usage,
+  helper,
+  hideLabel = false,
+  placeholder,
   query,
   onQueryChange,
   items,
@@ -20,11 +30,16 @@ export function SearchSelectionField({
   emptyMessage = "No matches.",
   errorMessage,
 }: {
+  usage?: FieldUsage;
+  helper?: string;
   emptyMessage?: string;
   errorMessage?: string;
   isInvalid?: boolean;
   isDisabled?: boolean;
   label: string;
+  labelSuffix?: ReactNode;
+  hideLabel?: boolean;
+  placeholder?: string;
   query: string;
   onQueryChange: (query: string) => void;
   items: SearchResult[];
@@ -34,9 +49,10 @@ export function SearchSelectionField({
   onRetry: () => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className={`${FIELD_WIDTH_CLASS.long} flex flex-col gap-2`}>
       <ComboBox
-        isInvalid={isInvalid}
+        aria-label={hideLabel ? label : undefined}
+        isInvalid={isInvalid || status === "error"}
         isDisabled={isDisabled}
         inputValue={query}
         onInputChange={onQueryChange}
@@ -54,11 +70,28 @@ export function SearchSelectionField({
           if (item && status === "ready" && !item.disabledReason) onSelect(item);
         }}
       >
-        <Label>{label}</Label>
+        {!hideLabel && (
+          <FieldHeader usage={usage}>
+            <Label>{label}</Label>
+            {/* Label help is independent of the combobox dropdown trigger. */}
+            <ButtonContext.Provider value={null}>{labelSuffix}</ButtonContext.Provider>
+          </FieldHeader>
+        )}
         <ComboBox.InputGroup>
-          <Input placeholder={`Search ${label.toLowerCase()}…`} className="search-combo-input" />
+          <Input
+            placeholder={placeholder ?? `Search ${label.toLowerCase()}…`}
+            className="search-combo-input"
+          />
           <ComboBox.Trigger className="hidden" />
         </ComboBox.InputGroup>
+        <FieldFeedback
+          helper={helper}
+          error={
+            status === "error"
+              ? (errorMessage ?? `Couldn’t load ${label.toLowerCase()}.`)
+              : undefined
+          }
+        />
         <ComboBox.Popover>
           <ListBox
             renderEmptyState={() => (
@@ -87,9 +120,6 @@ export function SearchSelectionField({
       </ComboBox>
       {status === "error" && (
         <div className="flex flex-wrap items-center gap-2">
-          <p role="alert" className="text-sm text-danger">
-            {errorMessage ?? `Couldn’t load ${label.toLowerCase()}.`}
-          </p>
           <Button variant="ghost" size="sm" onPress={onRetry}>
             Retry
           </Button>

@@ -94,6 +94,7 @@ function createSearchFixtureFetcher({
               type: item.discipline,
               grade: item.grade,
             },
+            stats: { avgRating: item.rating ?? null, sendCount: 2 },
             context: { ancestors: [], sendCount: 2, sent: item.sent ?? false },
           }
         : {}),
@@ -203,6 +204,7 @@ export function IntegratedClimbPickerDemo({
           })
         }
         allowSentClimbs
+        showFilters={mode !== "logging"}
         showAreaLookup={mode === "import"}
         excludedClimbId={mode === "merge" ? 101 : undefined}
         initialName={mode === "import" ? "Cedar Arete" : initialQuery}

@@ -28,7 +28,7 @@ export function SendGradeCell({
   rating,
 }: SendGradeCellProps) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       <Grade>
         {formatGrade(type, grade)}
         {suggestedGrade != null && suggestedGrade !== grade && (
@@ -37,6 +37,9 @@ export function SendGradeCell({
         {gradeFeel === "high" && <GradeArrow direction="up" label="Felt hard for the grade" />}
         {gradeFeel === "low" && <GradeArrow direction="down" label="Felt soft for the grade" />}
       </Grade>
+      <span aria-hidden className="text-sm text-muted">
+        ·
+      </span>
       <RatingStars rating={rating} />
     </div>
   );

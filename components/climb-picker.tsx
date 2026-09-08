@@ -3,6 +3,7 @@ import { Button } from "@heroui/react";
 import { useState, type ComponentProps } from "react";
 
 import { ClimbFilterControls } from "@/components/filters/climb-filter-controls";
+import { DisciplineChips } from "@/components/filters/discipline-chips";
 import { SearchPicker } from "@/components/search/search-picker";
 import { AppLink } from "@/components/ui/app-link";
 import type { ClimbWithAreaName } from "@/db/queries";
@@ -25,11 +26,13 @@ export function ClimbPicker({
   fetcher,
   areaFetcher,
   showAreaLookup = false,
+  showFilters = true,
   onCreateClimb,
 }: {
   onCreateClimb?: (href: string) => void;
   areaFetcher?: ComponentProps<typeof ClimbFilterControls>["areaFetcher"];
   showAreaLookup?: boolean;
+  showFilters?: boolean;
   onPick: (climb: ClimbWithAreaName, context: ClimbSelectionContext) => void;
   sentClimbIds?: Set<number>;
   allowSentClimbs?: boolean;
@@ -77,13 +80,23 @@ export function ClimbPicker({
         loadingMore={search.loadingMore}
         loadMoreFailed={search.loadMoreFailed}
         filters={
-          <ClimbFilterControls
-            showAreaLookup={showAreaLookup}
-            areaFetcher={areaFetcher}
-            value={state}
-            onChange={(next) => setState({ ...state, ...next })}
-            initialAreaQuery={initialAreaName}
-          />
+          showFilters ? (
+            <ClimbFilterControls
+              showMinAscents={false}
+              showAreaLookup={showAreaLookup}
+              areaFetcher={areaFetcher}
+              value={state}
+              onChange={(next) => setState({ ...state, ...next })}
+              initialAreaQuery={initialAreaName}
+            />
+          ) : (
+            <DisciplineChips
+              value={state.filter.disciplines}
+              onChange={(disciplines) =>
+                setState({ ...state, filter: { ...state.filter, disciplines } })
+              }
+            />
+          )
         }
         onPick={(result) => {
           const item = section.items.find((candidate) => candidate.id === result.id);

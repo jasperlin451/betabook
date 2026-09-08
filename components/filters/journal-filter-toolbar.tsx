@@ -2,12 +2,14 @@
 
 import { X } from "lucide-react";
 
+import { dateActiveFilters, hashtagActiveFilters } from "@/components/filters/active-filter-values";
 import { DateFilter } from "@/components/filters/date-filter";
 import { FilterInput } from "@/components/filters/filter-input";
 import { FilterToolbarLayout } from "@/components/filters/filter-toolbar";
 import { HashtagFilter } from "@/components/filters/hashtag-filter";
 import { AppLink } from "@/components/ui/app-link";
 import { choicePillClass } from "@/components/ui/choice-pill";
+import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import {
   DEFAULT_JOURNAL_FILTER,
@@ -56,6 +58,46 @@ export function JournalFilterToolbar({
   return (
     <FilterToolbarLayout
       onReset={reset}
+      activeFilters={[
+        ...dateActiveFilters(localFilter, setFilter),
+        ...hashtagActiveFilters(localFilter.tags, (tags) => setFilter({ ...localFilter, tags })),
+        ...(localFilter.query
+          ? [
+              {
+                id: "query",
+                label: `Text: ${localFilter.query}`,
+                onRemove: () => setFilter({ ...localFilter, query: null }),
+              },
+            ]
+          : []),
+        ...(localFilter.view !== "all"
+          ? [
+              {
+                id: "view",
+                label: VIEW_LABELS[localFilter.view],
+                onRemove: () => setFilter({ ...localFilter, view: "all" }),
+              },
+            ]
+          : []),
+        ...(localFilter.year !== null
+          ? [
+              {
+                id: "year",
+                label: `Year: ${localFilter.year}`,
+                onRemove: () => setFilter({ ...localFilter, year: null }),
+              },
+            ]
+          : []),
+        ...(localFilter.climbId !== null
+          ? [
+              {
+                id: "climb",
+                label: `Climb: ${climbName || "Selected climb"}`,
+                onRemove: () => setFilter({ ...localFilter, climbId: null }),
+              },
+            ]
+          : []),
+      ]}
       filters={
         <>
           <DateFilter
@@ -72,7 +114,7 @@ export function JournalFilterToolbar({
       }
       controls={
         <>
-          <div className="w-full sm:w-64">
+          <div className={FIELD_WIDTH_CLASS.long}>
             <FilterInput
               label="Filter journal"
               value={localFilter.query ?? ""}

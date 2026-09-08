@@ -4,6 +4,7 @@ import { Button } from "@heroui/react";
 import { useState } from "react";
 
 import { SearchSelectionField } from "@/components/search/search-selection-field";
+import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { useSearchLookup, type LookupFetcher } from "@/hooks/use-search-lookup";
 import { MAX_JOURNAL_COMPANIONS, type CompanionOption } from "@/lib/journal-companions";
@@ -44,17 +45,11 @@ export function CompanionPicker({
       ),
   });
   return (
-    <fieldset disabled={disabled} aria-label="With friends" className="flex min-w-0 flex-col gap-2">
-      <legend className="mb-2 font-medium">
-        <span className="inline-flex items-center gap-1">
-          With friends
-          <HelpTooltip label="About With friends">
-            For this entry only. Friends log their own activity; tags don’t grant access. Visibility
-            follows both journals’ privacy settings.
-            {editing && " Changes replace all tags, including hidden ones."}
-          </HelpTooltip>
-        </span>
-      </legend>
+    <fieldset
+      disabled={disabled}
+      aria-label="With friends"
+      className={`${FIELD_WIDTH_CLASS.long} flex flex-col gap-2`}
+    >
       {value.length > 0 && (
         <ul aria-label="Selected friends" className="flex flex-wrap gap-2">
           {value.map((friend) => (
@@ -74,37 +69,45 @@ export function CompanionPicker({
           ))}
         </ul>
       )}
-      {!full && (
-        <SearchSelectionField
-          emptyMessage="No matching friends. Try a more specific name."
-          errorMessage="Couldn’t load friends. Your selections are kept."
-          label="Find a friend to tag"
-          query={query}
-          isDisabled={disabled}
-          status={lookup.status}
-          onRetry={lookup.retry}
-          onQueryChange={(text) => setQuery(text.slice(0, 100))}
-          items={lookup.items.map((friend) => ({
-            kind: "climber",
-            id: friend.id,
-            name: friend.name,
-            detail: "Friend",
-          }))}
-          onSelect={(item) => {
-            const friend = lookup.items.find((candidate) => candidate.id === item.id);
-            if (
-              friend &&
-              !disabled &&
-              !full &&
-              !value.some((selected) => selected.id === friend.id)
-            ) {
-              setCleared(false);
-              onChange([...value, friend]);
-              setQuery("");
-            }
-          }}
-        />
-      )}
+      <SearchSelectionField
+        emptyMessage="No matching friends. Try a more specific name."
+        errorMessage="Couldn’t load friends. Your selections are kept."
+        label="Find a friend to tag"
+        labelSuffix={
+          <HelpTooltip label="About With friends">
+            For this entry only. Friends log their own activity; tags don’t grant access. Visibility
+            follows both journals’ privacy settings.
+            {editing && " Changes replace all tags, including hidden ones."}
+          </HelpTooltip>
+        }
+        placeholder="Find a friend to tag…"
+        query={query}
+        isDisabled={disabled || full}
+        usage={{ used: value.length, limit: MAX_JOURNAL_COMPANIONS, unit: "friends" }}
+        helper={full ? "Remove a friend to add another." : undefined}
+        status={lookup.status}
+        onRetry={lookup.retry}
+        onQueryChange={(text) => setQuery(text.slice(0, 100))}
+        items={lookup.items.map((friend) => ({
+          kind: "climber",
+          id: friend.id,
+          name: friend.name,
+          detail: "Friend",
+        }))}
+        onSelect={(item) => {
+          const friend = lookup.items.find((candidate) => candidate.id === item.id);
+          if (
+            friend &&
+            !disabled &&
+            !full &&
+            !value.some((selected) => selected.id === friend.id)
+          ) {
+            setCleared(false);
+            onChange([...value, friend]);
+            setQuery("");
+          }
+        }}
+      />
       {editing && (
         <Button
           type="button"
@@ -121,12 +124,11 @@ export function CompanionPicker({
           Clear friend tags
         </Button>
       )}
-      <p role="status" aria-label="Selected friends count" className="text-xs text-muted">
-        {full
-          ? "All 10 places filled. Remove a friend to add another."
-          : `${value.length} of ${MAX_JOURNAL_COMPANIONS} friends selected.`}
-        {cleared && " Friend tags will be cleared when you save."}
-      </p>
+      {cleared && (
+        <p role="status" className="text-xs text-muted">
+          Friend tags will be cleared when you save.
+        </p>
+      )}
     </fieldset>
   );
 }

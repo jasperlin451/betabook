@@ -1,5 +1,5 @@
 /** Accept the familiar # prefix while matching stored journal tags exactly. */
-export function normalizeHashtagFilter(value: string): string {
+function normalizeHashtagFilter(value: string): string {
   return value.trim().replace(/^#/, "").toLowerCase();
 }
 

@@ -32,12 +32,9 @@ async function addFriend(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole("option", { name: "Sam Rivera" }));
   expect(screen.getByRole("button", { name: "Remove friend Sam Rivera" })).toBeInTheDocument();
 }
-async function fillNotes(user: ReturnType<typeof userEvent.setup>, training = false) {
-  await user.type(
-    screen.getByRole("textbox", { name: training ? "What did you do?" : "How'd it go?" }),
-    "Kept the high foot.",
-  );
-  await user.type(screen.getByRole("textbox", { name: /Add a tag/ }), "technique{Enter}");
+async function fillNotes(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByRole("textbox", { name: "Notes" }), "Kept the high foot.");
+  await user.type(screen.getByRole("combobox", { name: "Tags" }), "technique{Enter}");
 }
 
 it.each(["outdoor", "repeat", "training"])(
@@ -49,7 +46,7 @@ it.each(["outdoor", "repeat", "training"])(
       hasPriorSend: kind === "repeat",
     });
     await addFriend(user);
-    await fillNotes(user, kind === "training");
+    await fillNotes(user);
     if (kind !== "training") await user.click(screen.getByRole("checkbox", { name: "I sent" }));
     else expect(screen.queryByRole("checkbox", { name: "I sent" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save entry" }));
@@ -86,7 +83,7 @@ it("blocks an undated send with friends and preserves their identities on recove
   const { user, onSave } = setup();
   await addFriend(user);
   await user.click(screen.getByRole("checkbox", { name: "I sent" }));
-  const unknown = screen.getByRole("checkbox", { name: "I don't remember the date" });
+  const unknown = screen.getByRole("checkbox", { name: "Record a send without a date" });
   await user.click(unknown);
   await user.click(screen.getByRole("button", { name: "Save send" }));
   expect(screen.getByRole("alert")).toHaveTextContent("Add a date to keep With friends.");
@@ -104,8 +101,8 @@ it("preserves undated commentary and omits journal-only tags", async () => {
   const { user, onSave } = setup();
   await fillNotes(user);
   await user.click(screen.getByRole("checkbox", { name: "I sent" }));
-  await user.click(screen.getByRole("checkbox", { name: "I don't remember the date" }));
-  expect(screen.queryByRole("textbox", { name: /Add a tag/ })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("checkbox", { name: "Record a send without a date" }));
+  expect(screen.queryByRole("combobox", { name: "Tags" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Save send" }));
   expect(onSave).toHaveBeenCalledOnce();
   const [form, undated] = onSave.mock.calls[0];
@@ -132,9 +129,7 @@ it.each(["rejection", "exception"])(
     );
     expect(onDone).not.toHaveBeenCalled();
     expect(onSave).toHaveBeenCalledOnce();
-    expect(screen.getByRole("textbox", { name: "How'd it go?" })).toHaveValue(
-      "Kept the high foot.",
-    );
+    expect(screen.getByRole("textbox", { name: "Notes" })).toHaveValue("Kept the high foot.");
     expect(screen.getByRole("button", { name: "Remove tag technique" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove friend Sam Rivera" })).toBeInTheDocument();
     await user.click(save);

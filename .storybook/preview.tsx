@@ -55,7 +55,7 @@ const preview: Preview = {
       }, [theme]);
       return (
         <main className="min-h-screen bg-background p-4 font-sans text-foreground antialiased">
-          <div className="mx-auto max-w-3xl">
+          <div className={context.parameters.fullWidth ? "w-full" : "mx-auto max-w-3xl"}>
             <Story />
           </div>
         </main>

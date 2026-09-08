@@ -4,7 +4,7 @@ import { expect, test, openStory } from "./story";
 
 async function openHashtagStory(page: Page, testInfo: TestInfo) {
   await openStory(page, testInfo, "components-filters-hashtag-filter--default");
-  return page.getByRole("combobox", { name: "Hashtag" });
+  return page.getByRole("combobox", { name: "Tags" });
 }
 
 test("hashtag suggestions support keyboard selection and show the selected tags", async ({
@@ -16,16 +16,12 @@ test("hashtag suggestions support keyboard selection and show the selected tags"
   await input.press("ArrowDown");
   await input.press("Enter");
   await expect(input).toHaveValue("#");
-  await expect(
-    page.getByRole("button", { name: "Remove hashtag trip", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove tag trip", exact: true })).toBeVisible();
   await expect(page.getByRole("listbox")).toHaveCount(0);
   await input.fill("#project");
   await page.getByRole("option", { name: "#project", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Remove hashtag project" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Remove hashtag trip", exact: true })).toHaveCount(
-    1,
-  );
+  await expect(page.getByRole("button", { name: "Remove tag project" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove tag trip", exact: true })).toHaveCount(1);
   await expect(input).toHaveValue("#");
   await expect(page.getByText("No matching hashtags.", { exact: true })).toHaveCount(0);
   // Wait for the exiting suggestions to unmount before capturing selected tags.
@@ -85,7 +81,7 @@ test("browsing hashtag suggestions protects the caret and shows the reopened men
     .poll(() => input.evaluate((node: HTMLInputElement) => node.selectionStart))
     .toBeGreaterThanOrEqual(1);
   await page.getByRole("option", { name: "#outdoors", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Remove hashtag outdoors" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove tag outdoors" })).toBeVisible();
   await input.click();
   await expect(page.getByRole("option")).toHaveCount(6);
   const screenshot = testInfo.outputPath("hashtag-browse.png");
@@ -108,7 +104,7 @@ for (const scenario of [
   {
     name: "Sends toolbar",
     story: "components-filters-toolbar--hashtags",
-    role: "textbox" as const,
+    role: "searchbox" as const,
     label: "Filter climbs",
   },
 ]) {
@@ -116,22 +112,32 @@ for (const scenario of [
     page,
   }, testInfo) => {
     await openStory(page, testInfo, scenario.story);
-    await page.getByRole("button", { name: "More filters", exact: true }).click();
+    await page.getByRole("button", { name: /^(Expand|Hide) filters$/, exact: true }).click();
     const textFilter = page.getByRole(scenario.role, { name: scenario.label });
-    const hashtag = page.getByRole("combobox", { name: "Hashtag" });
+    const hashtag = page.getByRole("combobox", { name: "Tags" });
     await expect(hashtag).toBeVisible();
     const before = await textFilter.boundingBox();
     const hashtagBefore = await hashtag.boundingBox();
+    const panel = page.getByRole("region", { name: "Filter options" });
+    const panelBefore = await panel.boundingBox();
     for (const tag of ["power", "strength", "trip"]) {
       await hashtag.fill(`#${tag}`);
       await hashtag.press("Space");
       await expect(
-        page.getByRole("button", { name: `Remove hashtag ${tag}`, exact: true }),
+        page.getByRole("button", { name: `Remove tag ${tag}`, exact: true }),
       ).toBeVisible();
     }
     await expect(page.getByRole("listbox")).toHaveCount(0);
     expect((await textFilter.boundingBox())?.y).toBe(before?.y);
-    expect((await hashtag.boundingBox())?.y).toBe(hashtagBefore?.y);
+    const hashtagAfter = await hashtag.boundingBox();
+    const panelAfter = await panel.boundingBox();
+    if (!hashtagBefore || !hashtagAfter || !panelBefore || !panelAfter)
+      throw new Error("Missing filter geometry");
+    // The new active summary may move the entire panel; selected tags must not
+    // move the input within that panel or move the query above the summary.
+    expect(hashtagAfter.y - panelAfter.y).toBe(hashtagBefore.y - panelBefore.y);
+    const summary = page.getByRole("region", { name: "Active filters" });
+    await expect(summary.getByRole("button", { name: "Remove #trip" })).toBeVisible();
     const screenshot = testInfo.outputPath("hashtag-toolbar-wrapped.png");
     await page.screenshot({ path: screenshot });
     await testInfo.attach("hashtag-toolbar-wrapped", {

@@ -40,25 +40,20 @@ it("restores a place at the limit, adds a friend by identity, removes them and c
       fetcher={fetcher}
     />,
   );
-  expect(screen.getByRole("status", { name: "Selected friends count" })).toHaveTextContent(
-    "All 10 places filled",
-  );
-  expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  expect(screen.getByText("10/10 friends")).toBeInTheDocument();
+  expect(screen.getByRole("combobox")).toBeDisabled();
   expect(fetcher).not.toHaveBeenCalled();
   await user.click(screen.getByRole("button", { name: "Remove friend Friend 1" }));
-  expect(screen.getByRole("status", { name: "Selected friends count" })).toHaveTextContent(
-    "9 of 10",
-  );
+  expect(screen.getByText("9/10 friends")).toBeInTheDocument();
   await user.type(screen.getByRole("combobox"), "Alex");
   await user.click(await screen.findByRole("option", { name: "Alex Rivera" }));
   expect(screen.getByRole("button", { name: "Remove friend Alex Rivera" })).toBeInTheDocument();
-  expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  expect(screen.getByRole("combobox")).toBeDisabled();
   await user.click(screen.getByRole("button", { name: "Remove friend Alex Rivera" }));
   await user.click(screen.getByRole("button", { name: "Clear friend tags" }));
   expect(screen.queryByRole("button", { name: /^Remove friend/ })).not.toBeInTheDocument();
-  expect(screen.getByRole("status", { name: "Selected friends count" })).toHaveTextContent(
-    "0 of 10 friends selected. Friend tags will be cleared when you save.",
-  );
+  expect(screen.getByText("0/10 friends")).toBeInTheDocument();
+  expect(screen.getByText("Friend tags will be cleared when you save.")).toBeInTheDocument();
 });
 it("filters selected identities out of suggestions and rejects interaction during a save", async () => {
   const user = userEvent.setup();
@@ -73,9 +68,7 @@ it("filters selected identities out of suggestions and rejects interaction durin
   const remove = screen.getByRole("button", { name: "Remove friend Sam Rivera" });
   expect(remove).toBeDisabled();
   await user.click(remove);
-  expect(screen.getByRole("status", { name: "Selected friends count" })).toHaveTextContent(
-    "2 of 10",
-  );
+  expect(screen.getByText("2/10 friends")).toBeInTheDocument();
 });
 it.each(["Retry", "new query"])(
   "retains selected friends after lookup failure and recovers through %s",
@@ -105,9 +98,7 @@ it.each(["Retry", "new query"])(
     await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Remove friend Alex Rivera" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove friend Sam Rivera" })).toBeInTheDocument();
-    expect(screen.getByRole("status", { name: "Selected friends count" })).toHaveTextContent(
-      "2 of 10",
-    );
+    expect(screen.getByText("2/10 friends")).toBeInTheDocument();
     expect(fetcher).toHaveBeenCalledTimes(2);
   },
 );
