@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { cardClass } from "@/components/ui/card";
 import { DatePickerField } from "@/components/ui/date-picker-field";
-import { FIELD_CLASS } from "@/components/ui/field";
+import { FIELD_CLASS, FIELD_WIDTH_CLASS } from "@/components/ui/field";
 import { PageTitle, SectionHeading } from "@/components/ui/typography";
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
@@ -23,11 +23,11 @@ function FormExamples() {
       </p>
       <section className={`flex flex-col gap-4 ${cardClass()}`}>
         <SectionHeading>Session details</SectionHeading>
-        <TextField name="climb" defaultValue="Cedar Arete">
+        <TextField className={FIELD_WIDTH_CLASS.long} name="climb" defaultValue="Cedar Arete">
           <Label>Climb name</Label>
           <Input />
         </TextField>
-        <TextField name="discipline">
+        <TextField className={FIELD_WIDTH_CLASS.medium} name="discipline">
           <Label htmlFor="sample-discipline">Discipline</Label>
           <select id="sample-discipline" className={FIELD_CLASS} defaultValue="boulder">
             <option value="boulder">Boulder</option>
@@ -36,12 +36,17 @@ function FormExamples() {
           </select>
         </TextField>
         <DatePickerField label="Session date" value={date} onChange={setDate} max="2026-09-06" />
-        <TextField isInvalid name="comment">
+        <TextField className={FIELD_WIDTH_CLASS.long} isInvalid name="comment">
           <Label>Comment</Label>
           <Input defaultValue="" />
           <FieldError>Enter a comment for this example.</FieldError>
         </TextField>
-        <TextField isDisabled name="readonly" defaultValue="Unavailable">
+        <TextField
+          className={FIELD_WIDTH_CLASS.long}
+          isDisabled
+          name="readonly"
+          defaultValue="Unavailable"
+        >
           <Label>Unavailable field</Label>
           <Input />
         </TextField>

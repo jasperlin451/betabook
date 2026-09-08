@@ -1,7 +1,10 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
+import type { ReactNode } from "react";
 
+import { hashtagActiveFilters } from "@/components/filters/active-filter-values";
+import { FilterToolbarLayout } from "@/components/filters/filter-toolbar";
 import { HashtagFilter } from "@/components/filters/hashtag-filter";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import { normalizeHashtagFilters } from "@/lib/filters/hashtag-filter";
@@ -9,7 +12,9 @@ import { normalizeHashtagFilters } from "@/lib/filters/hashtag-filter";
 export function AnalyticsHashtagFilter({
   selectedTags,
   tags,
+  controls,
 }: {
+  controls?: ReactNode;
   selectedTags: string[];
   tags: string[];
 }) {
@@ -25,5 +30,12 @@ export function AnalyticsHashtagFilter({
       return `${pathname}?${query}`;
     },
   });
-  return <HashtagFilter value={filter} onChange={setFilter} tags={tags} />;
+  return (
+    <FilterToolbarLayout
+      controls={controls}
+      activeFilters={hashtagActiveFilters(filter, setFilter)}
+      onReset={() => setFilter([])}
+      filters={<HashtagFilter inlineLabel value={filter} onChange={setFilter} tags={tags} />}
+    />
+  );
 }

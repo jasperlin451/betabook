@@ -91,7 +91,30 @@ export function SearchController({
       : undefined,
     filters:
       !quick && state.category === "climb" ? (
-        <ClimbFilterControls value={state} onChange={(next) => onChange({ ...state, ...next })} />
+        <ClimbFilterControls
+          value={state}
+          onChange={(next) => onChange({ ...state, ...next })}
+          activeFilters={
+            state.query
+              ? [
+                  {
+                    id: "query",
+                    label: `Search: ${state.query}`,
+                    onRemove: () => onChange({ ...state, query: "" }),
+                  },
+                ]
+              : []
+          }
+          onReset={() =>
+            onChange({
+              ...state,
+              query: "",
+              filter: DEFAULT_CLIMB_FILTER,
+              area: null,
+              sort: "name_asc",
+            })
+          }
+        />
       ) : undefined,
   };
   return quick ? (

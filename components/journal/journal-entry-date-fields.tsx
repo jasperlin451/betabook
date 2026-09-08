@@ -72,21 +72,23 @@ export function JournalEntryDateFields({
         <div className="flex flex-col gap-1">
           <Checkbox
             isSelected={sent && dateUnknown}
-            isDisabled={!sent}
-            onChange={onDateUnknownChange}
+            onChange={(value) => {
+              if (value) onSentChange(true);
+              onDateUnknownChange(value);
+            }}
             aria-describedby={dateHelpId}
           >
             <Checkbox.Content>
               <Checkbox.Control>
                 <Checkbox.Indicator />
               </Checkbox.Control>
-              I don&apos;t remember the date
+              Record without a date
             </Checkbox.Content>
           </Checkbox>
           <p id={dateHelpId} className="text-xs text-muted">
-            {sent
-              ? "Saved in Sends. Add a date later to include it in your journal."
-              : "Sessions need a date. Select “I sent” to record a send without one."}
+            {isUndatedSend
+              ? "This send will be saved without a date. Uncheck to add a date and include it in your journal."
+              : "Records a send when you don’t know the date. Selecting this also selects ‘I sent’."}
           </p>
         </div>
       )}

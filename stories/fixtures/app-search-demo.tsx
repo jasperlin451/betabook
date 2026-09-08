@@ -203,6 +203,7 @@ export function IntegratedClimbPickerDemo({
           })
         }
         allowSentClimbs
+        showFilters={mode !== "logging"}
         showAreaLookup={mode === "import"}
         excludedClimbId={mode === "merge" ? 101 : undefined}
         initialName={mode === "import" ? "Cedar Arete" : initialQuery}

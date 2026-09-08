@@ -33,7 +33,7 @@ export const Empty: Story = { render: () => <TagsExample empty /> };
 export const Invalid: Story = {
   render: () => <TagsExample />,
   play: async ({ canvasElement }) => {
-    const input = within(canvasElement).getByRole("textbox", { name: /Add a tag/ });
+    const input = within(canvasElement).getByRole("combobox", { name: /Tags/ });
     await userEvent.type(input, "bad!{Enter}");
     await expect(within(canvasElement).getByRole("alert")).toHaveTextContent(
       "Tags can only contain letters, numbers and hyphens.",

@@ -25,6 +25,15 @@ type Criteria = {
   pickerMode?: "logging" | "import" | "merge";
 };
 
+function matchesRating(rating: number | null | undefined, filters: ClimbRefinements) {
+  if (filters.minRating > 1 && (rating ?? 0) < filters.minRating) return false;
+  return (
+    filters.maxRating === 0 ||
+    filters.maxRating === 5 ||
+    (rating != null && rating <= filters.maxRating)
+  );
+}
+
 function fixtureSections(criteria: Criteria): SearchSection[] {
   const { query, category, filters, limit, onlySent, pickerMode, inherentAreaId } = criteria;
   const kinds: SearchKind[] = category === "all" ? ["climb", "area", "climber"] : [category];
@@ -37,7 +46,7 @@ function fixtureSections(criteria: Criteria): SearchSection[] {
       const areaId = inherentAreaId ?? filters.area?.id;
       if (areaId && item.areaId !== areaId && !(areaId === "area-1" && item.areaId === "area-11"))
         return false;
-      if ((item.rating ?? 0) < filters.minRating) return false;
+      if (!matchesRating(item.rating, filters)) return false;
       if (item.kind === "climb" && filters.disciplines.length > 0) {
         if (!filters.disciplines.includes(item.discipline)) return false;
         const range = filters[`${item.discipline}Range`];

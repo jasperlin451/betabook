@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
-import { LocalFiltersDemo } from "@/stories/fixtures/filter-demo";
-const meta = { title: "Patterns/Filters", component: LocalFiltersDemo } satisfies Meta<
-  typeof LocalFiltersDemo
+import { FilterToolbarDemo } from "@/stories/fixtures/filter-toolbar-demo";
+const meta = { title: "Patterns/Filters", component: FilterToolbarDemo } satisfies Meta<
+  typeof FilterToolbarDemo
 >;
 export default meta;
-type Story = StoryObj;
-export const AreaClimbs: Story = { render: () => <LocalFiltersDemo /> };
-export const Sends: Story = { render: () => <LocalFiltersDemo list="sends" /> };
-export const Journal: Story = { render: () => <LocalFiltersDemo list="journal" /> };
+type Story = StoryObj<typeof meta>;
+export const AreaClimbs: Story = { args: { list: "area" } };
+export const Sends: Story = { args: { list: "sends" } };
+export const Journal: Story = { args: { list: "journal" } };

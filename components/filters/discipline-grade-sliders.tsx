@@ -26,7 +26,7 @@ export function DisciplineGradeSliders<T extends DisciplineFilter>({
   if (!showBoulder && !showSport && !showTrad) return null;
 
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:gap-6">
+    <div className="flex flex-col gap-4">
       {showBoulder && (
         <IndexRangeSelect
           label="Boulder"

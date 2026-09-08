@@ -43,6 +43,7 @@ export function EntryKindStep({
           </p>
         </div>
         <ClimbPicker
+          showFilters={false}
           allowSentClimbs
           onPick={(climb, context) =>
             onChoose({ kind: "session", climb, hasPriorSend: context.sent })

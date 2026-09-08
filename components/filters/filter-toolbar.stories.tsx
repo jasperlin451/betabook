@@ -1,7 +1,8 @@
-import { Input, Label, TextField } from "@heroui/react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
 
+import { hashtagActiveFilters } from "@/components/filters/active-filter-values";
+import { FilterInput } from "@/components/filters/filter-input";
 import { HashtagFilter } from "@/components/filters/hashtag-filter";
 import { DEFAULT_DISCIPLINE_FILTER } from "@/lib/filters/discipline-filter";
 import { StoryPage } from "@/stories/fixtures/story-layout";
@@ -16,18 +17,17 @@ export default meta;
 type Story = StoryObj;
 function FiltersExample() {
   const [filter, setFilter] = useState(DEFAULT_DISCIPLINE_FILTER);
+  const [query, setQuery] = useState("");
   return (
     <StoryPage title="Climb filter toolbar">
       <FilterToolbar
         value={filter}
         onChange={setFilter}
-        onReset={() => setFilter(DEFAULT_DISCIPLINE_FILTER)}
-        textFilter={
-          <TextField>
-            <Label>Climb name</Label>
-            <Input placeholder="Filter sample climbs" />
-          </TextField>
-        }
+        onReset={() => {
+          setFilter(DEFAULT_DISCIPLINE_FILTER);
+          setQuery("");
+        }}
+        textFilter={<FilterInput label="Filter climbs" value={query} onChange={setQuery} />}
       />
     </StoryPage>
   );
@@ -36,11 +36,12 @@ export const Filters: Story = { render: () => <FiltersExample /> };
 
 function HashtagFiltersExample() {
   const [filter, setFilter] = useState(DEFAULT_DISCIPLINE_FILTER);
+  const [query, setQuery] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   return (
     <StoryPage
-      title="Hashtag toolbar"
-      description="Selected hashtags expand below the filter fields."
+      title="Tags toolbar"
+      description="Selected tags appear below the field and in the persistent active-filter summary."
     >
       <FilterToolbar
         value={filter}
@@ -48,14 +49,10 @@ function HashtagFiltersExample() {
         onReset={() => {
           setFilter(DEFAULT_DISCIPLINE_FILTER);
           setTags([]);
+          setQuery("");
         }}
-        textFilter={
-          <>
-            <TextField aria-label="Filter climbs" className="w-full sm:w-64">
-              <Input placeholder="Filter climbs…" />
-            </TextField>
-          </>
-        }
+        textFilter={<FilterInput label="Filter climbs" value={query} onChange={setQuery} />}
+        activeFilters={hashtagActiveFilters(tags, setTags)}
         extraFilters={
           <HashtagFilter
             inlineLabel
@@ -68,4 +65,4 @@ function HashtagFiltersExample() {
     </StoryPage>
   );
 }
-export const Hashtags: Story = { render: () => <HashtagFiltersExample /> };
+export const Hashtags: Story = { name: "Tags", render: () => <HashtagFiltersExample /> };

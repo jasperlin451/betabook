@@ -151,9 +151,10 @@ it("paginates, filters, resets and changes categories using the actual results",
     expect(screen.queryByRole("button", { name: `Open ${crack}` })).not.toBeInTheDocument(),
   );
   expect(await result(local)).toBeEnabled();
-  await user.click(button("Filters"));
-  await user.click(button("Reset filters"));
-  expect(screen.getByRole("searchbox", { name: "Search Betabook" })).toHaveValue("cedar");
+  await user.click(button("Expand filters"));
+  await user.click(button("Clear all"));
+  expect(screen.getByRole("searchbox", { name: "Search Betabook" })).toHaveValue("");
+  await user.type(screen.getByRole("searchbox", { name: "Search Betabook" }), "cedar");
   await user.click(button("Climbers"));
   await waitFor(() => expect(button("Open Cedar Lee, Climbing partner")).toBeEnabled());
   await user.click(button("Clear search betabook"));
@@ -196,20 +197,25 @@ it("sort and expanded grade/rating controls refine results and reset restores th
     expect(within(results).getAllByRole("button")[0]).toHaveAccessibleName(`Open ${traverse}`),
   );
   await user.click(button("Boulder"));
-  await user.click(button("Filters"));
+  await user.click(button("Expand filters"));
   await user.click(screen.getByRole("button", { name: /Min grade/ }));
   await user.click(await screen.findByRole("option", { name: "V4" }));
   await waitFor(() =>
     expect(within(results).queryByRole("button", { name: /Coast Range/ })).not.toBeInTheDocument(),
   );
-  await user.click(screen.getByRole("button", { name: /Min rating/ }));
-  await user.click(await screen.findByRole("option", { name: "4" }));
+  await user.click(
+    within(screen.getByRole("radiogroup", { name: "Min rating" })).getByRole("radio", {
+      name: "4 stars",
+    }),
+  );
   await waitFor(() =>
     expect(
       within(results).queryByRole("button", { name: /Cedar Traverse/ }),
     ).not.toBeInTheDocument(),
   );
   expect(await result(local)).toBeEnabled();
-  await user.click(button("Reset filters"));
+  await user.click(button("Clear all"));
+  expect(screen.getByRole("searchbox", { name: "Search Betabook" })).toHaveValue("");
+  await user.type(screen.getByRole("searchbox", { name: "Search Betabook" }), "cedar");
   expect(await result(other)).toBeEnabled();
 });

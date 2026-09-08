@@ -22,14 +22,14 @@ it("retains grade choices across disclosure changes and reset clears disciplines
   render(<Toolbar />);
   const boulder = screen.getByRole("button", { name: "Boulder" });
   await user.click(boulder);
-  await user.click(screen.getByRole("button", { name: "More filters" }));
+  await user.click(screen.getByRole("button", { name: "Expand filters" }));
   await user.click(screen.getByRole("button", { name: /Min grade/ }));
   await user.click(await screen.findByRole("option", { name: "V4" }));
   expect(screen.getByRole("button", { name: /Min grade/ })).toHaveTextContent("V4");
-  await user.click(screen.getByRole("button", { name: "Fewer filters" }));
-  await user.click(screen.getByRole("button", { name: "More filters" }));
+  await user.click(screen.getByRole("button", { name: "Hide filters" }));
+  await user.click(screen.getByRole("button", { name: "Expand filters" }));
   expect(screen.getByRole("button", { name: /Min grade/ })).toHaveTextContent("V4");
-  await user.click(screen.getByRole("button", { name: "Reset filters" }));
+  await user.click(screen.getByRole("button", { name: "Clear all" }));
   expect(boulder).toHaveAttribute("aria-pressed", "false");
   expect(screen.queryByRole("button", { name: /Min grade/ })).not.toBeInTheDocument();
   await user.click(boulder);

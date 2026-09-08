@@ -21,17 +21,17 @@ it("preserves hashtags across disclosure changes and clears them on reset", asyn
       tags={["power", "trip"]}
     />,
   );
-  await user.click(screen.getByRole("button", { name: "More filters" }));
-  const input = screen.getByRole("combobox", { name: "Hashtag" });
+  await user.click(screen.getByRole("button", { name: "Expand filters" }));
+  const input = screen.getByRole("combobox", { name: "Tags" });
   await user.type(input, "power ");
-  await user.click(screen.getByRole("button", { name: "Fewer filters" }));
-  await user.click(screen.getByRole("button", { name: "More filters" }));
-  expect(screen.getByRole("button", { name: "Remove hashtag power" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Hide filters" }));
+  await user.click(screen.getByRole("button", { name: "Expand filters" }));
+  expect(screen.getByRole("button", { name: "Remove tag power" })).toBeInTheDocument();
   await waitFor(() =>
     expect(router.replace).toHaveBeenCalledWith("/users/alex/journal?tag=power", { scroll: false }),
   );
-  await user.click(screen.getByRole("button", { name: "Reset filters" }));
-  expect(screen.queryByRole("button", { name: "Remove hashtag power" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Clear all" }));
+  expect(screen.queryByRole("button", { name: "Remove tag power" })).not.toBeInTheDocument();
 });
 it("keeps text filtering local and builds view links from the entered filter", async () => {
   const user = userEvent.setup();

@@ -11,3 +11,15 @@ export const FIELD_CLASS = "input";
  * do not include the field border and switch size at a different breakpoint. */
 export const FIELD_ACTION_CLASS =
   "size-[calc(2.5rem+2*var(--border-width-field))] sm:size-[calc(2.25rem+2*var(--border-width-field))]";
+
+/** Standard widths for search, filter and sort fields; shrink to their container. */
+export const FIELD_WIDTH_CLASS = {
+  short: "w-20 max-w-full min-w-0",
+  medium: "w-44 max-w-full min-w-0",
+  long: "w-96 max-w-full min-w-0",
+} as const;
+
+/** Shared label column; stack on phones so long controls retain usable space. */
+export const FILTER_ROW_CLASS =
+  "grid w-full grid-cols-1 items-start gap-2 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-3";
+export const FILTER_LABEL_CLASS = "text-sm font-medium text-foreground sm:pt-2";

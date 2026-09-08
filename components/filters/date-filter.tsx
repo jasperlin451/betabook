@@ -5,6 +5,7 @@ import { getLocalTimeZone, today } from "@internationalized/date";
 import { useState } from "react";
 
 import { DatePickerField } from "@/components/ui/date-picker-field";
+import { FIELD_WIDTH_CLASS, FILTER_ROW_CLASS, FILTER_LABEL_CLASS } from "@/components/ui/field";
 import { OptionSelect } from "@/components/ui/option-select";
 import {
   datePresetFilter,
@@ -86,27 +87,29 @@ export function DateFilter({
     }
   }
   return (
-    <div className="flex w-full max-w-md flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium">Dates</span>
+    <div className="flex w-full flex-col gap-3">
+      <div className={FILTER_ROW_CLASS}>
+        <span className={FILTER_LABEL_CLASS}>Dates</span>
         <OptionSelect
           ariaLabel="Dates"
           value={option}
           onChange={select}
           options={OPTIONS}
-          className="w-48"
+          className={FIELD_WIDTH_CLASS.medium}
         />
       </div>
       {option === "custom" && (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <DatePickerField
-              label="Start date"
-              value={start}
-              onChange={(date) => updateCustom(date, end)}
-              description="Choose a day, or the first day of a range."
-            />
-            <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap gap-3 sm:ml-27">
+            <div className={FIELD_WIDTH_CLASS.medium}>
+              <DatePickerField
+                label="Start date"
+                value={start}
+                onChange={(date) => updateCustom(date, end)}
+                description="Choose a day, or the first day of a range."
+              />
+            </div>
+            <div className={`${FIELD_WIDTH_CLASS.medium} flex flex-col gap-1`}>
               <DatePickerField
                 label="End date (optional)"
                 value={end}

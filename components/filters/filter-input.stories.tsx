@@ -7,4 +7,4 @@ const meta = { title: "Components/Filters/Text filter", component: FilterInput }
   typeof FilterInput
 >;
 export default meta;
-export const FilterList: StoryObj = { render: () => <LocalFiltersDemo list="journal" /> };
+export const FilterList: StoryObj = { render: () => <LocalFiltersDemo /> };

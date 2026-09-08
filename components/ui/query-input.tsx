@@ -3,6 +3,8 @@
 import { SearchField } from "@heroui/react";
 import type { ComponentProps } from "react";
 
+import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
+
 export type QueryInputProps = {
   value: string;
   onChange: (value: string) => void;
@@ -25,7 +27,12 @@ export type QueryInputProps = {
 /** Shared field chrome. Search and filter consumers own their behavior and labels. */
 export function QueryInput({ value, onChange, label, placeholder, inputProps }: QueryInputProps) {
   return (
-    <SearchField aria-label={label} value={value} onChange={onChange} className="min-w-0 flex-1">
+    <SearchField
+      aria-label={label}
+      value={value}
+      onChange={onChange}
+      className={FIELD_WIDTH_CLASS.long}
+    >
       {/* Autofocus keeps typing immediate; only keyboard focus needs the outer ring. */}
       <SearchField.Group className={({ isFocusVisible }) => (isFocusVisible ? "ring-2" : "ring-0")}>
         <SearchField.SearchIcon />

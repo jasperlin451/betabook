@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { expect, userEvent, within } from "storybook/test";
 
 import { DEFAULT_USER_SENDS_FILTER } from "@/lib/filters/user-sends-filter";
 import { searchAreaFetcher } from "@/stories/fixtures/app-search-demo";
@@ -25,12 +26,51 @@ const meta = {
 export default meta;
 export const Default: StoryObj<typeof meta> = {};
 export const DateAndHashtag: StoryObj<typeof meta> = {
+  name: "Date and tags",
   args: {
     filter: {
       ...DEFAULT_USER_SENDS_FILTER,
       dateFrom: "2026-09-01",
       dateTo: "2026-09-07",
       tags: ["trip"],
+    },
+  },
+};
+
+export const Expanded: StoryObj<typeof meta> = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Expand filters" }));
+    await expect(canvas.getByRole("combobox", { name: "Tags" })).toBeVisible();
+  },
+};
+
+export const AscentTags: StoryObj<typeof meta> = {
+  args: {
+    filter: {
+      ...DEFAULT_USER_SENDS_FILTER,
+      ascentStyles: ["flash", "onsight"],
+      disciplines: ["boulder"],
+    },
+  },
+  play: Expanded.play,
+};
+
+export const GradeRanges: StoryObj<typeof meta> = {
+  args: { filter: { ...DEFAULT_USER_SENDS_FILTER, disciplines: ["boulder", "sport", "trad"] } },
+  play: Expanded.play,
+};
+
+export const ActiveCollapsed: StoryObj<typeof meta> = {
+  args: {
+    filter: {
+      ...DEFAULT_USER_SENDS_FILTER,
+      disciplines: ["boulder"],
+      boulderRange: [4, 9],
+      tags: ["trip"],
+      ascentStyles: ["flash"],
+      minRating: 3,
+      maxRating: 4,
     },
   },
 };

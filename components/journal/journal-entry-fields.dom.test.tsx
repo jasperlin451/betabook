@@ -37,7 +37,7 @@ async function fillNotes(user: ReturnType<typeof userEvent.setup>, training = fa
     screen.getByRole("textbox", { name: training ? "What did you do?" : "How'd it go?" }),
     "Kept the high foot.",
   );
-  await user.type(screen.getByRole("textbox", { name: /Add a tag/ }), "technique{Enter}");
+  await user.type(screen.getByRole("combobox", { name: "Tags" }), "technique{Enter}");
 }
 
 it.each(["outdoor", "repeat", "training"])(
@@ -86,7 +86,7 @@ it("blocks an undated send with friends and preserves their identities on recove
   const { user, onSave } = setup();
   await addFriend(user);
   await user.click(screen.getByRole("checkbox", { name: "I sent" }));
-  const unknown = screen.getByRole("checkbox", { name: "I don't remember the date" });
+  const unknown = screen.getByRole("checkbox", { name: "Record without a date" });
   await user.click(unknown);
   await user.click(screen.getByRole("button", { name: "Save send" }));
   expect(screen.getByRole("alert")).toHaveTextContent("Add a date to keep With friends.");
@@ -104,8 +104,8 @@ it("preserves undated commentary and omits journal-only tags", async () => {
   const { user, onSave } = setup();
   await fillNotes(user);
   await user.click(screen.getByRole("checkbox", { name: "I sent" }));
-  await user.click(screen.getByRole("checkbox", { name: "I don't remember the date" }));
-  expect(screen.queryByRole("textbox", { name: /Add a tag/ })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("checkbox", { name: "Record without a date" }));
+  expect(screen.queryByRole("combobox", { name: "Tags" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Save send" }));
   expect(onSave).toHaveBeenCalledOnce();
   const [form, undated] = onSave.mock.calls[0];

@@ -26,7 +26,10 @@ const meta = {
     const [sent, setSent] = useState(args.sent);
     const [dateUnknown, setDateUnknown] = useState(args.dateUnknown);
     return (
-      <StoryPage title="Entry date" description="Date choices for sessions, sends, and training.">
+      <StoryPage
+        title="Entry date"
+        description="Date choices for sessions, sends, and training. Record without a date selects I sent and hides the date; uncheck it to restore the date."
+      >
         <div className={SURFACE_CARD_CLASS}>
           <JournalEntryDateFields
             {...args}

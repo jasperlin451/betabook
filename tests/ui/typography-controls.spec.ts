@@ -25,7 +25,7 @@ test("tag feedback is associated, readable and uses the invalid field treatment"
   page,
 }, info) => {
   await openStory(page, info, "components-journal-tag-input--journal-tags");
-  const input = page.getByRole("textbox", { name: "Add a tag" });
+  const input = page.getByRole("combobox", { name: "Tags" });
   await input.fill("bad!");
   await input.press("Enter");
   await expect(input).toHaveAccessibleDescription(
@@ -44,7 +44,9 @@ test("tag feedback is associated, readable and uses the invalid field treatment"
   await expect(input).not.toHaveAttribute("aria-invalid", "true");
   await expect(error).toHaveCount(0);
   await expect(input).toHaveAccessibleDescription(/Up to 8 tags/);
-  await input.press("Shift+Tab");
+  await input.press("Tab");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
   const remove = page.getByRole("button", { name: "Remove tag hangboard" });
   await expect(remove).toBeFocused();
   await expect(remove).toHaveCSS("box-shadow", /0px 0px 0px 2px/);

@@ -2,12 +2,16 @@
 
 import { Button, ComboBox, Input, Label, ListBox } from "@heroui/react";
 
+import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
+
 import { SearchResultContent } from "./search-results";
 import type { SearchResult, SearchStatus } from "./search-types";
 
 /** Lookup results are supplied by the caller; free text never selects an ID. */
 export function SearchSelectionField({
   label,
+  hideLabel = false,
+  placeholder,
   query,
   onQueryChange,
   items,
@@ -25,6 +29,8 @@ export function SearchSelectionField({
   isInvalid?: boolean;
   isDisabled?: boolean;
   label: string;
+  hideLabel?: boolean;
+  placeholder?: string;
   query: string;
   onQueryChange: (query: string) => void;
   items: SearchResult[];
@@ -34,8 +40,9 @@ export function SearchSelectionField({
   onRetry: () => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className={`${FIELD_WIDTH_CLASS.long} flex flex-col gap-2`}>
       <ComboBox
+        aria-label={hideLabel ? label : undefined}
         isInvalid={isInvalid}
         isDisabled={isDisabled}
         inputValue={query}
@@ -54,9 +61,12 @@ export function SearchSelectionField({
           if (item && status === "ready" && !item.disabledReason) onSelect(item);
         }}
       >
-        <Label>{label}</Label>
+        {!hideLabel && <Label>{label}</Label>}
         <ComboBox.InputGroup>
-          <Input placeholder={`Search ${label.toLowerCase()}…`} className="search-combo-input" />
+          <Input
+            placeholder={placeholder ?? `Search ${label.toLowerCase()}…`}
+            className="search-combo-input"
+          />
           <ComboBox.Trigger className="hidden" />
         </ComboBox.InputGroup>
         <ComboBox.Popover>

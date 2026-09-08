@@ -3,7 +3,7 @@
 import { Button, ListBox, Select } from "@heroui/react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 
-import { FIELD_ACTION_CLASS } from "@/components/ui/field";
+import { FIELD_ACTION_CLASS, FIELD_WIDTH_CLASS } from "@/components/ui/field";
 import { useSortToggle } from "@/hooks/use-sort-toggle";
 
 /** The field-dropdown + direction-arrow-button sort control shared by every
@@ -46,7 +46,7 @@ export function SortSelect<Field extends string, Sort extends string>({
         selectedKey={field}
         onSelectionChange={(key) => handleFieldChange(key as Field)}
       >
-        <Select.Trigger className="w-32">
+        <Select.Trigger className={FIELD_WIDTH_CLASS.medium}>
           <Select.Value />
           <Select.Indicator />
         </Select.Trigger>

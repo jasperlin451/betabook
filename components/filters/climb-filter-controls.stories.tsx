@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
+import { userEvent, within } from "storybook/test";
 
 import { ClimbFilterControls } from "@/components/filters/climb-filter-controls";
 import { DEFAULT_CLIMB_FILTER } from "@/lib/filters/climb-filter";
@@ -25,3 +26,10 @@ function Example({ legacy = false }: { legacy?: boolean }) {
 }
 export const Filters: Story = { render: () => <Example /> };
 export const LegacyAreaName: Story = { render: () => <Example legacy /> };
+
+export const Expanded: Story = {
+  render: () => <Example />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Expand filters" }));
+  },
+};

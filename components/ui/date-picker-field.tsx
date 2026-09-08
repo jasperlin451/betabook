@@ -3,6 +3,8 @@
 import { Calendar, DateField, DatePicker, Description, Label } from "@heroui/react";
 import { parseDate, type CalendarDate } from "@internationalized/date";
 
+import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
+
 function toCalendarDate(value: string | undefined): CalendarDate | null {
   if (!value) return null;
   try {
@@ -38,7 +40,7 @@ export function DatePickerField({
 
   return (
     <DatePicker
-      className="w-full"
+      className={FIELD_WIDTH_CLASS.medium}
       value={toCalendarDate(value)}
       maxValue={maxDate}
       isReadOnly={isReadOnly}

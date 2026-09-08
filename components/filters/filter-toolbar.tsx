@@ -1,12 +1,17 @@
 "use client";
 
-import { Button, buttonVariants, Disclosure } from "@heroui/react";
+import { buttonVariants, Disclosure } from "@heroui/react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { ActiveFilterSummary, type ActiveFilter } from "@/components/filters/active-filter-summary";
+import { disciplineActiveFilters } from "@/components/filters/active-filter-values";
 import { DisciplineChips } from "@/components/filters/discipline-chips";
 import { DisciplineGradeSliders } from "@/components/filters/discipline-grade-sliders";
 import { cardClass } from "@/components/ui/card";
 import type { DisciplineFilter } from "@/lib/filters/discipline-filter";
+
+const EMPTY_ACTIVE_FILTERS: ActiveFilter[] = [];
 
 /** Narrows an existing list with text, discipline, date, hashtag, and other filters.
  * `textFilter` never renders a separate record-results menu. */
@@ -17,6 +22,7 @@ export function FilterToolbar<T extends DisciplineFilter>({
   textFilter,
   sortControl,
   extraFilters,
+  activeFilters = EMPTY_ACTIVE_FILTERS,
 }: {
   value: T;
   onChange: (value: T) => void;
@@ -26,9 +32,11 @@ export function FilterToolbar<T extends DisciplineFilter>({
   /** Rendered in the expanded panel above the grade sliders — the filters
    * that are specific to one list (rating range, ascent style, …). */
   extraFilters?: ReactNode;
+  activeFilters?: ActiveFilter[];
 }) {
   return (
     <FilterToolbarLayout
+      activeFilters={[...disciplineActiveFilters(value, onChange), ...activeFilters]}
       controls={
         <>
           {textFilter}
@@ -56,10 +64,12 @@ export function FilterToolbarLayout({
   sortControl,
   filters,
   onReset,
+  activeFilters = EMPTY_ACTIVE_FILTERS,
 }: {
   controls: ReactNode;
   sortControl?: ReactNode;
   filters: ReactNode;
+  activeFilters?: ActiveFilter[];
   onReset: () => void;
 }) {
   return (
@@ -81,16 +91,29 @@ export function FilterToolbarLayout({
              * grow, not flex-1: flex-1 zeroes the basis, so the group would
              * always "fit" whatever sliver is left and get crushed instead
              * of wrapping to its own line. */}
-            <div className="flex min-w-0 grow items-center gap-3 lg:justify-between">
+            <div className="flex min-w-0 grow flex-wrap items-center gap-3 lg:justify-between">
               <Disclosure.Heading className="contents">
-                <Disclosure.Trigger className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                  {isExpanded ? "Fewer filters" : "More filters"}
+                <Disclosure.Trigger
+                  className={buttonVariants({
+                    variant: "ghost",
+                    size: "sm",
+                    className: isExpanded ? "bg-surface-tertiary border border-border" : undefined,
+                  })}
+                >
+                  {isExpanded ? (
+                    <ChevronUp className="size-4" aria-hidden />
+                  ) : (
+                    <ChevronDown className="size-4" aria-hidden />
+                  )}
+                  {isExpanded ? "Hide filters" : "Expand filters"}
                 </Disclosure.Trigger>
               </Disclosure.Heading>
 
               {sortControl}
             </div>
           </div>
+
+          <ActiveFilterSummary filters={activeFilters} onClear={onReset} />
 
           {/* Disclosure.Body's own p-2 comes from an outer wrapper div this
            * component doesn't expose a className for — style is the only prop
@@ -100,16 +123,12 @@ export function FilterToolbarLayout({
             <Disclosure.Body style={{ padding: 0 }}>
               {/* Its own surface, so the expanded filters read as one panel
                * belonging to the bar rather than loose page content. */}
-              <div className={`mt-3 flex flex-col gap-4 ${cardClass("sm")}`}>
+              <section
+                aria-label="Filter options"
+                className={`mt-3 flex flex-col gap-4 border border-border ${cardClass("sm", "inset")}`}
+              >
                 {filters}
-                {/* Separated footer so Reset reads as an action on the panel
-                 * rather than one more filter in the stack. */}
-                <div className="flex justify-end border-t border-separator pt-3">
-                  <Button variant="ghost" size="sm" onPress={onReset}>
-                    Reset filters
-                  </Button>
-                </div>
-              </div>
+              </section>
             </Disclosure.Body>
           </Disclosure.Content>
         </>

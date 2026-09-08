@@ -42,10 +42,11 @@ describe("user sends filter serialization", () => {
       sort: "grade_asc",
       ascentStyles: ["flash", "onsight"],
       minRating: 3,
+      maxRating: 4,
     };
     const params = userSendsFilterToSearchParams(filter);
     expect(params.toString()).toBe(
-      "discipline=boulder&discipline=trad&boulderRange=1&boulderRange=6&tradRange=4&tradRange=18&name=Astroman&areaName=Washington+Column&sort=grade_asc&ascentStyle=flash&ascentStyle=onsight&minRating=3",
+      "discipline=boulder&discipline=trad&boulderRange=1&boulderRange=6&tradRange=4&tradRange=18&name=Astroman&areaName=Washington+Column&sort=grade_asc&ascentStyle=flash&ascentStyle=onsight&minRating=3&maxRating=4",
     );
     const record = searchParamsToRecord(params);
 

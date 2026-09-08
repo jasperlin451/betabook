@@ -175,7 +175,7 @@ function climbStatsConditions(filter: ClimbStatsFilter): SQL[] {
   const clauses: SQL[] = [];
   if (filter.ratingRange) {
     const [min, max] = filter.ratingRange;
-    if (min > 0) clauses.push(sql`climbs.avg_rating >= ${min}`);
+    if (min > 1) clauses.push(sql`climbs.avg_rating >= ${min}`);
     if (max > 0 && max < MAX_RATING) clauses.push(sql`climbs.avg_rating <= ${max}`);
   }
   if (filter.minAscents) {

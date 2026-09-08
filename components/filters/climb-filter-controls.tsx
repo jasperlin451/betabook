@@ -4,12 +4,16 @@ import { X } from "lucide-react";
 import type { ComponentProps } from "react";
 
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
+import type { ActiveFilter } from "@/components/filters/active-filter-summary";
+import { statsActiveFilters } from "@/components/filters/active-filter-values";
 import { ClimbFilters } from "@/components/filters/climb-filters";
 import { ClimbStatsFields } from "@/components/filters/climb-stats-filter-fields";
 import { AreaLookup } from "@/components/search/area-lookup";
 import { DEFAULT_CLIMB_FILTER } from "@/lib/filters/climb-filter";
 import { withClimbFilterArea } from "@/lib/filters/climb-filter-state";
 import type { ClimbFilterState } from "@/lib/filters/climb-filter-state";
+
+const EMPTY_ACTIVE_FILTERS: ActiveFilter[] = [];
 
 /** App refinements retain all existing grade, rating, ascent-count, and sort options. */
 export function ClimbFilterControls({
@@ -18,8 +22,16 @@ export function ClimbFilterControls({
   initialAreaQuery,
   areaFetcher,
   showAreaLookup = false,
+  showMinAscents = true,
+  showRatingFilters = true,
+  onReset,
+  activeFilters = EMPTY_ACTIVE_FILTERS,
 }: {
+  onReset?: () => void;
+  activeFilters?: ActiveFilter[];
   showAreaLookup?: boolean;
+  showMinAscents?: boolean;
+  showRatingFilters?: boolean;
   areaFetcher?: ComponentProps<typeof AreaLookup>["fetcher"];
   value: ClimbFilterState;
   onChange: (value: ClimbFilterState) => void;
@@ -32,6 +44,7 @@ export function ClimbFilterControls({
         area: value.area,
         sort: value.sort,
         minRating: value.filter.ratingRange[0],
+        maxRating: value.filter.ratingRange[1],
       }}
       onChange={(refinements) => {
         const next = {
@@ -49,8 +62,22 @@ export function ClimbFilterControls({
           refinements.area === value.area ? next : withClimbFilterArea(next, refinements.area),
         );
       }}
-      onReset={() =>
-        onChange({ ...value, filter: DEFAULT_CLIMB_FILTER, sort: "name_asc", area: null })
+      activeFilters={[
+        ...activeFilters,
+        ...statsActiveFilters(value.filter, (filter) => onChange({ ...value, filter })),
+        ...(!value.area && value.filter.areaName
+          ? [
+              {
+                id: "area-name",
+                label: `Area: ${value.filter.areaName}`,
+                onRemove: () => onChange(withClimbFilterArea(value, null)),
+              },
+            ]
+          : []),
+      ]}
+      onReset={
+        onReset ??
+        (() => onChange({ ...value, filter: DEFAULT_CLIMB_FILTER, sort: "name_asc", area: null }))
       }
       areaControl={
         !value.area ? (
@@ -88,6 +115,8 @@ export function ClimbFilterControls({
       }
       ratingControl={
         <ClimbStatsFields
+          showMinAscents={showMinAscents}
+          showRatingFilters={showRatingFilters}
           ratingRange={value.filter.ratingRange}
           minAscents={value.filter.minAscents}
           onRatingRangeChange={(ratingRange) =>

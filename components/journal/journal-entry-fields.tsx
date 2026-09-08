@@ -10,12 +10,12 @@ import {
   AscentStylePicker,
   FormSection,
   GradeFeelField,
-  RatingField,
   SuggestedGradeField,
 } from "@/components/send-fields";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass, SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
+import { RatingField } from "@/components/ui/rating-field";
 import type { JournalEntry, SendableClimb } from "@/db/queries";
 import type { LookupFetcher } from "@/hooks/use-search-lookup";
 import { GENERIC_ERROR_MESSAGE, type ActionResult } from "@/lib/action-result";
@@ -193,7 +193,7 @@ export function JournalEntryFields({
       )}
 
       <FormSection label={isAscent || existingEntry?.isSendComment ? "Send commentary" : "Notes"}>
-        <TextField value={body} onChange={setBody}>
+        <TextField className="w-full min-w-0" value={body} onChange={setBody}>
           <div className="flex items-center gap-1">
             <Label>{kind === "training" ? "What did you do?" : "How'd it go?"}</Label>
             {(isAscent || existingEntry?.isSendComment) && (

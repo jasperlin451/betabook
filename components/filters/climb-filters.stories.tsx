@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
+import { userEvent, within } from "storybook/test";
 
 import { ClimbFilters } from "@/components/filters/climb-filters";
 import { DEFAULT_CLIMB_REFINEMENTS } from "@/lib/filters/climb-refinements";
@@ -29,3 +30,10 @@ function Example() {
   );
 }
 export const Filters: Story = { render: () => <Example /> };
+
+export const Expanded: Story = {
+  render: () => <Example />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Expand filters" }));
+  },
+};

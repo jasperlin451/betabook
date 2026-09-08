@@ -8,12 +8,12 @@ import {
   AscentStylePicker,
   FormSection,
   GradeFeelField,
-  RatingField,
   SuggestedGradeField,
 } from "@/components/send-fields";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
+import { RatingField } from "@/components/ui/rating-field";
 import type { EditableSend, SendableClimb } from "@/db/queries";
 import { MAX_COMMENT_LENGTH, type AscentStyle, type GradeFeel } from "@/lib/sends";
 

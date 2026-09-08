@@ -79,6 +79,7 @@ export function CompanionPicker({
           emptyMessage="No matching friends. Try a more specific name."
           errorMessage="Couldn’t load friends. Your selections are kept."
           label="Find a friend to tag"
+          placeholder="Find a friend to tag…"
           query={query}
           isDisabled={disabled}
           status={lookup.status}

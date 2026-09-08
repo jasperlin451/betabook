@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
+import { statsActiveFilters } from "@/components/filters/active-filter-values";
 import { ClimbStatsFields } from "@/components/filters/climb-stats-filter-fields";
 import { FilterInput } from "@/components/filters/filter-input";
 import { FilterToolbar } from "@/components/filters/filter-toolbar";
+import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
 import type { SubtreeClimbsSort } from "@/db/queries";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
 import {
@@ -63,8 +65,23 @@ export function AreaClimbsToolbar({
       value={value}
       onChange={setValue}
       onReset={reset}
+      activeFilters={[
+        ...statsActiveFilters(value, setValue),
+        ...(name.trim()
+          ? [{ id: "query", label: `Text: ${name}`, onRemove: () => setName("") }]
+          : []),
+        ...(value.subareaId != null
+          ? [
+              {
+                id: "subarea",
+                label: "Selected subarea",
+                onRemove: () => setValue({ ...value, subareaId: null }),
+              },
+            ]
+          : []),
+      ]}
       textFilter={
-        <div className="w-full sm:w-64">
+        <div className={FIELD_WIDTH_CLASS.long}>
           <FilterInput
             value={name}
             onChange={setName}

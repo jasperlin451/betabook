@@ -12,6 +12,8 @@ export function AreaLookup({
   value,
   onChange,
   label = "In area",
+  hideLabel = false,
+  placeholder,
   defaultQuery = "",
   isInvalid = false,
   fetcher = fetchAreaSuggestions,
@@ -20,6 +22,8 @@ export function AreaLookup({
   value: AreaSelection | null;
   onChange: (area: AreaSelection | null) => void;
   label?: string;
+  hideLabel?: boolean;
+  placeholder?: string;
   defaultQuery?: string;
   isInvalid?: boolean;
 }) {
@@ -33,6 +37,8 @@ export function AreaLookup({
   return (
     <SearchSelectionField
       label={label}
+      hideLabel={hideLabel}
+      placeholder={placeholder}
       query={query}
       selectedId={value?.id}
       isInvalid={isInvalid}
