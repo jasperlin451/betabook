@@ -80,6 +80,7 @@ import {
   type Filter,
   type LookupStatus,
 } from "./import-match-step";
+import { SendageImportForm } from "./sendage-import-form";
 import {
   ASCENT_STYLE_OPTIONS,
   CLIMB_TYPE_OPTIONS,
@@ -195,6 +196,8 @@ function toImportSendRow(resolved: ResolvedRow, climb: ClimbCandidate): ImportSe
 
 // oxlint-disable-next-line complexity -- multi-step wizard state machine; each step adds a branch
 export function ImportWizard({ profileHref }: { profileHref: string }) {
+  const [loadingSendage, setLoadingSendage] = useState(false);
+  const [directSource, setDirectSource] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("upload");
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
@@ -342,6 +345,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
   }, [importResult, normalized, resolved]);
 
   async function handleFile(file: File) {
+    if (reading || loadingSendage) return;
     setError(null);
     if (file.size > MAX_IMPORT_FILE_BYTES) {
       setError("That CSV is larger than 10 MB. Split it into smaller files and try again.");
@@ -363,34 +367,39 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
         return;
       }
 
-      const detected = detectImportSource(parsed.headers);
-      const withDerived = deriveSourceColumns(parsed, detected);
-      const mapping = guessColumnMapping([...withDerived.headers, ...withDerived.derived]);
-      // KAYA placeholder cleanup defaults on; other sources require the user to choose it.
-      const dropPlaceholders = detected === "kaya";
-      setParsedCsv(withDerived);
-      setSource(detected);
-      setColumnMapping(mapping);
-      setDropPlaceholderDates(dropPlaceholders);
-
-      // Known formats with required columns mapped can skip ahead.
-      // Column and value mappings remain editable from the step list.
-      if (detected !== "unknown" && missingRequiredColumns(mapping).length === 0) {
-        const values = guessValueMappings(withDerived, mapping);
-        setAscentStyleMapping(values.ascentStyleMapping);
-        setClimbTypeMapping(values.climbTypeMapping);
-        setGradeFeelMapping(values.gradeFeelMapping);
-        setDateFormat(values.dateFormat);
-        setGradeScale(values.gradeScale);
-        setAutoMapped(true);
-        beginMatching(withDerived, mapping, values, dropPlaceholders);
-      } else {
-        setStep("columns");
-      }
+      setDirectSource(null);
+      acceptParsedRows(parsed);
     } catch {
       setError("Couldn't read that file. Re-save it as a plain CSV and try again.");
     } finally {
       setReading(false);
+    }
+  }
+
+  function acceptParsedRows(parsed: ParsedCsv) {
+    const detected = detectImportSource(parsed.headers);
+    const withDerived = deriveSourceColumns(parsed, detected);
+    const mapping = guessColumnMapping([...withDerived.headers, ...withDerived.derived]);
+    // KAYA placeholder cleanup defaults on; other sources require the user to choose it.
+    const dropPlaceholders = detected === "kaya";
+    setParsedCsv(withDerived);
+    setSource(detected);
+    setColumnMapping(mapping);
+    setDropPlaceholderDates(dropPlaceholders);
+
+    // Known formats with required columns mapped can skip ahead.
+    // Column and value mappings remain editable from the step list.
+    if (detected !== "unknown" && missingRequiredColumns(mapping).length === 0) {
+      const values = guessValueMappings(withDerived, mapping);
+      setAscentStyleMapping(values.ascentStyleMapping);
+      setClimbTypeMapping(values.climbTypeMapping);
+      setGradeFeelMapping(values.gradeFeelMapping);
+      setDateFormat(values.dateFormat);
+      setGradeScale(values.gradeScale);
+      setAutoMapped(true);
+      beginMatching(withDerived, mapping, values, dropPlaceholders);
+    } else {
+      setStep("columns");
     }
   }
 
@@ -611,6 +620,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     setStep("upload");
     setParsedCsv(null);
     setSource("unknown");
+    setDirectSource(null);
     setColumnMapping(null);
     setAscentStyleMapping({});
     setClimbTypeMapping({});
@@ -676,10 +686,20 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
 
       {step === "upload" && (
         <div className="flex flex-col gap-4">
+          <SendageImportForm
+            key={profileHref}
+            disabled={reading}
+            onBusyChange={setLoadingSendage}
+            onLoaded={(parsed, username) => {
+              setError(null);
+              setDirectSource(`Sendage profile @${username}`);
+              acceptParsedRows(parsed);
+            }}
+          />
           <p className="text-sm text-muted">
-            Upload a CSV export of your climbing log. Mountain Project, KAYA, Sendage, and betabook
-            exports are recognized and mapped automatically. Any CSV with a climb name and an ascent
-            style column works.
+            Or upload a CSV export of your climbing log. Mountain Project, KAYA, Sendage, and
+            betabook exports are recognized and mapped automatically. Any CSV with a climb name and
+            an ascent style column works.
           </p>
           {/* The file input stays in the DOM but hidden: it's the only way to
               open the picker, and the drop zone drives it so the styling
@@ -688,16 +708,20 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
             ref={fileInputRef}
             type="file"
             accept=".csv,text/csv"
+            disabled={reading || loadingSendage}
             onChange={handleFileChange}
             className="hidden"
           />
           <div
             role="button"
-            tabIndex={0}
+            tabIndex={reading || loadingSendage ? -1 : 0}
+            aria-disabled={reading || loadingSendage}
             aria-label="Choose a CSV file"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              if (!reading && !loadingSendage) fileInputRef.current?.click();
+            }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
+              if (!reading && !loadingSendage && (e.key === "Enter" || e.key === " ")) {
                 e.preventDefault();
                 fileInputRef.current?.click();
               }
@@ -730,7 +754,9 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
             </p>
             {source !== "unknown" && (
               <div className={cardClass("sm", "inset")}>
-                <p className="text-sm font-medium">Looks like a {IMPORT_SOURCE_LABELS[source]}</p>
+                <p className="text-sm font-medium">
+                  {directSource ?? `Looks like a ${IMPORT_SOURCE_LABELS[source]}`}
+                </p>
                 <p className="mt-1 text-xs text-muted">
                   Columns were mapped automatically. Check them below. {SOURCE_NOTES[source]}
                 </p>
@@ -929,8 +955,8 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
           {autoMapped && source !== "unknown" && (
             <div className="flex flex-col gap-2">
               <p className="text-sm text-muted">
-                Recognized as a {IMPORT_SOURCE_LABELS[source]}: columns and values were mapped
-                automatically
+                {directSource ?? `Recognized as a ${IMPORT_SOURCE_LABELS[source]}`}: columns and
+                values were mapped automatically
                 {gradeScale === "converted" && ", with grades read as Font / French"}.{" "}
                 <button
                   type="button"
@@ -1095,8 +1121,8 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
               </TextField>
               {onConflict === "overwrite" ? (
                 <p className="text-sm text-danger">
-                  CSV values will replace your existing send data for any already-logged climbs.
-                  This cannot be undone.
+                  Imported values will replace your existing send data for any already-logged
+                  climbs. This cannot be undone.
                 </p>
               ) : (
                 <p className="text-sm text-muted">

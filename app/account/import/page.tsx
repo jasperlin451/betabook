@@ -7,6 +7,7 @@ import { signInUrl } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
   title: "Import sends",
+  robots: { index: false },
 };
 
 export default async function ImportPage() {
