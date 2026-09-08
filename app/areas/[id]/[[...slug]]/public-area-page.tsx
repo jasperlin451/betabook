@@ -15,8 +15,9 @@ import {
   resolvePublicSubarea,
   searchPublicClimbs,
 } from "@/db/queries/public-catalog";
+import { missingDescriptionMessage } from "@/lib/descriptions";
 import { parseId } from "@/lib/parse-id";
-import { publicCatalogOptions, type PublicArea } from "@/lib/public-catalog";
+import { publicCatalogOptions, type PublicAreaDetails } from "@/lib/public-catalog";
 import { areaDescription, areaJsonLd, locationTrail } from "@/lib/seo";
 import { areaHref, withQuery } from "@/lib/slug";
 import { toArray, type UrlParamsRecord } from "@/lib/url-params";
@@ -25,7 +26,7 @@ export async function PublicAreaPage({
   area,
   search,
 }: {
-  area: PublicArea;
+  area: PublicAreaDetails;
   search: UrlParamsRecord;
 }) {
   const db = await getDb();
@@ -68,7 +69,7 @@ export async function PublicAreaPage({
         data={areaJsonLd({
           name: area.name,
           path,
-          description: areaDescription(area.name, locationTrail(ancestorNames)),
+          description: areaDescription(area.name, locationTrail(ancestorNames), area.description),
           ancestorNames,
           crumbs: [
             { name: "Home", path: "/" },
@@ -80,9 +81,10 @@ export async function PublicAreaPage({
       <RegisterSearchScope areaId={area.id} areaName={area.name} />
       <AreaBreadcrumbs ancestors={ancestors} current={area} />
       <PageTitle>{area.name}</PageTitle>
+      <p className="text-muted">{area.description || missingDescriptionMessage()}</p>
       <AuthCallout
         next={withQuery(path, search)}
-        description="Sign in to read area descriptions and explore climb grades, ratings, and activity."
+        description="Sign in to explore climb ratings, community statistics, and activity."
       />
       {subareas.length ? (
         <SidebarLayout

@@ -1,4 +1,5 @@
 import type { AreaBreadcrumbs } from "@/db/queries/areas";
+import type { ClimbType } from "@/lib/grades";
 import {
   parseAreaId,
   parseOffset,
@@ -8,8 +9,17 @@ import {
 } from "@/lib/url-params";
 
 export type PublicArea = { id: number; name: string; parentId: number | null };
-export type PublicAreaResult = PublicArea & { ancestorPath: string | null };
-export type PublicClimb = { id: number; name: string; areaId: number; areaName: string };
+export type PublicAreaDetails = PublicArea & { description: string | null };
+export type PublicAreaResult = PublicAreaDetails & { ancestorPath: string | null };
+export type PublicClimb = {
+  id: number;
+  name: string;
+  areaId: number;
+  areaName: string;
+  type: ClimbType;
+  grade: number | null;
+  description: string | null;
+};
 export type PublicClimbsPage = {
   climbs: PublicClimb[];
   areaBreadcrumbs: AreaBreadcrumbs;

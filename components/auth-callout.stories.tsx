@@ -22,7 +22,6 @@ export const LockedContent: Story = {};
 export const Area: Story = {
   args: {
     next: "/areas/1/test-crag",
-    description:
-      "Sign in to read area descriptions and explore climb grades, ratings, and activity.",
+    description: "Sign in to explore climb ratings, community statistics, and activity.",
   },
 };

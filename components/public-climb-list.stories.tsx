@@ -9,7 +9,7 @@ const meta = {
   component: PublicClimbList,
   decorators: [
     (Story) => (
-      <StoryPage title="Climb names">
+      <StoryPage title="Public climbs">
         <Story />
       </StoryPage>
     ),
@@ -19,10 +19,21 @@ const meta = {
     query: "",
     initial: {
       climbs: [
-        { id: -1, name: "Cedar Arete", areaId: -1, areaName: "Cedar Grove" },
+        {
+          id: -1,
+          name: "Cedar Arete",
+          areaId: -1,
+          areaName: "Cedar Grove",
+          grade: 5,
+          type: "boulder",
+          description: "A clean arete.",
+        },
         {
           id: -2,
           name: "Long Traverse Across the Cedar Grove Boulders",
+          grade: 3,
+          type: "boulder",
+          description: null,
           areaId: -1,
           areaName: "Cedar Grove",
         },

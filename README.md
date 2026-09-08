@@ -113,6 +113,9 @@ Reloading should keep the request without another email. Cancel it afterward to
 restore the empty-feed fixture. The seed script writes directly to the database
 and never sends email; the product tour's sample controls also send nothing.
 
+Area and route names, hierarchy, area/route descriptions, route grades, and disciplines are public.
+Ratings, activity, profiles, sends, and journals require login and retain their audience restrictions.
+
 New accounts default to **Members** send commentary and **Friends** journal entries.
 Existing audience choices stay unchanged; the Members label uses the stored `public` value.
 Send commentary has its own audience, applied to original-send notes on climb

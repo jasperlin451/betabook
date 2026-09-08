@@ -34,6 +34,7 @@ import {
   getUserSendForClimb,
 } from "@/db/queries";
 import { getPublicArea, getPublicAncestors, getPublicClimb } from "@/db/queries/public-catalog";
+import { missingDescriptionMessage } from "@/lib/descriptions";
 import { buildLoggedGradeRows } from "@/lib/grade-histogram";
 import { formatGrade } from "@/lib/grades";
 import type { AscentStyle as AscentStyleType } from "@/lib/sends";
@@ -135,10 +136,17 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
           })}
         />
         <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
-        <PageTitle>{climb.name}</PageTitle>
+        <div className="flex flex-col gap-1">
+          <PageTitle>{climb.name}</PageTitle>
+          <div className="mt-1 flex items-center gap-2">
+            <Grade size="md">{formatGrade(climb.type, climb.grade)}</Grade>
+            <DisciplineChip type={climb.type} />
+          </div>
+          <p className="mt-1 text-muted">{climb.description || missingDescriptionMessage()}</p>
+        </div>
         <AuthCallout
           next={withQuery(path, search)}
-          description="Sign in to see this climb’s grade, description, ratings, and ascent history."
+          description="Sign in to see this climb’s ratings and ascent history, and log your sessions."
         />
       </div>
     );

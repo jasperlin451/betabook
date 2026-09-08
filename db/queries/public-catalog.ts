@@ -5,6 +5,7 @@ import { areas, climbs } from "@/db/schema";
 import {
   publicHasNextPage,
   type PublicArea,
+  type PublicAreaDetails,
   type PublicAreaResult,
   type PublicClimb,
   type PublicClimbsPage,
@@ -15,12 +16,27 @@ import { areaIdCondition, areaNameCondition, getAreaBreadcrumbs } from "./areas"
 import { toFtsPrefixQuery } from "./shared";
 
 const publicAreaColumns = { id: areas.id, name: areas.name, parentId: areas.parentId };
-export async function getPublicArea(db: Database, id: number): Promise<PublicArea | undefined> {
-  return db.select(publicAreaColumns).from(areas).where(eq(areas.id, id)).get();
+export async function getPublicArea(
+  db: Database,
+  id: number,
+): Promise<PublicAreaDetails | undefined> {
+  return db
+    .select({ ...publicAreaColumns, description: areas.description })
+    .from(areas)
+    .where(eq(areas.id, id))
+    .get();
 }
 export async function getPublicClimb(db: Database, id: number): Promise<PublicClimb | undefined> {
   return db
-    .select({ id: climbs.id, name: climbs.name, areaId: climbs.areaId, areaName: areas.name })
+    .select({
+      id: climbs.id,
+      name: climbs.name,
+      areaId: climbs.areaId,
+      areaName: areas.name,
+      type: climbs.type,
+      grade: climbs.grade,
+      description: climbs.description,
+    })
     .from(climbs)
     .innerJoin(areas, eq(areas.id, climbs.areaId))
     .where(eq(climbs.id, id))
@@ -68,8 +84,8 @@ export async function searchPublicAreas(
           ) SELECT id FROM subtree
         )`
       : areaNameCondition(options.areaName);
-  const rows = await db.all<PublicArea>(sql`
-    SELECT areas.id, areas.name, areas.parent_id AS parentId FROM areas
+  const rows = await db.all<PublicAreaDetails>(sql`
+    SELECT areas.id, areas.name, areas.parent_id AS parentId, areas.description FROM areas
     WHERE areas.id IN (SELECT rowid FROM areas_fts WHERE areas_fts MATCH ${query})
     ${scope ? sql`AND ${scope}` : sql``}
     ORDER BY areas.name ${options.descending ? sql`DESC` : sql`ASC`}, areas.id
@@ -111,7 +127,8 @@ export async function searchPublicClimbs(
       : areaNameCondition(options.areaName);
   if (area) conditions.push(area);
   const rows = await db.all<PublicClimb>(sql`
-    SELECT climbs.id, climbs.name, climbs.area_id AS areaId, areas.name AS areaName
+    SELECT climbs.id, climbs.name, climbs.area_id AS areaId, areas.name AS areaName,
+      climbs.type, climbs.grade, climbs.description
     FROM climbs JOIN areas ON areas.id = climbs.area_id
     ${conditions.length ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
     ORDER BY climbs.name ${options.descending ? sql`DESC` : sql`ASC`}, climbs.id

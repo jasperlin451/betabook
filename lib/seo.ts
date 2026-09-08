@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { formatGrade, type ClimbType } from "@/lib/grades";
 import { OG_IMAGE, SITE_NAME, SITE_URL } from "@/lib/site";
 
 /** Full per-page metadata fragment for an indexable content page.
@@ -44,12 +45,22 @@ export function locationTrail(names: string[], max = 3): string {
   return names.slice(-max).join(", ");
 }
 
-/** Metadata describes the public name page for every viewer. */
-export function climbTitle(climb: { name: string }, areaName: string): string {
-  return `${climb.name} · ${areaName}`;
+/** Metadata uses the same public catalog details for every viewer. */
+type PublicClimbFacts = {
+  name: string;
+  type: ClimbType;
+  grade: number | null;
+  description?: string | null;
+};
+export function climbTitle(climb: PublicClimbFacts, areaName: string): string {
+  const grade = formatGrade(climb.type, climb.grade);
+  return `${climb.name}${grade === "—" ? "" : ` · ${grade}`} · ${areaName}`;
 }
-export function climbDescription(climb: { name: string }, trail: string): string {
-  return `${climb.name}${trail ? ` in ${trail}` : ""}. Sign in to ${SITE_NAME} for climb details and community activity.`;
+export function climbDescription(climb: PublicClimbFacts, trail: string): string {
+  const grade = formatGrade(climb.type, climb.grade);
+  const detail = climb.description?.trim();
+  const discipline = climb.type === "boulder" ? "boulder problem" : `${climb.type} route`;
+  return `${climb.name} is a ${grade === "—" ? "" : `${grade} `}${discipline}${trail ? ` in ${trail}` : ""}. ${detail || `Sign in to ${SITE_NAME} for ratings and community activity.`}`;
 }
 
 /** `<title>` for an area page. */
@@ -58,9 +69,9 @@ export function areaTitle(name: string, parentName: string | null): string {
 }
 
 /** `<meta name="description">` for an area page. */
-export function areaDescription(name: string, trail: string): string {
+export function areaDescription(name: string, trail: string, description?: string | null): string {
   const where = trail ? `${name}, ${trail}` : name;
-  return `Explore climbing areas and route names in ${where}. Sign in to ${SITE_NAME} for descriptions, grades, and community activity.`;
+  return `Explore climbing in ${where}. ${description?.trim() || `Sign in to ${SITE_NAME} for ratings and community activity.`}`;
 }
 
 type Crumb = { name: string; path: string };

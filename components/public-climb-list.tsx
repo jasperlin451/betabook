@@ -1,9 +1,12 @@
 "use client";
 
 import { AppLink } from "@/components/ui/app-link";
+import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Grade } from "@/components/ui/grade";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
 import { usePagedList } from "@/hooks/use-paged-list";
+import { formatGrade } from "@/lib/grades";
 import type { PublicClimbsPage } from "@/lib/public-catalog";
 import { climbHref } from "@/lib/slug";
 
@@ -41,7 +44,13 @@ export function PublicClimbList({
                 href={climbHref(climb.id, climb.name)}
                 className="flex w-full flex-col items-start gap-1 px-3 py-3 text-foreground no-underline hover:bg-surface-secondary"
               >
-                <span>{climb.name}</span>
+                <span className="flex w-full items-start justify-between gap-3">
+                  <span className="min-w-0 break-words">{climb.name}</span>
+                  <span className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
+                    <Grade>{formatGrade(climb.type, climb.grade)}</Grade>
+                    <DisciplineChip type={climb.type} />
+                  </span>
+                </span>
                 <span className="text-xs text-muted">
                   {[...(list.meta[climb.areaId] ?? []).map((a) => a.name), climb.areaName].join(
                     " / ",

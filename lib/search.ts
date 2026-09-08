@@ -29,7 +29,6 @@ export type SearchResult = {
       grade: number | null;
       stats?: { avgRating: number | null; sendCount: number };
     }
-  | { kind: "climb"; discipline?: never; grade?: never; stats?: never }
   | { kind: "area" | "climber" }
 );
 export type SearchSection = {
@@ -147,6 +146,8 @@ export function publicClimbSearchItems(page: PublicClimbsPage): AppSearchResult[
     id: `climb-${climb.id}`,
     kind: "climb",
     name: climb.name,
+    grade: climb.grade,
+    discipline: climb.type,
     detail: [
       ...(page.areaBreadcrumbs[climb.areaId] ?? []).map((area) => area.name),
       climb.areaName,

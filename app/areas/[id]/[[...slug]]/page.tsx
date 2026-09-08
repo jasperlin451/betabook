@@ -87,7 +87,7 @@ export async function generateMetadata({ params, searchParams }: AreaPageProps):
   const trail = locationTrail(ancestors.map((a) => a.name));
   return pageMetadata({
     title: areaTitle(area.name, ancestors.at(-1)?.name ?? null),
-    description: areaDescription(area.name, trail),
+    description: areaDescription(area.name, trail, area.description),
     path: areaHref(area.id, area.name),
   });
 }
@@ -171,7 +171,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
         data={areaJsonLd({
           name: area.name,
           path: areaPath,
-          description: areaDescription(area.name, locationTrail(ancestorNames)),
+          description: areaDescription(area.name, locationTrail(ancestorNames), area.description),
           crumbs: areaCrumbs,
           ancestorNames,
         })}

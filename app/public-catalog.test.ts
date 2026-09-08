@@ -23,7 +23,7 @@ beforeEach(async () => {
   await resetDb(db);
   await seedFixtureTree(db);
 });
-it("returns only area names, identities and hierarchy, including suggestion mode", async () => {
+it("returns area descriptions and navigation fields, including suggestion mode", async () => {
   for (const query of ["name=Highball", "name=Highball&limit=5"]) {
     expect(await (await areaSearch(request(query))).json()).toEqual({
       areas: [
@@ -31,6 +31,7 @@ it("returns only area names, identities and hierarchy, including suggestion mode
           id: 4,
           parentId: 2,
           name: "Test Highball Alcove",
+          description: null,
           ancestorPath: "Test Crag > Test Boulders",
         },
       ],
@@ -38,9 +39,20 @@ it("returns only area names, identities and hierarchy, including suggestion mode
     });
   }
 });
-it("returns only route names and navigation fields", async () => {
+it("returns route grades, disciplines, descriptions and navigation without member fields", async () => {
+  await db.update(climbs).set({ description: "A public route description." });
   expect(await (await climbSearch(request("name=Highball"))).json()).toEqual({
-    climbs: [{ id: 1, name: "Test Highball", areaId: 4, areaName: "Test Highball Alcove" }],
+    climbs: [
+      {
+        id: 1,
+        name: "Test Highball",
+        areaId: 4,
+        areaName: "Test Highball Alcove",
+        grade: 5,
+        type: "boulder",
+        description: "A public route description.",
+      },
+    ],
     areaBreadcrumbs: {
       4: [
         { id: 1, name: "Test Crag" },
@@ -49,6 +61,39 @@ it("returns only route names and navigation fields", async () => {
     },
     hasNextPage: false,
   });
+  const response = await areaClimbs(request(""), context("4"));
+  expect(await response.json()).toEqual({
+    climbs: [
+      {
+        id: 1,
+        name: "Test Highball",
+        areaId: 4,
+        areaName: "Test Highball Alcove",
+        grade: 5,
+        type: "boulder",
+        description: "A public route description.",
+      },
+    ],
+    areaBreadcrumbs: {
+      4: [
+        { id: 1, name: "Test Crag" },
+        { id: 2, name: "Test Boulders" },
+      ],
+    },
+    hasNextPage: false,
+  });
+});
+it("returns rope and unknown grades with their disciplines", async () => {
+  await db.insert(climbs).values({ id: 20, areaId: 4, name: "Ungraded", type: "boulder" });
+  const page = (await (await climbSearch(request(""))).json()) as PublicClimbsPage;
+  expect(page.climbs.map(({ name, grade, type }) => ({ name, grade, type }))).toEqual([
+    { name: "Test Crack", grade: 6, type: "trad" },
+    { name: "Test Crimper", grade: 10, type: "sport" },
+    { name: "Test Highball", grade: 5, type: "boulder" },
+    { name: "Test Slab", grade: 2, type: "boulder" },
+    { name: "Ungraded", grade: null, type: "boulder" },
+  ]);
+  expect(JSON.stringify(page)).not.toContain('"sendStats":');
 });
 it("scopes area name searches to a selected hierarchy by ID or name", async () => {
   for (const scope of ["areaId=2", "areaName=Boulders"]) {

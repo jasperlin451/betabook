@@ -15,16 +15,22 @@ import {
 } from "./seo";
 
 describe("public climb metadata", () => {
-  it("includes only the name and area even when the source has member facts", () => {
-    const climb = { name: "Midnight Lightning", type: "boulder", grade: 9 };
-    expect(climbTitle(climb, "Camp 4")).toBe("Midnight Lightning · Camp 4");
+  it("includes public grade and description without community facts", () => {
+    const climb = {
+      name: "Midnight Lightning",
+      grade: 9,
+      type: "boulder" as const,
+      description: "A classic test piece.",
+      avgRating: 5,
+    };
+    expect(climbTitle(climb, "Camp 4")).toBe("Midnight Lightning · V8 · Camp 4");
     expect(climbDescription(climb, "Yosemite, Camp 4")).toBe(
-      "Midnight Lightning in Yosemite, Camp 4. Sign in to Betabook for climb details and community activity.",
+      "Midnight Lightning is a V8 boulder problem in Yosemite, Camp 4. A classic test piece.",
     );
   });
   it("supports a missing location", () => {
-    expect(climbDescription({ name: "Unknown" }, "")).toBe(
-      "Unknown. Sign in to Betabook for climb details and community activity.",
+    expect(climbDescription({ name: "Unknown", type: "sport", grade: null }, "")).toBe(
+      "Unknown is a sport route. Sign in to Betabook for ratings and community activity.",
     );
   });
 });
@@ -37,7 +43,7 @@ describe("areaTitle / areaDescription", () => {
 
   it("folds the location trail into the description", () => {
     expect(areaDescription("Camp 4", "Yosemite Valley, Yosemite National Park")).toBe(
-      "Explore climbing areas and route names in Camp 4, Yosemite Valley, Yosemite National Park. Sign in to Betabook for descriptions, grades, and community activity.",
+      "Explore climbing in Camp 4, Yosemite Valley, Yosemite National Park. Sign in to Betabook for ratings and community activity.",
     );
   });
 });

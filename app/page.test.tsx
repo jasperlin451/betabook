@@ -69,7 +69,7 @@ it.each([{}, { mode: "all", name: "   " }])(
     ]);
   },
 );
-it("renders names and hierarchy without member data, even with protected URL filters", async () => {
+it("renders public catalog facts without member data, even with protected URL filters", async () => {
   const data = props(
     await SearchPage({
       searchParams: Promise.resolve({
@@ -85,6 +85,8 @@ it("renders names and hierarchy without member data, even with protected URL fil
       id: "climb-1",
       kind: "climb",
       name: "Test Highball",
+      discipline: "boulder",
+      grade: 5,
       detail: "Test Crag / Test Boulders / Test Highball Alcove",
       href: "/climbs/1/test-highball",
     },

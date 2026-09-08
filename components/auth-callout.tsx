@@ -9,7 +9,7 @@ import { signInUrl, signUpUrl } from "@/lib/sign-in-redirect";
 export function AuthCallout({
   next,
   onNavigate,
-  description = "Grades, descriptions, community activity, and profiles are available to signed-in Betabook members.",
+  description = "Ratings, community activity, and profiles are available to signed-in Betabook members.",
 }: {
   next: string;
   onNavigate?: () => void;

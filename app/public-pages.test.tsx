@@ -35,7 +35,7 @@ const db = createDb(env.DB);
 beforeEach(async () => {
   await resetDb(db);
   await seedFixtureTree(db);
-  await db.update(climbs).set({ description: "Restricted route description sentinel" });
+  await db.update(climbs).set({ description: "Public route description sentinel" });
   await seedFixtureUser(db, { id: "hidden", name: "Restricted identity sentinel" });
 });
 const areaProps = {
@@ -46,35 +46,43 @@ const climbProps = {
   params: Promise.resolve({ id: "1", slug: ["test-highball"] }),
   searchParams: Promise.resolve({}),
 };
-it("renders the public area from name-only records with no descriptions or grade data in props", async () => {
+it("renders public area descriptions and route grades without member statistics in props", async () => {
   const page = await AreaPage(areaProps);
   expect(page.type).toBe(PublicAreaPage);
   const area = await getPublicArea(db, 1);
-  expect(area).toEqual({ id: 1, name: "Test Crag", parentId: null });
+  expect(area).toEqual({ id: 1, name: "Test Crag", parentId: null, description: "A test crag." });
   const content = await PublicAreaPage({ area: area!, search: {} });
   const serialized = JSON.stringify(content);
   expect(serialized).toContain("Test Highball");
   expect(serialized).toContain("Test Boulders");
-  expect(serialized).not.toContain("A test crag.");
-  expect(serialized).not.toContain('"grade":');
+  expect(serialized).toContain("A test crag.");
+  expect(serialized).toContain('"grade":5');
+  expect(serialized).toContain('"type":"boulder"');
   expect(serialized).not.toContain('"sendStats":');
   expect(serialized).not.toContain('"histogram":');
 });
-it("renders a public route name, breadcrumbs and callout without member facts or metadata", async () => {
+it("renders public route grades and descriptions in the page and metadata, keeping activity locked", async () => {
   const page = await ClimbPage(climbProps);
   const serialized = JSON.stringify(page);
   expect(serialized).toContain("Test Highball");
-  expect(serialized).not.toContain("Restricted route description sentinel");
-  expect(serialized).not.toContain('"grade":');
+  expect(serialized).toContain("Public route description sentinel");
+  expect(serialized).toContain('"type":"boulder"');
+  expect(serialized).not.toContain('"sends":');
   const html = renderToStaticMarkup(page);
   expect(html).toContain("Sign in or sign up to see all the content.");
-  expect(html).not.toContain("V4");
+  expect(html).toContain("V4");
+  expect(html).toContain("Boulder");
+  expect(html).toContain("Public route description sentinel");
+  expect(html).not.toContain("this climb’s grade, description");
   expect(await climbMetadata(climbProps)).toMatchObject({
-    title: "Test Highball · Test Highball Alcove",
+    title: "Test Highball · V4 · Test Highball Alcove",
     alternates: { canonical: "/climbs/1/test-highball" },
   });
-  expect(JSON.stringify(await climbMetadata(climbProps))).not.toContain("V4");
-  expect(JSON.stringify(await areaMetadata(areaProps))).not.toContain("A test crag.");
+  const metadata = await climbMetadata(climbProps);
+  expect(metadata.description).toContain("Public route description sentinel");
+  expect(metadata.openGraph).toMatchObject({ description: metadata.description });
+  expect(metadata.twitter).toMatchObject({ description: metadata.description });
+  expect(JSON.stringify(await areaMetadata(areaProps))).toContain("A test crag.");
 });
 it("does not reveal whether a profile exists in the page or metadata", async () => {
   for (const id of ["hidden", "missing"]) {

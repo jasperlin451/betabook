@@ -30,11 +30,21 @@ function Search({ publicOnly = true }: { publicOnly?: boolean }) {
     />
   );
 }
-it("queries only public name endpoints and keeps climber discovery locked", async () => {
+it("shows public grades from catalog endpoints and keeps climber discovery locked", async () => {
   const transport = vi.fn<typeof fetch>(async (url) =>
     requestUrl(url).includes("/climbs?")
       ? Response.json({
-          climbs: [{ id: 1, name: "Test route", areaId: 2, areaName: "Test area" }],
+          climbs: [
+            {
+              id: 1,
+              name: "Test route",
+              areaId: 2,
+              areaName: "Test area",
+              grade: 5,
+              type: "boulder",
+              description: "A route.",
+            },
+          ],
           areaBreadcrumbs: {},
           hasNextPage: false,
         })
@@ -44,6 +54,8 @@ it("queries only public name endpoints and keeps climber discovery locked", asyn
   const user = userEvent.setup();
   render(<Search />);
   expect(await screen.findByRole("link", { name: "Open Test route, Test area" })).toBeVisible();
+  expect(screen.getByText("V4")).toBeVisible();
+  expect(screen.getByText("Boulder")).toBeVisible();
   expect(transport.mock.calls).toHaveLength(2);
   expect(transport.mock.calls.map(([url]) => requestUrl(url))).toEqual(
     expect.arrayContaining([
