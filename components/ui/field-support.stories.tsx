@@ -14,7 +14,7 @@ const meta = {
     (Story) => (
       <StoryPage
         title="Field limits and feedback"
-        description="Place used/limit at the right of the label row, aligned to the field edge. Helper text sits below the input. An error replaces the helper; the counter remains visible. Reaching a limit is neutral, exceeding it is invalid. Character counters do not announce every keystroke; selection counts announce changes."
+        description="Place used/limit and its unit (friends, characters, or tags) at the right of the label row, aligned to the field edge. The counter wraps below the label when space is tight. Helper text sits below the input. An error replaces the helper; the counter remains visible. Reaching a limit is neutral, exceeding it is invalid. Character counters do not announce every keystroke; selection counts announce changes."
       >
         <Story />
       </StoryPage>

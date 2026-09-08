@@ -7,19 +7,19 @@ export type FieldUsage = { used: number; limit: number; unit: string };
 /** Keep the field's own Label inside this header to preserve its association. */
 export function FieldHeader({ children, usage }: { children: ReactNode; usage?: FieldUsage }) {
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
       <div className="flex min-w-0 items-center gap-1">{children}</div>
       {usage && (
         <span
           className={clsx(
-            "shrink-0 text-xs tabular-nums",
+            "ml-auto shrink-0 text-xs tabular-nums",
             usage.used > usage.limit ? "text-danger" : "text-muted",
           )}
           role="status"
           aria-live={usage.unit === "characters" ? "off" : "polite"}
           aria-label={`${usage.used} of ${usage.limit} ${usage.unit}`}
         >
-          {usage.used.toLocaleString("en-US")}/{usage.limit.toLocaleString("en-US")}
+          {usage.used.toLocaleString("en-US")}/{usage.limit.toLocaleString("en-US")} {usage.unit}
         </span>
       )}
     </div>

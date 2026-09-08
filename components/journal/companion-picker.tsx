@@ -81,7 +81,7 @@ export function CompanionPicker({
         placeholder="Find a friend to tag…"
         query={query}
         isDisabled={disabled || full}
-        usage={{ used: value.length, limit: MAX_JOURNAL_COMPANIONS, unit: "friends selected" }}
+        usage={{ used: value.length, limit: MAX_JOURNAL_COMPANIONS, unit: "friends" }}
         helper={full ? "Remove a friend to add another." : undefined}
         status={lookup.status}
         onRetry={lookup.retry}

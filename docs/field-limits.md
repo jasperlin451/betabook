@@ -2,7 +2,7 @@
 
 Use `FieldHeader` and `FieldFeedback` from `components/ui/field-support.tsx` inside the existing HeroUI field. Storybook: **Components / Inputs / Field support**.
 
-- Keep the semantic Label on the left and used/limit on the right, aligned with the input edges. Use the same small, muted counter for characters, tags and friends. Format large counts with commas.
+- Keep the semantic Label on the left and used/limit plus the unit on the right (0/10 friends, 0/2,000 characters, 0/8 tags), aligned with the input edges. Use the same small, muted counter for characters, tags and friends. Format large counts with commas. On narrow fields, let the counter wrap below the label while keeping it right-aligned.
 - Put concise instructions below the input. Show restrictions only when invalid input needs correction. An associated error replaces the helper while the counter remains visible.
 - At the limit, keep the counter neutral. For selections, keep the field visible but disabled and explain that removing an item makes room. An over-limit value shows an error and a danger-colored count.
 - Selection counts announce changes politely; character counts do not announce every keystroke. Keep the field's native length validation and server validation. The display component does not enforce limits.
