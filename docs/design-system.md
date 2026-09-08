@@ -303,9 +303,6 @@ presentation states. The discovery tutorial uses the same controller with local
 sample transport and friend-request actions. Its stable lesson IDs and version
 remain unchanged because the current version 2 update is unreleased.
 
-Review details and verification are recorded in
-[search-design-review.md](search-design-review.md).
-
 ## Preventing regressions
 
 `pnpm test:ui` discovers all stories from the built Storybook index and runs
