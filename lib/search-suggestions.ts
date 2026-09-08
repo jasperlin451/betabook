@@ -1,4 +1,5 @@
-import type { AreaWithAncestorPath } from "@/db/queries";
+import { apiFetch } from "@/lib/api-client";
+import type { PublicAreaResult } from "@/lib/public-catalog";
 import { DEFAULT_SUGGESTION_LIMIT } from "@/lib/url-params";
 
 export type AreaSuggestion = {
@@ -25,9 +26,9 @@ export async function fetchAreaSuggestions(
 ): Promise<AreaSuggestion[]> {
   const params = new URLSearchParams({ name: query, limit: String(limit) });
 
-  const res = await fetch(`/api/search/areas?${params.toString()}`, { signal });
+  const res = await apiFetch(`/api/public/search/areas?${params.toString()}`, { signal });
   if (!res.ok) throw new Error(`Area suggestions failed: ${res.status}`);
-  const data: { areas: AreaWithAncestorPath[] } = await res.json();
+  const data: { areas: PublicAreaResult[] } = await res.json();
 
   return data.areas.map((area) => ({
     id: area.id,

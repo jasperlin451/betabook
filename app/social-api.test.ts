@@ -60,23 +60,14 @@ it("returns only the signed-in user's incoming request count without loading ide
   });
 });
 
-it("rejects expired sessions on private endpoints while public search stays available", async () => {
+it("rejects expired sessions on every member endpoint, including climber search", async () => {
   state.viewer = null;
   expect((await feed(request("/api/feed"))).status).toBe(401);
   expect((await friends(request("/api/friends"))).status).toBe(401);
   expect((await friends(request("/api/friends?view=count"))).status).toBe(401);
   const response = await search(request("/api/search/climbers?name=Alex"));
-  expect(await response.json()).toEqual({
-    climbers: [
-      {
-        id: "target",
-        name: "Alex Public",
-        image: null,
-        friendshipStatus: "none",
-      },
-    ],
-    hasMore: false,
-  });
+  expect(response.status).toBe(401);
+  expect(await response.json()).toEqual({ error: "Not signed in" });
 });
 
 it("rejects malformed and filter-mismatched cursors", async () => {

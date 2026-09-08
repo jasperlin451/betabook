@@ -1,11 +1,10 @@
 "use client";
 
-import { Button } from "@heroui/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { FriendshipButton } from "@/components/friendship-button";
-import { EmptyState } from "@/components/ui/empty-state";
 import { useMounted } from "@/hooks/use-mounted";
 import { authClient } from "@/lib/auth-client";
 import { parseSearchState, searchHref, type SearchSnapshot, type SearchState } from "@/lib/search";
@@ -64,14 +63,11 @@ export function AppSearch({
     else window.history.replaceState(null, "", href);
   }
   if (mounted && !isPending && (session?.user.id ?? null) !== viewerId)
-    return (
-      <EmptyState
-        message="Your account changed. Refresh to update these results."
-        cta={<Button onPress={() => router.refresh()}>Refresh search</Button>}
-      />
-    );
+    return <CurrentPageAuthCallout />;
   return (
     <SearchController
+      key={viewerId ?? "anonymous"}
+      publicOnly={viewerId === null}
       state={state}
       onChange={change}
       initial={initial}

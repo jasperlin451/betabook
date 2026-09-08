@@ -29,6 +29,7 @@ type SearchSurfaceProps = {
   suggestedArea?: AreaSelection;
   onAreaChange: (area: AreaSelection | null) => void;
   filters?: ReactNode;
+  memberNotice?: ReactNode;
   renderAction?: (item: SearchResult) => ReactNode;
   resultHref?: (item: SearchResult) => string | undefined;
 };
@@ -63,6 +64,7 @@ export function SearchSurface({
   suggestedArea,
   onAreaChange,
   filters,
+  memberNotice,
   renderAction,
   resultHref,
   quick = false,
@@ -120,6 +122,7 @@ export function SearchSurface({
         aria-label={quick ? "Scrollable search results" : undefined}
         aria-busy={sections.some((section) => section.status === "loading")}
       >
+        {memberNotice && <div className="mb-4">{memberNotice}</div>}
         {idle ? (
           <EmptyState message={SEARCH_PROMPTS[category]} />
         ) : (

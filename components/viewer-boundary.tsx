@@ -1,11 +1,11 @@
 "use client";
 
-import { Button } from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 
-import { EmptyState } from "@/components/ui/empty-state";
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { useMounted } from "@/hooks/use-mounted";
+import { AUTH_REQUIRED_EVENT } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
 
 /** Discard displayed data when accounts change and refresh current permissions
@@ -17,6 +17,7 @@ export function ViewerBoundary({
   viewerId: string | null;
   children: ReactNode;
 }) {
+  const [authRequired, setAuthRequired] = useState(false);
   const mounted = useMounted();
   const { data: session, isPending } = authClient.useSession();
   const [lastViewerId, setLastViewerId] = useState<string | null>();
@@ -42,14 +43,19 @@ export function ViewerBoundary({
       document.removeEventListener("visibilitychange", refresh);
     };
   }, [router, refreshing, startRefresh]);
-  // A subsequent session check must not reveal data already hidden on sign-out.
-  if (mounted && currentViewerId !== undefined && currentViewerId !== viewerId)
-    return (
-      <EmptyState
-        message="Your account changed. Refresh to update this page."
-        cta={<Button onPress={() => router.refresh()}>Refresh page</Button>}
-      />
-    );
+  const changed = mounted && currentViewerId !== undefined && currentViewerId !== viewerId;
+  useEffect(() => {
+    const expired = () => {
+      setAuthRequired(true);
+      router.refresh();
+    };
+    window.addEventListener(AUTH_REQUIRED_EVENT, expired);
+    return () => window.removeEventListener(AUTH_REQUIRED_EVENT, expired);
+  }, [router]);
+  useEffect(() => {
+    if (changed) router.refresh();
+  }, [changed, router]);
+  if (changed || authRequired) return <CurrentPageAuthCallout />;
   // The server can observe an account switch before useSession finishes.
   // Never carry a previous viewer's drafts or loaded pages into that tree.
   return <Fragment key={viewerId}>{children}</Fragment>;

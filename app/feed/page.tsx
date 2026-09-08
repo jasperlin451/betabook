@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { ProfileHeader, getUserById } from "@/app/users/[id]/profile-shell";
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { FeedList } from "@/components/feed-list";
 import { AppLink } from "@/components/ui/app-link";
 import { choicePillClass } from "@/components/ui/choice-pill";
@@ -11,7 +12,6 @@ import { getDb } from "@/db/client";
 import { getFriendsPage, getFeedPage } from "@/db/queries";
 import { parseFeedView } from "@/lib/feed";
 import { getSession } from "@/lib/session";
-import { signInUrl } from "@/lib/sign-in-redirect";
 import type { UrlParamsRecord } from "@/lib/url-params";
 
 export const metadata: Metadata = { title: "Feed", robots: { index: false } };
@@ -22,7 +22,7 @@ export default async function FeedPage({
   searchParams: Promise<UrlParamsRecord>;
 }) {
   const session = await getSession();
-  if (!session) redirect(signInUrl("/feed"));
+  if (!session) return <CurrentPageAuthCallout />;
   const view = parseFeedView((await searchParams).view);
   const db = await getDb();
   const [page, friends, owner] = await Promise.all([

@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
 import type { AreaBreadcrumbs, JournalCursor, JournalEntry } from "@/db/queries";
 import { usePagedList } from "@/hooks/use-paged-list";
+import { apiFetch } from "@/lib/api-client";
 import { journalFilterToSearchParams, type JournalFilter } from "@/lib/filters/journal-filter";
 
 type JournalTimelineProps = {
@@ -55,7 +56,7 @@ export function JournalTimeline({
         params.set("cursorId", String(cursor.id));
       }
 
-      const res = await fetch(`/api/users/${userId}/journal?${params}`, {
+      const res = await apiFetch(`/api/users/${userId}/journal?${params}`, {
         cache: "no-store",
         signal,
       });

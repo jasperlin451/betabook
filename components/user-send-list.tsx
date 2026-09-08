@@ -11,6 +11,7 @@ import { AppLink } from "@/components/ui/app-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { AreaBreadcrumbs, UserSendRow, UserSendsFilter } from "@/db/queries";
 import { usePagedList } from "@/hooks/use-paged-list";
+import { apiFetch } from "@/lib/api-client";
 import { userSendsFilterToSearchParams } from "@/lib/filters/user-sends-filter";
 
 type UserSendListProps = {
@@ -57,7 +58,7 @@ export function UserSendList({
     fetchPage: async (offset, _page, _last, signal) => {
       const params = userSendsFilterToSearchParams(filter);
       params.set("offset", String(offset));
-      const res = await fetch(`/api/users/${userId}/sends?${params.toString()}`, {
+      const res = await apiFetch(`/api/users/${userId}/sends?${params.toString()}`, {
         cache: "no-store",
         signal,
       });

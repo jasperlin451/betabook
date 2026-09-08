@@ -7,6 +7,7 @@ import { StatTiles, type StatTile } from "@/components/analytics-stat-tiles";
 import { AnalyticsYearSelect } from "@/components/analytics-year-select";
 import { BreakthroughList } from "@/components/breakthrough-list";
 import { ClimbingCalendar } from "@/components/climbing-calendar";
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { AnalyticsHashtagFilter } from "@/components/filters/analytics-hashtag-filter";
 import { ProgressionChart } from "@/components/progression-chart";
 import { AppLink } from "@/components/ui/app-link";
@@ -45,7 +46,9 @@ type UserAnalyticsPageProps = {
 
 export async function generateMetadata({ params }: UserAnalyticsPageProps): Promise<Metadata> {
   const { id } = await params;
-  const [user, session] = await Promise.all([getUserById(id), getSession()]);
+  const session = await getSession();
+  if (!session) return { title: "Member content", robots: { index: false } };
+  const user = await getUserById(id);
   if (!user || !canViewUser(user, session?.user.id ?? null)) notFound();
 
   return { title: `${user.name} · Analytics`, robots: { index: false } };
@@ -61,7 +64,9 @@ function analyticsHref(userId: string, scope: ClimbType, tags: string[]): string
 export default async function UserAnalyticsPage({ params, searchParams }: UserAnalyticsPageProps) {
   const [{ id }, search] = await Promise.all([params, searchParams]);
 
-  const [db, user, session] = await Promise.all([getDb(), getUserById(id), getSession()]);
+  const session = await getSession();
+  if (!session) return <CurrentPageAuthCallout />;
+  const [db, user] = await Promise.all([getDb(), getUserById(id)]);
   if (!user) notFound();
   const viewerId = session?.user.id ?? null;
   if (!canViewUser(user, viewerId)) notFound();

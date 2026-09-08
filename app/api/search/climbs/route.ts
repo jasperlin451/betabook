@@ -9,9 +9,9 @@ import {
   getUserSentClimbIds,
   searchClimbs,
 } from "@/db/queries";
+import { withApiSession } from "@/lib/api-session";
 import { parseClimbListSort } from "@/lib/climb-list-sort";
 import { parseClimbFilter, toClimbQueryParams } from "@/lib/filters/climb-filter";
-import { getSession } from "@/lib/session";
 import {
   offsetReachesPaginationLimit,
   pageReachesPaginationLimit,
@@ -33,7 +33,7 @@ import {
  * With `count=1`: also returns the exact match total (see the search page's
  * heading). Opt-in because the total doesn't change between pages of a
  * search, so only its first page should pay for the COUNT. */
-export async function GET(request: Request) {
+export const GET = withApiSession(async (session, request: Request) => {
   const url = new URL(request.url);
   const searchParams = searchParamsToRecord(url.searchParams);
   const offsetMode = url.searchParams.has("offset");
@@ -62,10 +62,7 @@ export async function GET(request: Request) {
 
   const db = await getDb();
   const queryParams = toClimbQueryParams(filter, sort);
-  const [results, session] = await Promise.all([
-    searchClimbs(db, queryParams, page, pageSize, offset),
-    suggestionLimit === null ? getSession() : Promise.resolve(null),
-  ]);
+  const results = await searchClimbs(db, queryParams, page, pageSize, offset);
 
   if (suggestionLimit !== null) {
     return NextResponse.json({ climbs: results.climbs.slice(0, suggestionLimit) });
@@ -102,4 +99,4 @@ export async function GET(request: Request) {
     count,
     sentClimbIds: sentClimbIds ? [...sentClimbIds] : undefined,
   });
-}
+});

@@ -25,7 +25,7 @@ const audiences = ["private", "friends", "public"] as const;
 const readers: Record<(typeof audiences)[number], (string | null)[]> = {
   private: ["owner"],
   friends: ["owner", "a-friend", "z-friend"],
-  public: viewers,
+  public: viewers.filter((viewer) => viewer !== null),
 };
 
 beforeEach(async () => {
@@ -104,7 +104,9 @@ it.each(["Drizzle", "SQL"])(
     });
     for (const viewer of [author, "a-friend", "pending-out", "stranger", null]) {
       const sends = await getSendsForUserPage(db, author, DEFAULT_USER_SENDS_FILTER, 0, 20, viewer);
-      expect.soft(sends.sends.map((row) => [row.id, row.comment])).toEqual([[12, "Public beta"]]);
+      expect
+        .soft(sends.sends.map((row) => [row.id, row.comment]))
+        .toEqual([[12, viewer === null ? null : "Public beta"]]);
       const journal = await getJournalPage(db, author, viewer, DEFAULT_JOURNAL_FILTER);
       expect
         .soft(journal.entries.map((row) => [row.id, row.body]))
@@ -202,8 +204,10 @@ it("a private profile overrides both public audiences without erasing their save
     ),
   ).toEqual(["Training notes", "Session notes", "secret-beta"]);
   await db.update(user).set({ isPrivate: false }).where(eq(user.id, "owner"));
-  expect((await getSendsForClimb(db, 1)).sends[0].comment).toBe("secret-beta");
-  expect((await getJournalPage(db, "owner", null, DEFAULT_JOURNAL_FILTER)).entries).toHaveLength(3);
+  expect((await getSendsForClimb(db, 1, 0, 10, "stranger")).sends[0].comment).toBe("secret-beta");
+  expect(
+    (await getJournalPage(db, "owner", "stranger", DEFAULT_JOURNAL_FILTER)).entries,
+  ).toHaveLength(3);
 });
 
 it("revokes friends-only commentary immediately while leaving a public journal readable", async () => {
@@ -232,7 +236,7 @@ it("keeps retained send commentary private after deleting a send and editing its
       sent: false,
       body,
     });
-    expect((await getJournalForClimb(db, "owner", null, 1))[0]).toMatchObject({
+    expect((await getJournalForClimb(db, "owner", "stranger", 1))[0]).toMatchObject({
       id: 20,
       body: null,
     });
@@ -246,5 +250,5 @@ it("keeps retained send commentary private after deleting a send and editing its
     ]);
   }
   await db.update(user).set({ sendCommentVisibility: "public" }).where(eq(user.id, "owner"));
-  expect((await getJournalForClimb(db, "owner", null, 1))[0].body).toBe("edited-beta");
+  expect((await getJournalForClimb(db, "owner", "stranger", 1))[0].body).toBe("edited-beta");
 });

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { AuthenticationRequiredError } from "@/lib/api-client";
 import {
   SEARCH_KINDS,
   searchHref,
@@ -69,9 +70,13 @@ function useSearchSection(
               if (!controller.signal.aborted) setSettled({ key, page, status: "ready" });
               return undefined;
             })
-            .catch(() => {
+            .catch((error: unknown) => {
               if (!controller.signal.aborted)
-                setSettled({ key, page: emptyPage(), status: "error" });
+                setSettled({
+                  key,
+                  page: emptyPage(),
+                  status: error instanceof AuthenticationRequiredError ? "locked" : "error",
+                });
             });
         },
         retryOnly ? 0 : 300,
@@ -114,7 +119,9 @@ function useSearchSection(
         },
       }));
       setMore({ key, loading: false, failed: false });
-    } catch {
+    } catch (error) {
+      if (error instanceof AuthenticationRequiredError && !current.controller.signal.aborted)
+        setSettled({ key, page: emptyPage(), status: "locked" });
       if (!current.controller.signal.aborted) setMore({ key, loading: false, failed: true });
     } finally {
       current.loadingMore = false;
@@ -141,15 +148,18 @@ export function useSearch({
   initial,
   fetcher = fetchSearchPage,
   preview = false,
+  publicOnly = false,
 }: {
   state: SearchState;
   enabled?: boolean;
   initial?: SearchSnapshot;
   fetcher?: SearchFetcher;
   preview?: boolean;
+  publicOnly?: boolean;
 }) {
   const active = (kind: SearchKind) =>
     enabled &&
+    !(publicOnly && kind === "climber") &&
     (state.category === "all" || state.category === kind) &&
     state.query.trim().length > 0;
   const climb = useSearchSection(
@@ -176,7 +186,10 @@ export function useSearch({
   const controllers = { climb, area, climber };
   const kinds = state.category === "all" ? SEARCH_KINDS : [state.category];
   const sections = kinds.map((kind) => {
-    const section = controllers[kind].section;
+    const section =
+      publicOnly && kind === "climber"
+        ? { kind, items: [], status: "locked" as const, hasMore: false }
+        : controllers[kind].section;
     return {
       ...section,
       items: preview || state.category === "all" ? section.items.slice(0, 3) : section.items,

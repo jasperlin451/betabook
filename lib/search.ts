@@ -9,12 +9,13 @@ import {
 } from "@/lib/filters/climb-filter";
 import type { ClimbFilterState } from "@/lib/filters/climb-filter-state";
 import type { ClimbType } from "@/lib/grades";
+import type { PublicClimbsPage } from "@/lib/public-catalog";
 import { areaHref, climbHref } from "@/lib/slug";
 import { toArray, type UrlParamsRecord } from "@/lib/url-params";
 
 export type SearchKind = "climb" | "area" | "climber";
 export type SearchCategory = "all" | SearchKind;
-export type SearchStatus = "idle" | "loading" | "ready" | "error";
+export type SearchStatus = "idle" | "loading" | "ready" | "error" | "locked";
 export type SearchResult = {
   id: string;
   name: string;
@@ -117,7 +118,9 @@ export function climbSearchItems(page: ClimbListPage): AppSearchResult[] {
     };
   });
 }
-export function areaSearchItems(areas: AreaWithAncestorPath[]): AppSearchResult[] {
+export function areaSearchItems(
+  areas: Pick<AreaWithAncestorPath, "id" | "name" | "ancestorPath">[],
+): AppSearchResult[] {
   return areas.map((area) => ({
     id: `area-${area.id}`,
     kind: "area",
@@ -135,5 +138,20 @@ export function climberSearchItems(climbers: ClimberRow[]): AppSearchResult[] {
     image: climber.image,
     href: `/users/${encodeURIComponent(climber.id)}`,
     climber,
+  }));
+}
+
+export function publicClimbSearchItems(page: PublicClimbsPage): AppSearchResult[] {
+  return page.climbs.map((climb) => ({
+    id: `climb-${climb.id}`,
+    kind: "climb",
+    name: climb.name,
+    grade: climb.grade,
+    discipline: climb.type,
+    detail: [
+      ...(page.areaBreadcrumbs[climb.areaId] ?? []).map((area) => area.name),
+      climb.areaName,
+    ].join(" / "),
+    href: climbHref(climb.id, climb.name),
   }));
 }

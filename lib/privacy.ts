@@ -3,7 +3,7 @@ import { ActionError } from "@/lib/action-result";
 export const SHARING_AUDIENCES = [
   { value: "private", label: "Only me" },
   { value: "friends", label: "Friends" },
-  { value: "public", label: "Public" },
+  { value: "public", label: "Members" },
 ] as const;
 
 export type SharingAudience = (typeof SHARING_AUDIENCES)[number]["value"];

@@ -918,7 +918,7 @@ describe("applyClimbMerge", () => {
     expect(entries[0].climbId).toBe(821);
     expect(entries[0].sent).toBe(false);
     expect(entries[0].body).toBe("Beta worth keeping");
-    expect(await getJournalForClimb(db, "merge-journal-c", null, 821)).toMatchObject([
+    expect(await getJournalForClimb(db, "merge-journal-c", "reader", 821)).toMatchObject([
       { id: entries[0].id, body: null, isSendComment: true },
     ]);
   });

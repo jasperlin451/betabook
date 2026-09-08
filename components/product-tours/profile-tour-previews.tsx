@@ -282,18 +282,18 @@ export function DemoAccount() {
         />
       </div>
       <div role="status" className={`text-sm ${cardClass("sm")}`}>
-        <p className="font-medium">What a visitor can see</p>
+        <p className="font-medium">What a signed-in member can see</p>
         {isPrivate ? (
           <p className="mt-1">Only Alex can see this profile and climbing history.</p>
         ) : (
           <ul className="mt-2 flex flex-col gap-1">
-            <li>Profile and send details: everyone.</li>
+            <li>Profile and send details: signed-in members.</li>
             <li>
               Send commentary:{" "}
               {sendCommentVisibility === "private"
                 ? "only Alex"
                 : sendCommentVisibility === "public"
-                  ? "everyone"
+                  ? "signed-in members"
                   : "Alex and friends"}
               .
             </li>
@@ -302,7 +302,7 @@ export function DemoAccount() {
               {journalVisibility === "private"
                 ? "only Alex"
                 : journalVisibility === "public"
-                  ? "everyone"
+                  ? "signed-in members"
                   : "Alex and friends"}
               .
             </li>

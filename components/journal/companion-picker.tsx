@@ -7,10 +7,11 @@ import { SearchSelectionField } from "@/components/search/search-selection-field
 import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { useSearchLookup, type LookupFetcher } from "@/hooks/use-search-lookup";
+import { apiFetch } from "@/lib/api-client";
 import { MAX_JOURNAL_COMPANIONS, type CompanionOption } from "@/lib/journal-companions";
 
 async function fetchFriends(query: string, signal: AbortSignal): Promise<CompanionOption[]> {
-  const response = await fetch(`/api/friends/companions?q=${encodeURIComponent(query)}`, {
+  const response = await apiFetch(`/api/friends/companions?q=${encodeURIComponent(query)}`, {
     signal,
     cache: "no-store",
   });

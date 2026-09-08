@@ -7,8 +7,8 @@ import {
   getUser,
   USER_SENDS_PAGE_SIZE,
 } from "@/db/queries";
+import { withApiSession } from "@/lib/api-session";
 import { parseUserSendsFilter } from "@/lib/filters/user-sends-filter";
-import { getSession } from "@/lib/session";
 import { offsetReachesPaginationLimit, parseOffset, searchParamsToRecord } from "@/lib/url-params";
 import { canViewUser } from "@/lib/user-visibility";
 
@@ -19,7 +19,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 /** Incremental "load more" for a user's send history — the initial page is
  * server-rendered; this backs subsequent pages so the client never has to
  * hold more than what's actually been scrolled to. */
-export async function GET(request: Request, { params }: RouteParams) {
+export const GET = withApiSession(async (session, request: Request, { params }: RouteParams) => {
   const { id: userId } = await params;
   const url = new URL(request.url);
   const searchParams = searchParamsToRecord(url.searchParams);
@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: RouteParams) {
   const filter = parseUserSendsFilter(searchParams);
   const safeOffset = parseOffset(url.searchParams);
 
-  const [db, session] = await Promise.all([getDb(), getSession()]);
+  const db = await getDb();
   // A real 404 rather than a normal-looking empty page for any id — the
   // client checks res.ok, and an empty 200 would read as "end of list". A
   // private profile the viewer doesn't own gets the identical response, so
@@ -62,4 +62,4 @@ export async function GET(request: Request, { params }: RouteParams) {
     },
     { headers },
   );
-}
+});

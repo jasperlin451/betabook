@@ -30,12 +30,12 @@ it("masks audiences on private profiles and restores each independent choice", a
   const commentary = screen.getByRole("button", { name: /Send commentary audience/ });
   const journal = screen.getByRole("button", { name: /Journal entries audience/ });
   const profile = screen.getByRole("switch", { name: "Private profile" });
-  expect(commentary).toHaveTextContent("Public");
+  expect(commentary).toHaveTextContent("Members");
   expect(journal).toHaveTextContent("Friends");
   await user.click(commentary);
   await user.click(await screen.findByRole("option", { name: "Friends" }));
   await user.click(journal);
-  await user.click(await screen.findByRole("option", { name: "Public" }));
+  await user.click(await screen.findByRole("option", { name: "Members" }));
   await user.click(profile);
   expect(profile).toBeChecked();
   expect(commentary).toBeDisabled();
@@ -43,14 +43,14 @@ it("masks audiences on private profiles and restores each independent choice", a
   expect(commentary).toHaveTextContent("Only me");
   expect(journal).toHaveTextContent("Only me");
   expect(
-    screen.getByText(/Your saved audiences will apply when your profile is public/),
+    screen.getByText(/Your saved audiences will apply when your profile is visible to members/),
   ).toBeInTheDocument();
   await user.click(profile);
   expect(profile).not.toBeChecked();
   expect(commentary).toBeEnabled();
   expect(journal).toBeEnabled();
   expect(commentary).toHaveTextContent("Friends");
-  expect(journal).toHaveTextContent("Public");
+  expect(journal).toHaveTextContent("Members");
 });
 
 it("prevents changes to all three privacy controls during a save", async () => {

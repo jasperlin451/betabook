@@ -8,5 +8,5 @@ export function canViewUser(
   target: { id: string; isPrivate: boolean },
   viewerId: string | null,
 ): boolean {
-  return !target.isPrivate || target.id === viewerId;
+  return viewerId !== null && (!target.isPrivate || target.id === viewerId);
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { requireAdminOrRedirect } from "@/app/admin/require-admin";
 import { ApproveRejectControls } from "@/components/admin/approve-reject-controls";
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { AppLink } from "@/components/ui/app-link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageTitle } from "@/components/ui/typography";
@@ -13,6 +14,7 @@ import {
   REVIEW_QUEUE_PAGE_SIZE,
 } from "@/db/queries";
 import { getReviewQueueDetails } from "@/lib/moderation";
+import { getSession } from "@/lib/session";
 import { areaHref } from "@/lib/slug";
 
 export const metadata: Metadata = { title: "Review requests" };
@@ -28,6 +30,7 @@ export default async function AdminRequestsPage({
 }: {
   searchParams: Promise<{ after?: string; at?: string }>;
 }) {
+  if (!(await getSession())) return <CurrentPageAuthCallout />;
   const params = await searchParams;
   const id = Number(params.after);
   const requestedAt = Number(params.at);

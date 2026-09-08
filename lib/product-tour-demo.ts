@@ -17,7 +17,7 @@ export const TOUR_DEMO_PEOPLE = { search: "Riley Chen", requester: "Sam Taylor" 
 export const TOUR_DEMO_SEARCH_RESULTS = {
   climb: { name: climbs.sent.name, detail: climbs.sent.grade },
   area: { name: TOUR_DEMO_CLIMBER.area, detail: "Climbing area" },
-  climber: { name: TOUR_DEMO_PEOPLE.search, detail: "Public profile" },
+  climber: { name: TOUR_DEMO_PEOPLE.search, detail: "Member profile" },
 };
 
 export const TOUR_DEMO_FRIEND_DAY = {

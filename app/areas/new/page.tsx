@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { NewAreaForm } from "@/components/new-area-form";
 import { PageTitle } from "@/components/ui/typography";
 import { getSession } from "@/lib/session";
-import { signInUrl } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
   title: "Add area",
@@ -13,7 +12,7 @@ export const metadata: Metadata = {
 
 export default async function NewAreaPage() {
   const session = await getSession();
-  if (!session) redirect(signInUrl("/areas/new"));
+  if (!session) return <CurrentPageAuthCallout />;
 
   return (
     <div className="flex flex-col gap-6">

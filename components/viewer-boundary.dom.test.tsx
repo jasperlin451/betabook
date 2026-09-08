@@ -10,7 +10,11 @@ const { refresh, transport, router } = vi.hoisted(() => {
   const refresh = vi.fn<() => void>();
   return { refresh, router: { refresh }, transport: vi.fn<typeof fetch>() };
 });
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => router,
+  usePathname: () => "/users/alex",
+  useSearchParams: () => new URLSearchParams("view=sends"),
+}));
 vi.mock("@/lib/auth-client", async () => {
   const { createAuthClient } = await import("better-auth/react");
   return {
@@ -72,7 +76,7 @@ it("discards local state when the server viewer changes, and hides data on sign-
   expect(next).toHaveValue("");
   transport.mockImplementation(async () => Response.json(null));
   act(() => authClient.$store.notify("$sessionSignal"));
-  await screen.findByText("Your account changed. Refresh to update this page.");
+  await screen.findByText("Sign in or sign up to see all the content.");
   expect(screen.queryByRole("textbox", { name: "Notes" })).not.toBeInTheDocument();
   let resolve!: (response: Response) => void;
   transport.mockImplementation(
@@ -107,4 +111,23 @@ it("resets drafts when the server account changes while the session check is pen
   expect(screen.queryByRole("textbox", { name: "Notes" })).not.toBeInTheDocument();
   await act(async () => resolve(session("sam")));
   expect(await screen.findByRole("textbox", { name: "Notes" })).toHaveValue("");
+});
+
+it("removes member content immediately when a data request returns 401", async () => {
+  const { AUTH_REQUIRED_EVENT } = await import("@/lib/api-client");
+  render(
+    <ViewerBoundary viewerId="alex">
+      <p>Protected activity</p>
+    </ViewerBoundary>,
+  );
+  expect(screen.getByText("Protected activity")).toBeVisible();
+  act(() => {
+    window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
+  });
+  expect(screen.queryByText("Protected activity")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+    "href",
+    "/sign-in?next=%2Fusers%2Falex%3Fview%3Dsends",
+  );
+  expect(screen.getByRole("link", { name: "Sign up" })).toBeVisible();
 });

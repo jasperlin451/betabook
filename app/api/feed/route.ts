@@ -1,13 +1,11 @@
 import { getDb } from "@/db/client";
 import { getFeedPage } from "@/db/queries";
+import { withApiSession } from "@/lib/api-session";
 import { parseFeedCursor, parseFeedView } from "@/lib/feed";
-import { getSession } from "@/lib/session";
 
 const headers = { "Cache-Control": "private, no-store" };
 
-export async function GET(request: Request) {
-  const session = await getSession();
-  if (!session) return Response.json({ error: "Not signed in" }, { status: 401, headers });
+export const GET = withApiSession(async (session, request: Request) => {
   const params = new URL(request.url).searchParams;
   const view = parseFeedView(params.get("view"));
   let cursor;
@@ -19,4 +17,4 @@ export async function GET(request: Request) {
   return Response.json(await getFeedPage(await getDb(), session.user.id, view, cursor), {
     headers,
   });
-}
+});

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { JournalView } from "@/app/users/[id]/journal-view";
 import { ProfileHeader, getUserById, canReadUserJournal } from "@/app/users/[id]/profile-shell";
 import { SendsView } from "@/app/users/[id]/sends-view";
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { parseJournalFilter } from "@/lib/filters/journal-filter";
 import { parseUserSendsFilter } from "@/lib/filters/user-sends-filter";
 import { getSession } from "@/lib/session";
@@ -17,7 +18,9 @@ type UserPageProps = {
 
 export async function generateMetadata({ params }: UserPageProps): Promise<Metadata> {
   const { id } = await params;
-  const [user, session] = await Promise.all([getUserById(id), getSession()]);
+  const session = await getSession();
+  if (!session) return { title: "Member content", robots: { index: false } };
+  const user = await getUserById(id);
   if (!user || !canViewUser(user, session?.user.id ?? null)) notFound();
 
   return { title: user.name, robots: { index: false } };
@@ -25,7 +28,9 @@ export async function generateMetadata({ params }: UserPageProps): Promise<Metad
 
 export default async function UserPage({ params, searchParams }: UserPageProps) {
   const [{ id }, search] = await Promise.all([params, searchParams]);
-  const [user, session] = await Promise.all([getUserById(id), getSession()]);
+  const session = await getSession();
+  if (!session) return <CurrentPageAuthCallout />;
+  const user = await getUserById(id);
   const viewerId = session?.user.id ?? null;
 
   if (!user || !canViewUser(user, viewerId)) notFound();

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ProfileHeader, getUserById } from "@/app/users/[id]/profile-shell";
 import { SendsView } from "@/app/users/[id]/sends-view";
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { parseUserSendsFilter } from "@/lib/filters/user-sends-filter";
 import { getSession } from "@/lib/session";
 import type { UrlParamsRecord } from "@/lib/url-params";
@@ -15,7 +16,9 @@ type UserSendsPageProps = {
 
 export async function generateMetadata({ params }: UserSendsPageProps): Promise<Metadata> {
   const { id } = await params;
-  const [user, session] = await Promise.all([getUserById(id), getSession()]);
+  const session = await getSession();
+  if (!session) return { title: "Member content", robots: { index: false } };
+  const user = await getUserById(id);
   if (!user || !canViewUser(user, session?.user.id ?? null)) notFound();
 
   return { title: `${user.name} · Sends`, robots: { index: false } };
@@ -23,7 +26,9 @@ export async function generateMetadata({ params }: UserSendsPageProps): Promise<
 
 export default async function UserSendsPage({ params, searchParams }: UserSendsPageProps) {
   const [{ id }, search] = await Promise.all([params, searchParams]);
-  const [user, session] = await Promise.all([getUserById(id), getSession()]);
+  const session = await getSession();
+  if (!session) return <CurrentPageAuthCallout />;
+  const user = await getUserById(id);
   const viewerId = session?.user.id ?? null;
 
   if (!user || !canViewUser(user, viewerId)) notFound();

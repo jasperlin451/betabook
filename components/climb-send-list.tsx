@@ -10,6 +10,7 @@ import { ListRow } from "@/components/ui/list-row";
 import { ViewerBoundary } from "@/components/viewer-boundary";
 import type { Climb, ClimbSendRow, ClimbSendsPage } from "@/db/queries";
 import { usePagedList } from "@/hooks/use-paged-list";
+import { apiFetch } from "@/lib/api-client";
 import { formatDate } from "@/lib/format-date";
 
 type ClimbSendListProps = {
@@ -58,7 +59,7 @@ function ClimbSendListContent({
     mergeMeta: () => null,
     fetchPage: async (offset, _page, _last, signal) => {
       const params = new URLSearchParams({ offset: String(offset) });
-      const res = await fetch(`/api/climbs/${climb.id}/sends?${params.toString()}`, {
+      const res = await apiFetch(`/api/climbs/${climb.id}/sends?${params.toString()}`, {
         cache: "no-store",
         signal,
       });

@@ -1,6 +1,5 @@
 import { getDb } from "@/db/client";
 import {
-  getArea,
   getAreaBreadcrumbs,
   getClimbSendStats,
   getClimbersPage,
@@ -8,8 +7,11 @@ import {
   searchAreas,
   searchClimbs,
 } from "@/db/queries";
+import { getPublicArea, searchPublicAreas, searchPublicClimbs } from "@/db/queries/public-catalog";
 import type { AreaSelection } from "@/lib/area-selection";
 import { toClimbQueryParams } from "@/lib/filters/climb-filter";
+import { publicCatalogOptions } from "@/lib/public-catalog";
+import { publicClimbSearchItems } from "@/lib/search";
 import {
   areaSearchItems,
   climberSearchItems,
@@ -22,7 +24,7 @@ import {
 export async function loadAreaSelection(id: number | undefined): Promise<AreaSelection | null> {
   if (id === undefined) return null;
   const db = await getDb();
-  const area = await getArea(db, id);
+  const area = await getPublicArea(db, id);
   if (!area) return { id: String(id), name: "Unavailable area", path: "" };
   const ancestors = await getAreaBreadcrumbs(db, [id]);
   return {
@@ -38,6 +40,46 @@ export async function loadSearch(
   viewerId: string | null,
 ): Promise<SearchSnapshot> {
   const kinds = state.category === "all" ? SEARCH_KINDS : [state.category];
+  if (!viewerId) {
+    const db = await getDb();
+    const options = publicCatalogOptions(
+      new URLSearchParams({
+        name: state.query,
+        ...(state.filter.areaId !== undefined ? { areaId: String(state.filter.areaId) } : {}),
+        ...(state.filter.areaName ? { areaName: state.filter.areaName } : {}),
+        sort: state.sort === "name_desc" ? "name_desc" : "name_asc",
+      }),
+    );
+    return Promise.all(
+      kinds.map(async (kind) => {
+        if (kind === "climber")
+          return {
+            kind,
+            page: { items: [], hasMore: false, nextPage: 1 },
+            status: "locked" as const,
+          };
+        if (!state.query.trim())
+          return {
+            kind,
+            page: { items: [], hasMore: false, nextPage: 1 },
+            status: "idle" as const,
+          };
+        const page =
+          kind === "area"
+            ? await searchPublicAreas(db, options)
+            : await searchPublicClimbs(db, options);
+        return {
+          kind,
+          page: {
+            items: "areas" in page ? areaSearchItems(page.areas) : publicClimbSearchItems(page),
+            hasMore: page.hasNextPage,
+            nextPage: 2,
+          },
+          status: "ready" as const,
+        };
+      }),
+    );
+  }
   if (!state.query.trim())
     return kinds.map((kind) => ({
       kind,

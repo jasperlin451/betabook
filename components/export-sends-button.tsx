@@ -5,6 +5,7 @@ import { Download } from "lucide-react";
 import { useState } from "react";
 
 import type { UserSendRow } from "@/db/queries";
+import { apiFetch } from "@/lib/api-client";
 import { downloadCsv } from "@/lib/download";
 import { formatCount } from "@/lib/format";
 import { buildSendsExportCsv } from "@/lib/sends-export";
@@ -43,7 +44,7 @@ export function ExportSendsButton({ userId }: { userId: string }) {
           params.set("afterDate", cursor.dateSent ?? "null");
         }
         const query = params.size > 0 ? `?${params.toString()}` : "";
-        const res = await fetch(`/api/users/${userId}/sends/export${query}`);
+        const res = await apiFetch(`/api/users/${userId}/sends/export${query}`);
         if (!res.ok) throw new Error(`Exporting sends failed: ${res.status}`);
         const data: UserSendsPageResponse = await res.json();
         if (data.sends.some((send) => seenIds.has(send.id))) {

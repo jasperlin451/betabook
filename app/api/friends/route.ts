@@ -1,12 +1,10 @@
 import { getDb } from "@/db/client";
 import { getFriendsPage, getPendingFriendRequestCount } from "@/db/queries";
-import { getSession } from "@/lib/session";
+import { withApiSession } from "@/lib/api-session";
 import { parseOffset, offsetReachesPaginationLimit } from "@/lib/url-params";
 
 const headers = { "Cache-Control": "private, no-store" };
-export async function GET(request: Request) {
-  const session = await getSession();
-  if (!session) return Response.json({ error: "Not signed in" }, { status: 401, headers });
+export const GET = withApiSession(async (session, request: Request) => {
   const params = new URL(request.url).searchParams;
   if (params.get("view") === "count") {
     const count = await getPendingFriendRequestCount(await getDb(), session.user.id);
@@ -26,4 +24,4 @@ export async function GET(request: Request) {
     { ...page, hasMore: page.hasMore && !offsetReachesPaginationLimit(offset ?? 0, 20) },
     { headers },
   );
-}
+});
