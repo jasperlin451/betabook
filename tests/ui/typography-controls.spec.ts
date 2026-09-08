@@ -76,6 +76,16 @@ test("sort direction matches its field size and works from the keyboard", async 
   await openStory(page, info, "components-inputs-sort-select--default");
   const select = page.getByRole("button", { name: /Sort by/ });
   const direction = page.getByRole("button", { name: "Sort ascending", exact: true });
+  const label = page.getByText("Sort by", { exact: true });
+  await expect(label).toBeVisible();
+  await expect(label).toHaveCSS("font-size", "12px");
+  const labelBox = await label.boundingBox();
+  const selectBox = await select.boundingBox();
+  const directionBox = await direction.boundingBox();
+  if (!labelBox || !selectBox || !directionBox) throw new Error("Sort controls must be rendered.");
+  expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(selectBox.y);
+  expect(labelBox.x).toBeCloseTo(selectBox.x, 0);
+  expect(directionBox.y).toBeCloseTo(selectBox.y, 0);
   const height = await select.evaluate((element) => getComputedStyle(element).height);
   await expect(direction).toHaveCSS("height", height);
   await expect(direction).toHaveCSS("width", height);
@@ -122,4 +132,39 @@ test("pending pagination preserves focus and prevents duplicate requests", async
   await expect(page.locator("output")).toHaveText("Requests: 1");
   await page.keyboard.press("Enter");
   await expect(page.locator("output")).toHaveText("Requests: 1");
+});
+
+test("search and sort field boxes align below the sort label", async ({ page }, info) => {
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await openStory(page, info, "components-filters-sends-toolbar--default");
+  const search = await page
+    .locator('[data-slot="search-field-group"]')
+    .filter({ has: page.getByPlaceholder("Filter sends…") })
+    .boundingBox();
+  const sort = await page.getByRole("button", { name: /Sort by/ }).boundingBox();
+  if (!search || !sort) throw new Error("Both field boxes must be rendered.");
+  expect(search.y).toBeCloseTo(sort.y, 0);
+  expect(search.y + search.height).toBeCloseTo(sort.y + sort.height, 0);
+});
+
+test("search, sort, and direction controls share a responsive field height", async ({
+  page,
+}, info) => {
+  await openStory(page, info, "components-filters-sends-toolbar--default");
+  const search = page
+    .locator('[data-slot="search-field-group"]')
+    .filter({ has: page.getByPlaceholder("Filter sends…") });
+  const sort = page.getByRole("button", { name: /Sort by/ });
+  const direction = page.getByRole("button", { name: "Sort descending", exact: true });
+  for (const borderWidth of [null, "4px"]) {
+    if (borderWidth) {
+      await page.evaluate(
+        (width) => document.documentElement.style.setProperty("--field-border-width", width),
+        borderWidth,
+      );
+    }
+    const height = await search.evaluate((element) => getComputedStyle(element).height);
+    await expect(sort).toHaveCSS("height", height);
+    await expect(direction).toHaveCSS("height", height);
+  }
 });

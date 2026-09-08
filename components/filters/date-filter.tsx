@@ -2,8 +2,11 @@
 
 import { Button } from "@heroui/react";
 import { getLocalTimeZone, today } from "@internationalized/date";
+import { X } from "lucide-react";
 import { useState } from "react";
 
+import { AppLink } from "@/components/ui/app-link";
+import { choicePillClass } from "@/components/ui/choice-pill";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { OptionSelect } from "@/components/ui/option-select";
 import {
@@ -11,6 +14,7 @@ import {
   type DateFilterValue,
   type RelativeDatePreset,
 } from "@/lib/filters/date-filter";
+import { formatDate } from "@/lib/format-date";
 
 const OPTIONS = [
   { value: "any", label: "All time" },
@@ -133,5 +137,28 @@ export function DateFilter({
         </>
       )}
     </div>
+  );
+}
+
+/** Keep the applied dates visible even when the date controls are collapsed. */
+export function DateFilterChip({
+  value,
+  clearHref,
+}: {
+  value: DateFilterValue;
+  clearHref: string;
+}) {
+  if (!value.date && !value.dateFrom && !value.dateTo) return null;
+  return (
+    <AppLink
+      href={clearHref}
+      className={`${choicePillClass(true, "bg-surface-secondary text-foreground")} inline-flex items-center gap-1`}
+      aria-label="Clear date filter"
+    >
+      {value.date
+        ? formatDate(value.date)
+        : `${value.dateFrom ? formatDate(value.dateFrom) : "Any time"} – ${value.dateTo ? formatDate(value.dateTo) : "Any time"}`}
+      <X className="size-3.5 shrink-0 text-muted" aria-hidden />
+    </AppLink>
   );
 }

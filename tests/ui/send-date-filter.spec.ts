@@ -93,3 +93,59 @@ test("a start date alone searches one day and the optional end can be removed", 
   await page.getByRole("button", { name: "Clear end date" }).click();
   await expect(dates).toHaveText('{"date":"2025-06-01"}');
 });
+
+for (const view of ["journal", "sends"]) {
+  for (const [story, label] of [
+    ["single-day", "Jun 1, 2025"],
+    ["date-range", "Jun 1, 2025 – Aug 31, 2025"],
+  ]) {
+    test(`${view} keeps ${story} visible outside More filters`, async ({ page }, testInfo) => {
+      const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
+      await page.goto(
+        `/iframe.html?id=components-filters-${view}-toolbar--${story}&viewMode=story&globals=theme:${theme}`,
+      );
+      const chip = page.getByRole("link", { name: "Clear date filter" });
+      await expect(chip).toHaveText(label);
+      const chipBounds = await chip.boundingBox();
+      const headingBounds = await page.getByRole("heading", { level: 1 }).boundingBox();
+      const moreBounds = await page
+        .getByRole("button", { name: "More filters", exact: true })
+        .boundingBox();
+      const lastTagBounds = await page
+        .getByRole(view === "journal" ? "link" : "button", {
+          name: view === "journal" ? "Training" : "Trad",
+          exact: true,
+        })
+        .boundingBox();
+      if (!lastTagBounds || !moreBounds) throw new Error("Filter controls must be rendered.");
+      expect(moreBounds.y + moreBounds.height / 2).toBeCloseTo(
+        lastTagBounds.y + lastTagBounds.height / 2,
+        0,
+      );
+      expect(moreBounds.x).toBeGreaterThanOrEqual(lastTagBounds.x + lastTagBounds.width);
+      expect(moreBounds.x - lastTagBounds.x - lastTagBounds.width).toBeLessThanOrEqual(12);
+      if (!chipBounds || !headingBounds || !moreBounds) {
+        throw new Error("The date chip, heading, and filter trigger must be rendered.");
+      }
+      expect(chipBounds.x).toBeCloseTo(headingBounds.x, 0);
+      expect(chipBounds.y).toBeGreaterThan(moreBounds.y + moreBounds.height);
+      await expect(chip).toHaveAttribute(
+        "href",
+        view === "sends" ? "/sample/sends?sort=date_desc" : "/users/example/journal",
+      );
+      await expect(page.getByRole("button", { name: /Dates$/ })).not.toBeVisible();
+      await page.getByRole("button", { name: "More filters", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Custom dates Dates" })).toBeVisible();
+      await expect(page.getByRole("spinbutton")).toHaveCount(6);
+      await page.getByRole("button", { name: "Fewer filters", exact: true }).click();
+      await expect(chip).toBeVisible();
+      await expect(page.getByRole("spinbutton").first()).not.toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath(`${view}-${story}.png`) });
+      await chip.locator("svg").click();
+      await expect(chip).toHaveCount(0);
+      await page.getByRole("button", { name: "More filters", exact: true }).click();
+      await expect(page.getByRole("button", { name: "All time Dates" })).toBeVisible();
+      await expect(page.getByRole("spinbutton")).toHaveCount(0);
+    });
+  }
+}

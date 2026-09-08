@@ -1,6 +1,5 @@
 import { UserSendsFilterToolbar } from "@/components/filters/sends-filter-toolbar";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
-import { AppLink } from "@/components/ui/app-link";
 import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { SidebarLayout } from "@/components/ui/page-shell";
@@ -11,7 +10,6 @@ import { getDb } from "@/db/client";
 import { getAreaBreadcrumbs, getSendsForUserPage, getUserSendsSummary } from "@/db/queries";
 import type { UserSendsFilter } from "@/db/queries";
 import { getUserHashtags } from "@/db/queries/hashtag-filter";
-import { userSendsFilterToSearchParams } from "@/lib/filters/user-sends-filter";
 import { formatCount } from "@/lib/format";
 import { formatDate } from "@/lib/format-date";
 
@@ -74,19 +72,6 @@ export async function SendsView({
       <SidebarLayout sidebar={<StatStrip cards={statCards} />}>
         <div className="flex flex-col gap-3">
           <SectionHeading>Sends</SectionHeading>
-          {(filter.date || filter.dateFrom || filter.dateTo) && (
-            <p className="text-sm text-muted">
-              {filter.date
-                ? formatDate(filter.date)
-                : `${filter.dateFrom ? formatDate(filter.dateFrom) : "Any time"} – ${filter.dateTo ? formatDate(filter.dateTo) : "Any time"}`}{" "}
-              ·{" "}
-              <AppLink
-                href={`${basePath}?${userSendsFilterToSearchParams({ ...filter, date: undefined, dateFrom: undefined, dateTo: undefined, datePreset: undefined })}`}
-              >
-                Clear date filter
-              </AppLink>
-            </p>
-          )}
           {summary.sendCount > 0 && (
             <UserSendsFilterToolbar filter={filter} basePath={basePath} tags={tags} />
           )}

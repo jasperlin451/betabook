@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { ComponentProps } from "react";
 
 import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
-import { DateFilter } from "@/components/filters/date-filter";
+import { DateFilter, DateFilterChip } from "@/components/filters/date-filter";
 import { FilterInput } from "@/components/filters/filter-input";
 import { FilterToolbar } from "@/components/filters/filter-toolbar";
 import { HashtagFilter } from "@/components/filters/hashtag-filter";
@@ -158,6 +158,18 @@ export function UserSendsFilterToolbar({
             const params = userSendsFilterToSearchParams({ ...filter, sort: nextSort });
             router.replace(`${basePath}?${params.toString()}`, { scroll: false });
           }}
+        />
+      }
+      activeFilters={
+        <DateFilterChip
+          value={filter}
+          clearHref={`${basePath}?${userSendsFilterToSearchParams({
+            ...filter,
+            date: undefined,
+            dateFrom: undefined,
+            dateTo: undefined,
+            datePreset: undefined,
+          })}`}
         />
       }
       extraFilters={

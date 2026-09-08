@@ -21,7 +21,7 @@ const meta = {
     (Story) => (
       <StoryPage
         title="Sort select"
-        description="The direction button matches the field's responsive text size and semantic border. Tab to the direction button and press Enter to reverse the order."
+        description="A small Sort by label sits above the field at every screen size. Search, sort, and direction controls share the same responsive field height, including the theme border. Tab to the direction button and press Enter to reverse the order."
       >
         <Story />
       </StoryPage>
@@ -40,3 +40,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
+
+export const GradeDescending: Story = {
+  args: { sort: "grade_desc" },
+};
+
+export const Sends: Story = {
+  args: {
+    sort: "date_desc",
+    fields: [
+      { id: "date", label: "Date" },
+      { id: "grade", label: "Grade" },
+      { id: "rating", label: "Rating" },
+    ],
+    defaultField: "date",
+    defaultDirection: { date: "desc", grade: "desc", rating: "desc" },
+  },
+};

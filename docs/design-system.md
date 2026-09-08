@@ -87,6 +87,16 @@ normally 14px. Compact field descriptions and metadata are 12px. Use HeroUI
 `Label`, `Description` and `FieldError` to associate feedback with its control;
 announce dynamic errors and retain semantic invalid/focus treatments.
 
+Every sortable list uses `SortSelect`: show “Sort by” as a 12px muted label
+above the dropdown on all screen sizes, with the direction button aligned beside
+the field. Toolbar rows bottom-align their controls so the search and sort boxes
+line up while the sort label sits above them. See **Components / Inputs / Sort select** for name, grade, and Sends
+examples. Tutorials remain unchanged because sorting behavior is unchanged.
+
+Use `FIELD_HEIGHT_CLASS` for search and sort boxes: 40px on mobile and 36px
+on larger screens, plus the current theme border on both edges. Journal search,
+shared search and filter inputs, sort dropdowns, and direction buttons share this recipe.
+
 Use `FIELD_ACTION_CLASS` to match an adjacent action to its field's responsive
 size and theme border width. Keep compact row/menu actions small. Pending
 buttons should prevent repeat requests while retaining keyboard focus.
@@ -372,7 +382,16 @@ presentation/accessibility without changing any workflow. Tutorial previews
 automatically inherit the shared fixes. Future primitive changes should also be checked
 in the tutorial previews, which reuse application components.
 
-Sends and Journal share `DateFilter`, labeled Dates. The options are All time (default),
+Sends and Journal share `DateFilter`, labeled Dates, inside the collapsed
+More filters panel. Keep the More filters trigger directly after the view or
+discipline tags in the same wrapping group; sorting is a separate control.
+Both keep the applied day or date range visible in a separate,
+left-aligned chip row below the toolbar controls
+using the same date chip and a muted X to clear it, even when the panel is closed.
+The toolbar previews simulate navigation locally, so clicking X removes the chip
+and resets Dates to All time, just as on the app pages.
+The X matches the selected hashtag chip pattern; the link retains its accessible
+“Clear date filter” label. The options are All time (default),
 This month, This year, Last year, and Custom dates. Presets apply immediately using
 the viewer's local calendar date and store concrete inclusive bounds in the URL.
 Custom dates reveal Start date and End date fields using `DatePickerField`, with
@@ -383,7 +402,7 @@ Incomplete or reversed dates preserve the last valid filter. A start date
 alone selects one day. Field descriptions explain this; Clear end date returns
 a range to one day. Selecting
 All time clears the constraint. Selecting dates in Journal replaces its year filter.
-See **Components / Inputs / Date filter** for default, preset, single-day, and
+See **Components / Filters / Date filter** for default, preset, single-day, and
 summer 2025 examples. This replaces the mode selector and always-visible calendar.
 Existing tutorial guidance on notes, entry types, tags, and Sends sorting remains
 accurate, so lesson steps and versions are unchanged.

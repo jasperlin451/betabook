@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 
-import { DateFilter } from "@/components/filters/date-filter";
+import { DateFilter, DateFilterChip } from "@/components/filters/date-filter";
 import { FilterInput } from "@/components/filters/filter-input";
 import { FilterToolbarLayout } from "@/components/filters/filter-toolbar";
 import { HashtagFilter } from "@/components/filters/hashtag-filter";
@@ -17,7 +17,6 @@ import {
   type JournalFilter,
   type JournalView,
 } from "@/lib/filters/journal-filter";
-import { formatDate } from "@/lib/format-date";
 
 const VIEW_LABELS: Record<JournalView, string> = {
   all: "All",
@@ -70,31 +69,19 @@ export function JournalFilterToolbar({
           />
         </>
       }
-      controls={
+      textFilter={
+        <div className="w-full sm:w-64">
+          <FilterInput
+            label="Filter journal"
+            value={localFilter.query ?? ""}
+            onChange={(query) => setFilter({ ...localFilter, query: query.trim() ? query : null })}
+            placeholder="Filter journal…"
+            inputProps={{ maxLength: MAX_JOURNAL_QUERY_LENGTH }}
+          />
+        </div>
+      }
+      activeFilters={
         <>
-          <div className="w-full sm:w-64">
-            <FilterInput
-              label="Filter journal"
-              value={localFilter.query ?? ""}
-              onChange={(query) =>
-                setFilter({ ...localFilter, query: query.trim() ? query : null })
-              }
-              placeholder="Filter journal…"
-              inputProps={{ maxLength: MAX_JOURNAL_QUERY_LENGTH }}
-            />
-          </div>
-
-          {JOURNAL_VIEWS.map((view) => (
-            <AppLink
-              key={view}
-              href={href(base, { ...localFilter, view })}
-              aria-current={filter.view === view ? "page" : undefined}
-              className={choicePillClass(filter.view === view, "bg-foreground text-background")}
-            >
-              {VIEW_LABELS[view]}
-            </AppLink>
-          ))}
-
           {filter.year !== null && (
             <AppLink
               href={href(base, { ...localFilter, year: null })}
@@ -105,24 +92,16 @@ export function JournalFilterToolbar({
               <X className="size-3.5" aria-hidden />
             </AppLink>
           )}
-          {(filter.date || filter.dateFrom || filter.dateTo) && (
-            <AppLink
-              href={href(base, {
-                ...localFilter,
-                date: undefined,
-                dateFrom: undefined,
-                dateTo: undefined,
-                datePreset: undefined,
-              })}
-              className={choicePillClass(true, "bg-surface-secondary text-foreground")}
-              aria-label="Clear date filter"
-            >
-              {filter.date
-                ? formatDate(filter.date)
-                : `${filter.dateFrom ? formatDate(filter.dateFrom) : "Any time"} – ${filter.dateTo ? formatDate(filter.dateTo) : "Any time"}`}{" "}
-              · Clear dates
-            </AppLink>
-          )}
+          <DateFilterChip
+            value={filter}
+            clearHref={href(base, {
+              ...localFilter,
+              date: undefined,
+              dateFrom: undefined,
+              dateTo: undefined,
+              datePreset: undefined,
+            })}
+          />
           {filter.climbId !== null && (
             <AppLink
               href={href(base, { ...localFilter, climbId: null })}
@@ -132,6 +111,20 @@ export function JournalFilterToolbar({
               <X className="size-3.5 shrink-0" aria-label="Clear climb filter" />
             </AppLink>
           )}
+        </>
+      }
+      controls={
+        <>
+          {JOURNAL_VIEWS.map((view) => (
+            <AppLink
+              key={view}
+              href={href(base, { ...localFilter, view })}
+              aria-current={filter.view === view ? "page" : undefined}
+              className={choicePillClass(filter.view === view, "bg-foreground text-background")}
+            >
+              {VIEW_LABELS[view]}
+            </AppLink>
+          ))}
         </>
       }
     />
