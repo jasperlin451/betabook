@@ -11,7 +11,7 @@ import {
   getOpenProjects,
 } from "@/db/queries";
 import { user } from "@/db/schema";
-import { DEFAULT_JOURNAL_FILTER } from "@/lib/journal-filter";
+import { DEFAULT_JOURNAL_FILTER } from "@/lib/filters/journal-filter";
 import { seedFixtureJournalEntry, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
 let db: Database;

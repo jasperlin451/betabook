@@ -1,7 +1,10 @@
 import { expect, it } from "vitest";
 
-import { journalFilterToSearchParams, parseJournalFilter } from "./journal-filter";
-import { parseUserSendsFilter, userSendsFilterToSearchParams } from "./user-sends-filter";
+import { journalFilterToSearchParams, parseJournalFilter } from "@/lib/filters/journal-filter";
+import {
+  parseUserSendsFilter,
+  userSendsFilterToSearchParams,
+} from "@/lib/filters/user-sends-filter";
 
 it("keeps an exact day in journal and sends URLs, rejecting impossible dates", () => {
   const journal = parseJournalFilter({ date: "2026-09-01" });

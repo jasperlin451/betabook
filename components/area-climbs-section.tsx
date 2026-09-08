@@ -11,8 +11,11 @@ import type {
   SubtreeClimbsSort,
 } from "@/db/queries";
 import { usePagedList } from "@/hooks/use-paged-list";
-import { areaClimbsFilterToSearchParams, type AreaClimbsFilter } from "@/lib/area-climbs-filter";
-import { createClimbListMeta, mergeClimbListMeta } from "@/lib/climb-search-pages";
+import { createClimbListMeta, mergeClimbListMeta } from "@/lib/climb-list-pages";
+import {
+  areaClimbsFilterToSearchParams,
+  type AreaClimbsFilter,
+} from "@/lib/filters/area-climbs-filter";
 
 type AreaClimbsSectionProps = {
   areaId: number;

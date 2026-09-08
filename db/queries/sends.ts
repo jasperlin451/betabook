@@ -2,17 +2,17 @@ import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
 import { areas, climbs, sends, user } from "@/db/schema";
-import type { DateFilterValue } from "@/lib/date-filter";
+import type { DateFilterValue } from "@/lib/filters/date-filter";
 import {
   DEFAULT_BOULDER_RANGE,
   DEFAULT_SPORT_RANGE,
   DEFAULT_TRAD_RANGE,
   type DisciplineFilter,
-} from "@/lib/discipline-filter";
+} from "@/lib/filters/discipline-filter";
 import { formatGrade, type ClimbType } from "@/lib/grades";
 import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
 
-import { areaNameCondition } from "./areas";
+import { areaIdCondition, areaNameCondition } from "./areas";
 import type { Climb } from "./climbs";
 import { sendCommentVisibleSql } from "./content-access";
 import { sendHashtagCondition } from "./hashtag-filter";
@@ -177,6 +177,7 @@ export type UserSendsFilter = DisciplineFilter &
     tags?: string[];
     name?: string;
     areaName?: string;
+    areaId?: number;
     sort?: UserSendsSort;
     ascentStyles: AscentStyle[];
     minRating: number;
@@ -248,7 +249,10 @@ function userSendsWhere(userId: string, filter: UserSendsFilter, viewerId: strin
     );
   }
 
-  const areaCondition = areaNameCondition(filter.areaName);
+  const areaCondition =
+    filter.areaId !== undefined
+      ? areaIdCondition(filter.areaId)
+      : areaNameCondition(filter.areaName);
   if (areaCondition) conditions.push(areaCondition);
 
   return sql.join(conditions, sql` AND `);

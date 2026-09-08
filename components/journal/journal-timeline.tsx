@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadMoreButton } from "@/components/ui/load-more-button";
 import type { AreaBreadcrumbs, JournalCursor, JournalEntry } from "@/db/queries";
 import { usePagedList } from "@/hooks/use-paged-list";
-import { journalFilterToSearchParams, type JournalFilter } from "@/lib/journal-filter";
+import { journalFilterToSearchParams, type JournalFilter } from "@/lib/filters/journal-filter";
 
 type JournalTimelineProps = {
   userId: string;

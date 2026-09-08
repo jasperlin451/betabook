@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getDb } from "@/db/client";
 import { AREA_SEARCH_PAGE_SIZE, getAreaBreadcrumbs, searchAreas } from "@/db/queries";
-import { pageReachesPaginationLimit, parsePage, parseSuggestionLimit } from "@/lib/search-params";
+import { pageReachesPaginationLimit, parsePage, parseSuggestionLimit } from "@/lib/url-params";
 
 /** Backs two callers with the same query.
  *

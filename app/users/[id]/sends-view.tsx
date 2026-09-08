@@ -1,3 +1,4 @@
+import { UserSendsFilterToolbar } from "@/components/filters/sends-filter-toolbar";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { AppLink } from "@/components/ui/app-link";
 import { DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
@@ -5,14 +6,14 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { SidebarLayout } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { SectionHeading } from "@/components/ui/typography";
-import { UserSendList, UserSendsFilterToolbar } from "@/components/user-send-list";
+import { UserSendList } from "@/components/user-send-list";
 import { getDb } from "@/db/client";
 import { getAreaBreadcrumbs, getSendsForUserPage, getUserSendsSummary } from "@/db/queries";
 import type { UserSendsFilter } from "@/db/queries";
 import { getUserHashtags } from "@/db/queries/hashtag-filter";
+import { userSendsFilterToSearchParams } from "@/lib/filters/user-sends-filter";
 import { formatCount } from "@/lib/format";
 import { formatDate } from "@/lib/format-date";
-import { userSendsFilterToSearchParams } from "@/lib/user-sends-filter";
 
 export async function SendsView({
   userId,

@@ -41,12 +41,16 @@ for (const story of ["selection", "maximum"]) {
   test(`journal friend picker supports ${story}`, async ({ page }, testInfo) => {
     await openStory(page, testInfo, `components-journal-companion-picker--${story}`);
     if (story === "maximum") {
-      await expect(page.getByRole("status")).toContainText("All 10 places filled");
+      await expect(page.getByRole("status", { name: "Selected friends count" })).toContainText(
+        "All 10 places filled",
+      );
       await expect(page.getByRole("combobox")).toHaveCount(0);
       await page
         .getByRole("button", { name: "Remove friend Climbing friend 1", exact: true })
         .click();
-      await expect(page.getByRole("status")).toContainText("9 of 10");
+      await expect(page.getByRole("status", { name: "Selected friends count" })).toContainText(
+        "9 of 10",
+      );
     }
     const input = page.getByRole("combobox", { name: "Find a friend to tag" });
     await input.fill("Alex");
@@ -73,8 +77,10 @@ for (const story of ["selection", "maximum"]) {
       page.getByRole("button", { name: "Clear friend tags", exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Clear friend tags", exact: true }).click();
-    await expect(page.getByRole("status")).toContainText("0 of 10");
-    await expect(page.getByRole("status")).toContainText(
+    await expect(page.getByRole("status", { name: "Selected friends count" })).toContainText(
+      "0 of 10",
+    );
+    await expect(page.getByRole("status", { name: "Selected friends count" })).toContainText(
       "Friend tags will be cleared when you save",
     );
   });
@@ -108,7 +114,9 @@ test("friend suggestions follow the moved field when adding another friend", asy
   await expect(
     page.getByRole("list", { name: "Selected friends" }).getByRole("button"),
   ).toHaveCount(2);
-  await expect(page.getByRole("status")).toContainText("2 of 10");
+  await expect(page.getByRole("status", { name: "Selected friends count" })).toContainText(
+    "2 of 10",
+  );
   await input.fill("zzz");
   await expect(page.getByText("No matching friends. Try a more specific name.")).toBeVisible();
   await input.fill("");
@@ -120,24 +128,37 @@ test("journal companion removal keeps the other companion visible", async ({ pag
   await expect(page.getByText("With Alex Rivera", { exact: true })).toBeVisible();
   await expect(page.getByText("Sam With A Long Climbing Name")).toHaveCount(0);
 });
-test("friend lookup errors preserve selection and recover on a new query", async ({
-  page,
-}, testInfo) => {
-  await openStory(page, testInfo, "components-journal-companion-picker--unavailable");
-  await expect(
-    page.getByRole("button", { name: "Remove friend Sam With A Long Climbing Name" }),
-  ).toBeVisible();
-  await expect(page.getByRole("alert")).toContainText("Couldn't load friends");
-  await expect(page.getByRole("status")).toContainText("1 of 10");
-  await expect(
-    page.getByRole("button", { name: "Remove friend Sam With A Long Climbing Name" }),
-  ).toBeVisible();
-  await page.getByRole("combobox", { name: "Find a friend to tag" }).fill("Alex R");
-  await page.getByRole("option", { name: "Alex Rivera", exact: true }).click();
-  await expect(page.getByRole("alert")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Remove friend Alex Rivera" })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Remove friend Sam With A Long Climbing Name" }),
-  ).toBeVisible();
-  await expect(page.getByRole("status")).toContainText("2 of 10");
-});
+for (const recovery of ["Retry", "a new query"]) {
+  test(`friend lookup errors preserve selection and recover on ${recovery}`, async ({
+    page,
+  }, testInfo) => {
+    await openStory(page, testInfo, "components-journal-companion-picker--unavailable");
+    const input = page.getByRole("combobox", { name: "Find a friend to tag" });
+    await input.press("ArrowDown");
+    await expect(page.getByText("Search unavailable.")).toBeVisible();
+    await input.press("Tab");
+    await expect(page.getByRole("alert")).toContainText("Couldn’t load friends");
+    await expect(page.getByRole("status", { name: "Selected friends count" })).toContainText(
+      "1 of 10",
+    );
+    await expect(
+      page.getByRole("button", { name: "Remove friend Sam With A Long Climbing Name" }),
+    ).toBeVisible();
+    if (recovery === "Retry") {
+      await page.getByRole("button", { name: "Retry", exact: true }).click();
+      await input.press("ArrowDown");
+    } else {
+      await input.fill("Alex R");
+    }
+    await expect(page.getByRole("option", { name: "Alex Rivera", exact: true })).toBeVisible();
+    await page.getByRole("option", { name: "Alex Rivera", exact: true }).click();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Remove friend Alex Rivera" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Remove friend Sam With A Long Climbing Name" }),
+    ).toBeVisible();
+    await expect(page.getByRole("status", { name: "Selected friends count" })).toContainText(
+      "2 of 10",
+    );
+  });
+}

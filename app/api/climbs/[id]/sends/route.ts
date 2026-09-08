@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { CLIMB_SENDS_PAGE_SIZE, getClimb, getSendsForClimb } from "@/db/queries";
 import { parseId } from "@/lib/parse-id";
-import { offsetReachesPaginationLimit, parseOffset } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
+import { offsetReachesPaginationLimit, parseOffset } from "@/lib/url-params";
 
 const headers = { "Cache-Control": "private, no-store" };
 

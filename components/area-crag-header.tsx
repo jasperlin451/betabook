@@ -7,7 +7,7 @@ import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { PageTitle } from "@/components/ui/typography";
 import type { Area } from "@/db/queries";
-import type { AreaClimbsFilter } from "@/lib/area-climbs-filter";
+import type { AreaClimbsFilter } from "@/lib/filters/area-climbs-filter";
 import { formatCount } from "@/lib/format";
 import type { GradeHistogram } from "@/lib/grade-histogram";
 

@@ -195,7 +195,7 @@ test("calendar selection respects the latest day, clears, and keeps read-only da
 test("filter disclosure retains grade choices and reset clears the selected disciplines", async ({
   page,
 }, info) => {
-  await openStory(page, info, "components-inputs-filter-toolbar--filters");
+  await openStory(page, info, "components-filters-toolbar--filters");
   const boulder = page.getByRole("button", { name: "Boulder", exact: true });
   await boulder.press("Enter");
   await page.getByRole("button", { name: "More filters", exact: true }).press("Enter");

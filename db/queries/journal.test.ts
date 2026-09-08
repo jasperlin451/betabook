@@ -11,7 +11,7 @@ import {
   getJournalSessionsForAnalytics,
   getOpenProjects,
 } from "@/db/queries";
-import { DEFAULT_JOURNAL_FILTER, type JournalFilter } from "@/lib/journal-filter";
+import { DEFAULT_JOURNAL_FILTER, type JournalFilter } from "@/lib/filters/journal-filter";
 import {
   seedFixtureJournalEntry,
   seedFixtureSend,

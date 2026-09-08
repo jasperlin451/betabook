@@ -1,103 +1,91 @@
 "use client";
 
-import { Button, SearchField } from "@heroui/react";
 import { useState } from "react";
 
 import { FriendshipActionButton } from "@/components/friendship-action-button";
-import { SearchModeSwitch, type SearchMode } from "@/components/search-mode-switch";
+import { SearchController } from "@/components/search/search-controller";
 import { AppLink } from "@/components/ui/app-link";
-import { EmptyState } from "@/components/ui/empty-state";
-import { ListRow } from "@/components/ui/list-row";
-import { UserAvatar } from "@/components/ui/user-avatar";
 import { TOUR_DEMO_SEARCH_RESULTS } from "@/lib/product-tour-demo";
+import {
+  EMPTY_SEARCH,
+  type SearchFetcher,
+  type SearchState,
+  type SearchPage,
+  type SearchSnapshot,
+} from "@/lib/search";
 
-/** Search, category changes, and requests use fictional data without navigation or writes. */
+const demoPage = (
+  state: SearchState,
+  kind: SearchState["category"] & ("climb" | "area" | "climber"),
+): SearchPage => {
+  const result = TOUR_DEMO_SEARCH_RESULTS[kind];
+  const matches =
+    !!state.query.trim() && result.name.toLowerCase().startsWith(state.query.trim().toLowerCase());
+  return {
+    items: matches
+      ? [
+          {
+            id: `demo-${kind}`,
+            kind,
+            name: result.name,
+            detail: kind === "climber" ? "Climber" : result.detail,
+            ...(kind === "climb" ? { discipline: "boulder" as const, grade: 5 } : {}),
+            href: "",
+          } as import("@/lib/search").AppSearchResult,
+        ]
+      : [],
+    hasMore: false,
+    nextPage: 2,
+  };
+};
+
+const fetchDemo: SearchFetcher = async (state, kind) => demoPage(state, kind);
+const initialState: SearchState = { ...EMPTY_SEARCH, category: "climber", query: "Riley" };
+const initial: SearchSnapshot = [
+  { kind: "climber", status: "ready", page: demoPage(initialState, "climber") },
+];
+
+/** Uses the live search controller with fictional transport and local actions. */
 export function DemoClimberSearch({ feedHref }: { feedHref: string }) {
-  const [mode, setMode] = useState<SearchMode>("climber");
-  const [query, setQuery] = useState("Riley");
-  const [search, setSearch] = useState("Riley");
+  const [state, setState] = useState(initialState);
   const [requested, setRequested] = useState(false);
-  const result = TOUR_DEMO_SEARCH_RESULTS[mode];
-  const found = search && result.name.toLowerCase().startsWith(search.toLowerCase());
-  const label = mode === "climber" ? "Climber name" : mode === "climb" ? "Climb name" : "Area name";
-
+  const [selected, setSelected] = useState("");
   return (
     <section
       aria-label="Search"
       data-tour-target="friend-search"
       className="flex max-w-2xl flex-col gap-6"
     >
-      <h1 className="sr-only">Search {mode}s</h1>
-      <SearchModeSwitch
-        mode={mode}
-        onSelect={(next) => {
-          if (next === mode) return;
-          setMode(next);
-          setQuery("");
-          setSearch("");
-        }}
-      />
-      {mode === "climber" && (
-        <p className="text-sm text-muted">
-          Search by name to find a climbing partner and send a friend request.
-        </p>
-      )}
-      <form
-        className="flex items-center gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSearch(query.trim());
-        }}
-      >
-        <SearchField
-          aria-label={label}
-          value={query}
-          onChange={setQuery}
-          className="w-full sm:max-w-sm"
-        >
-          <SearchField.Group>
-            <SearchField.SearchIcon />
-            <SearchField.Input maxLength={100} placeholder={`Search ${mode}s by name…`} />
-            <SearchField.ClearButton />
-          </SearchField.Group>
-        </SearchField>
-        <Button type="submit" size="sm">
-          Search
-        </Button>
-      </form>
-      {mode === "climber" && <AppLink href={feedHref}>View your feed</AppLink>}
-      {found ? (
-        <ListRow
-          leading={mode === "climber" ? <UserAvatar name={result.name} size="sm" /> : undefined}
-          title={result.name}
-          subtitle={
-            mode === "climber" ? (requested ? "Waiting for a reply" : undefined) : result.detail
-          }
-          stackActionsOnMobile
-          actions={
-            mode === "climber" ? (
+      <h1 className="sr-only">Search</h1>
+      <SearchController
+        initial={initial}
+        state={state}
+        onChange={setState}
+        fetcher={fetchDemo}
+        onNavigate={(item) => setSelected(item.name)}
+        onExpand={() => {}}
+        renderAction={(item) =>
+          item.kind === "climber" ? (
+            <div>
+              {requested && (
+                <p role="status" className="text-xs text-muted">
+                  Waiting for a reply
+                </p>
+              )}
               <FriendshipActionButton
                 action={requested ? "cancel" : "add"}
-                name={result.name}
+                name={item.name}
                 onPress={(complete) => {
                   setRequested(!requested);
                   complete();
                 }}
               />
-            ) : undefined
-          }
-        />
-      ) : (
-        <EmptyState
-          message={
-            search
-              ? `No ${mode}s found.${mode === "climber" ? " Private profiles aren't listed." : ""}`
-              : mode === "climber"
-                ? "Find a friend or climbing partner by name."
-                : `Search for ${mode === "area" ? "an area" : "a climb"} by name.`
-          }
-        />
-      )}
+            </div>
+          ) : null
+        }
+      />
+      {selected && <p role="status">Selected {selected}</p>}
+      <AppLink href={feedHref}>View your feed</AppLink>
     </section>
   );
 }

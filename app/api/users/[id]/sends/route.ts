@@ -7,13 +7,9 @@ import {
   getUser,
   USER_SENDS_PAGE_SIZE,
 } from "@/db/queries";
-import {
-  offsetReachesPaginationLimit,
-  parseOffset,
-  searchParamsToRecord,
-} from "@/lib/search-params";
+import { parseUserSendsFilter } from "@/lib/filters/user-sends-filter";
 import { getSession } from "@/lib/session";
-import { parseUserSendsFilter } from "@/lib/user-sends-filter";
+import { offsetReachesPaginationLimit, parseOffset, searchParamsToRecord } from "@/lib/url-params";
 import { canViewUser } from "@/lib/user-visibility";
 
 const headers = { "Cache-Control": "private, no-store" };

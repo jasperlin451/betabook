@@ -5,7 +5,7 @@ import { clsx } from "clsx";
 import { X } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { AreaSearchField } from "@/components/area-search-field";
+import { AreaLookup } from "@/components/search/area-lookup";
 import { cardClass } from "@/components/ui/card";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
@@ -397,8 +397,6 @@ export function ImportMatchStep({
   const [unrolled, setUnrolled] = useState<{ filter: Filter; count: number } | null>(null);
   const shown = unrolled?.filter === activeFilter ? unrolled.count : PAGE;
 
-  const [areaQuery, setAreaQuery] = useState("");
-
   const searchState = useOverlayState();
   const [searchTarget, setSearchTarget] = useState<SearchTarget | null>(null);
 
@@ -456,20 +454,19 @@ export function ImportMatchStep({
               <X className="size-3" aria-hidden />
             </button>
           ))}
-          <AreaSearchField
-            value={areaQuery}
-            onChange={setAreaQuery}
-            onSelect={(area) => {
-              if (!preferredAreas.some((a) => a.id === area.id)) {
-                onPreferredAreasChange([...preferredAreas, { id: area.id, name: area.name }]);
-              }
-              setAreaQuery("");
-            }}
-            ariaLabel="Add an area"
-            placeholder="Add an area…"
-            emptyMessage="No matching areas."
-            className="w-full sm:w-64"
-          />
+          <div className="w-full sm:w-64">
+            <AreaLookup
+              label="Add an area"
+              value={null}
+              onChange={(area) => {
+                if (area && !preferredAreas.some((item) => item.id === Number(area.id)))
+                  onPreferredAreasChange([
+                    ...preferredAreas,
+                    { id: Number(area.id), name: area.name },
+                  ]);
+              }}
+            />
+          </div>
         </div>
       </section>
 

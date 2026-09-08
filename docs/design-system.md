@@ -171,8 +171,8 @@ focus treatments, not cards. Do not use these exceptions for a new content panel
 ### File organization
 
 ```text
-components/ui/search-combobox.tsx
-components/ui/search-combobox.stories.tsx
+components/search/search-selection-field.tsx
+components/search/search-selection-field.stories.tsx
 components/privacy-fields.tsx
 components/privacy-fields.stories.tsx
 stories/foundations/    # brand and live token documentation
@@ -190,7 +190,7 @@ Patterns, where they explain how components work together. CSS class helpers
 they do not need pretend component APIs. Feature modules currently exercised
 only inside compositions remain linked to those patterns in the inventory.
 
-Use explicit sidebar titles (`Components/Inputs/Search combobox`, for example),
+Use explicit sidebar titles (`Components/Search/Selection field`, for example),
 so moving files need not rename story URLs. Preserve titles and export names
 because published links and agent references depend on them; update coverage
 links and browser checks when a deliberate rename is needed.
@@ -232,6 +232,79 @@ examples. Sample actions need observable local outcomes; label inert button
 specimens as visual treatments. Error stories must reach the actual error state,
 and form stories should expose submitted values at the save boundary instead of
 inventing a success sentence that hides lost or incorrect data.
+
+## Search and filters
+
+Search finds a record to open or select. Filters narrow a collection already on
+screen. Keep this distinction in module names, props, tests, stories, and labels:
+
+| Concern                           | Ownership                                                                                   | Examples                                                                              |
+| --------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Record search                     | `components/search/`, `hooks/use-search.ts`, `hooks/use-search-lookup.ts`, `lib/search*.ts` | Quick search, full results, climb/area/companion selection                            |
+| List filtering                    | `components/filters/`, `lib/filters/`, `hooks/use-filter-form-navigation.ts`                | Area climbs, Journal text/date/hashtags, Sends, Analytics hashtags, climb refinements |
+| Shared field chrome               | `components/ui/query-input.tsx`                                                             | `SearchInput` and `FilterInput` retain distinct meanings with the same styling        |
+| Shared identities and URL parsing | `lib/area-selection.ts`, `lib/url-params.ts`                                                | Bound area IDs, URLSearchParams parsing, pagination bounds                            |
+
+`FilterToolbar.textFilter` is an inline list filter, never a suggestion menu.
+`ClimbFilterControls` accepts filter state rather than search query/category state.
+The hashtag picker browses existing supplied values locally; it does not call
+record-search endpoints. Searching for an area to use as a filter still uses
+`AreaLookup`, since that interaction selects a record identity. Native names such
+as `URLSearchParams` and Next.js `useSearchParams` refer to URL APIs, not the
+product's Search feature, and remain unchanged.
+
+Storybook separates **Patterns / Search** from **Patterns / Filters**, with
+reusable filter controls under **Components / Filters**. Keep query strings and
+API routes compatible while reorganizing internal modules.
+
+Quick search, full results, local list filters, and workflow pickers share the
+search and filter components in their respective folders. Quick search opens from the
+header or the platform search shortcut. All / Climbs / Areas / Climbers is the
+shared category vocabulary. The current area is an explicit suggestion, never
+an implicit scope, and is offered only in All or Climbs. Climbers are global.
+Search waits for a nonempty name in every category, including the homepage and
+climb picker. Clearing the name returns to the initial prompt without fetching
+unfiltered records. The empty logging picker has one short prompt, with no
+results heading or repeated selection instruction.
+
+The header has one Search button with the platform shortcut; there is no
+duplicate Search navigation link. Full search has one name field and no separate
+area lookup. Logging and merge pickers also omit that field. Import matching
+retains an area lookup for resolving its imported location. Climb picker results
+load 25 at a time; Load more appends the next page. Enter opens an explicitly
+selected ready result; otherwise
+it expands to full results. Escape closes the dialog and restores focus.
+
+The full-results URL preserves query, category, area ID, sort, and filters.
+Category changes reset category-specific refinements. Query edits replace the
+current history entry; category and area choices create history entries. Area
+scope includes the selected area's descendants and distinguishes duplicate
+names by identity. Existing area-name URLs remain readable, while new choices
+write area IDs. Scopes carried from quick search remain visible and removable
+on the full page; legacy area-name filters also have an explicit clear action.
+
+Area climbs, Sends, and Journal use `FilterInput` to filter their list directly without a second
+results menu. Area selection and companion lookup use `SearchSelectionField`;
+free text cannot bind an identity. Logging allows repeats, import search seeds
+text until an area is selected, and merge selection disables the source climb.
+
+`SearchInput`, `SearchCategories`, `SearchResults`, `SearchSelectionField`,
+`SearchSurface` and `SearchPicker` remain controlled display
+components without router, auth, database, or action imports. `SearchController`
+and the app adapters supply transport, URL state, and real navigation. The
+production hooks own debounce, cancellation, per-category Retry, pagination,
+and stale-result protection. Quick search starts fresh on reopening, and full-result navigation uses native links so modified clicks keep working. Storybook replaces network and navigation
+boundaries with deterministic fixtures; fixture IDs never enter app routes or
+writes.
+
+The Patterns / Search journeys and app picker stories exercise those production
+controllers. Named loading, empty, failed, and selected examples also document
+presentation states. The discovery tutorial uses the same controller with local
+sample transport and friend-request actions. Its stable lesson IDs and version
+remain unchanged because the current version 2 update is unreleased.
+
+Review details and verification are recorded in
+[search-design-review.md](search-design-review.md).
 
 ## Preventing regressions
 

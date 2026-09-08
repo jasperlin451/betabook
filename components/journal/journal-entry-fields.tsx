@@ -17,7 +17,7 @@ import { AppLink } from "@/components/ui/app-link";
 import { cardClass, SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import type { JournalEntry, SendableClimb } from "@/db/queries";
-import type { TypeaheadFetcher } from "@/hooks/use-typeahead";
+import type { LookupFetcher } from "@/hooks/use-search-lookup";
 import { GENERIC_ERROR_MESSAGE, type ActionResult } from "@/lib/action-result";
 import { MAX_JOURNAL_BODY_LENGTH, type JournalKind } from "@/lib/journal";
 import type { CompanionOption } from "@/lib/journal-companions";
@@ -26,7 +26,7 @@ import type { AscentStyle, GradeFeel } from "@/lib/sends";
 export type JournalEntryFieldsProps = {
   today: string;
   onSave: (formData: FormData, undated: boolean) => Promise<ActionResult>;
-  companionFetcher?: TypeaheadFetcher<CompanionOption>;
+  companionFetcher?: LookupFetcher<CompanionOption>;
   kind: JournalKind;
   climb?: (SendableClimb & { name: string }) | null;
   hasPriorSend?: boolean;

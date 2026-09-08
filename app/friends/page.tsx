@@ -9,16 +9,16 @@ import { SectionHeading } from "@/components/ui/typography";
 import { ViewerBoundary } from "@/components/viewer-boundary";
 import { getDb } from "@/db/client";
 import { getFriendsPage } from "@/db/queries";
-import type { SearchParamsRecord } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
+import type { UrlParamsRecord } from "@/lib/url-params";
 
 export const metadata: Metadata = { title: "Friends", robots: { index: false } };
 
 export default async function FriendsPage({
   searchParams,
 }: {
-  searchParams: Promise<SearchParamsRecord>;
+  searchParams: Promise<UrlParamsRecord>;
 }) {
   const requestsOnly = (await searchParams).view === "requests";
   const session = await getSession();
