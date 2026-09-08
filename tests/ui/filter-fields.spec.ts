@@ -109,3 +109,24 @@ for (const story of [
     expect(checked).toBeGreaterThan(0);
   });
 }
+
+test("search, sort, and direction controls share the field height including theme borders", async ({
+  page,
+}, info) => {
+  await openStory(page, info, "components-filters-sends-toolbar--default");
+  const search = page
+    .locator('[data-slot="search-field-group"]')
+    .filter({ has: page.getByPlaceholder("Filter sends…") });
+  const sort = page.getByRole("button", { name: /Sort by/ });
+  const direction = page.getByRole("button", { name: "Sort descending", exact: true });
+  for (const border of [null, "4px"]) {
+    if (border)
+      await page.evaluate(
+        (value) => document.documentElement.style.setProperty("--field-border-width", value),
+        border,
+      );
+    const height = await search.evaluate((element) => getComputedStyle(element).height);
+    await expect(sort).toHaveCSS("height", height);
+    await expect(direction).toHaveCSS("height", height);
+  }
+});

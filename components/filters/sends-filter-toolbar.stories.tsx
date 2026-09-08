@@ -85,3 +85,10 @@ export const ActiveCollapsed: StoryObj<typeof meta> = {
     },
   },
 };
+
+export const SingleDay: StoryObj<typeof meta> = {
+  args: { filter: { ...DEFAULT_USER_SENDS_FILTER, date: "2025-06-01" } },
+};
+export const DateRange: StoryObj<typeof meta> = {
+  args: { filter: { ...DEFAULT_USER_SENDS_FILTER, dateFrom: "2025-06-01", dateTo: "2025-08-31" } },
+};
