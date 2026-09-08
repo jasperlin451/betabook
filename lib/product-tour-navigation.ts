@@ -92,7 +92,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
       section: "Account",
       title: "Choose what you share",
       description:
-        "Send commentary and journal entries have separate audiences. Try Public commentary with a Friends-only journal. Turn on Private profile to hide your climbing history from everyone else. Both controls are disabled, and your choices are kept. Audience changes apply to past entries too.",
+        "Send commentary and journal entries have separate audiences. Try Members commentary with a Friends-only journal. Turn on Private profile to hide your climbing history from everyone else. Both controls are disabled, and your choices are kept. Audience changes apply to past entries too.",
       target: "privacy-controls",
     },
   ],
@@ -170,12 +170,21 @@ export function productTourPath(
 ) {
   const steps = PRODUCT_TOUR_STEPS[tourId];
   const step = steps.find((entry) => entry.id === options.stepId) ?? steps[0];
+  return productTourContinuationPath(tourId, { ...options, stepId: step.id });
+}
+
+/** Preserve a locked route without resolving whether its tour or step exists. */
+export function productTourContinuationPath(
+  tourId: string,
+  options: Partial<ProductTourNavigation> & { stepId?: string } = {},
+) {
   const { from, mode } = parseProductTourNavigation(options);
   const query = new URLSearchParams();
   if (from === "account") query.set("from", "account");
   if (mode === "updates") query.set("mode", "updates");
   const search = query.toString();
-  return `/tutorial/${tourId}/${step.id}${search ? `?${search}` : ""}`;
+  const step = options.stepId ? `/${encodeURIComponent(options.stepId)}` : "";
+  return `/tutorial/${encodeURIComponent(tourId)}${step}${search ? `?${search}` : ""}`;
 }
 
 export function productTourExitPath(userId: string, from: ProductTourNavigation["from"]) {

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ProfileHeader, getUserById } from "@/app/users/[id]/profile-shell";
 import { ProjectsView } from "@/app/users/[id]/projects-view";
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { getSession } from "@/lib/session";
 
 type UserProjectsPageProps = {
@@ -11,7 +12,9 @@ type UserProjectsPageProps = {
 
 export async function generateMetadata({ params }: UserProjectsPageProps): Promise<Metadata> {
   const { id } = await params;
-  const [user, session] = await Promise.all([getUserById(id), getSession()]);
+  const session = await getSession();
+  if (!session) return { title: "Member content", robots: { index: false } };
+  const user = await getUserById(id);
   if (!user || session?.user.id !== user.id) notFound();
 
   return { title: `${user.name} · Projects`, robots: { index: false } };
@@ -19,7 +22,9 @@ export async function generateMetadata({ params }: UserProjectsPageProps): Promi
 
 export default async function UserProjectsPage({ params }: UserProjectsPageProps) {
   const { id } = await params;
-  const [user, session] = await Promise.all([getUserById(id), getSession()]);
+  const session = await getSession();
+  if (!session) return <CurrentPageAuthCallout />;
+  const user = await getUserById(id);
   if (!user || session?.user.id !== user.id) notFound();
 
   return (

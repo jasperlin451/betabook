@@ -6,7 +6,7 @@ import type { Database } from "@/db/client";
 function contentVisibleSql(viewerId: string | null, authorId: SQL, audience: SQL): SQL {
   return sql`EXISTS (
     SELECT 1 FROM user content_owner
-    WHERE content_owner.id = ${authorId} AND (
+    WHERE ${viewerId} IS NOT NULL AND content_owner.id = ${authorId} AND (
       content_owner.id = ${viewerId} OR (content_owner.is_private = 0 AND (
         ${audience} = 'public' OR (
           ${audience} = 'friends' AND EXISTS (

@@ -1,0 +1,114 @@
+import { env } from "cloudflare:test";
+import { beforeEach, expect, it, vi } from "vitest";
+
+import { GET as areaClimbs } from "@/app/api/public/areas/[id]/climbs/route";
+import { GET as areaSearch } from "@/app/api/public/search/areas/route";
+import { GET as climbSearch } from "@/app/api/public/search/climbs/route";
+import { createDb } from "@/db/client";
+import { areas, climbs } from "@/db/schema";
+import type { PublicClimbsPage } from "@/lib/public-catalog";
+import { seedFixtureTree } from "@/test/fixtures";
+import { resetDb } from "@/test/reset-db";
+
+vi.mock("@/db/client", async (original) => {
+  const actual = await original<typeof import("@/db/client")>();
+  const { env } = await import("cloudflare:test");
+  return { ...actual, getDb: async () => actual.createDb(env.DB) };
+});
+const db = createDb(env.DB);
+const request = (query: string) =>
+  new Request(`https://betabook.ca/api/public/search/climbs?${query}`);
+const context = (id: string) => ({ params: Promise.resolve({ id }) });
+beforeEach(async () => {
+  await resetDb(db);
+  await seedFixtureTree(db);
+});
+it("returns only area names, identities and hierarchy, including suggestion mode", async () => {
+  for (const query of ["name=Highball", "name=Highball&limit=5"]) {
+    expect(await (await areaSearch(request(query))).json()).toEqual({
+      areas: [
+        {
+          id: 4,
+          parentId: 2,
+          name: "Test Highball Alcove",
+          ancestorPath: "Test Crag > Test Boulders",
+        },
+      ],
+      hasNextPage: false,
+    });
+  }
+});
+it("returns only route names and navigation fields", async () => {
+  expect(await (await climbSearch(request("name=Highball"))).json()).toEqual({
+    climbs: [{ id: 1, name: "Test Highball", areaId: 4, areaName: "Test Highball Alcove" }],
+    areaBreadcrumbs: {
+      4: [
+        { id: 1, name: "Test Crag" },
+        { id: 2, name: "Test Boulders" },
+      ],
+    },
+    hasNextPage: false,
+  });
+});
+it("scopes area name searches to a selected hierarchy by ID or name", async () => {
+  for (const scope of ["areaId=2", "areaName=Boulders"]) {
+    const response = await areaSearch(request(`name=Test&${scope}`));
+    expect(await response.json()).toMatchObject({
+      areas: [{ id: 2 }, { id: 4 }, { id: 5 }],
+      hasNextPage: false,
+    });
+  }
+});
+it("sorts duplicate names by ID and paginates independently of grades and ratings", async () => {
+  await db.insert(climbs).values([
+    { id: 20, areaId: 4, name: "Same", type: "boulder", grade: 1 },
+    { id: 21, areaId: 4, name: "Same", type: "trad", grade: 20 },
+  ]);
+  const read = async (query: string) =>
+    (await (await climbSearch(request(query))).json()) as PublicClimbsPage;
+  const first = await read("name=Same&limit=1");
+  const next = await read("name=Same&limit=1&offset=1");
+  expect(first.climbs.map((row) => row.id)).toEqual([20]);
+  expect(first.hasNextPage).toBe(true);
+  expect(next.climbs.map((row) => row.id)).toEqual([21]);
+  expect(next.hasNextPage).toBe(false);
+  expect((await read("name=Test&sort=name_desc&limit=1")).climbs[0].name).toBe("Test Slab");
+});
+it("keeps area lists inside the requested subtree, including invalid subarea selections", async () => {
+  await db.insert(areas).values({ id: 10, name: "Elsewhere" });
+  await db.insert(climbs).values({ id: 30, areaId: 10, name: "Outside", type: "sport", grade: 10 });
+  const read = async (query: string, id = "2") =>
+    (await (await areaClimbs(request(query), context(id))).json()) as PublicClimbsPage;
+  expect((await read("")).climbs.map((row) => row.id)).toEqual([1, 2]);
+  expect((await read("subarea=4", "1")).climbs.map((row) => row.id)).toEqual([1]);
+  expect((await read("subarea=10&areaId=10")).climbs.map((row) => row.id)).toEqual([1, 2]);
+  expect((await areaClimbs(request(""), context("missing"))).status).toBe(404);
+});
+it.each([
+  "discipline=boulder",
+  "type=trad",
+  "grade=9",
+  "ratingRange=5",
+  "minAscents=10",
+  "sort=grade_asc",
+  "sort=rating_desc",
+  "sort=ascents_desc",
+  "count=1",
+])("rejects protected query %s without exposing matching names", async (query) => {
+  for (const response of [
+    await areaSearch(request(query)),
+    await climbSearch(request(query)),
+    await areaClimbs(request(query), context("missing")),
+  ]) {
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "Not signed in" });
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  }
+});
+it("bounds malformed and excessive pagination without returning protected fields", async () => {
+  const response = await climbSearch(request("name=Test&offset=10001"));
+  expect(await response.json()).toEqual({ climbs: [], areaBreadcrumbs: {}, hasNextPage: false });
+  const invalid = await climbSearch(request("name=Test&limit=bad"));
+  const page: PublicClimbsPage = await invalid.json();
+  expect(page.climbs.map((row) => row.id)).toEqual([4, 3, 1, 2]);
+});

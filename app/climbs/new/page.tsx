@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { NewClimbForm } from "@/components/new-climb-form";
 import { PageTitle } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
 import { getArea, getAreaBreadcrumbs } from "@/db/queries";
 import { isClimbType } from "@/lib/climbs";
 import { getSession } from "@/lib/session";
-import { signInUrl } from "@/lib/sign-in-redirect";
 import { parseAreaId, toArray, type UrlParamsRecord } from "@/lib/url-params";
 
 export const metadata: Metadata = {
@@ -34,17 +33,7 @@ export default async function NewClimbPage({ searchParams }: NewClimbPageProps) 
     type: toArray(params.type).find(isClimbType),
   };
 
-  if (!session) {
-    // Carry the seeds through the round trip, so signing in comes back to the
-    // form already filled rather than an empty one.
-    const search = new URLSearchParams();
-    if (selectedId !== undefined) search.set("areaId", String(selectedId));
-    if (initial.name) search.set("name", initial.name);
-    if (initial.areaName) search.set("areaName", initial.areaName);
-    if (initial.type) search.set("type", initial.type);
-    const query = search.toString();
-    redirect(signInUrl(`/climbs/new${query ? `?${query}` : ""}`));
-  }
+  if (!session) return <CurrentPageAuthCallout />;
 
   const db = selectedId ? await getDb() : null;
   const area = db && selectedId ? await getArea(db, selectedId) : null;

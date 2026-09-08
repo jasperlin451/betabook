@@ -1,0 +1,129 @@
+import { eq, sql, type SQL } from "drizzle-orm";
+
+import type { Database } from "@/db/client";
+import { areas, climbs } from "@/db/schema";
+import {
+  publicHasNextPage,
+  type PublicArea,
+  type PublicAreaResult,
+  type PublicClimb,
+  type PublicClimbsPage,
+  type PublicCatalogOptions,
+} from "@/lib/public-catalog";
+
+import { areaIdCondition, areaNameCondition, getAreaBreadcrumbs } from "./areas";
+import { toFtsPrefixQuery } from "./shared";
+
+const publicAreaColumns = { id: areas.id, name: areas.name, parentId: areas.parentId };
+export async function getPublicArea(db: Database, id: number): Promise<PublicArea | undefined> {
+  return db.select(publicAreaColumns).from(areas).where(eq(areas.id, id)).get();
+}
+export async function getPublicClimb(db: Database, id: number): Promise<PublicClimb | undefined> {
+  return db
+    .select({ id: climbs.id, name: climbs.name, areaId: climbs.areaId, areaName: areas.name })
+    .from(climbs)
+    .innerJoin(areas, eq(areas.id, climbs.areaId))
+    .where(eq(climbs.id, id))
+    .get();
+}
+export async function getPublicAncestors(db: Database, area: PublicArea): Promise<PublicArea[]> {
+  return db.all<PublicArea>(sql`
+    WITH RECURSIVE chain(id, depth) AS (
+      SELECT parent_id, 0 FROM areas WHERE id = ${area.id} AND parent_id IS NOT NULL
+      UNION ALL
+      SELECT areas.parent_id, chain.depth + 1 FROM areas JOIN chain ON chain.id = areas.id WHERE areas.parent_id IS NOT NULL
+    ) SELECT areas.id, areas.name, areas.parent_id AS parentId FROM areas JOIN chain ON chain.id = areas.id ORDER BY chain.depth DESC
+  `);
+}
+export async function getPublicSubareas(db: Database, id: number): Promise<PublicArea[]> {
+  const rows = await db.select(publicAreaColumns).from(areas).where(eq(areas.parentId, id));
+  return rows.sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
+}
+export async function resolvePublicSubarea(
+  db: Database,
+  area: PublicArea,
+  candidate: number | null,
+): Promise<PublicArea> {
+  if (candidate === null || candidate === area.id) return area;
+  const subarea = await getPublicArea(db, candidate);
+  return subarea &&
+    (await getPublicAncestors(db, subarea)).some((ancestor) => ancestor.id === area.id)
+    ? subarea
+    : area;
+}
+
+export async function searchPublicAreas(
+  db: Database,
+  options: PublicCatalogOptions,
+): Promise<{ areas: PublicAreaResult[]; hasNextPage: boolean }> {
+  const query = toFtsPrefixQuery(options.name);
+  if (!query || options.offset === null) return { areas: [], hasNextPage: false };
+  const scope =
+    options.areaId !== undefined
+      ? sql`areas.id IN (
+          WITH RECURSIVE subtree(id) AS (
+            SELECT id FROM areas WHERE id = ${options.areaId}
+            UNION ALL
+            SELECT child.id FROM areas child JOIN subtree ON child.parent_id = subtree.id
+          ) SELECT id FROM subtree
+        )`
+      : areaNameCondition(options.areaName);
+  const rows = await db.all<PublicArea>(sql`
+    SELECT areas.id, areas.name, areas.parent_id AS parentId FROM areas
+    WHERE areas.id IN (SELECT rowid FROM areas_fts WHERE areas_fts MATCH ${query})
+    ${scope ? sql`AND ${scope}` : sql``}
+    ORDER BY areas.name ${options.descending ? sql`DESC` : sql`ASC`}, areas.id
+    LIMIT ${options.pageSize + 1} OFFSET ${options.offset}
+  `);
+  const visible = rows.slice(0, options.pageSize);
+  const breadcrumbs = await getAreaBreadcrumbs(
+    db,
+    visible.map((area) => area.id),
+    1000,
+  );
+  return {
+    areas: visible.map((area) => ({
+      ...area,
+      ancestorPath: (breadcrumbs[area.id] ?? []).map((a) => a.name).join(" > ") || null,
+    })),
+    hasNextPage: publicHasNextPage(rows.length, options),
+  };
+}
+
+/** Public ordering and membership depend only on names and hierarchy, never climb facts. */
+export async function searchPublicClimbs(
+  db: Database,
+  options: PublicCatalogOptions,
+): Promise<PublicClimbsPage> {
+  const empty = { climbs: [], areaBreadcrumbs: {}, hasNextPage: false };
+  if (options.offset === null) return empty;
+  const conditions: SQL[] = [];
+  if (options.name) {
+    const query = toFtsPrefixQuery(options.name);
+    if (!query) return empty;
+    conditions.push(
+      sql`climbs.id IN (SELECT rowid FROM climbs_fts WHERE climbs_fts MATCH ${query})`,
+    );
+  }
+  const area =
+    options.areaId !== undefined
+      ? areaIdCondition(options.areaId)
+      : areaNameCondition(options.areaName);
+  if (area) conditions.push(area);
+  const rows = await db.all<PublicClimb>(sql`
+    SELECT climbs.id, climbs.name, climbs.area_id AS areaId, areas.name AS areaName
+    FROM climbs JOIN areas ON areas.id = climbs.area_id
+    ${conditions.length ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
+    ORDER BY climbs.name ${options.descending ? sql`DESC` : sql`ASC`}, climbs.id
+    LIMIT ${options.pageSize + 1} OFFSET ${options.offset}
+  `);
+  const visible = rows.slice(0, options.pageSize);
+  return {
+    climbs: visible,
+    areaBreadcrumbs: await getAreaBreadcrumbs(
+      db,
+      visible.map((climb) => climb.areaId),
+    ),
+    hasNextPage: publicHasNextPage(rows.length, options),
+  };
+}

@@ -9,6 +9,7 @@ import { LoadMoreButton } from "@/components/ui/load-more-button";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import type { FriendRow, FriendsPage } from "@/db/queries";
 import { usePagedList } from "@/hooks/use-paged-list";
+import { apiFetch } from "@/lib/api-client";
 import { signInUrl } from "@/lib/sign-in-redirect";
 
 export function FriendList({
@@ -26,7 +27,7 @@ export function FriendList({
     itemKey: (row) => row.id,
     mergeMeta: () => null,
     fetchPage: async (offset, _page, _last, signal) => {
-      const response = await fetch(
+      const response = await apiFetch(
         `/api/friends?offset=${offset}&view=${requestsOnly ? "requests" : "all"}`,
         { cache: "no-store", signal },
       );

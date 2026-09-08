@@ -41,8 +41,8 @@ export function PrivacyFields({
         </Switch>
         <p className="text-xs text-muted">
           {isPrivate
-            ? "Only you can see your profile and climbing history. Friends and request recipients can still see your name. Your saved audiences will apply when your profile is public."
-            : "Everyone can see your profile and send details: climbs, dates, ascent styles, ratings, and grades. Choose who can read your commentary and journal below."}
+            ? "Only you can see your profile and climbing history. Friends and request recipients can still see your name. Your saved audiences will apply when your profile is visible to members."
+            : "Signed-in Betabook members can see your profile and send details: climbs, dates, ascent styles, ratings, and grades. Choose who can read your commentary and journal below."}
         </p>
         {profileError && (
           <p role="alert" className="text-sm text-danger">
@@ -70,7 +70,7 @@ export function PrivacyFields({
       </div>
       <p className="text-xs text-muted">
         {!isPrivate &&
-          "Friends means an accepted friend request. Audiences apply to past and future entries. "}
+          "Members means signed-in Betabook users. Friends means an accepted friend request. Audiences apply to past and future entries. "}
         Your sends still count toward community ratings.
       </p>
     </div>

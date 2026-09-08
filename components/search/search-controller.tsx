@@ -1,13 +1,17 @@
 "use client";
 import type { ReactNode } from "react";
 
+import { AuthCallout } from "@/components/auth-callout";
 import { ClimbFilterControls } from "@/components/filters/climb-filter-controls";
 import { useSearch } from "@/hooks/use-search";
 import type { AreaSelection } from "@/lib/area-selection";
 import { DEFAULT_CLIMB_FILTER } from "@/lib/filters/climb-filter";
 import { withClimbFilterArea } from "@/lib/filters/climb-filter-state";
+import { searchHref } from "@/lib/search";
 import type { AppSearchResult, SearchFetcher, SearchSnapshot, SearchState } from "@/lib/search";
+import { fetchPublicSearchPage, fetchSearchPage } from "@/lib/search-client";
 
+import { PublicSearchFilters } from "./public-search-filters";
 import { QuickSearchDialog, SearchSurface } from "./search-surface";
 
 const ignoreOpenChange = () => {};
@@ -26,6 +30,7 @@ export function SearchController({
   suggestedArea,
   renderAction,
   resultHref,
+  publicOnly = false,
 }: {
   state: SearchState;
   onChange: (state: SearchState) => void;
@@ -39,8 +44,16 @@ export function SearchController({
   suggestedArea?: AreaSelection;
   renderAction?: (item: AppSearchResult) => ReactNode;
   resultHref?: (item: AppSearchResult) => string;
+  publicOnly?: boolean;
 }) {
-  const search = useSearch({ state, initial, fetcher, enabled: isOpen, preview: quick });
+  const search = useSearch({
+    state,
+    initial,
+    fetcher: fetcher ?? (publicOnly ? fetchPublicSearchPage : fetchSearchPage),
+    enabled: isOpen,
+    preview: quick,
+    publicOnly,
+  });
   const props = {
     query: state.query,
     onQueryChange: (query: string) => onChange({ ...state, query }),
@@ -89,33 +102,42 @@ export function SearchController({
           return current ? renderAction(current) : null;
         }
       : undefined,
-    filters:
-      !quick && state.category === "climb" ? (
-        <ClimbFilterControls
-          value={state}
-          onChange={(next) => onChange({ ...state, ...next })}
-          activeFilters={
-            state.query
-              ? [
-                  {
-                    id: "query",
-                    label: `Search: ${state.query}`,
-                    onRemove: () => onChange({ ...state, query: "" }),
-                  },
-                ]
-              : []
-          }
-          onReset={() =>
-            onChange({
-              ...state,
-              query: "",
-              filter: DEFAULT_CLIMB_FILTER,
-              area: null,
-              sort: "name_asc",
-            })
-          }
-        />
-      ) : undefined,
+    memberNotice: publicOnly ? (
+      <AuthCallout
+        next={searchHref(state)}
+        onNavigate={quick ? () => onOpenChange(false) : undefined}
+      />
+    ) : undefined,
+    filters: publicOnly ? (
+      !quick && (state.category === "climb" || state.category === "all") ? (
+        <PublicSearchFilters state={state} onChange={onChange} />
+      ) : undefined
+    ) : !quick && state.category === "climb" ? (
+      <ClimbFilterControls
+        value={state}
+        onChange={(next) => onChange({ ...state, ...next })}
+        activeFilters={
+          state.query
+            ? [
+                {
+                  id: "query",
+                  label: `Search: ${state.query}`,
+                  onRemove: () => onChange({ ...state, query: "" }),
+                },
+              ]
+            : []
+        }
+        onReset={() =>
+          onChange({
+            ...state,
+            query: "",
+            filter: DEFAULT_CLIMB_FILTER,
+            area: null,
+            sort: "name_asc",
+          })
+        }
+      />
+    ) : undefined,
   };
   return quick ? (
     <QuickSearchDialog {...props} isOpen={isOpen} onOpenChange={onOpenChange} />

@@ -142,8 +142,11 @@ describe.each(GATED_READS)("$name", ({ name, read, empty, visible }) => {
     expect(await read(OWNER_ID, OWNER_ID)).toEqual(visible);
   });
 
-  it("returns public journal data while keeping Projects owner-only", async () => {
+  it("shares journals with members while keeping anonymous access and Projects restricted", async () => {
     await db.update(user).set({ journalVisibility: "public" }).where(eq(user.id, OWNER_ID));
-    expect(await read(OWNER_ID, null)).toEqual(name === "getOpenProjects" ? empty : visible);
+    expect(await read(OWNER_ID, null)).toEqual(empty);
+    expect(await read(OWNER_ID, "someone-else")).toEqual(
+      name === "getOpenProjects" ? empty : visible,
+    );
   });
 });

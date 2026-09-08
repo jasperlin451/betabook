@@ -100,7 +100,7 @@ it("suggests only this user's visible tags and distinguishes ascents from sessio
     "trip-long",
   ]);
   await db.run(sql`UPDATE user SET journal_visibility = 'public' WHERE id = 'owner'`);
-  expect(await getUserHashtags(db, "owner", null, true)).toEqual(["trip", "trip-long"]);
+  expect(await getUserHashtags(db, "owner", "reader", true)).toEqual(["trip", "trip-long"]);
   await db.run(sql`UPDATE user SET journal_visibility = 'private' WHERE id = 'owner'`);
   expect(await getUserHashtags(db, "owner", null)).toEqual([]);
   expect(await getJournalSessionsForAnalytics(db, "owner", null, ["trip"])).toEqual([]);

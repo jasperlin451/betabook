@@ -1,12 +1,11 @@
 import { getDb } from "@/db/client";
 import { getClimbersPage } from "@/db/queries";
-import { getSession } from "@/lib/session";
+import { withApiSession } from "@/lib/api-session";
 import { parseOffset, offsetReachesPaginationLimit } from "@/lib/url-params";
 
-export async function GET(request: Request) {
+export const GET = withApiSession(async (session, request: Request) => {
   const params = new URL(request.url).searchParams;
   const offset = parseOffset(params);
-  const session = await getSession();
   const page =
     offset === null
       ? { climbers: [], hasMore: false }
@@ -18,4 +17,4 @@ export async function GET(request: Request) {
     { ...page, hasMore: page.hasMore && !offsetReachesPaginationLimit(offset ?? 0, 20) },
     { headers: { "Cache-Control": "private, no-store" } },
   );
-}
+});

@@ -71,7 +71,7 @@ it.each<SharingAudience>(["private", "public", "friends"])(
       const isFriend = viewer === "connected";
       const canRead =
         viewer === "author" ||
-        journalVisibility === "public" ||
+        (viewer !== null && journalVisibility === "public") ||
         (journalVisibility === "friends" && isFriend);
       expect(await canReadJournal(db, ownerId, viewer)).toBe(canRead);
       expect((await getJournalCounts(db, ownerId, viewer, "2026-09")).entries).toBe(

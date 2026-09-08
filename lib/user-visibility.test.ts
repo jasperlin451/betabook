@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { canViewUser } from "./user-visibility";
 
 describe("canViewUser", () => {
-  it("allows anyone to view a public profile", () => {
-    expect(canViewUser({ id: "alice", isPrivate: false }, null)).toBe(true);
+  it("requires login to view a member-visible profile", () => {
+    expect(canViewUser({ id: "alice", isPrivate: false }, null)).toBe(false);
     expect(canViewUser({ id: "alice", isPrivate: false }, "bob")).toBe(true);
   });
 

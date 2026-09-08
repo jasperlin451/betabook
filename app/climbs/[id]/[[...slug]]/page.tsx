@@ -3,6 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
 
 import { ASCENT_STYLE_LABELS } from "@/components/ascent-style";
+import { AuthCallout } from "@/components/auth-callout";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { ClimbActionsMenu } from "@/components/climb-actions-menu";
 import { ClimbDescription } from "@/components/climb-description";
@@ -32,6 +33,7 @@ import {
   getSendsForClimb,
   getUserSendForClimb,
 } from "@/db/queries";
+import { getPublicArea, getPublicAncestors, getPublicClimb } from "@/db/queries/public-catalog";
 import { buildLoggedGradeRows } from "@/lib/grade-histogram";
 import { formatGrade } from "@/lib/grades";
 import type { AscentStyle as AscentStyleType } from "@/lib/sends";
@@ -71,7 +73,7 @@ export async function generateMetadata({
   const climbId = Number(id);
   if (!Number.isInteger(climbId)) notFound();
 
-  const climb = await getClimbById(climbId);
+  const climb = await getPublicClimb(await getDb(), climbId);
   if (!climb) notFound();
 
   // Normalize any other spelling of the URL (no slug, stale slug, extra
@@ -83,9 +85,9 @@ export async function generateMetadata({
     permanentRedirect(withQuery(climbHref(climb.id, climb.name), search));
   }
 
-  const area = await getAreaById(climb.areaId);
+  const area = await getPublicArea(await getDb(), climb.areaId);
   if (!area) notFound();
-  const ancestors = await getAreaAncestors(area);
+  const ancestors = await getPublicAncestors(await getDb(), area);
 
   const trail = locationTrail([...ancestors.map((a) => a.name), area.name]);
   return pageMetadata({
@@ -107,7 +109,41 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
   // waterfalling: the db handle, the climb row, and the session don't depend
   // on each other; the sends queries need only the climb; and the ancestor
   // chain needs the area row's parentId.
-  const [db, climb, session] = await Promise.all([getDb(), getClimbById(climbId), getSession()]);
+  const session = await getSession();
+  const db = await getDb();
+  if (!session) {
+    const climb = await getPublicClimb(db, climbId);
+    if (!climb) notFound();
+    const path = climbHref(climb.id, climb.name);
+    if ((slug?.join("/") ?? "") !== slugify(climb.name)) permanentRedirect(withQuery(path, search));
+    const area = await getPublicArea(db, climb.areaId);
+    if (!area) notFound();
+    const ancestors = await getPublicAncestors(db, area);
+    const trail = locationTrail([...ancestors.map((a) => a.name), area.name]);
+    return (
+      <div className="flex flex-col gap-6">
+        <JsonLd
+          data={climbJsonLd({
+            name: climb.name,
+            path,
+            description: climbDescription(climb, trail),
+            crumbs: [
+              { name: "Home", path: "/" },
+              ...[...ancestors, area].map((a) => ({ name: a.name, path: areaHref(a.id, a.name) })),
+              { name: climb.name, path },
+            ],
+          })}
+        />
+        <AreaBreadcrumbs ancestors={[...ancestors, area]} current={climb} />
+        <PageTitle>{climb.name}</PageTitle>
+        <AuthCallout
+          next={withQuery(path, search)}
+          description="Sign in to see this climb’s grade, description, ratings, and ascent history."
+        />
+      </div>
+    );
+  }
+  const climb = await getClimbById(climbId);
   if (!climb) notFound();
 
   if ((slug?.join("/") ?? "") !== slugify(climb.name)) {

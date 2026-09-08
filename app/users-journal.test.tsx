@@ -112,7 +112,8 @@ describe("the profile's default view", () => {
     expect(view.props.filter).toMatchObject({ sort: "grade_desc" });
   });
 
-  it("renders a public journal for a visitor", async () => {
+  it("renders a member-shared journal for a signed-in visitor", async () => {
+    state.session = { user: { id: "visitor" } };
     state.user.journalVisibility = "public";
 
     const result = await UserPage({

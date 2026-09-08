@@ -1,8 +1,8 @@
 /**
  * Helpers for the `?next=` continuation param on /sign-in and /sign-up.
  *
- * Auth gates (middleware and page-level session checks) send signed-out
- * users to `/sign-in?next=<destination>`; on a successful sign-in the form
+ * Authentication callouts link signed-out users to
+ * `/sign-in?next=<destination>`; on a successful sign-in the form
  * returns them to that destination instead of unconditionally to /account.
  * Sign-up carries the same param through its "sign in" links and the
  * post-verification callback so the continuation survives the whole

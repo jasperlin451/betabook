@@ -9,7 +9,7 @@ export const SAMPLE_AREAS: AreaSelection[] = [
   { id: "area-11", name: "Lower boulders", path: "California / North Woods / Cedar Grove" },
 ];
 
-export type SearchFixture = SearchResult & {
+export type SearchFixture = Exclude<SearchResult, { kind: "climb"; discipline?: never }> & {
   areaId?: string;
   rating?: number;
   sent?: boolean;

@@ -9,7 +9,7 @@ test(
     await page.goto(`${appBaseURL}/?mode=climb&areaName=Cedar`);
     const scope = page.getByRole("button", { name: "Clear area name Cedar" });
     await expect(scope).toBeVisible();
-    await page.getByRole("button", { name: "Boulder", exact: true }).click();
+    await page.getByRole("button", { name: "Reverse name order" }).click();
     await expect(page).toHaveURL(/areaName=Cedar/);
     await expect(scope).toBeVisible();
     await scope.click();
@@ -45,7 +45,7 @@ test(
   "app full search restores an explicit area ID and query with browser history",
   { tag: "@behavior" },
   async ({ page }, testInfo) => {
-    await page.route("**/api/search/climbs?**", async (route) => {
+    await page.route("**/api/public/search/climbs?**", async (route) => {
       const id = new URL(route.request().url()).searchParams.get("areaId");
       await route.fulfill({
         json: {
@@ -114,7 +114,7 @@ test(
   "full search navigation results support opening another tab",
   { tag: "@behavior" },
   async ({ page, context }) => {
-    await page.route("**/api/search/climbs?**", (route) =>
+    await page.route("**/api/public/search/climbs?**", (route) =>
       route.fulfill({
         json: {
           climbs: [

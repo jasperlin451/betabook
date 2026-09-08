@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { JournalView } from "@/app/users/[id]/journal-view";
 import { ProfileHeader, getUserById, canReadUserJournal } from "@/app/users/[id]/profile-shell";
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { parseJournalFilter } from "@/lib/filters/journal-filter";
 import { getSession } from "@/lib/session";
 import type { UrlParamsRecord } from "@/lib/url-params";
@@ -14,7 +15,9 @@ type UserJournalPageProps = {
 
 export async function generateMetadata({ params }: UserJournalPageProps): Promise<Metadata> {
   const { id } = await params;
-  const [user, session] = await Promise.all([getUserById(id), getSession()]);
+  const session = await getSession();
+  if (!session) return { title: "Member content", robots: { index: false } };
+  const user = await getUserById(id);
   if (!user || !(await canReadUserJournal(user.id, session?.user.id ?? null))) notFound();
 
   return { title: `${user.name} · Journal`, robots: { index: false } };
@@ -22,7 +25,9 @@ export async function generateMetadata({ params }: UserJournalPageProps): Promis
 
 export default async function UserJournalPage({ params, searchParams }: UserJournalPageProps) {
   const [{ id }, search] = await Promise.all([params, searchParams]);
-  const [user, session] = await Promise.all([getUserById(id), getSession()]);
+  const session = await getSession();
+  if (!session) return <CurrentPageAuthCallout />;
+  const user = await getUserById(id);
   const viewerId = session?.user.id ?? null;
 
   if (!user || !(await canReadUserJournal(user.id, viewerId))) notFound();

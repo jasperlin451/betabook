@@ -138,9 +138,9 @@ it("propagates the viewer to profile and climb send notes without caching restri
     expect(await visible.json()).toMatchObject({ sends: [{ comment: "Friends-only note" }] });
   }
   state.viewer = null;
-  expect((await journal(request("/api/users/author/journal"), owner)).status).toBe(404);
+  expect((await journal(request("/api/users/author/journal"), owner)).status).toBe(401);
   expect(await (await sends(request("/api/users/author/sends"), owner)).json()).toMatchObject({
-    sends: [{ comment: null }],
+    error: "Not signed in",
   });
 });
 
@@ -179,7 +179,7 @@ it.each([
       isAscent: true,
       body: "Friends-only note",
     });
-    state.viewer = null;
+    state.viewer = "reader";
     expect(await (await sends(request("/api/users/author/sends"), owner)).json()).toMatchObject({
       sends: [{ comment }],
     });

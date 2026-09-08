@@ -1,9 +1,9 @@
 import { buttonVariants } from "@heroui/react";
 import { ShieldCheck, Upload } from "lucide-react";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 
 import { AccountFriendRequests } from "@/components/account-friend-requests";
+import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { DisplayNameForm } from "@/components/display-name-form";
 import { ExportSendsButton } from "@/components/export-sends-button";
@@ -20,7 +20,6 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { getDb } from "@/db/client";
 import { getUser } from "@/db/queries";
 import { getSession, isAdmin } from "@/lib/session";
-import { signInUrl } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {
   title: "Account",
@@ -53,7 +52,7 @@ export default async function AccountPage() {
   const session = await getSession();
 
   if (!session) {
-    redirect(signInUrl("/account"));
+    return <CurrentPageAuthCallout />;
   }
 
   const db = await getDb();

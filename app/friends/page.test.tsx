@@ -19,8 +19,8 @@ it.each([
 ] satisfies [UrlParamsRecord, string][])(
   "preserves the Requests email destination through sign-in for %j",
   async (params, destination) => {
-    await expect(FriendsPage({ searchParams: Promise.resolve(params) })).rejects.toThrow(
-      `redirect:${destination}`,
-    );
+    expect(await FriendsPage({ searchParams: Promise.resolve(params) })).toMatchObject({
+      props: { next: decodeURIComponent(destination.split("next=")[1]) },
+    });
   },
 );

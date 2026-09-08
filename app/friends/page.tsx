@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import { ProfileHeader, getUserById } from "@/app/users/[id]/profile-shell";
+import { AuthCallout } from "@/components/auth-callout";
 import { FriendList } from "@/components/friend-list";
 import { FriendTabs } from "@/components/friend-tabs";
 import { AppLink } from "@/components/ui/app-link";
@@ -10,7 +11,6 @@ import { ViewerBoundary } from "@/components/viewer-boundary";
 import { getDb } from "@/db/client";
 import { getFriendsPage } from "@/db/queries";
 import { getSession } from "@/lib/session";
-import { signInUrl } from "@/lib/sign-in-redirect";
 import type { UrlParamsRecord } from "@/lib/url-params";
 
 export const metadata: Metadata = { title: "Friends", robots: { index: false } };
@@ -22,7 +22,7 @@ export default async function FriendsPage({
 }) {
   const requestsOnly = (await searchParams).view === "requests";
   const session = await getSession();
-  if (!session) redirect(signInUrl(requestsOnly ? "/friends?view=requests" : "/friends"));
+  if (!session) return <AuthCallout next={requestsOnly ? "/friends?view=requests" : "/friends"} />;
   const db = await getDb();
   const [page, owner] = await Promise.all([
     getFriendsPage(db, session.user.id, requestsOnly),

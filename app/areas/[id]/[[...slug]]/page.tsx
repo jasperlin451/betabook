@@ -27,6 +27,7 @@ import {
   getUserSentClimbIds,
   resolveSubareaScope,
 } from "@/db/queries";
+import { getPublicArea, getPublicAncestors } from "@/db/queries/public-catalog";
 import {
   parseAreaClimbsFilter,
   parseAreaClimbsSort,
@@ -37,6 +38,8 @@ import { areaDescription, areaJsonLd, areaTitle, locationTrail, pageMetadata } f
 import { getSession } from "@/lib/session";
 import { areaHref, slugify, withQuery } from "@/lib/slug";
 import type { UrlParamsRecord } from "@/lib/url-params";
+
+import { PublicAreaPage } from "./public-area-page";
 
 type AreaPageProps = {
   // Optional catch-all: `slug` is undefined for /areas/:id and a segment
@@ -65,7 +68,7 @@ export async function generateMetadata({ params, searchParams }: AreaPageProps):
   const areaId = Number(id);
   if (!Number.isInteger(areaId)) notFound();
 
-  const area = await getAreaById(areaId);
+  const area = await getPublicArea(await getDb(), areaId);
   if (!area) notFound();
 
   // Normalize any other spelling of the URL to the canonical id + slug,
@@ -79,7 +82,7 @@ export async function generateMetadata({ params, searchParams }: AreaPageProps):
     permanentRedirect(withQuery(areaHref(area.id, area.name), search));
   }
 
-  const ancestors = await getAreaAncestors(area);
+  const ancestors = await getPublicAncestors(await getDb(), area);
 
   const trail = locationTrail(ancestors.map((a) => a.name));
   return pageMetadata({
@@ -98,7 +101,15 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
   // Grouped by dependency tier so independent fetches overlap instead of
   // waterfalling — the area row and the session don't depend on each other.
   const db = await getDb();
-  const [area, session] = await Promise.all([getAreaById(areaId), getSession()]);
+  const session = await getSession();
+  if (!session) {
+    const area = await getPublicArea(db, areaId);
+    if (!area) notFound();
+    if ((slug?.join("/") ?? "") !== slugify(area.name))
+      permanentRedirect(withQuery(areaHref(area.id, area.name), search));
+    return <PublicAreaPage area={area} search={search} />;
+  }
+  const area = await getAreaById(areaId);
   if (!area) notFound();
 
   if ((slug?.join("/") ?? "") !== slugify(area.name)) {

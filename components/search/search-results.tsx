@@ -43,7 +43,7 @@ export function SearchResultContent({
           <span className="block text-xs text-muted">{item.disabledReason ?? "Selected"}</span>
         )}
       </span>
-      {item.kind === "climb" && !picking && item.stats ? (
+      {item.kind === "climb" && item.discipline !== undefined && !picking && item.stats ? (
         <span className="flex shrink-0 flex-col items-end gap-1 text-sm">
           <span className="flex items-center gap-2">
             <Grade>{formatGrade(item.discipline, item.grade)}</Grade>
@@ -60,7 +60,8 @@ export function SearchResultContent({
           <span className="text-xs text-muted">{formatCount(item.stats.sendCount, "ascent")}</span>
         </span>
       ) : (
-        item.kind === "climb" && (
+        item.kind === "climb" &&
+        item.discipline !== undefined && (
           <span className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
             <Grade className="justify-end sm:w-14">
               {formatGrade(item.discipline, item.grade)}
@@ -225,6 +226,11 @@ function ResultState({
 }) {
   return (
     <>
+      {section.status === "locked" && (
+        <p className="px-3 py-4 text-sm text-muted">
+          Sign in to view {SEARCH_LABELS[section.kind].toLowerCase()}.
+        </p>
+      )}
       {section.status === "loading" && (
         <div role="status" className="flex flex-col gap-2 p-3 text-sm text-muted">
           Searching… <span className="sr-only">{SEARCH_LABELS[section.kind]}</span>

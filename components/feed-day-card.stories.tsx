@@ -146,7 +146,7 @@ export const RemainingActivity: Story = {
 export const SendsOnly: Story = {
   render: () => (
     <StoryPage
-      title="Public sends with a hidden journal"
+      title="Member-visible sends with a hidden journal"
       description="Already-authorized send facts link to Sends when the author's journal is unavailable. This fixture does not test server authorization."
     >
       <FeedDayCard

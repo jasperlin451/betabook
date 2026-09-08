@@ -84,7 +84,7 @@ it("applies the complete author/companion audience intersection to anonymous, se
         const entries = await visible(viewer);
         const canReadAuthor =
           viewer === "author" ||
-          authorAudience === "public" ||
+          (viewer !== null && authorAudience === "public") ||
           (authorAudience === "friends" && (viewer === "partner" || viewer === "viewer"));
         if (!canReadAuthor) {
           expect(entries).toEqual([]);
@@ -106,7 +106,8 @@ it("applies the complete author/companion audience intersection to anonymous, se
   await seedFixtureFriendship(db, "partner", "viewer");
   expect((await visible("viewer"))[0].companions).toMatchObject([{ id: "partner" }]);
   await db.update(user).set({ isPrivate: true }).where(eq(user.id, "partner"));
-  for (const viewer of [null, "author", "partner", "viewer"])
+  expect(await visible(null)).toEqual([]);
+  for (const viewer of ["author", "partner", "viewer"])
     expect((await visible(viewer))[0].companions).toEqual([]);
   await db.update(user).set({ isPrivate: true }).where(eq(user.id, "author"));
   expect(await visible("partner")).toEqual([]);
