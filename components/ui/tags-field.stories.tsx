@@ -12,7 +12,7 @@ const meta = {
     (Story) => (
       <StoryPage
         title="Tags"
-        description="One shared medium-width field for Journal, Sends, Analytics and Log entry. Enter, Space, or comma separate tags."
+        description="One shared medium-width field for Journal, Sends, Analytics and Log entry. Enter, Space, or comma separate tags. Creation fields show a live count beside the label; restrictions appear only for invalid input."
       >
         <Story />
       </StoryPage>
@@ -27,6 +27,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const ExistingTags: Story = {};
 export const CreateTags: Story = {
-  args: { allowCreate: true },
+  args: { allowCreate: true, maxTags: 8 },
 };
 export const Selected: Story = { args: { value: ["trip", "power"] } };

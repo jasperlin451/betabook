@@ -16,11 +16,11 @@ type Story = StoryObj;
 function Widths({ size }: { size?: keyof typeof FIELD_WIDTH_CLASS }) {
   const [query, setQuery] = useState("");
   const [grade, setGrade] = useState(0);
-  const [sort, setSort] = useState("date");
+  const [sort, setSort] = useState("all");
   return (
     <StoryPage
       title="Standard field widths"
-      description="Short: 5rem for grades and Min ascents. Medium: 11rem for dates, Tags, sort and other choices. Long: 24rem for search, text filters and areas. Each shrinks to fit its container. Multiline notes fill the form width."
+      description="Short: 7rem for grades, Min ascents and sorting. Medium: 11rem for dates, Tags and other choices. Long: 24rem for search, text filters and areas. Each shrinks to fit its container. Multiline notes fill the form width."
     >
       {(!size || size === "short") && (
         <section aria-label="Short field">
@@ -35,12 +35,12 @@ function Widths({ size }: { size?: keyof typeof FIELD_WIDTH_CLASS }) {
       {(!size || size === "medium") && (
         <section aria-label="Medium field">
           <OptionSelect
-            ariaLabel="Sort by"
+            ariaLabel="Dates"
             value={sort}
             onChange={setSort}
             options={[
-              { value: "date", label: "Date" },
-              { value: "grade", label: "Grade" },
+              { value: "all", label: "All time" },
+              { value: "year", label: "This year" },
             ]}
             className={FIELD_WIDTH_CLASS.medium}
           />

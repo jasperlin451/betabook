@@ -23,7 +23,6 @@ export function TagInput({
             ? `Tags can contain up to ${MAX_JOURNAL_TAG_LENGTH} characters.`
             : null
       }
-      helperText={`Up to ${MAX_JOURNAL_TAGS} tags, ${MAX_JOURNAL_TAG_LENGTH} characters each. Letters, numbers and hyphens only.`}
     />
   );
 }

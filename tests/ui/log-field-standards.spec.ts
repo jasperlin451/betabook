@@ -14,7 +14,7 @@ test("Log entry uses shared date and grade widths and direct friend copy", async
   await page.getByRole("checkbox", { name: "I sent", exact: true }).press("Space");
   const grade = await page.getByRole("button", { name: /Suggested grade$/ }).boundingBox();
   if (!grade) throw new Error("Missing grade field");
-  expect(grade.width).toBe(80);
+  expect(grade.width).toBe(112);
   await page.screenshot({
     path: info.outputPath("log-fields.png"),
     fullPage: true,
@@ -29,7 +29,7 @@ test("rope grades use short fields without truncating the selected grade", async
   const field = page.getByRole("button", { name: /Min grade$/ });
   const box = await field.boundingBox();
   if (!box) throw new Error("Missing rope field");
-  expect(box.width).toBe(80);
+  expect(box.width).toBe(112);
   const value = field.locator('[data-slot="select-value"]');
   expect(await value.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
 });

@@ -43,7 +43,7 @@ test("tag feedback is associated, readable and uses the invalid field treatment"
   await expect(page.getByRole("button", { name: "Remove tag hangboard" })).toBeVisible();
   await expect(input).not.toHaveAttribute("aria-invalid", "true");
   await expect(error).toHaveCount(0);
-  await expect(input).toHaveAccessibleDescription(/Up to 8 tags/);
+  await expect(input).toHaveAccessibleDescription("Enter, Space, or comma to add.");
   await input.press("Tab");
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
@@ -84,8 +84,8 @@ test("sort direction matches its field size and works from the keyboard", async 
   const fieldBox = await select.boundingBox();
   const directionBox = await direction.boundingBox();
   if (!labelBox || !fieldBox || !directionBox) throw new Error("Missing sort controls");
-  expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(fieldBox.y);
-  expect(labelBox.x).toBeCloseTo(fieldBox.x);
+  expect(labelBox.x + labelBox.width).toBeLessThanOrEqual(fieldBox.x);
+  expect(labelBox.y + labelBox.height / 2).toBeCloseTo(fieldBox.y + fieldBox.height / 2);
   expect(directionBox.y).toBeCloseTo(fieldBox.y);
   const height = await select.evaluate((element) => getComputedStyle(element).height);
   await expect(direction).toHaveCSS("height", height);

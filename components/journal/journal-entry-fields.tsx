@@ -14,6 +14,7 @@ import {
 } from "@/components/send-fields";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass, SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { FieldHeader } from "@/components/ui/field-support";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { RatingField } from "@/components/ui/rating-field";
 import type { JournalEntry, SendableClimb } from "@/db/queries";
@@ -194,14 +195,16 @@ export function JournalEntryFields({
 
       <FormSection label={isAscent || existingEntry?.isSendComment ? "Send commentary" : "Notes"}>
         <TextField className="w-full min-w-0" value={body} onChange={setBody}>
-          <div className="flex items-center gap-1">
+          <FieldHeader
+            usage={{ used: body.length, limit: MAX_JOURNAL_BODY_LENGTH, unit: "characters" }}
+          >
             <Label>{kind === "training" ? "What did you do?" : "How'd it go?"}</Label>
             {(isAscent || existingEntry?.isSendComment) && (
               <HelpTooltip label="About Send commentary">
                 Uses your Send commentary audience wherever this note appears.
               </HelpTooltip>
             )}
-          </div>
+          </FieldHeader>
           <TextArea
             maxLength={MAX_JOURNAL_BODY_LENGTH}
             placeholder={
@@ -210,9 +213,6 @@ export function JournalEntryFields({
                 : "Conditions, beta, how it felt…"
             }
           />
-          <p className="mt-1 text-xs text-muted">
-            {MAX_JOURNAL_BODY_LENGTH - body.length} characters left
-          </p>
         </TextField>
 
         {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}

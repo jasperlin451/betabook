@@ -3,6 +3,7 @@
 import { Button, ComboBox, Input, Label, ListBox } from "@heroui/react";
 
 import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
+import { FieldHeader, FieldFeedback, type FieldUsage } from "@/components/ui/field-support";
 
 import { SearchResultContent } from "./search-results";
 import type { SearchResult, SearchStatus } from "./search-types";
@@ -10,6 +11,8 @@ import type { SearchResult, SearchStatus } from "./search-types";
 /** Lookup results are supplied by the caller; free text never selects an ID. */
 export function SearchSelectionField({
   label,
+  usage,
+  helper,
   hideLabel = false,
   placeholder,
   query,
@@ -24,6 +27,8 @@ export function SearchSelectionField({
   emptyMessage = "No matches.",
   errorMessage,
 }: {
+  usage?: FieldUsage;
+  helper?: string;
   emptyMessage?: string;
   errorMessage?: string;
   isInvalid?: boolean;
@@ -43,7 +48,7 @@ export function SearchSelectionField({
     <div className={`${FIELD_WIDTH_CLASS.long} flex flex-col gap-2`}>
       <ComboBox
         aria-label={hideLabel ? label : undefined}
-        isInvalid={isInvalid}
+        isInvalid={isInvalid || status === "error"}
         isDisabled={isDisabled}
         inputValue={query}
         onInputChange={onQueryChange}
@@ -61,7 +66,11 @@ export function SearchSelectionField({
           if (item && status === "ready" && !item.disabledReason) onSelect(item);
         }}
       >
-        {!hideLabel && <Label>{label}</Label>}
+        {!hideLabel && (
+          <FieldHeader usage={usage}>
+            <Label>{label}</Label>
+          </FieldHeader>
+        )}
         <ComboBox.InputGroup>
           <Input
             placeholder={placeholder ?? `Search ${label.toLowerCase()}…`}
@@ -69,6 +78,14 @@ export function SearchSelectionField({
           />
           <ComboBox.Trigger className="hidden" />
         </ComboBox.InputGroup>
+        <FieldFeedback
+          helper={helper}
+          error={
+            status === "error"
+              ? (errorMessage ?? `Couldn’t load ${label.toLowerCase()}.`)
+              : undefined
+          }
+        />
         <ComboBox.Popover>
           <ListBox
             renderEmptyState={() => (
@@ -97,9 +114,6 @@ export function SearchSelectionField({
       </ComboBox>
       {status === "error" && (
         <div className="flex flex-wrap items-center gap-2">
-          <p role="alert" className="text-sm text-danger">
-            {errorMessage ?? `Couldn’t load ${label.toLowerCase()}.`}
-          </p>
           <Button variant="ghost" size="sm" onPress={onRetry}>
             Retry
           </Button>

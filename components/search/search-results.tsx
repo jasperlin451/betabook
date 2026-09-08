@@ -9,9 +9,11 @@ import { AppLink } from "@/components/ui/app-link";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Grade } from "@/components/ui/grade";
+import { RatingStars } from "@/components/ui/rating-stars";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionHeading } from "@/components/ui/typography";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { formatCount } from "@/lib/format";
 import { formatGrade } from "@/lib/grades";
 
 import {
@@ -41,13 +43,33 @@ export function SearchResultContent({
           <span className="block text-xs text-muted">{item.disabledReason ?? "Selected"}</span>
         )}
       </span>
-      {item.kind === "climb" && (
-        <span className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
-          <Grade className="justify-end sm:w-14">{formatGrade(item.discipline, item.grade)}</Grade>
-          <span className="flex justify-end sm:w-16">
-            <DisciplineChip type={item.discipline} />
+      {item.kind === "climb" && !picking && item.stats ? (
+        <span className="flex shrink-0 flex-col items-end gap-1 text-sm">
+          <span className="flex items-center gap-2">
+            <Grade>{formatGrade(item.discipline, item.grade)}</Grade>
+            <span aria-hidden className="text-sm text-muted">
+              ·
+            </span>
+            <RatingStars
+              rating={item.stats.avgRating}
+              precision="decimal"
+              className="text-foreground"
+            />
           </span>
+          <DisciplineChip type={item.discipline} />
+          <span className="text-xs text-muted">{formatCount(item.stats.sendCount, "ascent")}</span>
         </span>
+      ) : (
+        item.kind === "climb" && (
+          <span className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
+            <Grade className="justify-end sm:w-14">
+              {formatGrade(item.discipline, item.grade)}
+            </Grade>
+            <span className="flex justify-end sm:w-16">
+              <DisciplineChip type={item.discipline} />
+            </span>
+          </span>
+        )
       )}
       {picking ? (
         <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />

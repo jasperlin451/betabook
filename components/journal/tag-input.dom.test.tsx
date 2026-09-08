@@ -64,3 +64,23 @@ it("announces invalid input without changing tags or submitting the surrounding 
   expect(screen.getByRole("button", { name: "Remove tag good" })).toBeInTheDocument();
   expect(submit).not.toHaveBeenCalled();
 });
+
+it("shows a live tag count with concise help and restrictions only after invalid input", async () => {
+  const user = userEvent.setup();
+  render(<Tags />);
+  const input = screen.getByRole("combobox", { name: "Tags" });
+  expect(screen.getByText("0/8")).toBeInTheDocument();
+  expect(screen.getByText("Enter, Space, or comma to add.")).toBeInTheDocument();
+  expect(screen.queryByText(/Letters, numbers and hyphens only/)).not.toBeInTheDocument();
+  await user.type(input, "trip{Enter}");
+  expect(screen.getByText("1/8")).toBeInTheDocument();
+  await user.type(input, "a".repeat(25) + "{Enter}");
+  expect(screen.getByRole("alert")).toHaveTextContent("Tags can contain up to 24 characters.");
+  expect(screen.getByText("1/8")).toBeInTheDocument();
+  await user.clear(input);
+  await user.type(input, "power ");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByText("2/8")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Remove tag trip" }));
+  expect(screen.getByText("1/8")).toBeInTheDocument();
+});

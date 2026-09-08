@@ -12,16 +12,18 @@ const meta = {
     fields: [
       { id: "name", label: "Name" },
       { id: "grade", label: "Grade" },
+      { id: "rating", label: "Rating" },
+      { id: "ascents", label: "Ascents" },
     ],
     defaultField: "name",
-    defaultDirection: { name: "asc", grade: "desc" },
+    defaultDirection: { name: "asc", grade: "desc", rating: "desc", ascents: "desc" },
     onNavigate: () => {},
   },
   decorators: [
     (Story) => (
       <StoryPage
         title="Sort select"
-        description="Sort by stays above the field on desktop and mobile. The direction button aligns with the field and matches its height. Tab to the direction button and press Enter to reverse the order."
+        description="A small, muted Sort by label sits to the left of the field on desktop and mobile. The direction button aligns with the field and matches its height. Shared filter toolbars place sort in a separate right-aligned results row below any expanded filter options."
       >
         <Story />
       </StoryPage>
@@ -40,3 +42,4 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
+export const LongestOption: Story = { args: { sort: "ascents_desc" } };

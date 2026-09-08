@@ -5,7 +5,7 @@ The shared controls now cover Search climbs, area climbs, Sends, Journal, Analyt
 ## Fixed in this change
 
 - Search, area climbs and Sends share a compact 1–5 rating range and a single removable range tag. Full range includes unrated records; narrowed ranges exclude them.
-- All grade selectors, including rope and suggested grades, use short fields. Dates, Tags and sort choices use medium fields; query, area and friend fields use long fields.
+- All grade selectors, including rope and suggested grades, use short fields. Sort choices also use short fields; Dates and Tags use medium fields; query, area and friend fields use long fields.
 - Expanded filters align through a shared label column and stack on mobile.
 - All filter panels use Expand filters / Hide filters with chevrons and a panel-colored expanded button.
 - Applied refinements remain visible as removable tags outside the collapsed panel, with Clear all.
@@ -26,7 +26,9 @@ No new lesson or version is added: these changes refine existing filter and logg
 
 ## Shared field behavior
 
-- Short fields are 5rem for all grades and Min ascents; medium fields are 11rem for dates, Tags and sorting; long fields are 24rem for queries and lookups. Multiline notes fill their container.
+- Short fields are 7rem for all grades, Min ascents and sorting; medium fields are 11rem for dates and Tags; long fields are 24rem for queries and lookups. Multiline notes fill their container.
+- Sorting stays in its own right-aligned row below expanded filters, with the small Sort by label to the left of the field at every screen size.
+- Tags use the helper “Enter, Space, or comma to add.” Log entry shows a live count out of eight beside the label and character restrictions only after invalid input.
 - Min ascents is a plain number input, prefilled with 0. Zero means no minimum.
 - Rating filters use 16px stars, matching result icons, and only show the group label Rating. Crossing a bound adjusts the other. Result grades and ratings use a muted dot separator, with the number before the star icon.
 - Log entry retains discipline filtering without an expanded filter panel. Its single Rating field remains tied to sends; clicking the selected star clears it. Record without a date selects I sent and hides the date; unchecking restores it.

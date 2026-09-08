@@ -1,11 +1,12 @@
 "use client";
 
-import { ComboBox, Description, FieldError, Input, Label, ListBox } from "@heroui/react";
+import { ComboBox, Input, Label, ListBox } from "@heroui/react";
 import { X } from "lucide-react";
 import { useContext, useEffect, useRef, useState } from "react";
 import { ComboBoxStateContext } from "react-aria-components";
 
 import { FIELD_WIDTH_CLASS, FILTER_ROW_CLASS, FILTER_LABEL_CLASS } from "@/components/ui/field";
+import { FieldHeader, FieldFeedback } from "@/components/ui/field-support";
 
 const EMPTY_TAGS: string[] = [];
 
@@ -17,7 +18,6 @@ export function TagsField({
   allowCreate = false,
   validateTag,
   maxTags,
-  helperText,
 }: {
   value: string[];
   onChange: (value: string[]) => void;
@@ -25,7 +25,6 @@ export function TagsField({
   allowCreate?: boolean;
   validateTag?: (tag: string) => string | null;
   maxTags?: number;
-  helperText?: string;
   inlineLabel?: boolean;
 }) {
   const [draft, setDraft] = useState("#");
@@ -85,7 +84,17 @@ export function TagsField({
             if (item) commit(item.tag);
           }}
         >
-          {!inlineLabel && <Label>Tags</Label>}
+          {!inlineLabel && (
+            <FieldHeader
+              usage={
+                maxTags === undefined
+                  ? undefined
+                  : { used: value.length, limit: maxTags, unit: "tags" }
+              }
+            >
+              <Label>Tags</Label>
+            </FieldHeader>
+          )}
           <ComboBox.InputGroup>
             <TagFieldInput
               browse={!allowCreate}
@@ -95,17 +104,14 @@ export function TagsField({
             />
             <ComboBox.Trigger className="hidden" />
           </ComboBox.InputGroup>
-          {error ? (
-            <FieldError className="px-0 text-sm">
-              <span role="alert">{error}</span>
-            </FieldError>
-          ) : (
-            <Description>
-              {full
+          <FieldFeedback
+            error={error}
+            helper={
+              full
                 ? `That's all ${maxTags} tags — remove one to add another.`
-                : `Press Enter, Space, or comma to ${allowCreate ? "add each tag" : "select each existing tag"}.${helperText ? ` ${helperText}` : ""}`}
-            </Description>
-          )}
+                : "Enter, Space, or comma to add."
+            }
+          />
           <ComboBox.Popover>
             <ListBox
               renderEmptyState={() => (

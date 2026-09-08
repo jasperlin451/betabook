@@ -76,41 +76,29 @@ export function FilterToolbarLayout({
     <Disclosure>
       {({ isExpanded }) => (
         <>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div
+            role="group"
+            aria-label="Filter controls"
+            className="flex flex-wrap items-center gap-x-3 gap-y-2"
+          >
             {controls}
 
-            {/* The disclosure and the sort travel together rather than the
-             * sort being pushed off alone with ms-auto, which strands it
-             * hard right against empty space once the row wraps.
-             *
-             * Paired at the left until lg, spread apart above it: the
-             * filters-left/sort-right convention needs a full line to read
-             * as an arrangement — on a phone's wrapped line it is just a
-             * gap between two controls that belong together.
-             *
-             * grow, not flex-1: flex-1 zeroes the basis, so the group would
-             * always "fit" whatever sliver is left and get crushed instead
-             * of wrapping to its own line. */}
-            <div className="flex min-w-0 grow flex-wrap items-center gap-3 lg:justify-between">
-              <Disclosure.Heading className="contents">
-                <Disclosure.Trigger
-                  className={buttonVariants({
-                    variant: "ghost",
-                    size: "sm",
-                    className: isExpanded ? "bg-surface-tertiary border border-border" : undefined,
-                  })}
-                >
-                  {isExpanded ? (
-                    <ChevronUp className="size-4" aria-hidden />
-                  ) : (
-                    <ChevronDown className="size-4" aria-hidden />
-                  )}
-                  {isExpanded ? "Hide filters" : "Expand filters"}
-                </Disclosure.Trigger>
-              </Disclosure.Heading>
-
-              {sortControl}
-            </div>
+            <Disclosure.Heading className="contents">
+              <Disclosure.Trigger
+                className={buttonVariants({
+                  variant: "ghost",
+                  size: "sm",
+                  className: isExpanded ? "bg-surface-tertiary border border-border" : undefined,
+                })}
+              >
+                {isExpanded ? (
+                  <ChevronUp className="size-4" aria-hidden />
+                ) : (
+                  <ChevronDown className="size-4" aria-hidden />
+                )}
+                {isExpanded ? "Hide filters" : "Expand filters"}
+              </Disclosure.Trigger>
+            </Disclosure.Heading>
           </div>
 
           <ActiveFilterSummary filters={activeFilters} onClear={onReset} />
@@ -131,6 +119,11 @@ export function FilterToolbarLayout({
               </section>
             </Disclosure.Body>
           </Disclosure.Content>
+          {sortControl && (
+            <div className="mt-4 flex min-w-0 justify-end" role="group" aria-label="Result order">
+              {sortControl}
+            </div>
+          )}
         </>
       )}
     </Disclosure>

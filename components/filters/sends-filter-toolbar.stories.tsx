@@ -25,6 +25,9 @@ const meta = {
 } satisfies Meta<typeof UserSendsFilterToolbar>;
 export default meta;
 export const Default: StoryObj<typeof meta> = {};
+export const Responsive: StoryObj<typeof meta> = {
+  parameters: { fullWidth: true },
+};
 export const DateAndHashtag: StoryObj<typeof meta> = {
   name: "Date and tags",
   args: {

@@ -7,7 +7,7 @@ test("minimum ascents accepts direct counts and clears without stepper buttons",
   const input = page.getByRole("textbox", { name: "Min ascents", exact: true });
   await expect(input).toBeVisible();
   await expect(input).toHaveValue("0");
-  expect((await input.locator("..").boundingBox())?.width).toBe(80);
+  expect((await input.locator("..").boundingBox())?.width).toBe(112);
   await expect(
     page.getByRole("button", { name: /Increase|Decrease|Increment|Decrement/i }),
   ).toHaveCount(0);

@@ -35,14 +35,14 @@ test("standard short, medium and long fields use the shared widths", async ({ pa
   await openStory(page, info, "patterns-fields-standard-widths--comparison");
   const short = await page.getByRole("button", { name: "V0 Min grade", exact: true }).boundingBox();
   const medium = await page
-    .getByRole("button", { name: "Date Sort by", exact: true })
+    .getByRole("button", { name: "All time Dates", exact: true })
     .boundingBox();
   const long = await page
     .getByRole("group")
     .filter({ has: page.getByRole("searchbox", { name: "Filter sends" }) })
     .boundingBox();
   if (!short || !medium || !long) throw new Error("Missing standard fields");
-  expect(short.width).toBe(80);
+  expect(short.width).toBe(112);
   expect(medium.width).toBe(176);
   expect(long.width).toBe(Math.min(384, (info.project.use.viewport?.width ?? 1024) - 32));
   await page.screenshot({

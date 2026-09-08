@@ -74,38 +74,38 @@ export function CompanionPicker({
           ))}
         </ul>
       )}
-      {!full && (
-        <SearchSelectionField
-          emptyMessage="No matching friends. Try a more specific name."
-          errorMessage="Couldn’t load friends. Your selections are kept."
-          label="Find a friend to tag"
-          placeholder="Find a friend to tag…"
-          query={query}
-          isDisabled={disabled}
-          status={lookup.status}
-          onRetry={lookup.retry}
-          onQueryChange={(text) => setQuery(text.slice(0, 100))}
-          items={lookup.items.map((friend) => ({
-            kind: "climber",
-            id: friend.id,
-            name: friend.name,
-            detail: "Friend",
-          }))}
-          onSelect={(item) => {
-            const friend = lookup.items.find((candidate) => candidate.id === item.id);
-            if (
-              friend &&
-              !disabled &&
-              !full &&
-              !value.some((selected) => selected.id === friend.id)
-            ) {
-              setCleared(false);
-              onChange([...value, friend]);
-              setQuery("");
-            }
-          }}
-        />
-      )}
+      <SearchSelectionField
+        emptyMessage="No matching friends. Try a more specific name."
+        errorMessage="Couldn’t load friends. Your selections are kept."
+        label="Find a friend to tag"
+        placeholder="Find a friend to tag…"
+        query={query}
+        isDisabled={disabled || full}
+        usage={{ used: value.length, limit: MAX_JOURNAL_COMPANIONS, unit: "friends selected" }}
+        helper={full ? "Remove a friend to add another." : undefined}
+        status={lookup.status}
+        onRetry={lookup.retry}
+        onQueryChange={(text) => setQuery(text.slice(0, 100))}
+        items={lookup.items.map((friend) => ({
+          kind: "climber",
+          id: friend.id,
+          name: friend.name,
+          detail: "Friend",
+        }))}
+        onSelect={(item) => {
+          const friend = lookup.items.find((candidate) => candidate.id === item.id);
+          if (
+            friend &&
+            !disabled &&
+            !full &&
+            !value.some((selected) => selected.id === friend.id)
+          ) {
+            setCleared(false);
+            onChange([...value, friend]);
+            setQuery("");
+          }
+        }}
+      />
       {editing && (
         <Button
           type="button"
@@ -122,12 +122,11 @@ export function CompanionPicker({
           Clear friend tags
         </Button>
       )}
-      <p role="status" aria-label="Selected friends count" className="text-xs text-muted">
-        {full
-          ? "All 10 places filled. Remove a friend to add another."
-          : `${value.length} of ${MAX_JOURNAL_COMPANIONS} friends selected.`}
-        {cleared && " Friend tags will be cleared when you save."}
-      </p>
+      {cleared && (
+        <p role="status" className="text-xs text-muted">
+          Friend tags will be cleared when you save.
+        </p>
+      )}
     </fieldset>
   );
 }

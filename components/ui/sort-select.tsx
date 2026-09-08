@@ -32,10 +32,14 @@ export function SortSelect<Field extends string, Sort extends string>({
   });
 
   return (
-    <div className="flex items-end gap-2">
-      <Select selectedKey={field} onSelectionChange={(key) => handleFieldChange(key as Field)}>
-        <Label>Sort by</Label>
-        <Select.Trigger className={FIELD_WIDTH_CLASS.medium}>
+    <div className="flex items-center gap-2">
+      <Select
+        className="flex-row items-center gap-2"
+        selectedKey={field}
+        onSelectionChange={(key) => handleFieldChange(key as Field)}
+      >
+        <Label className="shrink-0 text-xs text-muted">Sort by</Label>
+        <Select.Trigger className={FIELD_WIDTH_CLASS.short}>
           <Select.Value />
           <Select.Indicator />
         </Select.Trigger>

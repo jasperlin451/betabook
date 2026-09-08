@@ -87,8 +87,8 @@ test("friend suggestions follow the moved field when adding another friend", asy
   await expect(
     page.getByRole("list", { name: "Selected friends" }).getByRole("button"),
   ).toHaveCount(2);
-  await expect(page.getByRole("status", { name: "Selected friends count" })).toContainText(
-    "2 of 10",
+  await expect(page.getByRole("status", { name: "2 of 10 friends selected" })).toContainText(
+    "2/10",
   );
   await input.fill("zzz");
   await expect(page.getByText("No matching friends. Try a more specific name.")).toBeVisible();
