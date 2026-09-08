@@ -78,6 +78,15 @@ test("sort direction matches its field size and works from the keyboard", async 
   await openStory(page, info, "components-inputs-sort-select--default");
   const select = page.getByRole("button", { name: /Sort by/ });
   const direction = page.getByRole("button", { name: "Sort ascending", exact: true });
+  const label = page.getByText("Sort by", { exact: true });
+  await expect(label).toBeVisible();
+  const labelBox = await label.boundingBox();
+  const fieldBox = await select.boundingBox();
+  const directionBox = await direction.boundingBox();
+  if (!labelBox || !fieldBox || !directionBox) throw new Error("Missing sort controls");
+  expect(labelBox.y + labelBox.height).toBeLessThanOrEqual(fieldBox.y);
+  expect(labelBox.x).toBeCloseTo(fieldBox.x);
+  expect(directionBox.y).toBeCloseTo(fieldBox.y);
   const height = await select.evaluate((element) => getComputedStyle(element).height);
   await expect(direction).toHaveCSS("height", height);
   await expect(direction).toHaveCSS("width", height);
