@@ -93,6 +93,20 @@ async function seedSortSends() {
 }
 
 describe("getClimb", () => {
+  it("searches the selected subtree without matching an identically named area", async () => {
+    await db.insert(areas).values({ id: 20, name: "Test Boulders" });
+    await db.insert(climbs).values({ id: 20, areaId: 20, name: "Test Duplicate", type: "boulder" });
+    const params = { name: "Test", areaId: 2, disciplines: [] };
+    const result = await searchClimbs(db, params);
+    expect(result.climbs.map((climb) => climb.id).sort((a, b) => a - b)).toEqual([1, 2]);
+    expect(await countSearchClimbs(db, params)).toBe(2);
+    expect(
+      (await searchClimbs(db, { ...params, areaId: 3 })).climbs
+        .map((climb) => climb.id)
+        .sort((a, b) => a - b),
+    ).toEqual([3, 4]);
+    expect((await searchClimbs(db, { ...params, areaId: 0 })).climbs).toEqual([]);
+  });
   it("returns the climb for a known id", async () => {
     const climb = await getClimb(db, 1);
     expect(climb?.name).toBe("Test Highball");

@@ -210,21 +210,18 @@ test("palette documentation follows live CSS token changes", async ({ page }, te
   await expect(paper.locator("output")).toHaveText("rgb(240, 230, 210)");
 });
 
-test("search suggestions support keyboard selection and empty results", async ({
-  page,
-}, testInfo) => {
-  await openStory(page, testInfo, "components-inputs-search-combobox--search");
-  const input = page.getByRole("combobox", { name: "Find a climb" });
+test("area lookup supports keyboard selection and empty results", async ({ page }, testInfo) => {
+  await openStory(page, testInfo, "components-search-area-lookup--selection");
+  const input = page.getByRole("combobox", { name: "Area", exact: true });
   await input.fill("cedar");
-  await expect(page.getByRole("option", { name: "Cedar Arete", exact: true })).toBeVisible();
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
-  // Leaving the input dismisses the suggestion overlay, which intentionally
-  // hides surrounding content from the accessibility tree while open.
+  await expect(page.getByRole("option", { name: /Cedar Grove.*California/ })).toBeVisible();
+  await input.press("ArrowDown");
+  await input.press("Enter");
   await input.press("Tab");
-  await expect(page.getByRole("status")).toHaveText("Selected: Cedar Arete");
+  await expect(page.getByLabel("Selected area identity")).toHaveText("1");
   await input.fill("zzz");
-  await expect(page.getByText("No matching climbs.")).toBeVisible();
+  await expect(page.getByText("No matches.", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Selected area identity")).toHaveText("None");
 });
 
 test("actions menu keeps actions local and returns focus", async ({ page }, testInfo) => {

@@ -12,7 +12,7 @@ import { isApplePlatform, useModifierLabels } from "@/hooks/use-platform";
 /** Module-level so its identity is stable across renders — the preload hook
  * keys its effect on the loader. */
 const loadPaletteDialog = () =>
-  import("@/components/command-palette-dialog").then((m) => m.PaletteDialog);
+  import("@/components/search/app-quick-search").then((m) => m.AppQuickSearch);
 
 const OpenSearchContext = createContext<(() => void) | null>(null);
 
@@ -32,10 +32,8 @@ function useOpenSearch(): (() => void) | null {
  * search rather than three searches. Wraps the app because those doors sit
  * in different parts of the tree.
  *
- * Context-aware via `useSearchScope`: on an area page the first section is
- * that area's own routes, which is almost always what someone searching from
- * a crag page means. Those ids are then excluded from the global section, so
- * a scoped match never appears twice.
+ * The current area is offered as an explicit narrowing action. Search starts
+ * globally so opening it in a crag does not silently change its meaning.
  *
  * The palette itself is a deferred chunk (see use-deferred-component): this
  * provider wraps every route, and `Modal` would otherwise put react-aria's

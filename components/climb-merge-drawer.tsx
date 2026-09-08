@@ -78,7 +78,7 @@ export function ClimbMergeDrawer({ climbId, state }: ClimbMergeDrawerProps) {
                   Pick the climb this one duplicates — this climb and its sends fold into it, and
                   this page won&apos;t exist separately once that lands.
                 </p>
-                <ClimbPicker onPick={handlePick} />
+                <ClimbPicker onPick={handlePick} allowSentClimbs excludedClimbId={climbId} />
                 {error && <p className="text-sm text-danger">{error}</p>}
                 {pending && <p className="text-sm text-muted">Marking as duplicate…</p>}
               </div>

@@ -80,7 +80,7 @@ it("retains the original Log lesson in full replay", () => {
 it.each(["full", "updates"] as const)("shows discovery on Search in the %s tour", (mode) => {
   const html = demo("find-climbers", mode);
   expect(html).toContain('aria-label="Search category"');
-  expect(html).toMatch(/aria-pressed="true"[^>]*>Search climbers/);
+  expect(html).toMatch(/aria-pressed="true"[^>]*>Climbers/);
   expect(html).toContain('data-tour-target="friend-search"');
   expect(html).toContain("Riley Chen");
   expect(html).toContain("Add friend");

@@ -2,16 +2,16 @@ import { eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
-import { MAX_RATING } from "@/lib/climb-stats-filter";
+import { MAX_RATING } from "@/lib/filters/climb-stats-filter";
 import {
   DEFAULT_BOULDER_RANGE,
   DEFAULT_SPORT_RANGE,
   DEFAULT_TRAD_RANGE,
   type DisciplineGradeFilter,
-} from "@/lib/discipline-filter";
+} from "@/lib/filters/discipline-filter";
 import type { Discipline } from "@/lib/grades";
 
-import { areaNameCondition, type Area } from "./areas";
+import { areaIdCondition, areaNameCondition, type Area } from "./areas";
 import { PAGE_SIZE, disciplineGradeCondition, toFtsPrefixQuery } from "./shared";
 
 export type Climb = typeof climbs.$inferSelect;
@@ -90,7 +90,7 @@ function sortTieBreak(sort: SubtreeClimbsSort): SQL {
 }
 
 export type { Discipline } from "@/lib/grades";
-export type { DisciplineGradeFilter } from "@/lib/discipline-filter";
+export type { DisciplineGradeFilter } from "@/lib/filters/discipline-filter";
 
 function disciplineGradeConditions(filter: DisciplineGradeFilter): SQL[] {
   const clauses: SQL[] = [];
@@ -443,6 +443,7 @@ export type SearchClimbsParams = DisciplineGradeFilter &
   ClimbStatsFilter & {
     name?: string;
     areaName?: string;
+    areaId?: number;
     sort?: SubtreeClimbsSort;
   };
 
@@ -464,7 +465,10 @@ function searchClimbsConditions(params: SearchClimbsParams): SQL[] | null {
     );
   }
 
-  const areaCondition = areaNameCondition(params.areaName);
+  const areaCondition =
+    params.areaId !== undefined
+      ? areaIdCondition(params.areaId)
+      : areaNameCondition(params.areaName);
   if (areaCondition) conditions.push(areaCondition);
 
   const disciplineClauses = disciplineGradeConditions(params);

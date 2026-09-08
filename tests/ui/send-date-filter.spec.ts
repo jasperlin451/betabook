@@ -3,7 +3,7 @@ import type { Page, TestInfo } from "@playwright/test";
 import { expect, test, openStory } from "./story";
 
 async function openDates(page: Page, testInfo: TestInfo, story = "any") {
-  await openStory(page, testInfo, `components-inputs-date-filter--${story}`);
+  await openStory(page, testInfo, `components-filters-date-filter--${story}`);
 }
 
 async function choose(page: Page, option: string) {

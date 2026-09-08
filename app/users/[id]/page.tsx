@@ -4,15 +4,15 @@ import { notFound } from "next/navigation";
 import { JournalView } from "@/app/users/[id]/journal-view";
 import { ProfileHeader, getUserById, canReadUserJournal } from "@/app/users/[id]/profile-shell";
 import { SendsView } from "@/app/users/[id]/sends-view";
-import { parseJournalFilter } from "@/lib/journal-filter";
-import type { SearchParamsRecord } from "@/lib/search-params";
+import { parseJournalFilter } from "@/lib/filters/journal-filter";
+import { parseUserSendsFilter } from "@/lib/filters/user-sends-filter";
 import { getSession } from "@/lib/session";
-import { parseUserSendsFilter } from "@/lib/user-sends-filter";
+import type { UrlParamsRecord } from "@/lib/url-params";
 import { canViewUser } from "@/lib/user-visibility";
 
 type UserPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<SearchParamsRecord>;
+  searchParams: Promise<UrlParamsRecord>;
 };
 
 export async function generateMetadata({ params }: UserPageProps): Promise<Metadata> {

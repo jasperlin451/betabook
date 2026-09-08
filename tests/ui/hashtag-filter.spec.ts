@@ -1,12 +1,9 @@
-import { expect, test } from "@playwright/test";
 import type { Page, TestInfo } from "@playwright/test";
 
+import { expect, test, openStory } from "./story";
+
 async function openHashtagStory(page: Page, testInfo: TestInfo) {
-  const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-  await page.goto(
-    `/iframe.html?id=components-inputs-hashtag-filter--default&viewMode=story&globals=theme:${theme}`,
-  );
-  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  await openStory(page, testInfo, "components-filters-hashtag-filter--default");
   return page.getByRole("combobox", { name: "Hashtag" });
 }
 
@@ -146,27 +143,26 @@ test("hashtag field has no search icon", async ({ page }, testInfo) => {
 for (const scenario of [
   {
     name: "Journal",
-    story: "components-journal-filter-toolbar--default",
+    story: "components-filters-journal-toolbar--default",
     role: "searchbox" as const,
-    label: "Search journal",
+    label: "Filter journal",
   },
   {
     name: "Sends toolbar",
-    story: "components-inputs-filter-toolbar--hashtags",
+    story: "components-filters-toolbar--hashtags",
     role: "textbox" as const,
-    label: "Search routes",
+    label: "Filter climbs",
   },
 ]) {
-  test(`${scenario.name} search stays anchored as selected hashtags wrap below the field`, async ({
+  test(`${scenario.name} text filter stays anchored as selected hashtags wrap below the field`, async ({
     page,
   }, testInfo) => {
-    const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-    await page.goto(`/iframe.html?id=${scenario.story}&viewMode=story&globals=theme:${theme}`);
+    await openStory(page, testInfo, scenario.story);
     await page.getByRole("button", { name: "More filters", exact: true }).click();
-    const search = page.getByRole(scenario.role, { name: scenario.label });
+    const textFilter = page.getByRole(scenario.role, { name: scenario.label });
     const hashtag = page.getByRole("combobox", { name: "Hashtag" });
     await expect(hashtag).toBeVisible();
-    const before = await search.boundingBox();
+    const before = await textFilter.boundingBox();
     const hashtagBefore = await hashtag.boundingBox();
     for (const tag of ["power", "strength", "trip"]) {
       await hashtag.fill(`#${tag}`);
@@ -176,7 +172,7 @@ for (const scenario of [
       ).toBeVisible();
     }
     await expect(page.getByRole("listbox")).toHaveCount(0);
-    expect((await search.boundingBox())?.y).toBe(before?.y);
+    expect((await textFilter.boundingBox())?.y).toBe(before?.y);
     expect((await hashtag.boundingBox())?.y).toBe(hashtagBefore?.y);
     const screenshot = testInfo.outputPath("hashtag-toolbar-wrapped.png");
     await page.screenshot({ path: screenshot });
@@ -189,8 +185,8 @@ for (const scenario of [
 
 test("Journal keeps hashtags inside More filters and preserves selections when collapsed", async ({
   page,
-}) => {
-  await page.goto("/iframe.html?id=components-journal-filter-toolbar--default&viewMode=story");
+}, testInfo) => {
+  await openStory(page, testInfo, "components-filters-journal-toolbar--default");
   const input = page.getByRole("combobox", { name: "Hashtag", exact: true });
   await expect(input).toBeHidden();
   await page.getByRole("button", { name: "More filters", exact: true }).click();
@@ -208,19 +204,16 @@ test("Journal keeps hashtags inside More filters and preserves selections when c
   );
 });
 
-test("Journal and route search boxes use the same field height", async ({ page }, testInfo) => {
-  const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
-  await page.goto(
-    `/iframe.html?id=components-inputs-search-combobox--search&viewMode=story&globals=theme:${theme}`,
-  );
-  const route = page.getByRole("combobox", { name: "Find a climb" });
+test("Journal filtering and record search use the same field height", async ({
+  page,
+}, testInfo) => {
+  await openStory(page, testInfo, "components-search-input--input");
+  const route = page.getByRole("searchbox", { name: "Search climbs" });
   await expect(route).toBeVisible();
   const height = await route.evaluate((node) => node.parentElement?.getBoundingClientRect().height);
   expect(height).toBeGreaterThan(0);
-  await page.goto(
-    `/iframe.html?id=components-journal-filter-toolbar--default&viewMode=story&globals=theme:${theme}`,
-  );
-  const journal = page.getByRole("searchbox", { name: "Search journal" });
+  await openStory(page, testInfo, "components-filters-journal-toolbar--default");
+  const journal = page.getByRole("searchbox", { name: "Filter journal" });
   await expect(journal).toBeVisible();
   expect(await journal.evaluate((node) => node.parentElement?.getBoundingClientRect().height)).toBe(
     height,

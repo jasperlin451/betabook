@@ -1,10 +1,11 @@
 "use client";
 
-import { Button, SearchField } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useState } from "react";
 
 import { StatTiles } from "@/components/analytics-stat-tiles";
 import { AscentStyle } from "@/components/ascent-style";
+import { FilterInput } from "@/components/filters/filter-input";
 import { PrivacyFields } from "@/components/privacy-fields";
 import { ProgressionChart } from "@/components/progression-chart";
 import { SendGradeCell } from "@/components/send-grade-cell";
@@ -67,20 +68,15 @@ export function DemoJournal() {
   return (
     <div className="flex flex-col gap-3">
       <div data-tour-target="journal-filters" className="flex flex-col gap-3">
-        <SearchField
-          aria-label="Search Alex's journal"
+        <FilterInput
+          label="Filter Alex's journal"
+          placeholder="Filter journal…"
           value={query}
           onChange={(next) => {
             setQuery(next);
             setShowAll(false);
           }}
-        >
-          <SearchField.Group>
-            <SearchField.SearchIcon />
-            <SearchField.Input placeholder="Search journal…" />
-            <SearchField.ClearButton />
-          </SearchField.Group>
-        </SearchField>
+        />
         <Choices
           label="Journal entry type"
           options={["All", "Sessions", "Training"]}
@@ -146,9 +142,7 @@ export function DemoJournal() {
         </Button>
       )}
       {matches.length === 0 && (
-        <p className="text-sm">
-          No matching entries. Clear the search or turn off a filter to see more.
-        </p>
+        <p className="text-sm">No matching entries. Clear a filter to see more.</p>
       )}
     </div>
   );

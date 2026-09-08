@@ -14,7 +14,7 @@ import { applyClimbMerge } from "@/actions/moderation-apply";
 import { createDb } from "@/db/client";
 import { getJournalPage } from "@/db/queries/journal";
 import { climbs, journalEntries, journalCompanions, sends, user } from "@/db/schema";
-import { parseJournalFilter } from "@/lib/journal-filter";
+import { parseJournalFilter } from "@/lib/filters/journal-filter";
 import { seedFixtureFriendship, seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 import { resetDb } from "@/test/reset-db";
 

@@ -3,11 +3,11 @@ import { notFound } from "next/navigation";
 
 import { ProfileHeader, getUserById } from "@/app/users/[id]/profile-shell";
 import { AnalyticsGradePyramid } from "@/components/analytics-grade-pyramid";
-import { AnalyticsHashtagFilter } from "@/components/analytics-hashtag-filter";
 import { StatTiles, type StatTile } from "@/components/analytics-stat-tiles";
 import { AnalyticsYearSelect } from "@/components/analytics-year-select";
 import { BreakthroughList } from "@/components/breakthrough-list";
 import { ClimbingCalendar } from "@/components/climbing-calendar";
+import { AnalyticsHashtagFilter } from "@/components/filters/analytics-hashtag-filter";
 import { ProgressionChart } from "@/components/progression-chart";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass } from "@/components/ui/card";
@@ -23,11 +23,11 @@ import { getDb } from "@/db/client";
 import { getJournalSessionsForAnalytics, getUserSendsForAnalytics } from "@/db/queries";
 import { canReadJournal } from "@/db/queries/content-access";
 import { getUserHashtags } from "@/db/queries/hashtag-filter";
+import { normalizeHashtagFilters } from "@/lib/filters/hashtag-filter";
 import { formatCount } from "@/lib/format";
 import type { ClimbType } from "@/lib/grades";
-import { normalizeHashtagFilters } from "@/lib/hashtag-filter";
-import { toArray, type SearchParamsRecord } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
+import { toArray, type UrlParamsRecord } from "@/lib/url-params";
 import {
   buildPyramid,
   buildUserAnalytics,
@@ -40,7 +40,7 @@ import { canViewUser } from "@/lib/user-visibility";
 
 type UserAnalyticsPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<SearchParamsRecord>;
+  searchParams: Promise<UrlParamsRecord>;
 };
 
 export async function generateMetadata({ params }: UserAnalyticsPageProps): Promise<Metadata> {

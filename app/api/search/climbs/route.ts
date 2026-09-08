@@ -9,11 +9,9 @@ import {
   getUserSentClimbIds,
   searchClimbs,
 } from "@/db/queries";
-import {
-  parseClimbSearchFilter,
-  parseClimbSearchSort,
-  toSearchClimbsQueryParams,
-} from "@/lib/climb-search-filter";
+import { parseClimbListSort } from "@/lib/climb-list-sort";
+import { parseClimbFilter, toClimbQueryParams } from "@/lib/filters/climb-filter";
+import { getSession } from "@/lib/session";
 import {
   offsetReachesPaginationLimit,
   pageReachesPaginationLimit,
@@ -21,8 +19,7 @@ import {
   parsePage,
   parseSuggestionLimit,
   searchParamsToRecord,
-} from "@/lib/search-params";
-import { getSession } from "@/lib/session";
+} from "@/lib/url-params";
 
 /** Backs two callers with the same query.
  *
@@ -43,8 +40,8 @@ export async function GET(request: Request) {
   const suggestionLimit = offsetMode ? null : parseSuggestionLimit(url.searchParams);
   const withCount = url.searchParams.get("count") === "1";
 
-  const sort = parseClimbSearchSort(searchParams);
-  const filter = parseClimbSearchFilter(searchParams);
+  const sort = parseClimbListSort(searchParams);
+  const filter = parseClimbFilter(searchParams);
   const pageSize = suggestionLimit ?? SEARCH_PAGE_SIZE;
   const page = offsetMode ? 1 : parsePage(url.searchParams, pageSize);
   const offset = offsetMode ? parseOffset(url.searchParams) : undefined;
@@ -64,7 +61,7 @@ export async function GET(request: Request) {
   }
 
   const db = await getDb();
-  const queryParams = toSearchClimbsQueryParams(filter, sort);
+  const queryParams = toClimbQueryParams(filter, sort);
   const [results, session] = await Promise.all([
     searchClimbs(db, queryParams, page, pageSize, offset),
     suggestionLimit === null ? getSession() : Promise.resolve(null),

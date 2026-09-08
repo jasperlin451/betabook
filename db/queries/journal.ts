@@ -2,10 +2,10 @@ import { and, eq, sql, type SQL } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
 import { journalEntries } from "@/db/schema";
+import type { JournalFilter, JournalView } from "@/lib/filters/journal-filter";
 import type { ClimbType } from "@/lib/grades";
 import type { JournalKind } from "@/lib/journal";
 import type { JournalCompanion } from "@/lib/journal-companions";
-import type { JournalFilter, JournalView } from "@/lib/journal-filter";
 
 import { journalVisibleSql, sendCommentVisibleSql } from "./content-access";
 import { journalHashtagsCondition } from "./hashtag-filter";

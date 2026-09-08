@@ -3,10 +3,10 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/db/client";
 import { getAreaBreadcrumbs, getJournalPage, getUser, type JournalCursor } from "@/db/queries";
 import { canReadJournal } from "@/db/queries/content-access";
-import { parseJournalFilter } from "@/lib/journal-filter";
-import { searchParamsToRecord } from "@/lib/search-params";
+import { parseJournalFilter } from "@/lib/filters/journal-filter";
 import { isRealIsoDate } from "@/lib/sends";
 import { getSession } from "@/lib/session";
+import { searchParamsToRecord } from "@/lib/url-params";
 
 const headers = { "Cache-Control": "private, no-store" };
 

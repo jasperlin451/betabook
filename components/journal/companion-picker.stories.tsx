@@ -69,7 +69,7 @@ export const Unavailable: Story = {
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByRole("combobox", { name: "Find a friend to tag" }), "Alex");
     await userEvent.tab();
-    await expect(await canvas.findByRole("alert")).toHaveTextContent("Couldn't load friends");
+    await expect(await canvas.findByRole("alert")).toHaveTextContent("Couldn’t load friends");
   },
 };
 export const Saving: Story = { render: () => <Example full disabled /> };

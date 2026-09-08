@@ -3,9 +3,9 @@
 import { Button } from "@heroui/react";
 import { useState } from "react";
 
+import { SearchSelectionField } from "@/components/search/search-selection-field";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
-import { SearchCombobox } from "@/components/ui/search-combobox";
-import type { TypeaheadFetcher } from "@/hooks/use-typeahead";
+import { useSearchLookup, type LookupFetcher } from "@/hooks/use-search-lookup";
 import { MAX_JOURNAL_COMPANIONS, type CompanionOption } from "@/lib/journal-companions";
 
 async function fetchFriends(query: string, signal: AbortSignal): Promise<CompanionOption[]> {
@@ -29,12 +29,20 @@ export function CompanionPicker({
   onChange: (value: CompanionOption[]) => void;
   disabled?: boolean;
   editing?: boolean;
-  fetcher?: TypeaheadFetcher<CompanionOption>;
+  fetcher?: LookupFetcher<CompanionOption>;
 }) {
   const [query, setQuery] = useState("");
-  const [error, setError] = useState(false);
   const [cleared, setCleared] = useState(false);
   const full = value.length >= MAX_JOURNAL_COMPANIONS;
+  const lookup = useSearchLookup({
+    query,
+    enabled: !disabled && !full,
+    scope: value.map((friend) => friend.id).join(","),
+    fetcher: async (text, signal) =>
+      (await fetcher(text, signal)).filter(
+        (friend) => !value.some((selected) => selected.id === friend.id),
+      ),
+  });
   return (
     <fieldset disabled={disabled} aria-label="With friends" className="flex min-w-0 flex-col gap-2">
       <legend className="mb-2 font-medium">
@@ -67,39 +75,34 @@ export function CompanionPicker({
         </ul>
       )}
       {!full && (
-        <SearchCombobox<CompanionOption>
-          ariaLabel="Find a friend to tag"
-          value={query}
-          onChange={(text) => setQuery(text.slice(0, 100))}
-          fetcher={async (text, signal) => {
-            try {
-              const friends = await fetcher(text, signal);
-              if (!signal.aborted) setError(false);
-              return friends.filter(
-                (friend) => !value.some((selected) => selected.id === friend.id),
-              );
-            } catch (cause) {
-              if (!signal.aborted) setError(true);
-              throw cause;
+        <SearchSelectionField
+          emptyMessage="No matching friends. Try a more specific name."
+          errorMessage="Couldn’t load friends. Your selections are kept."
+          label="Find a friend to tag"
+          query={query}
+          isDisabled={disabled}
+          status={lookup.status}
+          onRetry={lookup.retry}
+          onQueryChange={(text) => setQuery(text.slice(0, 100))}
+          items={lookup.items.map((friend) => ({
+            kind: "climber",
+            id: friend.id,
+            name: friend.name,
+            detail: "Friend",
+          }))}
+          onSelect={(item) => {
+            const friend = lookup.items.find((candidate) => candidate.id === item.id);
+            if (
+              friend &&
+              !disabled &&
+              !full &&
+              !value.some((selected) => selected.id === friend.id)
+            ) {
+              setCleared(false);
+              onChange([...value, friend]);
+              setQuery("");
             }
           }}
-          scope={value.map((friend) => friend.id).join(",")}
-          itemKey={(friend) => friend.id}
-          itemText={(friend) => friend.name}
-          renderItem={(friend) => friend.name}
-          onSelect={(friend) => {
-            setCleared(false);
-            if (!disabled && !value.some((item) => item.id === friend.id))
-              onChange([...value, friend]);
-            setQuery("");
-          }}
-          placeholder="Start typing a friend's name…"
-          emptyMessage={
-            error
-              ? "Couldn't load friends. Try typing again."
-              : "No matching friends. Try a more specific name."
-          }
-          fullWidth
         />
       )}
       {editing && (
@@ -112,24 +115,18 @@ export function CompanionPicker({
           onPress={() => {
             onChange([]);
             setQuery("");
-            setError(false);
             setCleared(true);
           }}
         >
           Clear friend tags
         </Button>
       )}
-      <p role="status" className="text-xs text-muted">
+      <p role="status" aria-label="Selected friends count" className="text-xs text-muted">
         {full
           ? "All 10 places filled. Remove a friend to add another."
           : `${value.length} of ${MAX_JOURNAL_COMPANIONS} friends selected.`}
         {cleared && " Friend tags will be cleared when you save."}
       </p>
-      {error && (
-        <p role="alert" className="text-xs text-danger">
-          Couldn't load friends. Change the search to retry; your selections are kept.
-        </p>
-      )}
     </fieldset>
   );
 }

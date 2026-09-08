@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { createDb, type Database } from "@/db/client";
-import { climbs, sends } from "@/db/schema";
+import { areas, climbs, sends } from "@/db/schema";
 import { BOULDER_HUECO, ROPE_YDS } from "@/lib/grades";
 import { seedFixtureSend, seedFixtureTree, seedFixtureUser, seedManyClimbs } from "@/test/fixtures";
 import { explainQueries } from "@/test/query-plans";
@@ -325,6 +325,28 @@ describe("getSendsForUserPage", () => {
 
   describe("name/areaName filtering", () => {
     beforeEach(seedNameSends);
+
+    it("filters sends by exact area identity including descendants, without matching duplicate names", async () => {
+      await db.insert(areas).values({ id: 20, name: "Test Boulders" });
+      await db
+        .insert(climbs)
+        .values({ id: 20, areaId: 20, name: "Other Highball", type: "boulder", grade: 5 });
+      await seedFixtureSend(db, { userId: "test-user-10", climbId: 20, dateSent: null });
+      const filter = { ...ALL_SENDS_FILTER, areaId: 2, areaName: "Test Boulders" };
+      expect(
+        (await getSendsForUserPage(db, "test-user-10", filter, 0)).sends.map(
+          (send) => send.climbId,
+        ),
+      ).toEqual([1]);
+      expect(
+        (await getSendsForUserPage(db, "test-user-10", { ...filter, areaId: 20 }, 0)).sends.map(
+          (send) => send.climbId,
+        ),
+      ).toEqual([20]);
+      expect(
+        (await getSendsForUserPage(db, "test-user-10", { ...filter, areaId: 0 }, 0)).sends,
+      ).toEqual([]);
+    });
 
     it("fuzzy-matches by partial climb name", async () => {
       const results = await getSendsForUserPage(

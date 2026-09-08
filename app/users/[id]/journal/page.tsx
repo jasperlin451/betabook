@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 
 import { JournalView } from "@/app/users/[id]/journal-view";
 import { ProfileHeader, getUserById, canReadUserJournal } from "@/app/users/[id]/profile-shell";
-import { parseJournalFilter } from "@/lib/journal-filter";
-import type { SearchParamsRecord } from "@/lib/search-params";
+import { parseJournalFilter } from "@/lib/filters/journal-filter";
 import { getSession } from "@/lib/session";
+import type { UrlParamsRecord } from "@/lib/url-params";
 
 type UserJournalPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<SearchParamsRecord>;
+  searchParams: Promise<UrlParamsRecord>;
 };
 
 export async function generateMetadata({ params }: UserJournalPageProps): Promise<Metadata> {

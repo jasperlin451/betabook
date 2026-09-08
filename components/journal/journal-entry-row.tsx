@@ -10,9 +10,9 @@ import { AppLink } from "@/components/ui/app-link";
 import { Grade } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
 import type { AreaBreadcrumbs, JournalEntry } from "@/db/queries";
+import { journalFilterToSearchParams, type JournalFilter } from "@/lib/filters/journal-filter";
 import { formatDate } from "@/lib/format-date";
 import { formatGrade } from "@/lib/grades";
-import { journalFilterToSearchParams, type JournalFilter } from "@/lib/journal-filter";
 
 function tagHref(userId: string, filter: JournalFilter, tag: string): string {
   const params = journalFilterToSearchParams({

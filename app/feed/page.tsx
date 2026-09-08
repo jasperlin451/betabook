@@ -10,16 +10,16 @@ import { ViewerBoundary } from "@/components/viewer-boundary";
 import { getDb } from "@/db/client";
 import { getFriendsPage, getFeedPage } from "@/db/queries";
 import { parseFeedView } from "@/lib/feed";
-import type { SearchParamsRecord } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
+import type { UrlParamsRecord } from "@/lib/url-params";
 
 export const metadata: Metadata = { title: "Feed", robots: { index: false } };
 
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<SearchParamsRecord>;
+  searchParams: Promise<UrlParamsRecord>;
 }) {
   const session = await getSession();
   if (!session) redirect(signInUrl("/feed"));

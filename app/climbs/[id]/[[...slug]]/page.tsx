@@ -34,19 +34,19 @@ import {
 } from "@/db/queries";
 import { buildLoggedGradeRows } from "@/lib/grade-histogram";
 import { formatGrade } from "@/lib/grades";
-import type { SearchParamsRecord } from "@/lib/search-params";
 import type { AscentStyle as AscentStyleType } from "@/lib/sends";
 import { climbDescription, climbJsonLd, climbTitle, locationTrail, pageMetadata } from "@/lib/seo";
 import { getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
 import { areaHref, climbHref, slugify, withQuery } from "@/lib/slug";
+import type { UrlParamsRecord } from "@/lib/url-params";
 
 type ClimbPageProps = {
   // Optional catch-all: `slug` is undefined for /climbs/:id and a segment
   // array for /climbs/:id/anything. The id is authoritative; the slug is
   // decorative and normalized by the redirect below.
   params: Promise<{ id: string; slug?: string[] }>;
-  searchParams: Promise<SearchParamsRecord>;
+  searchParams: Promise<UrlParamsRecord>;
 };
 
 // Shared between generateMetadata and the page — see the identical pattern in

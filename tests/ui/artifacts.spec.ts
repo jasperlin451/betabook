@@ -49,7 +49,7 @@ test("MCP component manifest includes usable component documentation", async ({ 
   const components = Object.values(manifest.components);
   expect(components.map((component) => component.name)).toEqual(
     expect.arrayContaining([
-      "SearchCombobox",
+      "SearchSelectionField",
       "ListRow",
       "PrivacyFields",
       "ColorPage",

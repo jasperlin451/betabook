@@ -3,12 +3,12 @@ import { sql } from "drizzle-orm";
 import { beforeEach, expect, it } from "vitest";
 
 import { createDb } from "@/db/client";
-import { parseJournalFilter, journalFilterToSearchParams } from "@/lib/journal-filter";
+import { parseJournalFilter, journalFilterToSearchParams } from "@/lib/filters/journal-filter";
 import {
   DEFAULT_USER_SENDS_FILTER,
   parseUserSendsFilter,
   userSendsFilterToSearchParams,
-} from "@/lib/user-sends-filter";
+} from "@/lib/filters/user-sends-filter";
 import {
   seedFixtureTree,
   seedFixtureUser,

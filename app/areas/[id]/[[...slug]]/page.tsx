@@ -3,10 +3,10 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
 
 import { AreaClimbsSection } from "@/components/area-climbs-section";
-import { AreaClimbsToolbar } from "@/components/area-climbs-toolbar";
 import { AreaCragHeader } from "@/components/area-crag-header";
 import { AreaHeaderActions } from "@/components/area-header-actions";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
+import { AreaClimbsToolbar } from "@/components/filters/area-climbs-toolbar";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { RegisterSearchScope } from "@/components/search-scope";
 import { SubareaRail } from "@/components/subarea-rail";
@@ -31,19 +31,19 @@ import {
   parseAreaClimbsFilter,
   parseAreaClimbsSort,
   toSubtreeQueryFilter,
-} from "@/lib/area-climbs-filter";
+} from "@/lib/filters/area-climbs-filter";
 import { buildGradeHistogram } from "@/lib/grade-histogram";
-import type { SearchParamsRecord } from "@/lib/search-params";
 import { areaDescription, areaJsonLd, areaTitle, locationTrail, pageMetadata } from "@/lib/seo";
 import { getSession } from "@/lib/session";
 import { areaHref, slugify, withQuery } from "@/lib/slug";
+import type { UrlParamsRecord } from "@/lib/url-params";
 
 type AreaPageProps = {
   // Optional catch-all: `slug` is undefined for /areas/:id and a segment
   // array otherwise. The id is authoritative; the redirect normalizes the
   // slug (query string preserved).
   params: Promise<{ id: string; slug?: string[] }>;
-  searchParams: Promise<SearchParamsRecord>;
+  searchParams: Promise<UrlParamsRecord>;
 };
 
 // generateMetadata and the page both need the area. The query helpers are
@@ -185,7 +185,7 @@ export default async function AreaPage({ params, searchParams }: AreaPageProps) 
           const climbsBlock = (
             <div className="flex flex-col gap-3">
               <SectionHeading>Climbs</SectionHeading>
-              <AreaClimbsToolbar areaId={area.id} areaPath={areaPath} sort={sort} filter={filter} />
+              <AreaClimbsToolbar areaPath={areaPath} sort={sort} filter={filter} />
               <AreaClimbsSection
                 // Remounts with fresh initial* state on a sort/filter change,
                 // rather than syncing local "load more" state to changed props

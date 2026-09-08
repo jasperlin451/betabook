@@ -16,8 +16,8 @@ import {
   getProductTourState,
 } from "@/db/queries";
 import { getUserHashtags } from "@/db/queries/hashtag-filter";
+import type { JournalFilter } from "@/lib/filters/journal-filter";
 import { calendarMonth } from "@/lib/format-date";
-import type { JournalFilter } from "@/lib/journal-filter";
 
 export async function JournalView({
   ownerId,
