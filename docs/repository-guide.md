@@ -51,11 +51,19 @@ Keep `wrangler.jsonc`, `.dev.vars.example`, and the checked-in `cloudflare-env.d
 
 ## Design system and UI regressions
 
-Before changing UI, read [docs/design-system.md](design-system.md) and the relevant adjacent `*.stories.tsx` file under `components/`. Start with **Foundations / Tokens** for live theme roles and **Internal / Coverage / Inventory** to find component examples and remaining gaps. Run `pnpm storybook` to inspect the real components in light and dark themes. Reuse `components/ui/` primitives and `app/globals.css` tokens; extend the shared pattern before adding local radius, surface, typography, or shadow treatments.
+Use [the design system entry point](design-system.md) to find design principles
+and real component examples in Storybook or the `betabook-storybook` MCP. Inspect
+local stories for changes on the current branch. Reuse the production primitives
+and theme tokens demonstrated there.
 
-Add or update a colocated story for new shared components and significant component states. Use one CSF file per component module with its actual imported `meta.component`; closely related exports can share the file. Keep cross-component compositions in `stories/patterns/`, brand/token references in `stories/foundations/`, maintenance views in `stories/internal/`, and shared story-only fixtures in `stories/fixtures/`. Sidebar titles follow Foundations, Components, Patterns, Internal. Class/token helpers belong in foundation or pattern examples, not fake component API entries. Keep story interactions local, use deterministic sample data, and never import live mutations or database code into the gallery. For UI changes, run `pnpm test:ui` in addition to the normal checks. Inspect its screenshots at mobile and desktop sizes; passing browser assertions do not replace visual review. Intentional design changes must update the guidance, stories, and affected assertions together, with a reason in the work summary or PR. Never loosen an assertion solely to make a regression pass.
+Follow [story authoring rules](component-testing.md#story-rules) when adding or
+changing examples. Keep design guidance with the foundation/pattern stories and
+component examples; routine UI PRs should not update `docs/design-system.md`.
+Explain intentional design changes in the work summary or PR.
 
-Chromatic only hosts the gallery and its documentation MCP; its UI Tests and UI Review are disabled to avoid snapshot usage. Keep `chromatic.disableSnapshot: true` in the preview. Playwright provides the CI UI checks and review screenshots, without automatic pixel comparisons. See [README.md](../README.md#development-checks) for CI and project-scoped MCP setup. When available, use `betabook-storybook` MCP for published component documentation; inspect local stories for changes on the current branch. Keep `meta.component` set to an imported component so the MCP manifest stays usable. Gallery reference components under `stories/` are documentation tooling, not production primitives.
+For UI changes, run `pnpm test:ui` in addition to the normal checks and review
+screenshots at mobile and desktop sizes in both themes. Passing assertions do not
+replace visual review. Never loosen an assertion solely to make a regression pass.
 
 ## Product tutorials
 

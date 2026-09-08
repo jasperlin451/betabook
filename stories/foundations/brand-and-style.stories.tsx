@@ -7,9 +7,14 @@ import { PageTitle, SectionHeading } from "@/components/ui/typography";
 
 import { BrandIconReference } from "./brand-icon-reference";
 
-const meta = { title: "Foundations/Brand and style", component: PageTitle } satisfies Meta<
-  typeof PageTitle
->;
+const designPrinciples =
+  "Betabook should feel like a calm, practical climbing logbook. Its identity comes from the paper/ink palette, condensed titles, readable climbing data, and direct language. Reuse existing components and patterns before adding a new visual treatment. Explore Foundations / Tokens for live theme roles and measurements.";
+
+const meta = {
+  title: "Foundations/Brand and style",
+  component: PageTitle,
+  parameters: { docs: { description: { component: designPrinciples } } },
+} satisfies Meta<typeof PageTitle>;
 export default meta;
 // These local-state/comparison examples supply their own component props.
 type Story = StoryObj;
@@ -17,10 +22,7 @@ export const Foundations: Story = {
   render: () => (
     <div className="flex flex-col gap-6">
       <PageTitle>Betabook design reference</PageTitle>
-      <p className="text-sm text-muted">
-        Real application components. Start with docs/design-system.md before changing a shared
-        style.
-      </p>
+      <p className="text-sm text-muted">{designPrinciples}</p>
       <section className="flex flex-col gap-3">
         <SectionHeading>Brand identity</SectionHeading>
         <div className="grid gap-4 sm:grid-cols-2">

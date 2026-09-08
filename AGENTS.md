@@ -19,5 +19,4 @@
 - [Design system and visual review](docs/design-system.md)
 - [Product tour implementation](docs/product-tours.md)
 - [Component test instructions](components/AGENTS.md)
-- [Hook test instructions](hooks/AGENTS.md)
 - [Browser test instructions](tests/ui/AGENTS.md)

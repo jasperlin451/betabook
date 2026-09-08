@@ -54,8 +54,8 @@ shared setup and fixtures. If a new location is necessary, update collection
 explicitly and confirm the focused command actually finds the test.
 
 The root [AGENTS.md](../AGENTS.md) indexes this guide. Additional instructions
-in [components](../components/AGENTS.md), [hooks](../hooks/AGENTS.md) and
-[tests/ui](../tests/ui/AGENTS.md) repeat the relevant path/suffix rules near the
+in [components](../components/AGENTS.md) and [tests/ui](../tests/ui/AGENTS.md)
+repeat the relevant path/suffix rules near the
 files. These are Markdown instructions; runner configuration controls collection.
 
 ## jsdom rules
@@ -185,8 +185,21 @@ Stories describe reproducible UI states and make visual review possible. Use the
 real imported component, deterministic sample data and local interactions; no
 live mutations or database imports. A story is not a substitute for a behavioral
 test. New stories inherit gallery accessibility, overflow and screenshot checks.
-Follow [the design system guide](design-system.md) for component examples and
-visual verification.
+Use one CSF file per production component module with its actual imported
+`meta.component`, so the Storybook MCP manifest stays usable; closely related
+exports can share that file. Put cross-component compositions in
+`stories/patterns/`, design principles and tokens in `stories/foundations/`,
+maintenance views in `stories/internal/`, and shared story-only fixtures in
+`stories/fixtures/`. Sidebar titles follow Foundations, Components, Patterns and
+Internal. Gallery reference components are documentation tooling, not production
+primitives. Keep class/token helpers in foundation or pattern examples.
+
+Change a shared component and its relevant examples together. Preserve story
+titles and export names because published URLs and agent references depend on
+them; update affected links and checks for intentional renames. Keep design
+guidance in the gallery alongside those examples. The
+[design system entry point](design-system.md) only describes how to find them
+and does not need an update for routine UI PRs.
 
 ## Validate and report
 
