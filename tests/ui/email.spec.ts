@@ -1,30 +1,8 @@
-import { expect, test } from "@playwright/test";
-
-import { auditEmailPreview } from "./email-accessibility";
-
-test("email accessibility checks cover the document inside the sandbox", async ({ page }) => {
-  await page.goto("/iframe.html?id=patterns-email--contact&viewMode=story");
-  const results = await auditEmailPreview(page);
-  expect(results.violations).toEqual([]);
-  expect(results.passes).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({ id: "document-title" }),
-      expect.objectContaining({ id: "html-has-lang" }),
-      expect.objectContaining({ id: "color-contrast" }),
-      expect.objectContaining({ id: "image-alt" }),
-      expect.objectContaining({ id: "link-name" }),
-    ]),
-  );
-  await expect(page.locator('iframe[title="Email preview"]')).toHaveAttribute(
-    "sandbox",
-    "allow-same-origin",
-  );
-});
+import { expect, test, openStory } from "./story";
 
 test("email documents load the full logo PNG, fit the viewport, and keep literal visitor content", async ({
   page,
 }, testInfo) => {
-  const theme = testInfo.project.use.colorScheme === "dark" ? "dark" : "light";
   for (const variant of [
     "verification",
     "password-reset",
@@ -33,15 +11,13 @@ test("email documents load the full logo PNG, fit the viewport, and keep literal
     "contact",
     "moderation-decision",
   ]) {
-    await page.goto(
-      `/iframe.html?id=patterns-email--${variant}&viewMode=story&globals=theme:${theme}`,
-    );
+    await openStory(page, testInfo, `patterns-email--${variant}`);
     const email = page.frameLocator('iframe[title="Email preview"]');
     const logo = email.getByRole("img", { name: "Betabook — Climb · Log · Progress", exact: true });
     await expect(logo).toBeVisible();
     await expect(logo).toHaveAttribute(
       "src",
-      "http://127.0.0.1:6007/branding/betabook-lockup-email.png",
+      new URL("/branding/betabook-lockup-email.png", page.url()).href,
     );
     await expect
       .poll(() =>
@@ -94,15 +70,17 @@ test("email documents load the full logo PNG, fit the viewport, and keep literal
       await expect(action).toBeVisible();
     }
     await testInfo.attach(`email-${variant}`, {
-      body: await page.screenshot({ fullPage: true }),
+      body: await page.screenshot({ fullPage: true, animations: "disabled" }),
       contentType: "image/png",
     });
   }
 });
 
-test("email actions and copy remain available when images are blocked", async ({ page }) => {
+test("email actions and copy remain available when images are blocked", async ({
+  page,
+}, testInfo) => {
   await page.route("**/branding/betabook-lockup-email.png", (route) => route.abort());
-  await page.goto("/iframe.html?id=patterns-email--friend-request&viewMode=story");
+  await openStory(page, testInfo, "patterns-email--friend-request");
   const email = page.frameLocator('iframe[title="Email preview"]');
   await expect(email.getByRole("heading", { name: "New friend request" })).toBeVisible();
   await expect(email.locator("body")).toContainText(

@@ -1,7 +1,7 @@
 import { getDb } from "@/db/client";
 import { getClimbersPage } from "@/db/queries";
-import { parseOffset, offsetReachesPaginationLimit } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
+import { parseOffset, offsetReachesPaginationLimit } from "@/lib/url-params";
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;

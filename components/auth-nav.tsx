@@ -18,12 +18,11 @@ type AuthNavProps = {
   onNavigate?: () => void;
 };
 
-/** One placeholder per signed-in control, sized to the four text links and
+/** One placeholder per signed-in control, sized to the three text links and
  * account avatar they stand in for. The signed-in set is the widest (and,
  * for a logbook, the most common) state, so holding its geometry keeps the
  * header from reflowing when the session resolves. */
 const PLACEHOLDER_WIDTHS = [
-  { key: "search", width: "w-14" },
   { key: "add-climb", width: "w-21" },
   { key: "add-area", width: "w-20" },
   { key: "my-journal", width: "w-20" },
@@ -71,9 +70,6 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
     const accountLabel = hasRequests ? "Account, pending friend requests" : "Account";
     return (
       <span className={signedInGroupClass}>
-        <NavLink href="/?mode=climb" onClick={onNavigate}>
-          Search
-        </NavLink>
         <NavLink href="/climbs/new" onClick={onNavigate}>
           Add climb
         </NavLink>

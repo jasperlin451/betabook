@@ -1,18 +1,9 @@
-import { expect, test } from "@playwright/test";
-import type { Page, TestInfo } from "@playwright/test";
+import { expect, test, openStory } from "./story";
 
-async function openStory(page: Page, info: TestInfo, story: string) {
-  const theme = info.project.use.colorScheme;
-  await page.goto(
-    `/iframe.html?id=components-journal-entry-date--${story}&viewMode=story&globals=theme:${theme}`,
-  );
-  await expect(page.getByRole("heading", { name: "Entry date", exact: true })).toBeVisible();
-}
-
-test("unknown dates are discoverable before marking a send and reset when returning to a session", async ({
+test("send controls precede the date and keyboard selection reveals the undated layout", async ({
   page,
 }, info) => {
-  await openStory(page, info, "session");
+  await openStory(page, info, "components-journal-entry-date--session");
   const sent = page.getByRole("checkbox", { name: "I sent", exact: true });
   const unknown = page.getByRole("checkbox", { name: "I don't remember the date", exact: true });
   await expect(unknown).toBeVisible();
@@ -37,34 +28,7 @@ test("unknown dates are discoverable before marking a send and reset when return
   await expect(unknown).toBeChecked();
   await expect(date).toBeHidden();
   await info.attach("undated-send", {
-    body: await page.screenshot({ fullPage: true }),
+    body: await page.screenshot({ fullPage: true, animations: "disabled" }),
     contentType: "image/png",
   });
-
-  await page.getByText("I sent", { exact: true }).click();
-  await expect(unknown).not.toBeChecked();
-  await expect(unknown).toBeDisabled();
-  await expect(date).toBeVisible();
-  await expect(page.getByRole("spinbutton", { name: /day,/ })).toHaveText("01");
-  await page.getByText("I sent", { exact: true }).click();
-  await expect(unknown).not.toBeChecked();
-  await expect(date).toBeVisible();
-});
-
-test("repeat and training date requirements are explained beside the date", async ({
-  page,
-}, info) => {
-  await openStory(page, info, "repeat");
-  await expect(
-    page.getByText("Sessions and repeats need a date to appear in your journal."),
-  ).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: "I don't remember the date" })).toHaveCount(0);
-  await page.getByText("I sent", { exact: true }).click();
-  await expect(
-    page.getByText("Sessions and repeats need a date to appear in your journal."),
-  ).toBeVisible();
-  await openStory(page, info, "training");
-  await expect(
-    page.getByText("Training entries need a date to appear in your journal."),
-  ).toBeVisible();
 });

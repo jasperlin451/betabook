@@ -7,6 +7,7 @@ import { StatTiles, type StatTile } from "@/components/analytics-stat-tiles";
 import { AnalyticsYearSelect } from "@/components/analytics-year-select";
 import { BreakthroughList } from "@/components/breakthrough-list";
 import { ClimbingCalendar } from "@/components/climbing-calendar";
+import { AnalyticsHashtagFilter } from "@/components/filters/analytics-hashtag-filter";
 import { ProgressionChart } from "@/components/progression-chart";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass } from "@/components/ui/card";
@@ -21,10 +22,12 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { getDb } from "@/db/client";
 import { getJournalSessionsForAnalytics, getUserSendsForAnalytics } from "@/db/queries";
 import { canReadJournal } from "@/db/queries/content-access";
+import { getUserHashtags } from "@/db/queries/hashtag-filter";
+import { normalizeHashtagFilters } from "@/lib/filters/hashtag-filter";
 import { formatCount } from "@/lib/format";
 import type { ClimbType } from "@/lib/grades";
-import type { SearchParamsRecord } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
+import { toArray, type UrlParamsRecord } from "@/lib/url-params";
 import {
   buildPyramid,
   buildUserAnalytics,
@@ -37,7 +40,7 @@ import { canViewUser } from "@/lib/user-visibility";
 
 type UserAnalyticsPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<SearchParamsRecord>;
+  searchParams: Promise<UrlParamsRecord>;
 };
 
 export async function generateMetadata({ params }: UserAnalyticsPageProps): Promise<Metadata> {
@@ -48,8 +51,10 @@ export async function generateMetadata({ params }: UserAnalyticsPageProps): Prom
   return { title: `${user.name} · Analytics`, robots: { index: false } };
 }
 
-function analyticsHref(userId: string, scope: ClimbType): string {
-  return `/users/${userId}/analytics?discipline=${scope}`;
+function analyticsHref(userId: string, scope: ClimbType, tags: string[]): string {
+  const params = new URLSearchParams({ discipline: scope });
+  for (const tag of tags) params.append("tag", tag);
+  return `/users/${userId}/analytics?${params}`;
 }
 
 // oxlint-disable-next-line complexity -- assembles many independent page sections from search params
@@ -61,12 +66,14 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
   const viewerId = session?.user.id ?? null;
   if (!canViewUser(user, viewerId)) notFound();
 
+  const selectedTags = normalizeHashtagFilters(toArray(search.tag));
   const journalVisible = await canReadJournal(db, user.id, viewerId);
-  const [rows, journalSessions] = await Promise.all([
-    getUserSendsForAnalytics(db, id),
+  const [rows, journalSessions, tags] = await Promise.all([
+    getUserSendsForAnalytics(db, id, viewerId, selectedTags),
     journalVisible
-      ? getJournalSessionsForAnalytics(db, user.id, viewerId)
+      ? getJournalSessionsForAnalytics(db, user.id, viewerId, selectedTags)
       : Promise.resolve(undefined),
+    getUserHashtags(db, id, viewerId),
   ]);
 
   // Grades only compare within one discipline, so the whole page is always
@@ -93,7 +100,14 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     return (
       <div className="flex flex-col gap-6">
         <ProfileHeader user={user} viewerId={session?.user.id ?? null} />
-        <EmptyState message="No outdoor sessions logged yet — analytics appear with the first session." />
+        <AnalyticsHashtagFilter selectedTags={selectedTags} tags={tags} />
+        <EmptyState
+          message={
+            selectedTags.length > 0
+              ? "No sends or outdoor sessions match these hashtags. Remove selected hashtags to see more activity."
+              : "No outdoor sessions logged yet — analytics appear with the first session."
+          }
+        />
       </div>
     );
   }
@@ -210,6 +224,8 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     <div className="flex flex-col gap-6">
       <ProfileHeader user={user} viewerId={session?.user.id ?? null} />
 
+      <AnalyticsHashtagFilter selectedTags={selectedTags} tags={tags} />
+
       {present.length > 1 && (
         <nav aria-label="Discipline" className="flex flex-wrap gap-2">
           {present.map((type) => {
@@ -217,7 +233,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
             return (
               <AppLink
                 key={type}
-                href={analyticsHref(id, type)}
+                href={analyticsHref(id, type, selectedTags)}
                 aria-current={selected ? "true" : undefined}
                 className={choicePillClass(selected, DISCIPLINE_CHIP_CLASSNAME[type])}
               >
@@ -284,9 +300,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         <section className={cardClass("fluid")}>
           <div className="mb-4 flex flex-col gap-1">
             <Eyebrow>Breakthroughs</Eyebrow>
-            <p className="text-xs text-muted">
-              Every send that raised the ceiling, and the wait before it.
-            </p>
+            <p className="text-xs text-muted">New highest grades and the time between them.</p>
           </div>
           {analytics.breakthroughs.length === 0 ? (
             <p className="text-sm text-muted">

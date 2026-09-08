@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { JournalEntryRow } from "@/components/journal/journal-entry-row";
 import { AppLink } from "@/components/ui/app-link";
 import type { JournalEntry } from "@/db/queries";
-import { DEFAULT_JOURNAL_FILTER } from "@/lib/journal-filter";
+import { DEFAULT_JOURNAL_FILTER } from "@/lib/filters/journal-filter";
 
 vi.mock("@/components/ui/app-link", () => ({
   AppLink: vi.fn<(props: { children?: ReactNode }) => null>(() => null),
@@ -66,7 +66,7 @@ describe("JournalEntryRow", () => {
   });
 
   it("lets the active tag chip clear its filter", () => {
-    const result = row({ ...DEFAULT_JOURNAL_FILTER, tag: "slab" });
+    const result = row({ ...DEFAULT_JOURNAL_FILTER, tags: ["slab"] });
     const tag = tagChildren(result).find(
       (child) => isValidElement(child) && child.type === AppLink,
     );

@@ -4,8 +4,8 @@ import { beforeEach, expect, it } from "vitest";
 
 import { createDb } from "@/db/client";
 import { friendships, journalEntries, sends, user } from "@/db/schema";
-import { DEFAULT_JOURNAL_FILTER } from "@/lib/journal-filter";
-import { DEFAULT_USER_SENDS_FILTER } from "@/lib/user-sends-filter";
+import { DEFAULT_JOURNAL_FILTER } from "@/lib/filters/journal-filter";
+import { DEFAULT_USER_SENDS_FILTER } from "@/lib/filters/user-sends-filter";
 import {
   seedFixtureFriendship,
   seedFixtureJournalEntry,

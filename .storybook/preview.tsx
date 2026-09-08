@@ -5,6 +5,13 @@ import "@/app/globals.css";
 import "./fonts.css";
 
 const preview: Preview = {
+  beforeEach: ({ canvasElement }) => {
+    delete canvasElement.dataset.storyReady;
+  },
+  afterEach: ({ canvasElement }) => {
+    // Browser audits wait for play functions as well as the initial render.
+    canvasElement.dataset.storyReady = "true";
+  },
   initialGlobals: { theme: "light" },
   globalTypes: {
     theme: {

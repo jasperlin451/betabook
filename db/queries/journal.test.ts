@@ -11,7 +11,7 @@ import {
   getJournalSessionsForAnalytics,
   getOpenProjects,
 } from "@/db/queries";
-import { DEFAULT_JOURNAL_FILTER, type JournalFilter } from "@/lib/journal-filter";
+import { DEFAULT_JOURNAL_FILTER, type JournalFilter } from "@/lib/filters/journal-filter";
 import {
   seedFixtureJournalEntry,
   seedFixtureSend,
@@ -149,12 +149,12 @@ describe("getJournalPage", () => {
   });
 
   it("filters by a hyphenated tag", async () => {
-    const page = await getJournalPage(db, OWNER_ID, OWNER_ID, filter({ tag: "happy-boulders" }));
+    const page = await getJournalPage(db, OWNER_ID, OWNER_ID, filter({ tags: ["happy-boulders"] }));
     expect(page.entries.map((e) => e.entryDate)).toEqual(["2025-04-01"]);
   });
 
   it("returns nothing for a tag nobody used", async () => {
-    const page = await getJournalPage(db, OWNER_ID, OWNER_ID, filter({ tag: "campus" }));
+    const page = await getJournalPage(db, OWNER_ID, OWNER_ID, filter({ tags: ["campus"] }));
     expect(page.entries).toEqual([]);
   });
 
@@ -389,5 +389,24 @@ describe("the timeline's query plan", () => {
     const detail = plan.map((row) => row.detail).join("\n");
     expect(detail).toContain("journal_user_date_idx");
     expect(detail).not.toContain("TEMP B-TREE");
+  });
+});
+
+describe("journal date ranges", () => {
+  it("includes boundary sessions and keeps the range when paging", async () => {
+    const dates = { dateFrom: "2025-03-05", dateTo: "2025-04-01" };
+    const first = await getJournalPage(db, OWNER_ID, OWNER_ID, filter(dates), null, 2);
+    expect(first.entries.map((entry) => entry.entryDate)).toEqual(["2025-04-01", "2025-03-06"]);
+    expect(first.hasMore).toBe(true);
+    const second = await getJournalPage(db, OWNER_ID, OWNER_ID, filter(dates), first.nextCursor, 2);
+    expect(second.entries.map((entry) => entry.entryDate)).toEqual(["2025-03-05"]);
+    expect(second.hasMore).toBe(false);
+    const sessions = await getJournalPage(
+      db,
+      OWNER_ID,
+      OWNER_ID,
+      filter({ ...dates, view: "sessions" }),
+    );
+    expect(sessions.entries.map((entry) => entry.entryDate)).toEqual(["2025-03-06", "2025-03-05"]);
   });
 });

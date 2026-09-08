@@ -64,7 +64,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
       section: "Search",
       title: "Find your climbing partners",
       description:
-        "Open Search, choose Search climbers, and enter a name. Select Add friend on a result or profile. Private profiles don't appear in search. Try sending Riley a request.",
+        "Open Search, choose Climbers, and enter a name. View all results, then select Add friend on a result or profile. Private profiles don't appear in search. Try sending Riley a request.",
       target: "friend-search",
     },
     {

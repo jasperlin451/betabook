@@ -13,6 +13,7 @@ export default meta;
 type Story = StoryObj;
 function Example({ error = false }: { error?: boolean }) {
   const [removed, setRemoved] = useState(false);
+  const [failed, setFailed] = useState(error);
   return (
     <StoryPage
       title="Session companions"
@@ -26,8 +27,11 @@ function Example({ error = false }: { error?: boolean }) {
             : []),
         ]}
         profileLinks={false}
-        onRemoveSelf={() => setRemoved(true)}
-        error={error ? "Couldn't remove your tag. Try again." : undefined}
+        onRemoveSelf={() => {
+          setFailed(false);
+          setRemoved(true);
+        }}
+        error={failed ? "Couldn't remove your tag. Try again." : undefined}
       />
     </StoryPage>
   );

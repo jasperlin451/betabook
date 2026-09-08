@@ -5,8 +5,9 @@ import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
 import { FriendRequestBadge, FriendRequestDot } from "@/components/friend-request-badge";
 import { ProfileSectionNav } from "@/components/profile-tabs";
-import { SearchModeSwitch, type SearchMode } from "@/components/search-mode-switch";
+import { SearchCategories } from "@/components/search/search-categories";
 import { SubareaRail } from "@/components/subarea-rail";
+import type { SearchCategory } from "@/lib/search";
 import { Example, StoryPage } from "@/stories/fixtures/story-layout";
 
 const meta = { title: "Patterns/Navigation", component: StoryPage } satisfies Meta<
@@ -16,11 +17,11 @@ export default meta;
 // These local-state/comparison examples supply their own component props.
 type Story = StoryObj;
 function NavigationExample() {
-  const [mode, setMode] = useState<SearchMode>("climb");
+  const [mode, setMode] = useState<SearchCategory>("climb");
   const [tab, setTab] = useState("Journal");
   return (
     <StoryPage title="Search and profile navigation">
-      <SearchModeSwitch mode={mode} onSelect={setMode} />
+      <SearchCategories value={mode} onChange={setMode} />
       <ProfileSectionNav
         tabs={["Journal", "Sends", "Projects", "Analytics", "Friends"].map((label) => ({
           label,

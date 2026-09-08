@@ -13,9 +13,8 @@ The Journal tour covers Log, journal filters, Sends sorting, project history, An
 
 Demo profile tabs use the app's order: Journal, Sends, Feed, Friends, Projects,
 Analytics, then the tour-only Account section. Lesson order remains in the catalog.
-Discovery uses a separate Search surface, with the same Search climbs / Search
-areas / Search climbers selector and result-row components as the app. Search is
-not a profile tab. The lesson starts in Search climbers; category changes, form
+Discovery uses a separate Search surface, with the same All / Climbs / Areas / Climbers categories and result rows as the app. Search is
+not a profile tab. The lesson starts in Climbers; category changes, search
 submission, sample results, and friend requests stay local. Its View your feed link
 opens the feed lesson while preserving full/update mode and the exit destination.
 Next, Back, and the lesson chooser connect Search with the profile lessons.

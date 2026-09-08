@@ -28,9 +28,16 @@ type ClimbSendListProps = {
 
 /** Community ascents for a single climb — one row per climber, paged from
  * the server the same way UserSendList is: server-rendered first page,
- * "load more" fetching subsequent pages. A post-mutation server refresh
- * resets the client list to its new first-page snapshot. */
-export function ClimbSendList({
+ * "load more" fetching subsequent pages. Refreshes revalidate loaded pages. */
+export function ClimbSendList(props: ClimbSendListProps) {
+  return (
+    <ViewerBoundary viewerId={props.currentUserId ?? null}>
+      <ClimbSendListContent {...props} />
+    </ViewerBoundary>
+  );
+}
+
+function ClimbSendListContent({
   climb,
   initialSends,
   initialHasMore,
@@ -49,9 +56,12 @@ export function ClimbSendList({
     initialMeta: null,
     itemKey: (send) => send.id,
     mergeMeta: () => null,
-    fetchPage: async (offset) => {
+    fetchPage: async (offset, _page, _last, signal) => {
       const params = new URLSearchParams({ offset: String(offset) });
-      const res = await fetch(`/api/climbs/${climb.id}/sends?${params.toString()}`);
+      const res = await fetch(`/api/climbs/${climb.id}/sends?${params.toString()}`, {
+        cache: "no-store",
+        signal,
+      });
       if (!res.ok) throw new Error(`Loading sends failed: ${res.status}`);
       const data: ClimbSendsPage = await res.json();
       return { items: data.sends, hasMore: data.hasMore, meta: null };
@@ -59,37 +69,35 @@ export function ClimbSendList({
   });
 
   return (
-    <ViewerBoundary viewerId={currentUserId ?? null}>
-      <SendListShell
-        sends={sends}
-        emptyState={emptyState}
-        hasMore={hasMore}
-        onLoadMore={loadMore}
-        loadingMore={loadingMore}
-        loadMoreFailed={loadMoreFailed}
-        renderRow={(send) => (
-          <ListRow
-            title={send.userName}
-            href={`/users/${send.userId}`}
-            subtitle={send.dateSent ? formatDate(send.dateSent) : "Date unknown"}
-            trailing={
-              <div className="flex flex-col items-end gap-1 text-sm">
-                {/* The climber's own grade leads: the page's header already
-                 * carries the posted one. */}
-                <SendGradeCell
-                  type={climb.type}
-                  grade={send.suggestedGrade}
-                  gradeFeel={send.gradeFeel}
-                  rating={send.rating}
-                />
-                <AscentStyle type={send.ascentStyle} />
-              </div>
-            }
-            actions={send.userId === currentUserId && <SendActionsMenu climb={climb} send={send} />}
-            comment={send.comment}
-          />
-        )}
-      />
-    </ViewerBoundary>
+    <SendListShell
+      sends={sends}
+      emptyState={emptyState}
+      hasMore={hasMore}
+      onLoadMore={loadMore}
+      loadingMore={loadingMore}
+      loadMoreFailed={loadMoreFailed}
+      renderRow={(send) => (
+        <ListRow
+          title={send.userName}
+          href={`/users/${send.userId}`}
+          subtitle={send.dateSent ? formatDate(send.dateSent) : "Date unknown"}
+          trailing={
+            <div className="flex flex-col items-end gap-1 text-sm">
+              {/* The climber's own grade leads: the page's header already
+               * carries the posted one. */}
+              <SendGradeCell
+                type={climb.type}
+                grade={send.suggestedGrade}
+                gradeFeel={send.gradeFeel}
+                rating={send.rating}
+              />
+              <AscentStyle type={send.ascentStyle} />
+            </div>
+          }
+          actions={send.userId === currentUserId && <SendActionsMenu climb={climb} send={send} />}
+          comment={send.comment}
+        />
+      )}
+    />
   );
 }

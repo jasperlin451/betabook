@@ -14,8 +14,9 @@ import {
   parseAreaClimbsFilter,
   parseAreaClimbsSort,
   toSubtreeQueryFilter,
-} from "@/lib/area-climbs-filter";
+} from "@/lib/filters/area-climbs-filter";
 import { parseId } from "@/lib/parse-id";
+import { getSession } from "@/lib/session";
 import {
   offsetReachesPaginationLimit,
   pageReachesPaginationLimit,
@@ -23,8 +24,7 @@ import {
   parsePage,
   parseSuggestionLimit,
   searchParamsToRecord,
-} from "@/lib/search-params";
-import { getSession } from "@/lib/session";
+} from "@/lib/url-params";
 
 type RouteParams = { params: Promise<{ id: string }> };
 

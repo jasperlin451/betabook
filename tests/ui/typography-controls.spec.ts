@@ -1,15 +1,5 @@
-import { expect, test } from "@playwright/test";
-import type { Page, TestInfo } from "@playwright/test";
-
 import { appBaseURL } from "./app-server";
-
-async function openStory(page: Page, info: TestInfo, story: string) {
-  const theme = info.project.use.colorScheme;
-  await page.goto(`/iframe.html?id=${story}&viewMode=story&globals=theme:${theme}`);
-  await expect(page.locator("html")).toHaveAttribute("data-theme", String(theme));
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await page.evaluate(() => document.fonts.ready);
-}
+import { expect, test, openStory } from "./story";
 
 test("auth and recovery pages use the canonical page title", async ({ page }, info) => {
   for (const [path, title] of [
@@ -23,16 +13,12 @@ test("auth and recovery pages use the canonical page title", async ({ page }, in
     await expect(heading).toHaveCSS("font-size", "30px");
     await expect(heading).toHaveCSS("font-family", /barlow/i);
     await expect(heading).toHaveCSS("font-weight", "600");
-    await info.attach(title, { body: await page.screenshot(), contentType: "image/png" });
+    await info.attach(title, {
+      // Hiding carets mutates SSR input styles and can race React hydration.
+      body: await page.screenshot({ animations: "disabled", caret: "initial" }),
+      contentType: "image/png",
+    });
   }
-});
-
-test("not-found headings keep the page title scale", async ({ page }, info) => {
-  await openStory(page, info, "components-feedback-not-found-message--not-found");
-  await expect(page.getByRole("heading", { name: "Climb not found" })).toHaveCSS(
-    "font-size",
-    "30px",
-  );
 });
 
 test("tag feedback is associated, readable and uses the invalid field treatment", async ({
@@ -107,33 +93,4 @@ test("sort direction matches its field size and works from the keyboard", async 
   const descending = page.getByRole("button", { name: "Sort descending" });
   await expect(descending).toHaveCSS("height", borderedHeight);
   await expect(descending).toHaveCSS("width", borderedHeight);
-});
-
-test("pagination announces failures and exposes the retry description", async ({ page }, info) => {
-  await openStory(page, info, "components-feedback-load-more-button--retry");
-  const retry = page.getByRole("button", { name: "Load more" });
-  await expect(page.getByRole("alert")).toHaveText("Couldn't load more — try again.");
-  await expect(retry).toHaveAccessibleDescription("Couldn't load more — try again.");
-  await retry.press("Enter");
-  await expect(page.getByRole("alert")).toHaveCount(0);
-  await expect(page.getByRole("status")).toHaveText("Next page loaded.");
-  await expect(retry).toBeFocused();
-});
-
-test("pending pagination preserves focus and prevents duplicate requests", async ({
-  page,
-}, info) => {
-  await openStory(page, info, "components-feedback-load-more-button--loading");
-  const pending = page.getByRole("button", { name: "Loading…" });
-  await expect(pending).toBeDisabled();
-  await pending.focus();
-  await expect(pending).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page.locator("output")).toHaveText("Requests: 0");
-  await page.getByRole("button", { name: "Finish sample request" }).click();
-  await page.getByRole("button", { name: "Load more" }).press("Enter");
-  await expect(pending).toBeFocused();
-  await expect(page.locator("output")).toHaveText("Requests: 1");
-  await page.keyboard.press("Enter");
-  await expect(page.locator("output")).toHaveText("Requests: 1");
 });

@@ -27,7 +27,7 @@ const appTokens = [
   ),
 ];
 const colorTokens = appTokens.filter(
-  (name) => !/^--(font-|color-|field-border-width|search-icon)/.test(name),
+  (name) => !/^--(font-|color-|radius-|field-border-width|search-icon)/.test(name),
 );
 const actionRoles = ["accent", "default", "success", "warning", "danger"];
 const inheritedActions = actionRoles.flatMap((role) =>

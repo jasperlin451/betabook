@@ -1,7 +1,7 @@
 import { getDb } from "@/db/client";
 import { getFriendsPage, getPendingFriendRequestCount } from "@/db/queries";
-import { parseOffset, offsetReachesPaginationLimit } from "@/lib/search-params";
 import { getSession } from "@/lib/session";
+import { parseOffset, offsetReachesPaginationLimit } from "@/lib/url-params";
 
 const headers = { "Cache-Control": "private, no-store" };
 export async function GET(request: Request) {

@@ -34,10 +34,6 @@ export function MobileNavDrawer({
             <Drawer.CloseTrigger />
           </Drawer.Header>
           <Drawer.Body>
-            {/* AuthNav's signed-in link set includes an explicit Search
-             * entry (to "/?mode=climb") alongside the header magnifier and
-             * ⌘K palette — a deliberate product decision to make search
-             * reachable from the nav itself, not just those affordances. */}
             <nav aria-label="Primary" className="flex flex-col items-start gap-4 text-sm">
               <AuthNav direction="col" onNavigate={onClose} />
               {!isStandalone && (

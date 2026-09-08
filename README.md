@@ -167,6 +167,20 @@ workers. **UI reference** requires all four projects to pass; each project uploa
 its own `ui-reference-report-<project>` artifact. To run one project locally, use
 `pnpm test:ui --project=mobile-dark`.
 
+Component state and callback checks run with `pnpm test:components` using jsdom
+and React Testing Library. They do not build Storybook or start Next.js, a browser,
+or D1. Playwright retains rendering, responsive layout, focus/scrolling, touch,
+calendar editing, accessibility and real navigation coverage. Browser checks
+tagged `@behavior` run only in `desktop-light` because their behavior is independent
+of viewport and theme; visual and responsive checks keep all four projects.
+
+Story tests use shared theme/render readiness and a
+fixed date; live story API requests and unhandled browser errors fail the suite.
+Focused browser checks assert rendering and native interactions; DOM tests own
+component state and submitted form values.
+Viewport-independent artifact checks run once in desktop-light; visual,
+responsive and touch-sensitive coverage keeps all four projects.
+
 The workflow lives in [`.github/workflows/chromatic.yml`](.github/workflows/chromatic.yml).
 After the first main-branch publish, connect the hosted project MCP server with
 `codex mcp login betabook-storybook` or Claude Code's `/mcp`. Each collaborator
@@ -178,7 +192,24 @@ pnpm test -- lib/journal.test.ts           # focused test run
 pnpm exec opennextjs-cloudflare build      # production Workers build used by CI
 ```
 
-Tests are colocated with the code in `actions/`, `app/`, `components/`, `db/`, and `lib/`. Vitest runs in the Cloudflare Workers pool and applies all D1 migrations through [`test/apply-migrations.ts`](test/apply-migrations.ts). Its entrypoint is [`test/worker.ts`](test/worker.ts), so tests need neither seeded local data nor a production build.
+Tests are colocated with the code. `pnpm test` runs both Vitest projects, so
+`pnpm check` and CI include both:
+
+- **components:** `components/**/*.dom.test.{ts,tsx}` and `hooks/**/*.dom.test.{ts,tsx}`
+  mount real React components/hooks in jsdom. Use Testing Library's accessible
+  queries and `user-event`, await pending state changes, and replace only external
+  boundaries such as transport or Next.js navigation. Do not mock React hooks or
+  replace the component being tested. jsdom does not verify rendered geometry;
+  the setup's scroll and resize stubs are deliberately nonvisual.
+- **workers:** the remaining colocated tests run in the Cloudflare Workers pool
+  with real D1 migrations through [`test/apply-migrations.ts`](test/apply-migrations.ts).
+  Its entrypoint is [`test/worker.ts`](test/worker.ts), so tests need neither seeded
+  local data nor a production build. DOM tests are explicitly excluded.
+
+Run one DOM file with `pnpm test:components components/journal/tag-input.dom.test.tsx`,
+or just the Workers project with `pnpm test --project=workers`. See
+[Choosing and writing tests](docs/component-testing.md) for test selection,
+path/suffix rules, examples and validation commands.
 
 | Command                             | Purpose                                                                       |
 | ----------------------------------- | ----------------------------------------------------------------------------- |
@@ -188,11 +219,12 @@ Tests are colocated with the code in `actions/`, `app/`, `components/`, `db/`, a
 | `pnpm deadcode:prod`                | Extra audit excluding test and development entrypoints; separate from `check` |
 | `pnpm typecheck`                    | Next route type generation and TypeScript checking                            |
 | `pnpm test`                         | Full Vitest suite                                                             |
+| `pnpm test:components`              | React component and hook tests in jsdom                                       |
 | `pnpm db:generate`                  | Generate migrations from `drizzle/schema/`                                    |
 | `pnpm db:migrate:local`             | Apply migrations to local D1                                                  |
 | `pnpm preview`                      | Build and preview the Cloudflare Workers bundle locally                       |
 
-The pre-commit hook formats staged files; the pre-push hook runs `pnpm check`. See [AGENTS.md](AGENTS.md) for architecture, data invariants, and the required red–green test workflow. Tutorial implementation guidance lives in [docs/product-tours.md](docs/product-tours.md).
+The pre-commit hook formats staged files; the pre-push hook runs `pnpm check`. See [the repository guide](docs/repository-guide.md) for architecture, data invariants, and the required red–green test workflow. [AGENTS.md](AGENTS.md) indexes the agent guides. Tutorial implementation guidance lives in [docs/product-tours.md](docs/product-tours.md).
 
 ## Deployment
 
@@ -213,4 +245,9 @@ CI deployment uses the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE
 
 ## License
 
-[MIT](LICENSE).
+Betabook is source available under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+Use is permitted for the purposes defined in that license; commercial use outside
+those permissions requires a separate license from the copyright holder.
+
+The app serves a copy at `/license.txt`. Keep `public/license.txt` synchronized with
+`LICENSE` when updating the license or required notices.

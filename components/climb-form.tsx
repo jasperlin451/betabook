@@ -19,7 +19,12 @@ type ClimbFormProps = {
   /** Starting values for a new climb, carried over from a search that failed
    * to find it (see ClimbPicker's empty state) so nothing is retyped. Ignored
    * when `climb` is given — an edit starts from the climb itself. */
-  initial?: { name?: string; type?: ClimbType; areaName?: string };
+  initial?: {
+    name?: string;
+    type?: ClimbType;
+    areaName?: string;
+    area?: { id: number; name: string; ancestorPath: string | null };
+  };
   onDone?: (climbId: number, climbName?: string) => void;
 };
 
@@ -35,7 +40,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
   const [type, setType] = useState<ClimbType>(climb?.type ?? initial?.type ?? "boulder");
   const [grade, setGrade] = useState(String(climb?.grade ?? 0));
   const [description, setDescription] = useState(climb?.description ?? "");
-  const [pickedArea, setPickedArea] = useState<PickedArea | null>(null);
+  const [pickedArea, setPickedArea] = useState<PickedArea | null>(initial?.area ?? null);
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [pending, startTransition] = useTransition();

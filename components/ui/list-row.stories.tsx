@@ -12,11 +12,13 @@ const meta = {
     subtitle: "North Woods",
     trailing: <Grade>V4</Grade>,
     comment: "A short note.",
+    href: "#sample-climb",
   },
   decorators: [
     (Story) => (
       <StoryPage title="List row">
         <Story />
+        <p id="sample-climb">Local climb destination</p>
       </StoryPage>
     ),
   ],

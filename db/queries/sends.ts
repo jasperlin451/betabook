@@ -2,18 +2,20 @@ import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
 import { areas, climbs, sends, user } from "@/db/schema";
+import type { DateFilterValue } from "@/lib/filters/date-filter";
 import {
   DEFAULT_BOULDER_RANGE,
   DEFAULT_SPORT_RANGE,
   DEFAULT_TRAD_RANGE,
   type DisciplineFilter,
-} from "@/lib/discipline-filter";
+} from "@/lib/filters/discipline-filter";
 import { formatGrade, type ClimbType } from "@/lib/grades";
 import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
 
-import { areaNameCondition } from "./areas";
+import { areaIdCondition, areaNameCondition } from "./areas";
 import type { Climb } from "./climbs";
 import { sendCommentVisibleSql } from "./content-access";
+import { sendHashtagCondition } from "./hashtag-filter";
 import { disciplineGradeCondition, toFtsPrefixQuery } from "./shared";
 
 export type Send = typeof sends.$inferSelect;
@@ -170,14 +172,16 @@ export type UserSendsSort =
   | "rating_desc"
   | "rating_asc";
 
-export type UserSendsFilter = DisciplineFilter & {
-  date?: string;
-  name?: string;
-  areaName?: string;
-  sort?: UserSendsSort;
-  ascentStyles: AscentStyle[];
-  minRating: number;
-};
+export type UserSendsFilter = DisciplineFilter &
+  DateFilterValue & {
+    tags?: string[];
+    name?: string;
+    areaName?: string;
+    areaId?: number;
+    sort?: UserSendsSort;
+    ascentStyles: AscentStyle[];
+    minRating: number;
+  };
 
 // Unknown values sort last. ID breaks ties in the paginated query.
 const USER_SENDS_ORDER_BY: Record<UserSendsSort, SQL> = {
@@ -196,7 +200,7 @@ export type UserSendsPage = {
   hasMore: boolean;
 };
 
-function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
+function userSendsWhere(userId: string, filter: UserSendsFilter, viewerId: string | null): SQL {
   const disciplineClauses: SQL[] = [];
   if (filter.disciplines.includes("boulder")) {
     disciplineClauses.push(
@@ -216,7 +220,12 @@ function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
     disciplineClauses.length > 0 ? sql`(${sql.join(disciplineClauses, sql` OR `)})` : sql`1`;
 
   const conditions: SQL[] = [sql`sends.user_id = ${userId}`, disciplineWhere];
+  if (filter.tags?.length) conditions.push(sendHashtagCondition(filter.tags, viewerId));
   if (filter.date) conditions.push(sql`sends.date_sent = ${filter.date}`);
+  else {
+    if (filter.dateFrom) conditions.push(sql`sends.date_sent >= ${filter.dateFrom}`);
+    if (filter.dateTo) conditions.push(sql`sends.date_sent <= ${filter.dateTo}`);
+  }
 
   if (filter.ascentStyles.length > 0) {
     conditions.push(
@@ -240,7 +249,10 @@ function userSendsWhere(userId: string, filter: UserSendsFilter): SQL {
     );
   }
 
-  const areaCondition = areaNameCondition(filter.areaName);
+  const areaCondition =
+    filter.areaId !== undefined
+      ? areaIdCondition(filter.areaId)
+      : areaNameCondition(filter.areaName);
   if (areaCondition) conditions.push(areaCondition);
 
   return sql.join(conditions, sql` AND `);
@@ -272,7 +284,7 @@ export async function getSendsForUserPage(
   pageSize: number = USER_SENDS_PAGE_SIZE,
   viewerId: string | null = null,
 ): Promise<UserSendsPage> {
-  const where = userSendsWhere(userId, filter);
+  const where = userSendsWhere(userId, filter, viewerId);
 
   const rows = await db.all<UserSendRow>(sql`
     SELECT ${userSendColumns(viewerId)}
@@ -474,6 +486,8 @@ export type AnalyticsSendRow = {
 export async function getUserSendsForAnalytics(
   db: Database,
   userId: string,
+  viewerId: string | null = null,
+  tags?: string[],
 ): Promise<AnalyticsSendRow[]> {
   return db
     .select({
@@ -489,6 +503,11 @@ export async function getUserSendsForAnalytics(
     .from(sends)
     .innerJoin(climbs, eq(sends.climbId, climbs.id))
     .innerJoin(areas, eq(climbs.areaId, areas.id))
-    .where(eq(sends.userId, userId))
+    .where(
+      and(
+        eq(sends.userId, userId),
+        tags?.length ? sendHashtagCondition(tags, viewerId) : undefined,
+      ),
+    )
     .orderBy(sends.dateSent, sends.id);
 }

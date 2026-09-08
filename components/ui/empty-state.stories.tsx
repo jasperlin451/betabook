@@ -1,5 +1,6 @@
 import { Button } from "@heroui/react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { useState } from "react";
 
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
@@ -20,5 +21,15 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const NoResults: Story = {};
 export const WithAction: Story = {
-  args: { message: "No sends yet.", cta: <Button onPress={() => {}}>Log sample send</Button> },
+  render: function Example() {
+    const [reset, setReset] = useState(false);
+    return reset ? (
+      <p role="status">Showing all sample sessions.</p>
+    ) : (
+      <EmptyState
+        message="No sessions match these filters."
+        cta={<Button onPress={() => setReset(true)}>Clear sample filters</Button>}
+      />
+    );
+  },
 };

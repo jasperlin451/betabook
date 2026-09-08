@@ -11,7 +11,7 @@
     "open-next.config.ts!",
 
     // Miniflare `main`, set inside the Cloudflare pool's async options callback
-    // in vitest.config.mts — the Vitest plugin never evaluates that.
+    // in vitest.workers.config.mts — the Vitest plugin never evaluates that.
     "test/worker.ts",
 
     // Referenced by Storybook's framework option, not a module import.

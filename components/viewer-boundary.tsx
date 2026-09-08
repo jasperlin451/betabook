@@ -2,7 +2,7 @@
 
 import { Button } from "@heroui/react";
 import { useRouter } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { useMounted } from "@/hooks/use-mounted";
@@ -19,10 +19,21 @@ export function ViewerBoundary({
 }) {
   const mounted = useMounted();
   const { data: session, isPending } = authClient.useSession();
+  const [lastViewerId, setLastViewerId] = useState<string | null>();
+  const currentViewerId = isPending ? lastViewerId : (session?.user.id ?? null);
+  if (!isPending && currentViewerId !== lastViewerId) setLastViewerId(currentViewerId);
   const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
+  const lastRefreshAt = useRef(-Infinity);
   useEffect(() => {
     const refresh = () => {
-      if (document.visibilityState === "visible") router.refresh();
+      // Browsers can emit both events for a single tab return. Also avoid
+      // starting a second route refresh while the first one is in flight.
+      if (document.visibilityState !== "visible" || refreshing) return;
+      const now = Date.now();
+      if (now - lastRefreshAt.current < 1_000) return;
+      lastRefreshAt.current = now;
+      startRefresh(() => router.refresh());
     };
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
@@ -30,13 +41,16 @@ export function ViewerBoundary({
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [router]);
-  if (mounted && !isPending && (session?.user.id ?? null) !== viewerId)
+  }, [router, refreshing, startRefresh]);
+  // A subsequent session check must not reveal data already hidden on sign-out.
+  if (mounted && currentViewerId !== undefined && currentViewerId !== viewerId)
     return (
       <EmptyState
         message="Your account changed. Refresh to update this page."
         cta={<Button onPress={() => router.refresh()}>Refresh page</Button>}
       />
     );
-  return children;
+  // The server can observe an account switch before useSession finishes.
+  // Never carry a previous viewer's drafts or loaded pages into that tree.
+  return <Fragment key={viewerId}>{children}</Fragment>;
 }
