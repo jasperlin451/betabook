@@ -881,3 +881,28 @@ describe("getAreaWithSubtreeSize", () => {
     expect((await getAreaWithSubtreeSize(db, ROOT_ID))?.largeSubtree).toBe(true);
   });
 });
+
+it.each(["search", "area"])(
+  "%s keeps SQL-null ratings in the full displayed range only",
+  async (surface) => {
+    const stored = await db.select({ name: climbs.name, rating: climbs.avgRating }).from(climbs);
+    expect(stored).toEqual(
+      expect.arrayContaining([
+        { name: "Test Highball", rating: null },
+        { name: "Test Crack", rating: null },
+      ]),
+    );
+    const root = await getArea(db, 1);
+    const query = (ratingRange: [number, number]) =>
+      surface === "search"
+        ? searchClimbs(db, { disciplines: [], ratingRange })
+        : getSubtreeClimbs(db, root!, 1, "ascents_desc", { disciplines: [], ratingRange });
+    expect((await query([1, 5])).climbs.map((climb) => climb.name).sort()).toEqual([
+      "Test Crack",
+      "Test Crimper",
+      "Test Highball",
+      "Test Slab",
+    ]);
+    expect((await query([1, 3])).climbs.map((climb) => climb.name)).toEqual(["Test Crimper"]);
+  },
+);

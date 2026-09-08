@@ -724,6 +724,7 @@ describe("getSendsForUserPage ascentStyles/minRating filtering", () => {
       "Test Highball",
       "Test Slab",
     ]);
+    expect(result.sends.find((send) => send.climbName === "Test Crimper")?.rating).toBeNull();
   });
 
   it("filters down to a single selected ascent style", async () => {

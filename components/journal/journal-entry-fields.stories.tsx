@@ -36,7 +36,7 @@ function Example({
   return (
     <StoryPage
       title="Log an entry"
-      description="Notes fill the available form width. Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
+      description="Date comes first; send style appears beside I sent. Notes fill the form width, followed by friends and Tags. Redundant section headings are omitted. Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
     >
       <JournalEntryFields
         today="2026-09-06"

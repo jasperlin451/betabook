@@ -1,14 +1,14 @@
 "use client";
 
 import { Checkbox } from "@heroui/react";
-import { useId } from "react";
+import type { ReactNode } from "react";
 
-import { FormSection } from "@/components/send-fields";
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import type { JournalEntry } from "@/db/queries";
 import type { JournalKind } from "@/lib/journal";
 
 type JournalEntryDateFieldsProps = {
+  ascentStyle?: ReactNode;
   kind: JournalKind;
   hasClimb: boolean;
   hasPriorSend: boolean;
@@ -24,6 +24,7 @@ type JournalEntryDateFieldsProps = {
 
 export function JournalEntryDateFields({
   kind,
+  ascentStyle,
   hasClimb,
   hasPriorSend,
   existingEntry,
@@ -35,29 +36,11 @@ export function JournalEntryDateFields({
   onSentChange,
   onDateUnknownChange,
 }: JournalEntryDateFieldsProps) {
-  const dateHelpId = useId();
   const canRecordUndatedSend = !existingEntry && hasClimb && !hasPriorSend;
   const isUndatedSend = canRecordUndatedSend && sent && dateUnknown;
 
   return (
-    <FormSection label="The day">
-      {hasClimb && !existingEntry && (
-        <Checkbox
-          isSelected={sent}
-          onChange={(value) => {
-            onSentChange(value);
-            if (!value) onDateUnknownChange(false);
-          }}
-        >
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            I sent
-          </Checkbox.Content>
-        </Checkbox>
-      )}
-
+    <div className="flex flex-col gap-3">
       {!isUndatedSend && (
         <DatePickerField
           label="Date"
@@ -76,20 +59,34 @@ export function JournalEntryDateFields({
               if (value) onSentChange(true);
               onDateUnknownChange(value);
             }}
-            aria-describedby={dateHelpId}
           >
             <Checkbox.Content>
               <Checkbox.Control>
                 <Checkbox.Indicator />
               </Checkbox.Control>
-              Record without a date
+              Record a send without a date
             </Checkbox.Content>
           </Checkbox>
-          <p id={dateHelpId} className="text-xs text-muted">
-            {isUndatedSend
-              ? "This send will be saved without a date. Uncheck to add a date and include it in your journal."
-              : "Records a send when you don’t know the date. Selecting this also selects ‘I sent’."}
-          </p>
+        </div>
+      )}
+
+      {hasClimb && !existingEntry && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Checkbox
+            isSelected={sent}
+            onChange={(value) => {
+              onSentChange(value);
+              if (!value) onDateUnknownChange(false);
+            }}
+          >
+            <Checkbox.Content>
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              I sent
+            </Checkbox.Content>
+          </Checkbox>
+          {sent && ascentStyle}
         </div>
       )}
 
@@ -106,6 +103,6 @@ export function JournalEntryDateFields({
             : "Sessions and repeats need a date to appear in your journal."}
         </p>
       ) : null}
-    </FormSection>
+    </div>
   );
 }

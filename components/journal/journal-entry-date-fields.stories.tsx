@@ -28,7 +28,7 @@ const meta = {
     return (
       <StoryPage
         title="Entry date"
-        description="Date choices for sessions, sends, and training. Record without a date selects I sent and hides the date; uncheck it to restore the date."
+        description="Date comes first, followed by send choices, without a separate section title. Record a send without a date selects I sent and hides the date; uncheck it to restore the date."
       >
         <div className={SURFACE_CARD_CLASS}>
           <JournalEntryDateFields

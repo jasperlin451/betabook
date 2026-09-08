@@ -18,7 +18,12 @@ import { HashtagFilter } from "@/components/filters/hashtag-filter";
 import { RatingRangeFilter } from "@/components/filters/min-rating-filter";
 import { AreaLookup } from "@/components/search/area-lookup";
 import { choicePillClass } from "@/components/ui/choice-pill";
-import { FIELD_WIDTH_CLASS, FILTER_ROW_CLASS, FILTER_LABEL_CLASS } from "@/components/ui/field";
+import {
+  FIELD_WIDTH_CLASS,
+  FILTER_ROW_CLASS,
+  FILTER_LABEL_CLASS,
+  FILTER_CONTROL_CLASS,
+} from "@/components/ui/field";
 import { SortSelect } from "@/components/ui/sort-select";
 import type { UserSendsFilter } from "@/db/queries";
 import { useFilterFormNavigation } from "@/hooks/use-filter-form-navigation";
@@ -40,7 +45,11 @@ function AscentStyleFields({
   return (
     <div className={FILTER_ROW_CLASS}>
       <span className={FILTER_LABEL_CLASS}>Ascent style</span>
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Ascent style">
+      <div
+        className={`${FILTER_CONTROL_CLASS} flex flex-wrap items-center gap-1.5`}
+        role="group"
+        aria-label="Ascent style"
+      >
         {ASCENT_STYLES.map((style) => (
           <button
             key={style}

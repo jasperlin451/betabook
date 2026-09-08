@@ -22,4 +22,7 @@ export const FIELD_WIDTH_CLASS = {
 /** Shared label column; stack on phones so long controls retain usable space. */
 export const FILTER_ROW_CLASS =
   "grid w-full grid-cols-1 items-start gap-2 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-3";
-export const FILTER_LABEL_CLASS = "text-sm font-medium text-foreground sm:pt-2";
+/** Match the first field's height, not the height of helper text or selected chips below it. */
+export const FILTER_LABEL_CLASS =
+  "text-sm font-medium text-foreground sm:flex sm:h-[calc(2.25rem+2*var(--border-width-field))] sm:items-center";
+export const FILTER_CONTROL_CLASS = "sm:min-h-[calc(2.25rem+2*var(--border-width-field))]";

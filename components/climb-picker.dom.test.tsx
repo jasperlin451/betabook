@@ -32,7 +32,7 @@ it("logging omits area lookup, appends the next page and selects its record by i
   expect(screen.getByLabelText("Selected record")).toHaveAttribute("data-selected-id", "climb-105");
 });
 
-it("clearing the logging picker leaves one prompt without result headings", async () => {
+it("clearing the logging picker leaves no redundant prompt or result headings", async () => {
   const user = userEvent.setup();
   render(<IntegratedClimbPickerDemo />);
   expect(
@@ -45,7 +45,9 @@ it("clearing the logging picker leaves one prompt without result headings", asyn
   expect(
     screen.queryByText("Choose a climb to continue.", { exact: true }),
   ).not.toBeInTheDocument();
-  expect(screen.getAllByText("Search for a climb by name.", { exact: true })).toHaveLength(1);
+  expect(
+    screen.queryByText("Search for a climb by name.", { exact: true }),
+  ).not.toBeInTheDocument();
 });
 
 it("merge selection disables the source and reports a distinct destination identity", async () => {

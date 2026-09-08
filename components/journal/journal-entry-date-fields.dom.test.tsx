@@ -28,11 +28,9 @@ it("selects a send for an unknown date and restores the date when unchecked", as
   const user = userEvent.setup();
   render(<Dates />);
   const sent = screen.getByRole("checkbox", { name: "I sent" });
-  const unknown = screen.getByRole("checkbox", { name: "Record without a date" });
+  const unknown = screen.getByRole("checkbox", { name: "Record a send without a date" });
   expect(unknown).toBeEnabled();
-  expect(unknown).toHaveAccessibleDescription(
-    "Records a send when you don’t know the date. Selecting this also selects ‘I sent’.",
-  );
+  expect(unknown).not.toHaveAccessibleDescription();
   await user.click(unknown);
   expect(sent).toBeChecked();
   expect(unknown).toBeChecked();
@@ -61,7 +59,7 @@ it.each(["repeat", "training"])(
         : "Sessions and repeats need a date to appear in your journal.";
     expect(screen.getByText(guidance)).toBeInTheDocument();
     expect(
-      screen.queryByRole("checkbox", { name: "Record without a date" }),
+      screen.queryByRole("checkbox", { name: "Record a send without a date" }),
     ).not.toBeInTheDocument();
     if (kind === "repeat") {
       await user.click(screen.getByRole("checkbox", { name: "I sent" }));

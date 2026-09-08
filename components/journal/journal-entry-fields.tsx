@@ -6,12 +6,7 @@ import { useState, useTransition } from "react";
 import { CompanionPicker } from "@/components/journal/companion-picker";
 import { JournalEntryDateFields } from "@/components/journal/journal-entry-date-fields";
 import { TagInput } from "@/components/journal/tag-input";
-import {
-  AscentStylePicker,
-  FormSection,
-  GradeFeelField,
-  SuggestedGradeField,
-} from "@/components/send-fields";
+import { AscentStylePicker, GradeFeelField, SuggestedGradeField } from "@/components/send-fields";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass, SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { FieldHeader } from "@/components/ui/field-support";
@@ -151,7 +146,7 @@ export function JournalEntryFields({
   }
 
   return (
-    <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-6`}>
+    <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-4`}>
       <JournalEntryDateFields
         kind={kind}
         hasClimb={climb != null}
@@ -164,23 +159,13 @@ export function JournalEntryFields({
         onDateChange={setEntryDate}
         onSentChange={setSent}
         onDateUnknownChange={setDateUnknown}
-      />
-
-      <CompanionPicker
-        value={companions}
-        onChange={(value) => {
-          if (pending) return;
-          setCompanions(value);
-          setCompanionsChanged(true);
-        }}
-        disabled={pending}
-        editing={!!existingEntry}
-        fetcher={companionFetcher}
+        ascentStyle={
+          isAscent ? <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} /> : undefined
+        }
       />
 
       {isAscent && climb && (
-        <FormSection label="The ascent">
-          <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} />
+        <div className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <RatingField value={rating} onValueChange={setRating} />
             <SuggestedGradeField
@@ -190,33 +175,44 @@ export function JournalEntryFields({
             />
           </div>
           <GradeFeelField value={gradeFeel} onChange={setGradeFeel} />
-        </FormSection>
+        </div>
       )}
 
-      <FormSection label={isAscent || existingEntry?.isSendComment ? "Send commentary" : "Notes"}>
-        <TextField className="w-full min-w-0" value={body} onChange={setBody}>
-          <FieldHeader
-            usage={{ used: body.length, limit: MAX_JOURNAL_BODY_LENGTH, unit: "characters" }}
-          >
-            <Label>{kind === "training" ? "What did you do?" : "How'd it go?"}</Label>
-            {(isAscent || existingEntry?.isSendComment) && (
-              <HelpTooltip label="About Send commentary">
-                Uses your Send commentary audience wherever this note appears.
-              </HelpTooltip>
-            )}
-          </FieldHeader>
-          <TextArea
-            maxLength={MAX_JOURNAL_BODY_LENGTH}
-            placeholder={
-              kind === "training"
-                ? "Climbs, drills, sets, weights, how it felt…"
-                : "Conditions, beta, how it felt…"
-            }
-          />
-        </TextField>
+      <TextField className="w-full min-w-0" value={body} onChange={setBody}>
+        <FieldHeader
+          usage={{ used: body.length, limit: MAX_JOURNAL_BODY_LENGTH, unit: "characters" }}
+        >
+          <Label>Notes</Label>
+          {(isAscent || existingEntry?.isSendComment) && (
+            <HelpTooltip label="About Send commentary">
+              Uses your Send commentary audience wherever this note appears.
+            </HelpTooltip>
+          )}
+        </FieldHeader>
+        <TextArea
+          maxLength={MAX_JOURNAL_BODY_LENGTH}
+          placeholder={
+            kind === "training"
+              ? "Climbs, drills, sets, weights, how it felt…"
+              : "Conditions, beta, how it felt…"
+          }
+        />
+      </TextField>
 
+      <div className="flex flex-wrap items-start gap-4">
+        <CompanionPicker
+          value={companions}
+          onChange={(value) => {
+            if (pending) return;
+            setCompanions(value);
+            setCompanionsChanged(true);
+          }}
+          disabled={pending}
+          editing={!!existingEntry}
+          fetcher={companionFetcher}
+        />
         {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}
-      </FormSection>
+      </div>
 
       {!existingEntry && (
         <div className={`flex flex-col gap-1 ${cardClass("sm", "inset")}`}>

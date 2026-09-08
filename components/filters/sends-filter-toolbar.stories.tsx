@@ -26,7 +26,15 @@ const meta = {
 export default meta;
 export const Default: StoryObj<typeof meta> = {};
 export const Responsive: StoryObj<typeof meta> = {
-  parameters: { fullWidth: true },
+  parameters: {
+    fullWidth: true,
+    docs: {
+      description: {
+        story:
+          "Labels align to the first control’s vertical center across date, tag, area, rating, and ascent-style rows. Helper text stays below the control.",
+      },
+    },
+  },
 };
 export const DateAndHashtag: StoryObj<typeof meta> = {
   name: "Date and tags",

@@ -89,7 +89,7 @@ export function IndexRangeSelect({
   return (
     <div className={FILTER_ROW_CLASS} role="group" aria-label={`${label} range`}>
       <span className={FILTER_LABEL_CLASS}>{label}</span>
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <IndexSelect
           label={minLabel}
           options={minOptions}
@@ -98,7 +98,7 @@ export function IndexRangeSelect({
             onChange([min, eitherIsAny(min, range[1]) ? range[1] : Math.max(min, range[1])])
           }
         />
-        <span className="pb-2.5 text-muted">–</span>
+        <span className="text-muted">–</span>
         <IndexSelect
           label={maxLabel}
           options={maxOptions}

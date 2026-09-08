@@ -32,12 +32,12 @@ test("send commentary help opens without submitting the form", async ({ page }, 
     body: await page.screenshot({ fullPage: true, animations: "disabled" }),
     contentType: "image/png",
   });
-  await page.getByRole("textbox", { name: "How'd it go?" }).focus();
+  await page.getByRole("textbox", { name: "Notes" }).focus();
   await expect(page.getByRole("tooltip")).toBeHidden();
 });
 
 for (const story of ["outdoor", "repeat", "training"]) {
-  test(`${story} keeps selected friends above notes and ascent fields`, async ({ page }, info) => {
+  test(`${story} keeps friends and tags below notes and ascent fields`, async ({ page }, info) => {
     await openStory(page, info, `components-journal-entry-fields--${story}`);
     await addFriend(page);
     if (story !== "training") {
@@ -47,15 +47,13 @@ for (const story of ["outdoor", "repeat", "training"]) {
       await expect(page.getByRole("checkbox", { name: "I sent", exact: true })).toHaveCount(0);
     }
     const friends = await page.getByRole("group", { name: "With friends" }).boundingBox();
-    const notes = await page
-      .getByRole("textbox", { name: story === "training" ? "What did you do?" : "How'd it go?" })
-      .boundingBox();
+    const notes = await page.getByRole("textbox", { name: "Notes" }).boundingBox();
     if (!friends || !notes) throw new Error("Missing friend picker or note field");
-    expect(friends.y + friends.height).toBeLessThan(notes.y);
+    expect(notes.y + notes.height).toBeLessThan(friends.y);
     if (story === "outdoor") {
-      const ascent = await page.getByText("The ascent", { exact: true }).boundingBox();
+      const ascent = await page.getByRole("radiogroup", { name: "Ascent style" }).boundingBox();
       if (!ascent) throw new Error("Missing ascent fields");
-      expect(friends.y + friends.height).toBeLessThan(ascent.y);
+      expect(ascent.y + ascent.height).toBeLessThan(notes.y);
     }
   });
 }

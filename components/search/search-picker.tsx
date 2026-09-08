@@ -43,9 +43,7 @@ export function SearchPicker({
         inputProps={{ autoFocus }}
       />
       {filters}
-      {section.status === "idle" ? (
-        <p className="py-4 text-sm text-muted">Search for a climb by name.</p>
-      ) : (
+      {section.status !== "idle" && (
         <SearchResults
           sections={[section]}
           onSelect={onPick}

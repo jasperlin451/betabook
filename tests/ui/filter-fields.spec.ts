@@ -71,3 +71,41 @@ test("compact medium fields fit custom dates without clipping", async ({ page },
     animations: "disabled",
   });
 });
+
+for (const story of [
+  "components-filters-sends-toolbar--expanded",
+  "components-filters-journal-toolbar--expanded",
+  "components-filters-climb-filters--expanded",
+  "components-filters-climb-statistics--default",
+]) {
+  test(`${story} labels align with controls, independently of helper text`, async ({
+    page,
+  }, info) => {
+    await openStory(page, info, story);
+    const pairs = [
+      ["Dates", page.getByRole("button", { name: "All time Dates", exact: true })],
+      ["Tags", page.getByRole("combobox", { name: "Tags", exact: true })],
+      ["Area", page.getByRole("combobox", { name: "Filter by area", exact: true })],
+      ["Ascent style", page.getByRole("button", { name: "Redpoint", exact: true })],
+      ["Min ascents", page.getByRole("spinbutton", { name: "Min ascents", exact: true })],
+      [
+        "Rating",
+        page
+          .getByRole("radiogroup", { name: "Min rating", exact: true })
+          .getByRole("radio", { name: "1 star", exact: true }),
+      ],
+    ] as const;
+    let checked = 0;
+    for (const [name, control] of pairs) {
+      if (!(await control.count())) continue;
+      const label = page.getByText(name, { exact: true }).first();
+      const [a, b] = await Promise.all([label.boundingBox(), control.boundingBox()]);
+      if (!a || !b) throw new Error(`Missing ${name} geometry`);
+      if ((info.project.use.viewport?.width ?? 0) >= 640)
+        expect(Math.abs(a.y + a.height / 2 - b.y - b.height / 2), name).toBeLessThan(1);
+      else expect(a.y + a.height, name).toBeLessThanOrEqual(b.y);
+      checked += 1;
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+}
