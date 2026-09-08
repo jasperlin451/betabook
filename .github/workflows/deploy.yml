@@ -88,7 +88,7 @@ jobs:
         run: pnpm exec playwright test --project=${{ matrix.project }}
       - name: Upload UI report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ui-reference-report-${{ matrix.project }}
           path: |
