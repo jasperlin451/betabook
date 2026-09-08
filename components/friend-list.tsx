@@ -25,10 +25,10 @@ export function FriendList({
     initialMeta: null,
     itemKey: (row) => row.id,
     mergeMeta: () => null,
-    fetchPage: async (offset) => {
+    fetchPage: async (offset, _page, _last, signal) => {
       const response = await fetch(
         `/api/friends?offset=${offset}&view=${requestsOnly ? "requests" : "all"}`,
-        { cache: "no-store" },
+        { cache: "no-store", signal },
       );
       if (response.status === 401) router.replace(signInUrl("/friends"));
       if (!response.ok) throw new Error("Couldn't load friends");

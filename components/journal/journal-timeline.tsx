@@ -45,7 +45,7 @@ export function JournalTimeline({
     initialHasMore,
     initialMeta: initialAreaBreadcrumbs,
     itemKey: (entry) => entry.id,
-    fetchPage: async (_offset, _page, lastItem) => {
+    fetchPage: async (_offset, _page, lastItem, signal) => {
       const cursor: JournalCursor | undefined = lastItem
         ? { entryDate: lastItem.entryDate, id: lastItem.id }
         : undefined;
@@ -55,7 +55,10 @@ export function JournalTimeline({
         params.set("cursorId", String(cursor.id));
       }
 
-      const res = await fetch(`/api/users/${userId}/journal?${params}`);
+      const res = await fetch(`/api/users/${userId}/journal?${params}`, {
+        cache: "no-store",
+        signal,
+      });
       if (!res.ok) throw new Error("Failed to load more entries");
       const data = (await res.json()) as {
         entries: JournalEntry[];
