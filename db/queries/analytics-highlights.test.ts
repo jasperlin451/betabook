@@ -15,6 +15,7 @@ beforeEach(async () => {
   await seedFixtureTree(db);
   await seedFixtureUser(db, { id: "owner", journalVisibility: "public" });
   await seedFixtureUser(db, { id: "partner", journalVisibility: "public" });
+  await seedFixtureUser(db, { id: "viewer", journalVisibility: "public" });
   await seedFixtureFriendship(db, "owner", "partner");
   await db.insert(journalEntries).values({
     id: 99,
@@ -33,7 +34,8 @@ beforeEach(async () => {
   });
 });
 it("reads matching sessions with visible companions and respects fresh audience changes", async () => {
-  const rows = await getAnalyticsHighlightSessions(db, "owner", null, ["project"]);
+  expect(await getAnalyticsHighlightSessions(db, "owner", null, ["project"])).toEqual([]);
+  const rows = await getAnalyticsHighlightSessions(db, "owner", "viewer", ["project"]);
   expect(rows).toHaveLength(1);
   expect(rows[0]).toMatchObject({
     id: 99,
@@ -41,11 +43,11 @@ it("reads matching sessions with visible companions and respects fresh audience 
     isAscent: false,
     companions: [{ id: "partner" }],
   });
-  expect(await getAnalyticsHighlightSessions(db, "owner", null, ["missing"])).toEqual([]);
+  expect(await getAnalyticsHighlightSessions(db, "owner", "viewer", ["missing"])).toEqual([]);
   await db.update(user).set({ isPrivate: true }).where(eq(user.id, "partner"));
   expect((await getAnalyticsHighlightSessions(db, "owner", "owner", []))[0].companions).toEqual([]);
   await db.update(user).set({ journalVisibility: "private" }).where(eq(user.id, "owner"));
-  expect(await getAnalyticsHighlightSessions(db, "owner", null, [])).toEqual([]);
+  expect(await getAnalyticsHighlightSessions(db, "owner", "viewer", [])).toEqual([]);
   expect(
     (await getAnalyticsHighlightSessions(db, "owner", "owner", [])).map((row) => row.id),
   ).toEqual([99]);
