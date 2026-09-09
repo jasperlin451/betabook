@@ -16,7 +16,7 @@ export const Calendar: Story = {
   render: () => (
     <StoryPage
       title="Climbing calendar"
-      description="Charts scroll within their own container on phones to keep their labels readable."
+      description="Calendars fit the card on every screen, with hover, tap, and arrow-key details."
     >
       <ClimbingCalendar
         year={2026}

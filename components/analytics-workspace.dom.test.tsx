@@ -7,6 +7,14 @@ import { DEFAULT_ANALYTICS_LAYOUT, DEFAULT_CARDS } from "@/lib/analytics-layout"
 import { AnalyticsWorkspace } from "./analytics-workspace";
 
 beforeEach(() => {
+  // Visibility is exercised in Playwright; jsdom has no viewport geometry.
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      public observe = vi.fn<IntersectionObserver["observe"]>();
+      public disconnect = vi.fn<IntersectionObserver["disconnect"]>();
+    },
+  );
   vi.stubGlobal("matchMedia", (media: string) => ({
     matches: true,
     media,
@@ -38,10 +46,10 @@ it("starts with five cards and lets an owner discover, add, and save another", a
     "bestYear",
   ]);
   await user.click(screen.getByRole("button", { name: "Customize cards" }));
-  expect(screen.getByRole("heading", { name: "Customize your analytics layout" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Customize your analytics dashboard" })).toBeVisible();
   expect(
     screen.getByText(
-      "Drag to reorder or use X to hide items in your view without changing your stats or who can see them.",
+      "Add items below, drag to reorder, or use X to hide items. Click Save layout when you’re done. This only affects your own view.",
     ),
   ).toBeVisible();
   expect(
@@ -51,7 +59,7 @@ it("starts with five cards and lets an owner discover, add, and save another", a
   ).toBeVisible();
   const choices = screen.getByRole("group", { name: "At a glance" });
   expect(within(choices).getByText("Your longest run of consecutive climbing days.")).toBeVisible();
-  await user.click(within(choices).getByRole("button", { name: "Add streak" }));
+  await user.click(within(choices).getByText("Your longest run of consecutive climbing days."));
   expect(screen.getByRole("article", { name: "streak" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Save layout" }));
   expect(onSave).toHaveBeenCalledWith({
@@ -108,5 +116,21 @@ it("has no placeholders when every item is displayed", () => {
   );
   expect(screen.getByRole("button", { name: "Customize dashboard" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "Customize cards" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Customize charts" })).not.toBeInTheDocument();
+});
+
+it("offers optional charts through the chart placeholder and hides it after adding all charts", async () => {
+  const user = userEvent.setup();
+  const charts = [
+    { id: "volume" as const, title: "Volume over time", content: <span>Monthly volume</span> },
+    { id: "flashRate" as const, title: "Flash rate by grade", content: <span>Flash chart</span> },
+  ];
+  render(<AnalyticsWorkspace cards={cards} charts={charts} canCustomize />);
+  await user.click(screen.getByRole("button", { name: "Customize charts" }));
+  await user.click(screen.getByRole("button", { name: "Add Volume over time" }));
+  await user.click(screen.getByRole("button", { name: "Add Flash rate by grade" }));
+  await user.click(screen.getByRole("button", { name: "Save layout" }));
+  expect(screen.getByRole("article", { name: "Volume over time" })).toBeVisible();
+  expect(screen.getByRole("article", { name: "Flash rate by grade" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "Customize charts" })).not.toBeInTheDocument();
 });

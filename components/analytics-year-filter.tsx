@@ -82,8 +82,8 @@ export function AnalyticsYearNavigation({
           });
         }}
       />
-      <p role="status" className="text-xs text-muted">
-        {pending ? "Updating charts…" : "Select one or more years to filter all stats and charts."}
+      <p role="status" className="sr-only">
+        {pending ? "Updating charts…" : ""}
       </p>
     </div>
   );

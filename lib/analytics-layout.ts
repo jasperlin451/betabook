@@ -1,10 +1,4 @@
-const NEW_CARDS = [
-  "partner",
-  "biggestProject",
-  "persistence",
-  "climbingStreak",
-  "favoriteRepeat",
-] as const;
+const NEW_CARDS = ["partner", "biggestProject", "persistence", "favoriteRepeat"] as const;
 export const DEFAULT_CARDS = [
   "sends",
   "hardest",
@@ -18,7 +12,14 @@ export const DEFAULT_CARDS = [
   "layoff",
   ...NEW_CARDS,
 ] as const;
-const DEFAULT_CHARTS = ["progression", "pyramid", "breakthroughs", "calendar"] as const;
+const NEW_CHARTS = ["volume", "flashRate"] as const;
+const DEFAULT_CHARTS = [
+  "progression",
+  "pyramid",
+  "breakthroughs",
+  "calendar",
+  ...NEW_CHARTS,
+] as const;
 export type AnalyticsCardId = (typeof DEFAULT_CARDS)[number];
 type AnalyticsChartId = (typeof DEFAULT_CHARTS)[number];
 export type AnalyticsItemId = AnalyticsCardId | AnalyticsChartId;
@@ -32,7 +33,7 @@ export const DEFAULT_ANALYTICS_LAYOUT: AnalyticsLayout = {
   version: 1,
   cards: [...DEFAULT_CARDS],
   charts: [...DEFAULT_CHARTS],
-  hidden: ["streak", "busiestMonth", "areas", "favoriteDay", "layoff", ...NEW_CARDS],
+  hidden: ["streak", "busiestMonth", "areas", "favoriteDay", "layoff", ...NEW_CARDS, ...NEW_CHARTS],
 };
 
 function normalizeOrder<T extends string>(value: unknown, defaults: readonly T[]): T[] {
@@ -53,11 +54,14 @@ export function parseAnalyticsLayout(value: unknown): AnalyticsLayout {
   const missingNewCards = Array.isArray(saved.cards)
     ? NEW_CARDS.filter((id) => !(saved.cards as unknown[]).includes(id))
     : NEW_CARDS;
+  const missingNewCharts = Array.isArray(saved.charts)
+    ? NEW_CHARTS.filter((id) => !(saved.charts as unknown[]).includes(id))
+    : NEW_CHARTS;
   return {
     version: 1,
     cards: normalizeOrder(saved.cards, DEFAULT_CARDS),
     charts: normalizeOrder(saved.charts, DEFAULT_CHARTS),
-    hidden: [...new Set([...hidden, ...missingNewCards])],
+    hidden: [...new Set([...hidden, ...missingNewCards, ...missingNewCharts])],
   };
 }
 

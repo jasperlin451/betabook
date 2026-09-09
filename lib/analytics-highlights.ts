@@ -35,7 +35,6 @@ export function buildAnalyticsHighlights(
     }
   >();
   const partners = new Map<string, { id: string; name: string; days: Set<string> }>();
-  const weeks = new Set<number>();
   for (const row of sessions) {
     const climb = climbs.get(row.climbId) ?? {
       id: row.climbId,
@@ -55,8 +54,6 @@ export function buildAnalyticsHighlights(
       partner.days.add(row.entryDate);
       partners.set(companion.id, partner);
     }
-    const day = new Date(`${row.entryDate}T00:00:00Z`);
-    weeks.add(day.getTime() / 86400000 - ((day.getUTCDay() + 6) % 7));
   }
   const byClimb = [...climbs.values()];
   const biggestProject =
@@ -72,19 +69,10 @@ export function buildAnalyticsHighlights(
   const partner = [...partners.values()].toSorted(
     (a, b) => b.days.size - a.days.size || a.id.localeCompare(b.id),
   )[0];
-  let streak = 0,
-    current = 0,
-    previous = -Infinity;
-  for (const week of [...weeks].sort((a, b) => a - b)) {
-    current = week === previous + 7 ? current + 1 : 1;
-    streak = Math.max(streak, current);
-    previous = week;
-  }
   return {
     biggestProject,
     persistence,
     favoriteRepeat,
     partner: partner ? { id: partner.id, name: partner.name, days: partner.days.size } : null,
-    climbingStreak: streak,
   };
 }

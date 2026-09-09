@@ -357,3 +357,41 @@ describe("multiple analytics years", () => {
     expect(result.years).toEqual([2020, 2023]);
   });
 });
+
+it("builds monthly volume and flash rates from the selected years and discipline", () => {
+  const rows = [
+    send({ dateSent: "2024-01-02", ascentStyle: "flash" }),
+    send({ dateSent: "2024-01-02" }),
+    send({ dateSent: "2024-03-01", ascentStyle: "onsight" }),
+    send({ dateSent: null, ascentStyle: "flash" }),
+    send({ dateSent: "2023-01-01", ascentStyle: "flash" }),
+    send({ dateSent: "2024-01-02", climbType: "sport" }),
+  ];
+  const result = buildUserAnalytics(
+    rows,
+    "boulder",
+    [
+      { entryDate: "2024-01-02", climbType: "boulder", count: 4 },
+      { entryDate: "2024-01-02", climbType: "boulder" },
+      { entryDate: "2024-03-12", climbType: "boulder" },
+      { entryDate: "2024-02-01", climbType: "sport" },
+    ],
+    [2024],
+  );
+  expect(result.volume).toEqual([
+    { month: "2024-01", sends: 2, days: 1 },
+    { month: "2024-02", sends: 0, days: 0 },
+    { month: "2024-03", sends: 1, days: 1 },
+  ]);
+  expect(result.flashByGrade[0].rows).toEqual([
+    { grade: 3, label: "V2", sends: 3, flashes: 1, rate: expect.closeTo(100 / 3) },
+  ]);
+  expect(buildUserAnalytics(rows, "boulder").flashByGrade[0].rows[0]).toMatchObject({
+    sends: 5,
+    flashes: 3,
+  });
+  expect(buildUserAnalytics(rows, "boulder", undefined, [2024]).volume[0]).toMatchObject({
+    days: 1,
+  });
+  expect(buildUserAnalytics(rows, "boulder", undefined, [2022]).volume).toEqual([]);
+});

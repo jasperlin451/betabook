@@ -128,30 +128,6 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     <div className="flex flex-col gap-6">
       <ProfileHeader user={user} viewerId={session?.user.id ?? null} />
 
-      <AnalyticsHashtagFilter
-        selectedTags={selectedTags}
-        tags={tags}
-        controls={
-          present.length > 1 && (
-            <nav aria-label="Discipline" className="flex flex-wrap gap-2">
-              {present.map((type) => {
-                const selected = type === scope;
-                return (
-                  <AppLink
-                    key={type}
-                    href={analyticsHref(id, type, selectedYears, selectedTags)}
-                    aria-current={selected ? "true" : undefined}
-                    className={choicePillClass(selected, DISCIPLINE_CHIP_CLASSNAME[type])}
-                  >
-                    {DISCIPLINE_LABELS[type]}
-                  </AppLink>
-                );
-              })}
-            </nav>
-          )
-        }
-      />
-
       <AnalyticsDashboard
         key={id}
         canCustomize={isOwner}
@@ -164,7 +140,34 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         journalVisible={journalVisible}
         selectedYears={selectedYears}
         periodPicker={
-          <AnalyticsYearNavigation years={years.toReversed()} selected={selectedYears} />
+          <>
+            {present.length > 1 && (
+              <nav aria-label="Discipline" className="flex flex-wrap gap-2">
+                {present.map((type) => {
+                  const selected = type === scope;
+                  return (
+                    <AppLink
+                      key={type}
+                      href={analyticsHref(id, type, selectedYears, selectedTags)}
+                      aria-current={selected ? "true" : undefined}
+                      className={choicePillClass(selected, DISCIPLINE_CHIP_CLASSNAME[type])}
+                    >
+                      {DISCIPLINE_LABELS[type]}
+                    </AppLink>
+                  );
+                })}
+              </nav>
+            )}
+            <AnalyticsHashtagFilter
+              selectedTags={selectedTags}
+              tags={tags}
+              controls={
+                <div className="min-w-0 flex-1">
+                  <AnalyticsYearNavigation years={years.toReversed()} selected={selectedYears} />
+                </div>
+              }
+            />
+          </>
         }
       />
     </div>

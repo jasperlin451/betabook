@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 
 import { AnalyticsCalendar } from "@/components/analytics-calendar";
+import { AnalyticsFlashChart } from "@/components/analytics-flash-chart";
 import { AnalyticsGradePyramid } from "@/components/analytics-grade-pyramid";
 import { StatTileContent, type StatTile } from "@/components/analytics-stat-tiles";
+import { AnalyticsVolumeChart } from "@/components/analytics-volume-chart";
 import { AnalyticsWorkspace, type AnalyticsPanel } from "@/components/analytics-workspace";
 import { BreakthroughList } from "@/components/breakthrough-list";
 import { ProgressionChart } from "@/components/progression-chart";
@@ -72,11 +74,6 @@ export function AnalyticsDashboard({
       sub: highlights.persistence
         ? `${highlights.persistence.name} · sessions through the send`
         : "no sends after multiple logged sessions",
-    },
-    climbingStreak: {
-      label: "Climbing streak",
-      value: highlights.climbingStreak ? formatCount(highlights.climbingStreak, "week") : "—",
-      sub: "consecutive weeks with climbing sessions",
     },
     favoriteRepeat: {
       label: "Favorite repeat",
@@ -157,7 +154,6 @@ export function AnalyticsDashboard({
     partner: "Who you shared the most tagged climbing days with.",
     biggestProject: "The climb with the most logged sessions, sent or unsent.",
     persistence: "The most sessions leading up to a first send in this period.",
-    climbingStreak: "Your longest run of Monday–Sunday weeks with climbing sessions.",
     favoriteRepeat: "The climb you repeated most after its original ascent.",
     sends: "How many climbs you’ve sent.",
     hardest: "Your highest graded send.",
@@ -178,6 +174,29 @@ export function AnalyticsDashboard({
   }));
   const pyramidRows = analytics.pyramid[0]?.rows ?? [];
   const charts: AnalyticsPanel[] = [
+    {
+      id: "volume",
+      title: "Volume over time",
+      description: "Monthly sends or climbing days.",
+      content: (
+        <AnalyticsVolumeChart
+          rows={analytics.volume}
+          type={scope}
+          journalVisible={journalVisible}
+        />
+      ),
+    },
+    {
+      id: "flashRate",
+      title: "Flash rate by grade",
+      description: "Total sends and the percentage flashed at each grade.",
+      content: (
+        <AnalyticsFlashChart
+          rows={analytics.flashByGrade.find((group) => group.type === scope)?.rows ?? []}
+          type={scope}
+        />
+      ),
+    },
     {
       id: "progression",
       title: "Progression",
@@ -251,7 +270,7 @@ export function AnalyticsDashboard({
             <Eyebrow>{journalVisible ? "Outdoor calendar" : "Sending calendar"}</Eyebrow>
             <p className="text-xs text-muted">
               {journalVisible
-                ? "Climb sessions per day — darker squares, more routes logged."
+                ? "Climb sessions per day"
                 : "Sends per day — darker squares, bigger days."}
             </p>
           </div>
@@ -285,10 +304,9 @@ export function AnalyticsDashboard({
         {periodPicker}
         {undatedCount > 0 && (
           <p className="text-xs text-muted">
-            {formatCount(undatedCount, "send")} {undatedCount === 1 ? "has" : "have"} no date.
             {period == null
-              ? " All-time totals and the grade pyramid include these sends. The calendar, progression, and other date-based stats don’t."
-              : ` They aren’t included in ${period}. Choose All to count them in all-time totals and the grade pyramid.`}
+              ? "Sends without dates count toward your totals and grade pyramid, but won’t appear in charts that track activity over time."
+              : "Sends without dates aren’t included in the selected years. Choose All to include them in your totals and grade pyramid."}
           </p>
         )}
         {period != null && analytics.sendCount === 0 && analytics.daysOut === 0 && (

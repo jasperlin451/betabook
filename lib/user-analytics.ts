@@ -48,7 +48,18 @@ export type Breakthrough = {
   waitDays: number | null;
 };
 
+export type MonthlyVolume = { month: string; sends: number; days: number };
+export type FlashGradeRow = {
+  grade: number;
+  label: string;
+  sends: number;
+  flashes: number;
+  rate: number;
+};
+
 export type UserAnalytics = {
+  volume: MonthlyVolume[];
+  flashByGrade: { type: ClimbType; rows: FlashGradeRow[] }[];
   scope: DisciplineScope;
   sendCount: number;
   datelessCount: number;
@@ -304,6 +315,41 @@ export function buildUserAnalytics(
     byMonth.set(month, (byMonth.get(month) ?? 0) + 1);
     byWeekday.set(weekday, (byWeekday.get(weekday) ?? 0) + 1);
   }
+  const daysByMonth = new Map<string, number>();
+  for (const day of days)
+    daysByMonth.set(day.slice(0, 7), (daysByMonth.get(day.slice(0, 7)) ?? 0) + 1);
+  const activeMonths = [...new Set([...byMonth.keys(), ...daysByMonth.keys()])].sort();
+  const volume: MonthlyVolume[] = [];
+  if (activeMonths.length) {
+    const index = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5)) - 1;
+    for (
+      let m = index(activeMonths[0]);
+      m <= index(activeMonths[activeMonths.length - 1]);
+      m += 1
+    ) {
+      const year = Math.floor(m / 12);
+      if (selectedYears.length && !selectedYears.includes(year)) continue;
+      const month = `${year}-${String((m % 12) + 1).padStart(2, "0")}`;
+      volume.push({ month, sends: byMonth.get(month) ?? 0, days: daysByMonth.get(month) ?? 0 });
+    }
+  }
+  const flashByGrade = disciplines.map((type) => {
+    const grades = new Map<number, FlashGradeRow>();
+    for (const send of gradedSends(sends, type)) {
+      const row = grades.get(send.grade) ?? {
+        grade: send.grade,
+        label: nativeGradeArray(type)[send.grade],
+        sends: 0,
+        flashes: 0,
+        rate: 0,
+      };
+      row.sends += 1;
+      if (send.ascentStyle === "flash") row.flashes += 1;
+      row.rate = (row.flashes / row.sends) * 100;
+      grades.set(send.grade, row);
+    }
+    return { type, rows: [...grades.values()].sort((a, b) => a.grade - b.grade) };
+  });
   const bestYear = maxEntry(byYear, (year, count) => ({ year, count }));
   const busiestMonth = maxEntry(byMonth, (month, count) => ({ month, count }));
   const favoriteWeekday = maxEntry(byWeekday, (weekday, count) => ({
@@ -376,6 +422,8 @@ export function buildUserAnalytics(
   );
 
   return {
+    volume,
+    flashByGrade,
     scope,
     sendCount: sends.length,
     datelessCount: sends.length - dated.length,

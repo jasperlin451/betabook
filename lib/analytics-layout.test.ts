@@ -28,18 +28,25 @@ describe("saved analytics layouts", () => {
       "partner",
       "biggestProject",
       "persistence",
-      "climbingStreak",
       "favoriteRepeat",
     ]);
-    expect(layout.charts).toEqual(["calendar", "progression", "pyramid", "breakthroughs"]);
+    expect(layout.charts).toEqual([
+      "calendar",
+      "progression",
+      "pyramid",
+      "breakthroughs",
+      "volume",
+      "flashRate",
+    ]);
     expect(layout.hidden).toEqual([
       "areas",
       "calendar",
       "partner",
       "biggestProject",
       "persistence",
-      "climbingStreak",
       "favoriteRepeat",
+      "volume",
+      "flashRate",
     ]);
   });
   it("recovers corrupt or unsupported preferences", () => {
@@ -71,4 +78,34 @@ describe("moving analytics items", () => {
     expect(moveAnalyticsItem(items, "sends", "calendar")).toEqual(items);
     expect(moveAnalyticsItem(items, "sends", "sends")).toEqual(items);
   });
+});
+
+it("removes the retired climbing streak card from saved layouts", () => {
+  const layout = parseAnalyticsLayout({
+    ...DEFAULT_ANALYTICS_LAYOUT,
+    cards: ["climbingStreak", ...DEFAULT_ANALYTICS_LAYOUT.cards],
+    hidden: ["climbingStreak"],
+  });
+  expect(layout.cards).not.toContain("climbingStreak");
+  expect(layout.hidden).not.toContain("climbingStreak");
+  expect(layout.cards).toContain("streak");
+});
+
+it("keeps new optional charts hidden in defaults and existing layouts", () => {
+  const existing = parseAnalyticsLayout({
+    version: 1,
+    cards: DEFAULT_ANALYTICS_LAYOUT.cards,
+    charts: ["calendar", "progression", "pyramid", "breakthroughs"],
+    hidden: [],
+  });
+  expect(existing.charts).toEqual([
+    "calendar",
+    "progression",
+    "pyramid",
+    "breakthroughs",
+    "volume",
+    "flashRate",
+  ]);
+  expect(existing.hidden).toEqual(["volume", "flashRate"]);
+  expect(DEFAULT_ANALYTICS_LAYOUT.hidden).toEqual(expect.arrayContaining(["volume", "flashRate"]));
 });

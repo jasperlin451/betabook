@@ -1,13 +1,13 @@
 "use client";
-/* oxlint-disable jsx-a11y/no-noninteractive-tabindex, jsx-a11y/no-noninteractive-element-interactions -- The named horizontal scroll region supports keyboard navigation. */
+/* oxlint-disable jsx-a11y/no-noninteractive-tabindex, jsx-a11y/no-noninteractive-element-interactions -- The named calendar region supports arrow-key year navigation. */
 
 import { Button } from "@heroui/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { ClimbingCalendar } from "@/components/climbing-calendar";
 
-/** One full-width calendar per slide; arrows and native scrolling share the same position. */
+/** One fitted calendar at a time, with ascending year navigation. */
 export function AnalyticsCalendar({
   years,
   countsByDay,
@@ -19,13 +19,10 @@ export function AnalyticsCalendar({
   hue: string;
   unit: "send" | "session";
 }) {
-  const viewport = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const active = Math.min(index, years.length - 1);
   const go = (next: number) => {
-    const element = viewport.current;
-    if (!element || next < 0 || next >= years.length) return;
-    element.scrollTo({ left: next * element.clientWidth, behavior: "auto" });
+    if (next < 0 || next >= years.length) return;
     setIndex(next);
   };
   return (
@@ -64,15 +61,10 @@ export function AnalyticsCalendar({
         )}
       </div>
       <div
-        ref={viewport}
         role="region"
         aria-label="Calendar years"
         tabIndex={0}
-        className="flex snap-x snap-mandatory overflow-x-auto rounded-panel focus-visible:status-focused"
-        onScroll={(event) => {
-          const element = event.currentTarget;
-          if (element.clientWidth) setIndex(Math.round(element.scrollLeft / element.clientWidth));
-        }}
+        className="min-w-0 rounded-panel focus-visible:status-focused"
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget) return;
           if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -81,12 +73,11 @@ export function AnalyticsCalendar({
           }
         }}
       >
-        {years.map((year, position) => (
+        {years.slice(active, active + 1).map((year) => (
           <section
             key={year}
             aria-label={`Calendar ${year}`}
-            aria-hidden={position !== active}
-            className="relative w-full min-w-0 shrink-0 snap-start pb-2"
+            className="relative w-full min-w-0 pb-2"
           >
             <ClimbingCalendar countsByDay={countsByDay} year={year} hue={hue} unit={unit} />
           </section>

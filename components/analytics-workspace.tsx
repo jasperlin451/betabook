@@ -2,7 +2,7 @@
 
 import { Button } from "@heroui/react";
 import { ArrowDown, ArrowUp, GripVertical, Plus, SlidersHorizontal, X } from "lucide-react";
-import { useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   DropIndicator,
   GridList,
@@ -175,8 +175,12 @@ function DashboardGroup({
   });
   const grid =
     group === "cards"
-      ? "grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
-      : "grid grid-cols-1 gap-6";
+      ? "grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6"
+      : "grid grid-cols-1 gap-6 lg:grid-cols-2";
+  const chartSpan = (id: string) =>
+    group === "charts" && !["pyramid", "breakthroughs", "flashRate"].includes(id)
+      ? "lg:col-span-2"
+      : "";
   const panel = (item: AnalyticsPanel, position: number) => (
     <article
       aria-label={item.title}
@@ -242,7 +246,7 @@ function DashboardGroup({
     return (
       <div className={grid}>
         {items.map((item, index) => (
-          <div key={item.id} className="min-w-0">
+          <div key={item.id} className={`min-w-0 ${chartSpan(item.id)}`}>
             {panel(item, index)}
           </div>
         ))}
@@ -251,7 +255,7 @@ function DashboardGroup({
             variant="outline"
             aria-label={`Customize ${group}`}
             onPress={onCustomize}
-            className={`h-full min-h-28 w-full flex-col gap-2 border-dashed text-muted ${cardClass("sm", "bordered")}`}
+            className={`h-full min-h-28 w-full flex-col gap-2 border border-dashed border-border text-muted ${cardClass("sm")}`}
           >
             <SlidersHorizontal size={20} />
             Customize
@@ -274,7 +278,7 @@ function DashboardGroup({
         <GridListItem
           id={item.id}
           textValue={item.title}
-          className="min-w-0 rounded-panel outline-none data-[dragging]:opacity-30 data-[dragging]:ring-2 data-[dragging]:ring-accent data-[focus-visible]:status-focused motion-safe:transition-[opacity,box-shadow]"
+          className={`min-w-0 rounded-panel outline-none data-[dragging]:opacity-30 data-[dragging]:ring-2 data-[dragging]:ring-accent data-[focus-visible]:status-focused motion-safe:transition-[opacity,box-shadow] ${chartSpan(item.id)}`}
         >
           {panel(
             item,
@@ -283,6 +287,42 @@ function DashboardGroup({
         </GridListItem>
       )}
     </GridList>
+  );
+}
+
+function FloatingLayoutSave({
+  visible,
+  saving,
+  error,
+  onSave,
+}: {
+  visible: boolean;
+  saving: boolean;
+  error: string;
+  onSave: () => Promise<void>;
+}) {
+  if (!visible) return null;
+  return (
+    <div
+      role="group"
+      aria-label="Save layout reminder"
+      className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-2"
+    >
+      {error && (
+        <p role="alert" className={`text-sm text-danger ${cardClass("sm", "floating")}`}>
+          {error}
+        </p>
+      )}
+      <Button
+        variant="primary"
+        aria-label="Save layout"
+        isDisabled={saving}
+        onPress={onSave}
+        className="shadow-lg"
+      >
+        {saving ? "Saving…" : "Save layout"}
+      </Button>
+    </div>
   );
 }
 
@@ -303,9 +343,27 @@ export function AnalyticsWorkspace({
   const [layout, setLayout] = useState(initialLayout);
   const [saved, setSaved] = useState(initialLayout);
   const [editing, setEditing] = useState(false);
+  const isEditing = editing && canCustomize;
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
+  const [showFloatingSave, setShowFloatingSave] = useState(false);
+  useEffect(() => {
+    const button = saveButtonRef.current;
+    if (!editing || !canCustomize || !button) return;
+    const update = () => setShowFloatingSave(button.getBoundingClientRect().bottom <= 0);
+    const observer = new IntersectionObserver(update);
+    observer.observe(button);
+    // A quick jump can move the button from below to above the viewport
+    // without changing its intersection state, so also observe scrolling.
+    window.addEventListener("scroll", update, { passive: true, capture: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [editing, canCustomize]);
   const editorRef = useRef<HTMLDivElement>(null);
   const focusEditor = useRef(false);
   const openEditor = () => {
+    setShowFloatingSave(false);
     focusEditor.current = true;
     setEditing(true);
   };
@@ -368,7 +426,7 @@ export function AnalyticsWorkspace({
     { label: "Charts", items: charts.filter((item) => layout.hidden.includes(item.id)) },
   ];
   return (
-    <div className="flex flex-col gap-6">
+    <div className={`flex flex-col gap-6 ${editing ? "pb-24" : ""}`}>
       <section aria-label="At a glance" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionHeading>At a glance</SectionHeading>
@@ -384,48 +442,54 @@ export function AnalyticsWorkspace({
             </Button>
           )}
         </div>
-        {editing && canCustomize && (
+        {isEditing && (
           <div
             ref={editorRef}
             tabIndex={-1}
-            aria-label="Customize your analytics layout"
-            className={`flex flex-col gap-3 ${cardClass("sm", "bordered")}`}
+            aria-label="Customize your analytics dashboard"
+            className={`flex flex-col gap-3 border border-border ${cardClass("sm")}`}
           >
-            <SectionHeading>Customize your analytics layout</SectionHeading>
+            <SectionHeading>Customize your analytics dashboard</SectionHeading>
             <p className="text-sm text-muted">
-              Drag to reorder or use X to hide items in your view without changing your stats or who
-              can see them.
+              Add items below, drag to reorder, or use X to hide items. Click Save layout when
+              you’re done. This only affects your own view.
             </p>
             {hiddenGroups
               .filter((group) => group.items.length > 0)
               .map((group) => (
                 <fieldset key={group.label} className="min-w-0">
-                  <legend className={`${EYEBROW_CLASS} mb-2`}>{group.label}</legend>
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <legend
+                    className={`${EYEBROW_CLASS} mb-2`}
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    {group.label}
+                  </legend>
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
                     {group.items.map((item) => (
-                      <div key={item.id} className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">{item.title}</p>
+                      <Button
+                        key={item.id}
+                        variant="secondary"
+                        isDisabled={saving}
+                        aria-label={`Add ${item.title}`}
+                        className={`h-auto min-h-20 w-full items-start justify-start gap-3 text-left whitespace-normal ${cardClass("sm", "bordered")}`}
+                        style={{ borderWidth: 0 }}
+                        onPress={() =>
+                          change(
+                            { ...layout, hidden: layout.hidden.filter((id) => id !== item.id) },
+                            `${item.title} added.`,
+                          )
+                        }
+                      >
+                        <Plus size={16} className="mt-0.5 shrink-0" aria-hidden />
+                        <span className="flex min-w-0 flex-col gap-1">
+                          <span className={EYEBROW_CLASS}>{item.title}</span>
                           {item.description && (
-                            <p className="text-xs text-muted">{item.description}</p>
+                            <span className="text-xs font-normal text-muted">
+                              {item.description}
+                            </span>
                           )}
-                        </div>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          isDisabled={saving}
-                          aria-label={`Add ${item.title}`}
-                          onPress={() =>
-                            change(
-                              { ...layout, hidden: layout.hidden.filter((id) => id !== item.id) },
-                              `${item.title} added.`,
-                            )
-                          }
-                        >
-                          <Plus size={14} />
-                          Add
-                        </Button>
-                      </div>
+                        </span>
+                      </Button>
                     ))}
                   </div>
                 </fieldset>
@@ -457,6 +521,7 @@ export function AnalyticsWorkspace({
                 Cancel
               </Button>
               <Button
+                ref={saveButtonRef}
                 size="sm"
                 variant="primary"
                 aria-label="Save layout"
@@ -468,7 +533,7 @@ export function AnalyticsWorkspace({
             </div>
           </div>
         )}
-        {saveError && (
+        {saveError && !showFloatingSave && (
           <p role="alert" className="text-sm text-danger">
             {saveError}
           </p>
@@ -482,7 +547,7 @@ export function AnalyticsWorkspace({
           }
           group="cards"
           items={visible("cards", cards)}
-          editing={editing && canCustomize}
+          editing={isEditing}
           onMove={move}
           onHide={hide}
         />
@@ -495,11 +560,17 @@ export function AnalyticsWorkspace({
           }
           group="charts"
           items={visible("charts", charts)}
-          editing={editing && canCustomize}
+          editing={isEditing}
           onMove={move}
           onHide={hide}
         />
       </section>
+      <FloatingLayoutSave
+        visible={isEditing && showFloatingSave}
+        saving={saving}
+        error={saveError}
+        onSave={finish}
+      />
     </div>
   );
 }

@@ -7,6 +7,14 @@ import { AnalyticsCalendar } from "./analytics-calendar";
 const meta = {
   title: "Components/Charts/Analytics calendar",
   component: AnalyticsCalendar,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Ascending year navigation with an arrow on each side of the year. Only the current calendar is rendered; it fits the card without horizontal scrolling. Hover, tap, or use arrow keys on the day grid for compact floating details.",
+      },
+    },
+  },
 } satisfies Meta<typeof AnalyticsCalendar>;
 export default meta;
 type Story = StoryObj<typeof meta>;

@@ -86,9 +86,8 @@ export function FilterToolbarLayout({
             <Disclosure.Heading className="contents">
               <Disclosure.Trigger
                 className={buttonVariants({
-                  variant: "ghost",
+                  variant: "outline",
                   size: "sm",
-                  className: isExpanded ? "bg-surface-tertiary border border-border" : undefined,
                 })}
               >
                 {isExpanded ? (
@@ -113,7 +112,7 @@ export function FilterToolbarLayout({
                * belonging to the bar rather than loose page content. */}
               <section
                 aria-label="Filter options"
-                className={`mt-3 flex flex-col gap-4 border border-border ${cardClass("sm", "inset")}`}
+                className={`mt-3 flex flex-col gap-4 border border-border ${cardClass("sm")}`}
               >
                 {filters}
               </section>

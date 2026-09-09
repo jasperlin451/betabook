@@ -27,7 +27,7 @@ async function moveEarlier(
   await page.keyboard.press("Enter");
 }
 
-test("calendar years scroll horizontally with bounded previous and next controls", async ({
+test("calendar years fit the card with bounded previous and next controls", async ({
   page,
 }, info) => {
   await openStory(page, info, "components-charts-analytics-dashboard--multiple-years");
@@ -80,7 +80,10 @@ test("customization reorders and hides cards and charts within their sections", 
   await expect(charts.getByRole("article").first()).toHaveAccessibleName("Grade pyramid");
   await page.getByRole("button", { name: "Hide Breakthroughs", exact: true }).click();
   await expect(page.getByRole("region", { name: "Breakthroughs", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Save layout", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Dashboard actions", exact: true })
+    .getByRole("button", { name: "Save layout", exact: true })
+    .click();
   await expect(glance.getByRole("article").first()).toHaveAccessibleName("Hardest");
   await expect(charts.getByRole("article").first()).toHaveAccessibleName("Grade pyramid");
   await info.attach("custom-dashboard", {
@@ -141,11 +144,18 @@ test("failed account save keeps changes editable and cancel restores the saved l
   await openStory(page, info, "components-charts-analytics-dashboard--save-failure");
   await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
   await page.getByRole("button", { name: "Hide First try", exact: true }).click();
-  await page.getByRole("button", { name: "Save layout", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Dashboard actions", exact: true })
+    .getByRole("button", { name: "Save layout", exact: true })
+    .click();
   await expect(page.getByRole("alert")).toHaveText(
     "Your layout couldn’t be saved. Please try again.",
   );
-  await expect(page.getByRole("button", { name: "Save layout", exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByRole("group", { name: "Dashboard actions", exact: true })
+      .getByRole("button", { name: "Save layout", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("article", { name: "First try", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByRole("article", { name: "First try", exact: true })).toBeVisible();
@@ -241,7 +251,10 @@ test("Customize placeholders fit their sections and bring the layout editor into
   if (!stat || !blank) throw new Error("Card and placeholder must have bounds");
   expect(Math.abs(stat.width - blank.width)).toBeLessThan(1);
   await page.getByRole("button", { name: "Customize charts", exact: true }).click();
-  const title = page.getByRole("heading", { name: "Customize your analytics layout", exact: true });
+  const title = page.getByRole("heading", {
+    name: "Customize your analytics dashboard",
+    exact: true,
+  });
   await expect(title).toBeInViewport();
   await expect(
     page
@@ -250,6 +263,122 @@ test("Customize placeholders fit their sections and bring the layout editor into
   ).toBeVisible();
   await info.attach("customize-panel", {
     body: await page.screenshot({ fullPage: true }),
+    contentType: "image/png",
+  });
+});
+
+test("analytics filters follow the activity heading with expansion beside the years", async ({
+  page,
+}, info) => {
+  await openStory(page, info, "components-charts-analytics-dashboard--filters");
+  const heading = await page
+    .getByRole("heading", { name: "All-time activity", exact: true })
+    .boundingBox();
+  const discipline = await page
+    .getByRole("navigation", { name: "Discipline", exact: true })
+    .boundingBox();
+  const years = await page.getByRole("group", { name: "Years", exact: true }).boundingBox();
+  const expand = page.getByRole("button", { name: "Expand filters", exact: true });
+  const trigger = await expand.boundingBox();
+  if (!heading || !discipline || !years || !trigger)
+    throw new Error("Filter controls must have bounds");
+  expect(discipline.y).toBeGreaterThanOrEqual(heading.y + heading.height);
+  expect(years.y).toBeGreaterThanOrEqual(discipline.y + discipline.height);
+  expect(trigger.x).toBeGreaterThanOrEqual(years.x + years.width);
+  await expand.click();
+  await expect(page.getByRole("region", { name: "Filter options", exact: true })).toBeVisible();
+  await info.attach("analytics-filter-placement", {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: "image/png",
+  });
+});
+
+test("optional volume and flash charts can be added and remain readable on narrow screens", async ({
+  page,
+}, info) => {
+  await openStory(page, info, "components-charts-analytics-dashboard--multiple-years");
+  await page.getByRole("button", { name: "Customize charts", exact: true }).click();
+  await page.getByRole("button", { name: "Add Volume over time", exact: true }).click();
+  await page.getByRole("button", { name: "Add Flash rate by grade", exact: true }).click();
+  await page
+    .getByRole("group", { name: "Dashboard actions", exact: true })
+    .getByRole("button", { name: "Save layout", exact: true })
+    .click();
+  const volume = page.getByRole("article", { name: "Volume over time", exact: true });
+  await volume.getByRole("button", { name: "Days out", exact: true }).click();
+  const plot = volume.getByRole("group", { name: "Monthly days out", exact: true });
+  await expect(plot).toBeVisible();
+  const bounds = await plot.boundingBox();
+  const viewport = page.viewportSize();
+  if (!bounds || !viewport) throw new Error("Volume plot and viewport must have bounds");
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+  await info.attach("optional-volume-chart", {
+    body: await volume.screenshot(),
+    contentType: "image/png",
+  });
+  const flash = page.getByRole("article", { name: "Flash rate by grade", exact: true });
+  await expect(flash.getByText("Flash rate", { exact: true })).toBeVisible();
+  await info.attach("optional-flash-chart", {
+    body: await flash.screenshot(),
+    contentType: "image/png",
+  });
+});
+
+test("floating save appears past the editor and saves the reordered layout", async ({
+  page,
+}, info) => {
+  await openStory(page, info, "components-charts-analytics-dashboard--multiple-years");
+  await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
+  const mainSave = page
+    .getByRole("group", { name: "Dashboard actions", exact: true })
+    .getByRole("button", { name: "Save layout", exact: true });
+  const reminder = page.getByRole("group", { name: "Save layout reminder", exact: true });
+  await mainSave.scrollIntoViewIfNeeded();
+  await expect(reminder).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Hide Sending calendar", exact: true })
+    .scrollIntoViewIfNeeded();
+  await expect(reminder).toBeVisible();
+  const bounds = await reminder.boundingBox();
+  const viewport = page.viewportSize();
+  if (!bounds || !viewport) throw new Error("Floating action must have visible bounds");
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+  await mainSave.scrollIntoViewIfNeeded();
+  await expect(reminder).toHaveCount(0);
+  await page.getByRole("button", { name: "Hide Sending calendar", exact: true }).click();
+  await page.getByRole("article", { name: "Grade pyramid", exact: true }).scrollIntoViewIfNeeded();
+  await expect(reminder).toBeVisible();
+  await info.attach("floating-save", { body: await page.screenshot(), contentType: "image/png" });
+  await reminder.getByRole("button", { name: "Save layout", exact: true }).click();
+  await expect(reminder).toHaveCount(0);
+  await expect(page.getByRole("grid", { name: "Reorder charts", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("article", { name: "Sending calendar", exact: true })).toHaveCount(0);
+});
+
+test("laptop fits six stat slots and customization options contrast with their panel", async ({
+  page,
+}, info) => {
+  const laptop = info.project.name.startsWith("desktop");
+  if (laptop) await page.setViewportSize({ width: 1280, height: 800 });
+  await openStory(page, info, "components-charts-analytics-dashboard--multiple-years");
+  const cards = page.getByRole("region", { name: "At a glance", exact: true });
+  const first = await cards.getByRole("article").first().boundingBox();
+  const last = await cards
+    .getByRole("button", { name: "Customize cards", exact: true })
+    .boundingBox();
+  if (!first || !last) throw new Error("Default cards must be visible");
+  if (laptop) expect(Math.abs(first.y - last.y)).toBeLessThan(1);
+  else expect(last.y).toBeGreaterThan(first.y);
+  await info.attach("six-stat-slots", { body: await page.screenshot(), contentType: "image/png" });
+  await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
+  const panel = page.getByLabel("Customize your analytics dashboard", { exact: true });
+  const option = panel.getByRole("button", { name: "Add Areas", exact: true });
+  expect(await option.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe(
+    await panel.evaluate((el) => getComputedStyle(el).backgroundColor),
+  );
+  await expect(option).toHaveCSS("border-top-width", "0px");
+  await info.attach("contrasting-customize-options", {
+    body: await panel.screenshot(),
     contentType: "image/png",
   });
 });

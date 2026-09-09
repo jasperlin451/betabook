@@ -1,3 +1,4 @@
+import { ChartInspection } from "@/components/chart-inspection";
 import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
 import { formatCount } from "@/lib/format";
 import type { ClimbType } from "@/lib/grades";
@@ -18,37 +19,40 @@ export function AnalyticsGradePyramid({ type, rows }: { type: ClimbType; rows: P
   return (
     <>
       <p className="sr-only">Send pyramid: {summary}.</p>
-      <div
-        className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1.5 text-xs tabular-nums"
-        aria-hidden
-      >
-        {rows.map((row, i) => (
-          <div key={row.label} className="col-span-3 grid grid-cols-subgrid items-center">
-            <span className="w-11 text-foreground">{row.label}</span>
-            {row.count > 0 ? (
-              <>
-                <div className="relative">
-                  <div
-                    className="h-3 rounded-xs motion-safe:animate-bar-grow-x"
-                    style={{
-                      width: `${(row.count / max) * 100}%`,
-                      backgroundColor: hue,
-                      opacity: 0.65,
-                      animationDelay: `${i * 15}ms`,
-                    }}
-                  />
-                </div>
-                <span className="text-muted">{row.count}</span>
-              </>
-            ) : (
-              <>
-                <div className="h-3" />
-                <span />
-              </>
-            )}
-          </div>
-        ))}
-      </div>
+      <ChartInspection label="Sends by grade">
+        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1.5 text-xs tabular-nums">
+          {rows.map((row, i) => (
+            <div
+              key={row.label}
+              data-chart-detail={`${row.label}: ${formatCount(row.count, "send")}`}
+              className="col-span-3 grid grid-cols-subgrid items-center"
+            >
+              <span className="w-11 text-foreground">{row.label}</span>
+              {row.count > 0 ? (
+                <>
+                  <div className="relative">
+                    <div
+                      className="h-3 rounded-xs motion-safe:animate-bar-grow-x"
+                      style={{
+                        width: `${(row.count / max) * 100}%`,
+                        backgroundColor: hue,
+                        opacity: 0.65,
+                        animationDelay: `${i * 15}ms`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-muted">{row.count}</span>
+                </>
+              ) : (
+                <>
+                  <div className="h-3" />
+                  <span />
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      </ChartInspection>
     </>
   );
 }

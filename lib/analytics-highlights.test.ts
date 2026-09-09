@@ -16,7 +16,7 @@ const session = (
   companions: [{ id: "pat", name: "Pat" }],
   ...props,
 });
-it("counts shared days, sessions, first-send effort, repeats, and consecutive weeks within selected years", () => {
+it("counts shared days, sessions, first-send effort, and repeats within selected years", () => {
   const rows = [
     session(1, "2024-12-20"),
     session(2, "2025-01-06"),
@@ -31,13 +31,11 @@ it("counts shared days, sessions, first-send effort, repeats, and consecutive we
   expect(result.biggestProject).toMatchObject({ id: 1, sessions: 4 });
   expect(result.persistence).toMatchObject({ id: 1, attempts: 3 });
   expect(result.favoriteRepeat).toMatchObject({ id: 1, repeats: 1 });
-  expect(result.climbingStreak).toBe(3);
   expect(buildAnalyticsHighlights(rows, "boulder", [2024]).persistence).toBeNull();
   expect(buildAnalyticsHighlights(rows, "boulder", [2023])).toEqual({
     partner: null,
     biggestProject: null,
     persistence: null,
     favoriteRepeat: null,
-    climbingStreak: 0,
   });
 });

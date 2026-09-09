@@ -3,9 +3,13 @@ import { useState } from "react";
 import { userEvent, within } from "storybook/test";
 
 import { AnalyticsYearFilter } from "@/components/analytics-year-filter";
+import { AnalyticsHashtagFilter } from "@/components/filters/analytics-hashtag-filter";
+import { choicePillClass } from "@/components/ui/choice-pill";
+import { DISCIPLINE_CHIP_CLASSNAME, DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import type { AnalyticsSendRow } from "@/db/queries";
 import { buildAnalyticsHighlights, type HighlightSession } from "@/lib/analytics-highlights";
 import { DEFAULT_ANALYTICS_LAYOUT, parseAnalyticsLayout } from "@/lib/analytics-layout";
+import type { ClimbType } from "@/lib/grades";
 import { buildUserAnalytics } from "@/lib/user-analytics";
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
@@ -15,10 +19,11 @@ const meta = {
   title: "Components/Charts/Analytics dashboard",
   component: AnalyticsDashboard,
   parameters: {
+    nextjs: { navigation: { pathname: "/users/sample/analytics", query: {} } },
     docs: {
       description: {
         component:
-          "New dashboards start with Sends, Hardest, Days out, First try, and Best year. Customize placeholders appear when a section has hidden items and open the same layout editor; Save layout persists the selection. Existing saved layouts remain unchanged. All cards and charts follow the selected years.",
+          "New dashboards start with Sends, Hardest, Days out, First try, and Best year. Customize placeholders appear when a section has hidden items and open the same layout editor; Save layout persists the selection. Existing saved layouts remain unchanged. All cards and charts follow the selected years. The laptop grid fits six stat slots. Grade pyramid, Breakthroughs, and Flash rate use half-width slots, while time charts span the row. Volume and Flash rate are optional smooth Recharts charts with floating tooltips; all calendars fit without horizontal scrolling. Customization changes only the owner’s view.",
       },
     },
   },
@@ -96,6 +101,7 @@ function DashboardExample({
   saveFails = false,
   showHighlights = false,
   hiddenCharts = false,
+  showFilters = false,
 }: {
   initialPeriod?: number[];
   undatedOnly?: boolean;
@@ -104,11 +110,13 @@ function DashboardExample({
   saveFails?: boolean;
   showHighlights?: boolean;
   hiddenCharts?: boolean;
+  showFilters?: boolean;
 }) {
+  const [scope, setScope] = useState<ClimbType>("boulder");
   const [period, setPeriod] = useState<number[]>(initialPeriod);
   const rows = undatedOnly ? sends.filter((send) => send.dateSent == null) : sends;
-  const lifetime = buildUserAnalytics(rows, "boulder");
-  const analytics = buildUserAnalytics(rows, "boulder", undefined, period);
+  const lifetime = buildUserAnalytics(rows, scope);
+  const analytics = buildUserAnalytics(rows, scope, undefined, period);
   return (
     <StoryPage title="Analytics">
       <AnalyticsDashboard
@@ -142,18 +150,49 @@ function DashboardExample({
             ? { ok: false, error: "Your layout couldn’t be saved. Please try again." }
             : { ok: true, value: undefined }
         }
-        highlights={buildAnalyticsHighlights(undatedOnly ? [] : sessions, "boulder", period)}
+        highlights={buildAnalyticsHighlights(undatedOnly ? [] : sessions, scope, period)}
         analytics={analytics}
         undatedCount={lifetime.datelessCount}
-        scope="boulder"
+        scope={scope}
         journalVisible={false}
         selectedYears={period}
         periodPicker={
-          <AnalyticsYearFilter
-            years={undatedOnly ? [] : [2023, 2024, 2025, 2026]}
-            selected={period}
-            onChange={setPeriod}
-          />
+          showFilters ? (
+            <>
+              <nav aria-label="Discipline" className="flex flex-wrap gap-2">
+                {(["boulder", "sport", "trad"] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    aria-pressed={scope === type}
+                    className={choicePillClass(scope === type, DISCIPLINE_CHIP_CLASSNAME[type])}
+                    onClick={() => setScope(type)}
+                  >
+                    {DISCIPLINE_LABELS[type]}
+                  </button>
+                ))}
+              </nav>
+              <AnalyticsHashtagFilter
+                selectedTags={[]}
+                tags={["trip", "project"]}
+                controls={
+                  <div className="min-w-0 flex-1">
+                    <AnalyticsYearFilter
+                      years={[2023, 2024, 2025, 2026]}
+                      selected={period}
+                      onChange={setPeriod}
+                    />
+                  </div>
+                }
+              />
+            </>
+          ) : (
+            <AnalyticsYearFilter
+              years={undatedOnly ? [] : [2023, 2024, 2025, 2026]}
+              selected={period}
+              onChange={setPeriod}
+            />
+          )
         }
       />
     </StoryPage>
@@ -189,3 +228,50 @@ export const Highlights: Story = {
   render: () => <DashboardExample showHighlights initialPeriod={[2025]} />,
 };
 export const HiddenChart: Story = { render: () => <DashboardExample hiddenCharts /> };
+
+export const Filters: Story = { render: () => <DashboardExample showFilters /> };
+
+export const OptionalCharts: Story = {
+  render: () => <DashboardExample initialPeriod={[2024, 2025]} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Customize charts" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Add Volume over time" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Add Flash rate by grade" }));
+    await userEvent.click(
+      within(canvas.getByRole("group", { name: "Dashboard actions" })).getByRole("button", {
+        name: "Save layout",
+      }),
+    );
+  },
+};
+export const FloatingSave: Story = {
+  render: () => <DashboardExample initialPeriod={[2024, 2025]} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Customize dashboard" }));
+    canvas
+      .getByRole("button", { name: "Hide Sending calendar" })
+      .scrollIntoView({ block: "center", behavior: "instant" });
+    await canvas.findByRole("group", { name: "Save layout reminder" }, { timeout: 5000 });
+  },
+};
+export const SaveErrorVisible: Story = {
+  render: () => <DashboardExample saveFails />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("button", { name: "Customize dashboard" }));
+    await userEvent.click(
+      within(canvas.getByRole("group", { name: "Dashboard actions" })).getByRole("button", {
+        name: "Save layout",
+      }),
+    );
+    await canvas.findByRole("alert");
+  },
+};
+export const ExpandedFilters: Story = {
+  render: () => <DashboardExample showFilters />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Expand filters" }));
+  },
+};

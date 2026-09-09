@@ -9,11 +9,20 @@ import { AnalyticsYearFilter } from "./analytics-year-filter";
 const meta = {
   title: "Components/Inputs/Analytics years",
   component: AnalyticsYearFilter,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Multi-select year pills highlight the selection without checkmarks. All clears the year filter. Options wrap on narrow screens and filter every dashboard statistic and chart.",
+      },
+    },
+  },
 } satisfies Meta<typeof AnalyticsYearFilter>;
 export default meta;
 type Story = StoryObj;
-function YearExample() {
-  const [selected, setSelected] = useState<number[]>([2020, 2021, 2022, 2023]);
+const INITIAL_YEARS = [2020, 2021, 2022, 2023];
+function YearExample({ initial = INITIAL_YEARS }: { initial?: number[] }) {
+  const [selected, setSelected] = useState<number[]>(initial);
   return (
     <StoryPage
       title="Analytics years"
@@ -31,3 +40,6 @@ function YearExample() {
   );
 }
 export const Selection: Story = { render: () => <YearExample /> };
+
+export const AllYears: Story = { render: () => <YearExample initial={[]} /> };
+export const SingleYear: Story = { render: () => <YearExample initial={[2026]} /> };
