@@ -7,6 +7,14 @@ import { AnalyticsGradePyramid } from "./analytics-grade-pyramid";
 const meta = {
   title: "Components/Charts/Grade pyramid",
   component: AnalyticsGradePyramid,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "A compact half-width dashboard chart. Hover or tap a grade row for a content-sized tooltip; keyboard users can focus the plot and navigate rows with arrow keys. Zero-send grades remain visible.",
+      },
+    },
+  },
 } satisfies Meta<typeof AnalyticsGradePyramid>;
 export default meta;
 // These local-state/comparison examples supply their own component props.

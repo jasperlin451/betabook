@@ -7,6 +7,14 @@ import { ProgressionChart } from "./progression-chart";
 const meta = {
   title: "Components/Charts/Progression chart",
   component: ProgressionChart,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "A full-width responsive chart showing the personal-best ceiling and monthly high points for the selected years. It fits narrow cards without scrolling. Floating details show the month, hardest grade, and personal best.",
+      },
+    },
+  },
 } satisfies Meta<typeof ProgressionChart>;
 export default meta;
 // These local-state/comparison examples supply their own component props.

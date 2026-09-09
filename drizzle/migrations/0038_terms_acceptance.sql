@@ -6,10 +6,8 @@ CREATE TABLE `user_terms_acceptances` (
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
--- Preserve genuine prior acceptance; missing values never imply agreement.
-INSERT INTO user_terms_acceptances (user_id, version, accepted_at)
-SELECT id, terms_version, terms_accepted_at FROM user
-WHERE terms_version IS NOT NULL AND terms_accepted_at IS NOT NULL;
+ALTER TABLE `user` ADD `terms_version` text;--> statement-breakpoint
+ALTER TABLE `user` ADD `terms_accepted_at` integer;
 --> statement-breakpoint
 CREATE TRIGGER user_terms_acceptance_insert AFTER INSERT ON user
 WHEN NEW.terms_version IS NOT NULL AND NEW.terms_accepted_at IS NOT NULL

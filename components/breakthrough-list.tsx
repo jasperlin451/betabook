@@ -27,7 +27,7 @@ export function BreakthroughList({
           <div className="min-w-0 flex-1">
             <AppLink
               href={climbHref(breakthrough.climbId, breakthrough.climbName)}
-              className="block truncate text-sm text-foreground"
+              className="block text-sm text-foreground hover:underline"
             >
               {breakthrough.climbName}
             </AppLink>

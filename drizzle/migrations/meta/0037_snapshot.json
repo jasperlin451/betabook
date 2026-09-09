@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "fdfcca12-3b40-4893-94df-8d121f3c51cd",
+  "id": "1033f5a7-08ec-4fd1-b1e7-6d1d5493daab",
   "prevId": "ee0a93f7-84a5-4ec9-a400-90cfe1359d60",
   "tables": {
     "areas": {
@@ -436,20 +436,6 @@
         "image": {
           "name": "image",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "terms_version": {
-          "name": "terms_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "terms_accepted_at": {
-          "name": "terms_accepted_at",
-          "type": "integer",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -1563,6 +1549,44 @@
           "value": "\"journal_companions\".\"suppressed\" IN (0, 1)"
         }
       }
+    },
+    "user_analytics_layouts": {
+      "name": "user_analytics_layouts",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "layout": {
+          "name": "layout",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_analytics_layouts_user_id_user_id_fk": {
+          "name": "user_analytics_layouts_user_id_user_id_fk",
+          "tableFrom": "user_analytics_layouts",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     }
   },
   "views": {},

@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ccc7fcb4-f4ad-46c3-b814-96de8ea222e5",
-  "prevId": "fdfcca12-3b40-4893-94df-8d121f3c51cd",
+  "id": "43cbe391-e14c-4ed2-8974-1885105ea1e1",
+  "prevId": "1033f5a7-08ec-4fd1-b1e7-6d1d5493daab",
   "tables": {
     "areas": {
       "name": "areas",
@@ -1616,6 +1616,44 @@
           "value": "\"journal_companions\".\"suppressed\" IN (0, 1)"
         }
       }
+    },
+    "user_analytics_layouts": {
+      "name": "user_analytics_layouts",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "layout": {
+          "name": "layout",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_analytics_layouts_user_id_user_id_fk": {
+          "name": "user_analytics_layouts_user_id_user_id_fk",
+          "tableFrom": "user_analytics_layouts",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
     }
   },
   "views": {},

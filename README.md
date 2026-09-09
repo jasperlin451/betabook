@@ -53,10 +53,10 @@ it can create an account. New accounts store the accepted version and a server
 timestamp. The auth creation hook rejects missing or outdated assent, including
 at the Google callback, and clients cannot write acceptance records directly.
 
-Migration `0037_terms_acceptance.sql` adds nullable acceptance fields without
-claiming consent for existing accounts. Migration `0038_terms_acceptance_history.sql`
-preserves genuine prior acceptance and records each account/version once using
-atomic database triggers. Repeated submissions keep the original timestamp.
+Migration `0038_terms_acceptance.sql` adds nullable acceptance fields and the
+acceptance-history table without claiming consent for existing accounts. Atomic
+database triggers record each account/version once. Repeated submissions keep
+the original timestamp.
 
 Existing users and users who accepted an older version must visit `/accept-terms`
 before continuing to member features. Page loaders, data APIs, and server actions
