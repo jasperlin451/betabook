@@ -19,12 +19,14 @@ export function TermsAcceptanceForm({
   previousVersion,
   next,
   onAccept = acceptTerms,
+  onSignOut,
 }: {
   version: string;
   versionLabel: string;
   previousVersion: string | null;
   next?: string;
   onAccept?: (version: unknown, agreed: unknown) => Promise<ActionResult>;
+  onSignOut?: () => void;
 }) {
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
@@ -52,7 +54,7 @@ export function TermsAcceptanceForm({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-sm flex-col gap-4">
       <form onSubmit={submit} className={FORM_CARD_CLASS}>
         <PageTitle>Review the Terms of Service</PageTitle>
         <p className="text-sm text-muted">
@@ -86,7 +88,7 @@ export function TermsAcceptanceForm({
           {pending ? "Saving agreement…" : "Accept and continue"}
         </Button>
       </form>
-      <SignOutButton />
+      <SignOutButton onSignOut={onSignOut} />
       <p className="text-sm text-muted">
         Questions?{" "}
         <AppLink href="/contact" className="inline underline">

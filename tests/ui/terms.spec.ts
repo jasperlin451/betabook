@@ -8,7 +8,7 @@ test.use({ baseURL: appBaseURL });
 test(
   "acceptance requires sign-in while published terms remain public",
   { tag: "@behavior" },
-  async ({ page, request }) => {
+  async ({ page }) => {
     await page.goto("/accept-terms?next=%2Ffriends%3Fview%3Drequests");
     await expect(page).toHaveURL(/\/sign-in\?next=%2Faccept-terms/);
     await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
@@ -16,7 +16,14 @@ test(
     await expect(
       page.getByRole("heading", { name: "Terms of Service", exact: true }),
     ).toBeVisible();
-    expect((await request.get(`${appBaseURL}/terms/not-a-published-version`)).status()).toBe(404);
+    // Next can stream a not-found response with HTTP 200. Verify the actual
+    // rejection and noindex contract rather than the streaming status code.
+    await page.goto("/terms/not-a-published-version");
+    await expect(page.getByRole("heading", { name: "Page not found", exact: true })).toBeVisible();
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex");
+    await expect(page.getByRole("heading", { name: "Terms of Service", exact: true })).toHaveCount(
+      0,
+    );
   },
 );
 

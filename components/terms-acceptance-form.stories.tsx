@@ -11,6 +11,7 @@ const meta = {
     version: TERMS_VERSION,
     versionLabel: TERMS_UPDATED_LABEL,
     previousVersion: null,
+    onSignOut: () => {},
     onAccept: async () => ({ ok: false, error: "Example only. Your account has not changed." }),
   },
 } satisfies Meta<typeof TermsAcceptanceForm>;

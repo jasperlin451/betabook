@@ -7,12 +7,16 @@ import { useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
 
-export function SignOutButton() {
+export function SignOutButton({ onSignOut }: { onSignOut?: () => void } = {}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function handleSignOut() {
+    if (onSignOut) {
+      onSignOut();
+      return;
+    }
     setError(null);
     setPending(true);
     void authClient.signOut({

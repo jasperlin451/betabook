@@ -5,6 +5,9 @@ import { AppLink } from "@/components/ui/app-link";
 import { pageMetadata } from "@/lib/seo";
 import { getTermsVersion, TERMS_VERSIONS, termsHref } from "@/lib/terms";
 
+// Only published versions are archive routes; all others use Next's not-found response.
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return TERMS_VERSIONS.map(({ version }) => ({ version }));
 }
