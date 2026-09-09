@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 // "" (not "/") so the root entry is `https://betabook.ca`, matching the
 // canonical link the home page renders.
-const STATIC_PATHS = ["", "/about", "/contact"];
+const STATIC_PATHS = ["", "/about", "/contact", "/terms"];
 
 const counts = cache(async () => {
   const db = await getDb();

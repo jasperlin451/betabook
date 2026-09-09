@@ -100,6 +100,18 @@ export function SignInForm({
       <PageTitle>Sign in</PageTitle>
       {googleEnabled && (
         <>
+          <p className="text-sm text-muted">
+            By continuing with Google, you agree to the{" "}
+            <AppLink
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline underline"
+            >
+              Terms of Service (opens in a new tab)
+            </AppLink>
+            .
+          </p>
           <GoogleSignInButton nextPath={nextPath} onError={setError} disabled={pending} />
           <div className="relative flex items-center py-1">
             <div className="grow border-t border-separator" />

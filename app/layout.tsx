@@ -165,9 +165,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                     &copy; {process.env.NEXT_PUBLIC_BUILD_YEAR} {SITE_NAME} —{" "}
                     <span className="whitespace-nowrap">{SITE_TAGLINE}</span>
                   </span>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-4">
                     <AppLink href="/about">About</AppLink>
                     <AppLink href="/contact">Contact</AppLink>
+                    <AppLink href="/terms">Terms of Service</AppLink>
                   </div>
                 </div>
               </footer>
