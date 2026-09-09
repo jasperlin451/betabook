@@ -22,18 +22,31 @@ function Dates(props: Partial<ComponentProps<typeof JournalEntryDateFields>> = {
     />
   );
 }
-it("clears the date and drops the clear control with the value", async () => {
+it("offers I don't know only for a send, emptying and restoring the date", async () => {
   const user = userEvent.setup();
   render(<Dates />);
+  expect(screen.queryByRole("checkbox", { name: "I don't know" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("checkbox", { name: "I sent" }));
+  const unknown = screen.getByRole("checkbox", { name: "I don't know" });
+  expect(unknown).not.toBeChecked();
   expect(screen.getByRole("spinbutton", { name: /day, Date/ })).toHaveTextContent("01");
-  await user.click(screen.getByRole("button", { name: "Clear date" }));
+  await user.click(unknown);
+  expect(unknown).toBeChecked();
   expect(screen.getByRole("spinbutton", { name: /day, Date/ })).not.toHaveTextContent("01");
-  expect(screen.queryByRole("button", { name: "Clear date" })).not.toBeInTheDocument();
+  await user.click(unknown);
+  expect(unknown).not.toBeChecked();
+  expect(screen.getByRole("spinbutton", { name: /day, Date/ })).toHaveTextContent("06");
 });
-it("offers no clear control when editing an entry, which always needs its date", () => {
-  render(<Dates existingEntry={{ sent: false, isAscent: false }} />);
+it("offers no I don't know control for a repeat, which always needs its date", async () => {
+  const user = userEvent.setup();
+  render(<Dates hasPriorSend />);
+  await user.click(screen.getByRole("checkbox", { name: "I sent" }));
+  expect(screen.queryByRole("checkbox", { name: "I don't know" })).not.toBeInTheDocument();
+});
+it("offers no I don't know control when editing an entry, which always needs its date", () => {
+  render(<Dates existingEntry={{ sent: false, isAscent: false }} sent />);
   expect(screen.getByRole("spinbutton", { name: /day, Date/ })).toHaveTextContent("01");
-  expect(screen.queryByRole("button", { name: "Clear date" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("checkbox", { name: "I don't know" })).not.toBeInTheDocument();
 });
 it.each(["repeat", "training"])("explains that %s needs a date", async (kind) => {
   const user = userEvent.setup();

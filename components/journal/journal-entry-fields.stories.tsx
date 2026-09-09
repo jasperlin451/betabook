@@ -36,7 +36,7 @@ function Example({
   return (
     <StoryPage
       title="Log an entry"
-      description="Date comes first; send style appears beside I sent, the ascent opinion follows it, and Notes fill the form width. Friends and Tags wait behind Add details, collapsed by default. Clearing the date records a send without one; other entries need a date to save. Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
+      description="Date comes first; send style appears beside I sent, the ascent opinion follows it, and Notes fill the form width. Friends and Tags wait behind Add details, collapsed by default. Once I sent is checked, the I don't know checkbox beside the date empties it to record a send without one; entries always need a date to save. Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
     >
       <JournalEntryFields
         today="2026-09-06"

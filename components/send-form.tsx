@@ -70,7 +70,9 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
           value={dateSent}
           max={today}
           onChange={setDateSent}
-          onClear={() => setDateSent("")}
+          onUnknownChange={(unknown) =>
+            setDateSent(unknown ? "" : (existingSend.dateSent ?? today))
+          }
         />
       </FormSection>
 

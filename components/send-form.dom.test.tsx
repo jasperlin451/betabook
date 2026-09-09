@@ -49,8 +49,8 @@ it("shows the opinion fields and submits the climb's grade for a send without a 
 
 it("clears the sent date to make the send undated", async () => {
   const { user, save } = setup();
-  await user.click(screen.getByRole("button", { name: "Clear date sent" }));
-  expect(screen.queryByRole("button", { name: "Clear date sent" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("checkbox", { name: "I don't know" }));
+  expect(screen.getByRole("checkbox", { name: "I don't know" })).toBeChecked();
   await user.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
   expect(save.mock.calls[0][1].get("dateSent")).toBe("");

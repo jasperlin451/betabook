@@ -43,8 +43,11 @@ export function JournalEntryDateFields({
         max={today}
         isReadOnly={existingEntry?.sent}
         onChange={onDateChange}
-        // Only a new entry can become an undated send; edits keep their date.
-        onClear={existingEntry ? undefined : () => onDateChange("")}
+        // Only a new first ascent can lack a date, so I don't know appears
+        // once I sent is checked; every other entry keeps its date.
+        onUnknownChange={
+          canRecordUndatedSend && sent ? (unknown) => onDateChange(unknown ? "" : today) : undefined
+        }
       />
 
       {hasClimb && !existingEntry && (

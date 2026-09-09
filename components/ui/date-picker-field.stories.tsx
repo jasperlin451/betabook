@@ -25,12 +25,12 @@ function DateExamples() {
         description="Type a date or choose one from the calendar."
       />
       <DatePickerField
-        label="Clearable date"
+        label="Forgettable date"
         value={clearable}
         onChange={setClearable}
         max="2026-09-06"
-        onClear={() => setClearable("")}
-        description="Clear sits beside the field and leaves with the value."
+        onUnknownChange={(unknown) => setClearable(unknown ? "" : "2026-09-06")}
+        description="I don't know mirrors an empty value; typing a date unchecks it."
       />
       <DatePickerField label="Read-only date" value="2026-09-01" onChange={() => {}} isReadOnly />
     </StoryPage>

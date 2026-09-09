@@ -25,7 +25,7 @@ const meta = {
     return (
       <StoryPage
         title="Entry date"
-        description="Date comes first, followed by send choices, without a separate section title. The × beside the date empties it — a send saved that way is recorded without a date, as in the Undated send example."
+        description="Date comes first, followed by send choices, without a separate section title. Once I sent is checked, an I don't know checkbox appears beside the date and empties it — a send saved that way is recorded without a date, as in the Undated send example."
       >
         <div className={SURFACE_CARD_CLASS}>
           <JournalEntryDateFields
