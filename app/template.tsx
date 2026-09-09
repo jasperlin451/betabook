@@ -5,7 +5,7 @@ import { ViewerBoundary } from "@/components/viewer-boundary";
 import { getDb } from "@/db/client";
 import { getTermsAcceptance } from "@/db/queries/terms";
 import { getSession } from "@/lib/session";
-import { hasAcceptedCurrentTerms } from "@/lib/terms";
+import { hasAcceptedCurrentTerms, TERMS_UPDATED_LABEL, TERMS_VERSION } from "@/lib/terms";
 
 export default async function Template({ children }: { children: ReactNode }) {
   const session = await getSession();
@@ -15,6 +15,9 @@ export default async function Template({ children }: { children: ReactNode }) {
       <TermsGate
         viewerId={session?.user.id ?? null}
         initiallyRequired={Boolean(session && !hasAcceptedCurrentTerms(acceptance))}
+        version={TERMS_VERSION}
+        versionLabel={TERMS_UPDATED_LABEL}
+        previousVersion={acceptance?.termsVersion ?? null}
       >
         {children}
       </TermsGate>

@@ -1,53 +1,66 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { AppLink } from "@/components/ui/app-link";
-import { PageTitle } from "@/components/ui/typography";
-import { TERMS_REQUIRED_EVENT } from "@/lib/terms";
-import { acceptTermsUrl, isTermsExemptPath } from "@/lib/terms-navigation";
+import { TermsAcceptanceForm } from "@/components/terms-acceptance-form";
+import type { ActionResult } from "@/lib/action-result";
+import { TERMS_REQUIRED_EVENT, TERMS_UPDATED_LABEL, TERMS_VERSION } from "@/lib/terms";
+import { isTermsExemptPath } from "@/lib/terms-navigation";
 
-const redirectBrowser = (url: string) => window.location.replace(url);
+type TermsPrompt = { version: string; versionLabel: string; previousVersion: string | null };
 
-/** UX companion to the server gates. Check on navigation, focus, and active use;
- * idle tabs do not poll. A full navigation loads the latest agreement bundle. */
+/** The server gates authorize data and writes. This modal pauses the current
+ * page without discarding its drafts or navigating to a separate screen. */
 export function TermsGate({
   viewerId,
   initiallyRequired,
+  version = TERMS_VERSION,
+  versionLabel = TERMS_UPDATED_LABEL,
+  previousVersion = null,
   children,
-  onRedirect = redirectBrowser,
+  onAccept,
 }: {
   viewerId: string | null;
   initiallyRequired: boolean;
+  version?: string;
+  versionLabel?: string;
+  previousVersion?: string | null;
   children: ReactNode;
-  onRedirect?: (url: string) => void;
+  onAccept?: (version: unknown, agreed: unknown) => Promise<ActionResult>;
 }) {
   const pathname = usePathname() ?? "/";
+  const router = useRouter();
   const exempt = isTermsExemptPath(pathname);
-  const [required, setRequired] = useState(initiallyRequired);
+  const [prompt, setPrompt] = useState<TermsPrompt | null>(
+    initiallyRequired ? { version, versionLabel, previousVersion } : null,
+  );
+  const [source, setSource] = useState({
+    viewerId,
+    initiallyRequired,
+    version,
+    versionLabel,
+    previousVersion,
+  });
+  if (
+    source.viewerId !== viewerId ||
+    source.initiallyRequired !== initiallyRequired ||
+    source.version !== version ||
+    source.versionLabel !== versionLabel ||
+    source.previousVersion !== previousVersion
+  ) {
+    setSource({ viewerId, initiallyRequired, version, versionLabel, previousVersion });
+    setPrompt(initiallyRequired ? { version, versionLabel, previousVersion } : null);
+  }
 
   useEffect(() => {
-    if (!viewerId || exempt) return;
-    const destination = () =>
-      acceptTermsUrl(window.location.pathname + window.location.search + window.location.hash);
-    if (initiallyRequired) {
-      onRedirect(destination());
-      return;
-    }
+    if (!viewerId || exempt || initiallyRequired) return;
     let disposed = false;
-    let blocked = false;
     let pending = false;
     let lastChecked = -Infinity;
     const controller = new AbortController();
-    const block = () => {
-      if (disposed || blocked) return;
-      blocked = true;
-      setRequired(true);
-      onRedirect(destination());
-    };
     const check = async (force = false) => {
-      if (pending || blocked || document.visibilityState !== "visible") return;
+      if (pending || document.visibilityState !== "visible") return;
       if (!force && Date.now() - lastChecked < 60_000) return;
       pending = true;
       lastChecked = Date.now();
@@ -56,16 +69,37 @@ export function TermsGate({
           cache: "no-store",
           signal: controller.signal,
         });
-        if (!response.ok) return;
-        const status: { userId?: unknown; required?: unknown } = await response.json();
-        if (!disposed && status.userId === viewerId && status.required === true) block();
+        if (!response.ok) {
+          lastChecked = -Infinity;
+          return;
+        }
+        const status: {
+          userId?: unknown;
+          required?: unknown;
+          version?: unknown;
+          versionLabel?: unknown;
+          previousVersion?: unknown;
+        } = await response.json();
+        if (!disposed && status.userId === viewerId && status.required === true) {
+          setPrompt({
+            version: typeof status.version === "string" ? status.version : version,
+            versionLabel:
+              typeof status.versionLabel === "string" ? status.versionLabel : versionLabel,
+            previousVersion:
+              typeof status.previousVersion === "string" ? status.previousVersion : previousVersion,
+          });
+        }
       } catch {
-        // Request failures do not grant access: pages, APIs and actions enforce
-        // acceptance independently. Permit another check on the next interaction.
+        // All protected requests still enforce acceptance if this check fails.
         lastChecked = -Infinity;
       } finally {
         pending = false;
       }
+    };
+    const block = () => {
+      if (disposed) return;
+      setPrompt((current) => current ?? { version, versionLabel, previousVersion });
+      void check(true);
     };
     const focus = () => {
       void check(true);
@@ -88,15 +122,32 @@ export function TermsGate({
       document.removeEventListener("pointerdown", interact, true);
       document.removeEventListener("keydown", interact, true);
     };
-  }, [viewerId, pathname, exempt, initiallyRequired, onRedirect]);
+  }, [viewerId, pathname, exempt, initiallyRequired, version, versionLabel, previousVersion]);
 
-  if (viewerId && !exempt && (required || initiallyRequired))
-    return (
-      <div className="mx-auto flex max-w-2xl flex-col gap-4">
-        <PageTitle>Review the Terms of Service</PageTitle>
-        <p>Accept the current terms before continuing to your account.</p>
-        <AppLink href={acceptTermsUrl(pathname)}>Review terms</AppLink>
+  const open = Boolean(viewerId && !exempt && prompt);
+  return (
+    <>
+      <div
+        inert={open || undefined}
+        aria-hidden={open || undefined}
+        // Initial page loaders intentionally return an anonymous view. Avoid
+        // showing its sign-in callout behind an authenticated user's modal.
+        className={open && initiallyRequired ? "invisible" : undefined}
+      >
+        {children}
       </div>
-    );
-  return children;
+      {open && prompt && (
+        <TermsAcceptanceForm
+          key={prompt.version}
+          {...prompt}
+          onAccept={onAccept}
+          onAccepted={() => {
+            // A response for an older form must not dismiss a newer revision.
+            setPrompt((current) => (current?.version === prompt.version ? null : current));
+            router.refresh();
+          }}
+        />
+      )}
+    </>
+  );
 }

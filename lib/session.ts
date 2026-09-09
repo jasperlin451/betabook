@@ -11,8 +11,8 @@ export async function getSession() {
   return auth.api.getSession({ headers: await headers() });
 }
 
-/** Page loaders treat an unaccepted account as anonymous. The template renders
- * the agreement gate instead of those children, preserving the destination. */
+/** Page loaders treat an unaccepted account as anonymous. The template prompts
+ * for agreement and refreshes the current page after acceptance. */
 export async function getMemberSession() {
   const session = await getSession();
   if (!session) return null;
