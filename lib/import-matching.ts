@@ -154,18 +154,23 @@ export function matchRow(
   let candidates = all;
 
   if (row.climbTypeHint) {
-    const kept = candidates.filter((c) => c.type === row.climbTypeHint);
+    const kept = candidates.filter((c) =>
+      row.climbTypeHint === "route" ? c.type !== "boulder" : c.type === row.climbTypeHint,
+    );
     if (kept.length === 0) {
       return ambiguous(
         candidates,
         all,
-        describeConflict(total, `a ${TYPE_LABEL[row.climbTypeHint]} climb`),
+        describeConflict(
+          total,
+          `a ${row.climbTypeHint === "route" ? "route" : TYPE_LABEL[row.climbTypeHint]} climb`,
+        ),
       );
     }
     candidates = kept;
   }
 
-  const gradeText = row.gradeText ?? row.postedGradeText;
+  const gradeText = row.postedGradeText ?? row.gradeText;
   const implied = impliedGrades(gradeText, options.gradeScale);
   const impliedType: "boulder" | "rope" | null =
     implied.boulder !== null && implied.rope === null

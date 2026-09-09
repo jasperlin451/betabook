@@ -6,6 +6,7 @@ import { GET as climbSends } from "@/app/api/climbs/[id]/sends/route";
 import { GET as feed } from "@/app/api/feed/route";
 import { GET as companions } from "@/app/api/friends/companions/route";
 import { GET as friends } from "@/app/api/friends/route";
+import { GET as kayaImport } from "@/app/api/import/kaya/route";
 import { GET as areas } from "@/app/api/search/areas/route";
 import { GET as climbers } from "@/app/api/search/climbers/route";
 import { GET as climbs } from "@/app/api/search/climbs/route";
@@ -92,6 +93,7 @@ it.each(["missing", "forged", "unknown", "expired"])(
       journal,
       sends,
       exportSends,
+      kayaImport,
     })) {
       const response = await handler(
         new Request("http://localhost:3000/api/test?limit=5&offset=invalid&page=invalid"),

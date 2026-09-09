@@ -1,26 +1,36 @@
 "use client";
 
 import { Button, Input, Label, TextField } from "@heroui/react";
-import { Download } from "lucide-react";
+import { Download, Info } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { fetchSendageImport } from "@/lib/sendage-import";
+import { fetchKayaImport } from "@/lib/kaya-import";
+import type { KayaImportProgress as ImportProgress } from "@/lib/kaya-import-stream";
 import type { ParsedCsv } from "@/lib/sends-import";
 
-export function SendageImportForm({
+import { KayaImportProgress } from "./kaya-import-progress";
+
+export function KayaImportForm({
   initialUsername = "",
   disabled = false,
   onLoaded,
   onBusyChange,
+  onChooseCsv,
 }: {
   initialUsername?: string;
   disabled?: boolean;
   onLoaded: (parsed: ParsedCsv, username: string) => void;
   onBusyChange: (busy: boolean) => void;
+  onChooseCsv?: () => void;
 }) {
   const [input, setInput] = useState(initialUsername);
   const [busy, setBusy] = useState(false);
-  const [count, setCount] = useState(0);
+  const [progress, setProgress] = useState<ImportProgress>({
+    discipline: "boulder",
+    loaded: 0,
+    total: null,
+    retry: null,
+  });
   const [error, setError] = useState<string | null>(null);
   const active = useRef<AbortController | null>(null);
 
@@ -32,18 +42,18 @@ export function SendageImportForm({
     active.current = controller;
     setBusy(true);
     onBusyChange(true);
-    setCount(0);
+    setProgress({ discipline: "boulder", loaded: 0, total: null, retry: null });
     setError(null);
     try {
-      const result = await fetchSendageImport(input, {
+      const result = await fetchKayaImport(input, {
         signal: controller.signal,
         onProgress: (value) => {
-          if (!controller.signal.aborted) setCount(value);
+          if (!controller.signal.aborted) setProgress(value);
         },
       });
       if (controller.signal.aborted) return;
       if (!result.parsed.rows.length) {
-        setError("No sends found on this public Sendage profile.");
+        setError("No outdoor boulders or routes found on this public KAYA profile.");
         return;
       }
       setInput(result.username);
@@ -53,7 +63,7 @@ export function SendageImportForm({
         setError(
           cause instanceof Error
             ? cause.message
-            : "Couldn't load sends from Sendage. Please try again.",
+            : "Couldn't load sends from KAYA. Please try again.",
         );
     } finally {
       if (active.current === controller) {
@@ -73,7 +83,9 @@ export function SendageImportForm({
 
   return (
     <section className="flex flex-col gap-4">
-      <p className="text-sm text-muted">Load your sends from a public Sendage profile.</p>
+      <p className="text-sm text-muted">
+        Outdoor boulders and routes from your public KAYA profile.
+      </p>
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -90,13 +102,32 @@ export function SendageImportForm({
           isDisabled={busy || disabled}
           isRequired
         >
-          <Label>Sendage username or profile link</Label>
-          <Input placeholder="your-username" autoComplete="off" spellCheck={false} />
+          <Label>KAYA username or profile link</Label>
+          <Input placeholder="@your-username" autoComplete="off" spellCheck={false} />
         </TextField>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-start gap-2 rounded-lg bg-surface-tertiary px-3 py-2.5 text-xs text-muted">
+          <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <p>
+            Sends import as redpoints only.{" "}
+            {onChooseCsv ? (
+              <button
+                type="button"
+                disabled={busy || disabled}
+                onClick={onChooseCsv}
+                className="rounded-sm font-medium text-foreground underline underline-offset-2 focus-visible:status-focused"
+              >
+                Use CSV
+              </button>
+            ) : (
+              "Use CSV"
+            )}{" "}
+            to keep flash and onsight styles.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
           <Button
             type="submit"
-            className="w-full sm:w-auto"
+            className="flex-1 sm:flex-none"
             isDisabled={busy || disabled || !input.trim()}
           >
             <Download className="size-4" aria-hidden />
@@ -109,14 +140,13 @@ export function SendageImportForm({
           )}
         </div>
       </form>
-      <p className="text-xs text-muted">
-        Review climb matches before saving. No Sendage login needed.
-      </p>
-      {busy && (
-        <p role="status" className="text-sm text-muted">
-          {count ? `${count} sends loaded…` : "Connecting to Sendage…"}
+      {!busy && (
+        <p className="text-xs text-muted">
+          No KAYA login needed. Large histories can take a few seconds; you’ll review matches before
+          saving.
         </p>
       )}
+      {busy && <KayaImportProgress progress={progress} />}
       {error && (
         <p role="alert" className="text-sm text-danger">
           {error}
