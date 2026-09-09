@@ -272,3 +272,126 @@ describe("buildUserAnalytics", () => {
     expect(a.hardestFirstTry?.label).toBe("V4");
   });
 });
+
+describe("analytics year scope", () => {
+  const rows = [
+    send({ climbId: 901, dateSent: "2023-12-31", suggestedGrade: 8 }),
+    send({ climbId: 902, dateSent: "2024-01-01", suggestedGrade: 3 }),
+    send({ climbId: 903, dateSent: "2024-12-31", suggestedGrade: 4, ascentStyle: "flash" }),
+    send({ climbId: 904, dateSent: "2025-01-01", suggestedGrade: 6 }),
+    send({ climbId: 905, dateSent: null, suggestedGrade: 9 }),
+    send({ climbId: 906, climbType: "sport", dateSent: "2024-05-01" }),
+  ];
+  it("filters sends and visible sessions together, including both year boundaries", () => {
+    const result = buildUserAnalytics(
+      rows,
+      "boulder",
+      [
+        { entryDate: "2023-12-31", climbType: "boulder" },
+        { entryDate: "2024-06-01", climbType: "boulder", count: 3 },
+        { entryDate: "2024-06-02", climbType: "sport" },
+      ],
+      [2024],
+    );
+    expect(result.sendCount).toBe(2);
+    expect(result.hardest[0].climbId).toBe(903);
+    expect(result.flashCount).toBe(1);
+    expect(result.datelessCount).toBe(0);
+    expect(result.pyramid[0].rows.map((row) => row.count)).toEqual([1, 1]);
+    expect(result.calendarCounts).toEqual({ "2024-06-01": 3 });
+    expect(result.daysOut).toBe(1);
+    expect(result.dateSpan).toEqual(["2024-01-01", "2024-12-31"]);
+  });
+  it("keeps the send-only fallback and supports an empty year", () => {
+    expect(buildUserAnalytics(rows, "boulder", undefined, [2024]).calendarCounts).toEqual({
+      "2024-01-01": 1,
+      "2024-12-31": 1,
+    });
+    const empty = buildUserAnalytics(rows, "boulder", undefined, [2022]);
+    expect(empty.sendCount).toBe(0);
+    expect(empty.pyramid).toEqual([]);
+    expect(empty.calendarCounts).toEqual({});
+  });
+  it("retains undated sends and historical records in all time", () => {
+    const lifetime = buildUserAnalytics(rows, "boulder", undefined, []);
+    expect(lifetime.sendCount).toBe(5);
+    expect(lifetime.datelessCount).toBe(1);
+    expect(lifetime.breakthroughs.map((row) => row.climbId)).toEqual([901]);
+    expect(lifetime.bestYear).toEqual({ year: 2024, count: 2 });
+  });
+});
+
+describe("multiple analytics years", () => {
+  it("rebuilds every chart and best year from only the selected years", () => {
+    const rows = [
+      send({ climbId: 1001, dateSent: "2019-12-31", suggestedGrade: 10 }),
+      send({ climbId: 1002, dateSent: "2020-01-01", suggestedGrade: 3 }),
+      send({ climbId: 1003, dateSent: "2021-01-01", suggestedGrade: 9 }),
+      send({ climbId: 1004, dateSent: "2023-03-01", suggestedGrade: 4 }),
+      send({ climbId: 1005, dateSent: "2023-12-31", suggestedGrade: 5 }),
+      send({ climbId: 1006, dateSent: null, suggestedGrade: 11 }),
+    ];
+    const result = buildUserAnalytics(
+      rows,
+      "boulder",
+      [
+        { entryDate: "2020-01-01", climbType: "boulder" },
+        { entryDate: "2021-01-01", climbType: "boulder" },
+        { entryDate: "2023-12-31", climbType: "boulder", count: 2 },
+      ],
+      [2020, 2023],
+    );
+    expect(result.sendCount).toBe(3);
+    expect(result.datelessCount).toBe(0);
+    expect(result.hardest[0].climbId).toBe(1005);
+    expect(result.bestYear).toEqual({ year: 2023, count: 2 });
+    expect(result.progression[0].points).toEqual([
+      { month: "2020-01", hardest: 3, best: 3 },
+      { month: "2023-03", hardest: 4, best: 4 },
+      { month: "2023-12", hardest: 5, best: 5 },
+    ]);
+    expect(result.breakthroughs.map((row) => row.climbId)).toEqual([1005, 1004, 1002]);
+    expect(result.pyramid[0].rows.map((row) => row.grade)).toEqual([5, 4, 3]);
+    expect(result.calendarCounts).toEqual({ "2020-01-01": 1, "2023-12-31": 2 });
+    expect(result.daysOut).toBe(2);
+    expect(result.years).toEqual([2020, 2023]);
+  });
+});
+
+it("builds monthly volume and flash rates from the selected years and discipline", () => {
+  const rows = [
+    send({ dateSent: "2024-01-02", ascentStyle: "flash" }),
+    send({ dateSent: "2024-01-02" }),
+    send({ dateSent: "2024-03-01", ascentStyle: "onsight" }),
+    send({ dateSent: null, ascentStyle: "flash" }),
+    send({ dateSent: "2023-01-01", ascentStyle: "flash" }),
+    send({ dateSent: "2024-01-02", climbType: "sport" }),
+  ];
+  const result = buildUserAnalytics(
+    rows,
+    "boulder",
+    [
+      { entryDate: "2024-01-02", climbType: "boulder", count: 4 },
+      { entryDate: "2024-01-02", climbType: "boulder" },
+      { entryDate: "2024-03-12", climbType: "boulder" },
+      { entryDate: "2024-02-01", climbType: "sport" },
+    ],
+    [2024],
+  );
+  expect(result.volume).toEqual([
+    { month: "2024-01", sends: 2, days: 1 },
+    { month: "2024-02", sends: 0, days: 0 },
+    { month: "2024-03", sends: 1, days: 1 },
+  ]);
+  expect(result.flashByGrade[0].rows).toEqual([
+    { grade: 3, label: "V2", sends: 3, flashes: 1, rate: expect.closeTo(100 / 3) },
+  ]);
+  expect(buildUserAnalytics(rows, "boulder").flashByGrade[0].rows[0]).toMatchObject({
+    sends: 5,
+    flashes: 3,
+  });
+  expect(buildUserAnalytics(rows, "boulder", undefined, [2024]).volume[0]).toMatchObject({
+    days: 1,
+  });
+  expect(buildUserAnalytics(rows, "boulder", undefined, [2022]).volume).toEqual([]);
+});

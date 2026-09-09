@@ -71,37 +71,39 @@ export async function SendsView({
 
   return (
     <NavigationPendingProvider>
-      <SidebarLayout sidebar={<StatStrip cards={statCards} />}>
-        <div className="flex flex-col gap-3">
-          <SectionHeading>Sends</SectionHeading>
-          {(filter.date || filter.dateFrom || filter.dateTo) && (
-            <p className="text-sm text-muted">
-              {filter.date
-                ? formatDate(filter.date)
-                : `${filter.dateFrom ? formatDate(filter.dateFrom) : "Any time"} – ${filter.dateTo ? formatDate(filter.dateTo) : "Any time"}`}{" "}
-              ·{" "}
-              <AppLink
-                href={`${basePath}?${userSendsFilterToSearchParams({ ...filter, date: undefined, dateFrom: undefined, dateTo: undefined, datePreset: undefined })}`}
-              >
-                Clear date filter
-              </AppLink>
-            </p>
-          )}
-          {summary.sendCount > 0 && (
-            <UserSendsFilterToolbar filter={filter} basePath={basePath} tags={tags} />
-          )}
-          <UserSendList
-            key={JSON.stringify(filter)}
-            userId={userId}
-            filter={filter}
-            initialSends={firstPage.sends}
-            initialHasMore={firstPage.hasMore}
-            initialAreaBreadcrumbs={areaBreadcrumbs}
-            hasAnySends={summary.sendCount > 0}
-            currentUserId={viewerId}
-          />
-        </div>
-      </SidebarLayout>
+      <div className="flex flex-col gap-3">
+        <SectionHeading>Sends</SectionHeading>
+        <SidebarLayout sidebar={<StatStrip cards={statCards} />}>
+          <div className="flex flex-col gap-3">
+            {(filter.date || filter.dateFrom || filter.dateTo) && (
+              <p className="text-sm text-muted">
+                {filter.date
+                  ? formatDate(filter.date)
+                  : `${filter.dateFrom ? formatDate(filter.dateFrom) : "Any time"} – ${filter.dateTo ? formatDate(filter.dateTo) : "Any time"}`}{" "}
+                ·{" "}
+                <AppLink
+                  href={`${basePath}?${userSendsFilterToSearchParams({ ...filter, date: undefined, dateFrom: undefined, dateTo: undefined, datePreset: undefined })}`}
+                >
+                  Clear date filter
+                </AppLink>
+              </p>
+            )}
+            {summary.sendCount > 0 && (
+              <UserSendsFilterToolbar filter={filter} basePath={basePath} tags={tags} />
+            )}
+            <UserSendList
+              key={JSON.stringify(filter)}
+              userId={userId}
+              filter={filter}
+              initialSends={firstPage.sends}
+              initialHasMore={firstPage.hasMore}
+              initialAreaBreadcrumbs={areaBreadcrumbs}
+              hasAnySends={summary.sendCount > 0}
+              currentUserId={viewerId}
+            />
+          </div>
+        </SidebarLayout>
+      </div>
     </NavigationPendingProvider>
   );
 }

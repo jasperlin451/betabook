@@ -9,9 +9,18 @@ import { StoryPage } from "@/stories/fixtures/story-layout";
 
 import { FilterToolbar } from "./filter-toolbar";
 
-const meta = { title: "Components/Filters/Toolbar", component: FilterToolbar } satisfies Meta<
-  typeof FilterToolbar
->;
+const meta = {
+  title: "Components/Filters/Toolbar",
+  component: FilterToolbar,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Expand filters uses the same outlined action style as dashboard customization. The expanded panel uses the same muted surface as summary cards in both themes.",
+      },
+    },
+  },
+} satisfies Meta<typeof FilterToolbar>;
 export default meta;
 // These local-state/comparison examples supply their own component props.
 type Story = StoryObj;

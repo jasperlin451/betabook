@@ -1,12 +1,12 @@
-/* oxlint-disable jsx-a11y/no-noninteractive-tabindex -- The named scroll region needs keyboard focus so arrow keys can pan the chart on narrow screens. */
+"use client";
+import { ChartInspection } from "@/components/chart-inspection";
 import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
+import { useChartWidth } from "@/hooks/use-chart-width";
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 import { formatMonthLabel, type ProgressionPoint } from "@/lib/user-analytics";
 
-const W = 640;
 const H = 200;
 const MARGIN = { top: 10, right: 12, bottom: 24, left: 40 };
-const PLOT_W = W - MARGIN.left - MARGIN.right;
 const PLOT_H = H - MARGIN.top - MARGIN.bottom;
 
 function monthIndex(month: string): number {
@@ -25,6 +25,8 @@ export function ProgressionChart({
   type: ClimbType;
   points: ProgressionPoint[];
 }) {
+  const { ref, width: W } = useChartWidth();
+  const PLOT_W = W - MARGIN.left - MARGIN.right;
   if (points.length === 0) return null;
 
   const scale = nativeGradeArray(type);
@@ -60,7 +62,7 @@ export function ProgressionChart({
       });
     }
   }
-  const yearStep = Math.ceil(yearTicks.length / 9);
+  const yearStep = Math.max(1, Math.ceil(yearTicks.length / Math.max(2, Math.floor(W / 75))));
   const shownYears =
     yearTicks.length > 0
       ? yearTicks.filter((_, i) => i % yearStep === 0)
@@ -78,24 +80,13 @@ export function ProgressionChart({
   const latest = points[points.length - 1];
 
   return (
-    <>
+    <div ref={ref}>
       <p className="sr-only">
         Personal best {scale[latest.best]}, from {formatMonthLabel(points[0].month)} (
         {scale[points[0].hardest]}) to {formatMonthLabel(latest.month)}.
       </p>
-      {/* min-w keeps the chart readable on phones — it scrolls inside its
-          own container instead of shrinking the axis text away. */}
-      <div
-        role="region"
-        aria-label={`${type} grade progression`}
-        tabIndex={0}
-        className="overflow-x-auto focus-visible:status-focused"
-      >
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          className="h-auto w-full min-w-[560px] text-muted"
-          aria-hidden
-        >
+      <ChartInspection label={`${type} grade progression`}>
+        <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full text-muted" aria-hidden>
           {grades.map((grade) => (
             <g key={grade}>
               <line
@@ -147,15 +138,33 @@ export function ProgressionChart({
               key={point.month}
               cx={x(point.month)}
               cy={y(point.hardest)}
-              r={3}
+              r={5}
               fill={hue}
               fillOpacity={0.55}
             >
               <title>{`${formatMonthLabel(point.month)} · ${scale[point.hardest]}`}</title>
             </circle>
           ))}
+          {points.map((point, i) => {
+            const left = i ? (x(points[i - 1].month) + x(point.month)) / 2 : MARGIN.left;
+            const right =
+              i < points.length - 1
+                ? (x(point.month) + x(points[i + 1].month)) / 2
+                : MARGIN.left + PLOT_W;
+            return (
+              <rect
+                key={`hit-${point.month}`}
+                x={left}
+                y={MARGIN.top}
+                width={right - left}
+                height={PLOT_H}
+                fill="transparent"
+                data-chart-detail={`${formatMonthLabel(point.month)} · Hardest ${scale[point.hardest]} · Personal best ${scale[point.best]}`}
+              />
+            );
+          })}
         </svg>
-      </div>
-    </>
+      </ChartInspection>
+    </div>
   );
 }

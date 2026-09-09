@@ -260,6 +260,13 @@
       "when": 1788731550714,
       "tag": "0036_zippy_paibok",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "6",
+      "when": 1788820760906,
+      "tag": "0037_fearless_frog_thor",
+      "breakpoints": true
     }
   ]
 }
