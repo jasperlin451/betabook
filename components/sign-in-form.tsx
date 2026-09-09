@@ -108,7 +108,7 @@ export function SignInForm({
               rel="noopener noreferrer"
               className="inline underline"
             >
-              Terms of Service (opens in a new tab)
+              Terms of Service
             </AppLink>
             .
           </p>

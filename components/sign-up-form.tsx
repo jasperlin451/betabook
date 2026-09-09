@@ -112,7 +112,7 @@ export function SignUpForm({
           rel="noopener noreferrer"
           className="text-sm underline"
         >
-          Read the Terms of Service (opens in a new tab)
+          Read the Terms of Service
         </AppLink>
       </div>
       {googleEnabled && (
