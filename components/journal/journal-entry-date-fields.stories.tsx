@@ -17,24 +17,16 @@ const meta = {
     entryDate: "2026-09-01",
     sent: false,
     onDateChange: () => {},
-    onSentChange: () => {},
   },
   render: function Example(args) {
     const [entryDate, setEntryDate] = useState(args.entryDate);
-    const [sent, setSent] = useState(args.sent);
     return (
       <StoryPage
         title="Entry date"
-        description="Date comes first, followed by send choices, without a separate section title. Once I sent is checked, an I don't know checkbox appears beside the date and empties it — a send saved that way is recorded without a date, as in the Undated send example."
+        description="The entry's date, with guidance for entries that must keep one. For a new send (the owning form's session-or-send picker chooses that) an I don't know checkbox appears beside the date and empties it — a send saved that way is recorded without a date, as in the Undated send example."
       >
         <div className={SURFACE_CARD_CLASS}>
-          <JournalEntryDateFields
-            {...args}
-            entryDate={entryDate}
-            sent={sent}
-            onDateChange={setEntryDate}
-            onSentChange={setSent}
-          />
+          <JournalEntryDateFields {...args} entryDate={entryDate} onDateChange={setEntryDate} />
         </div>
       </StoryPage>
     );

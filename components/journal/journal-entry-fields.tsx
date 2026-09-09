@@ -6,7 +6,12 @@ import { useState, useTransition } from "react";
 import { CompanionPicker } from "@/components/journal/companion-picker";
 import { JournalEntryDateFields } from "@/components/journal/journal-entry-date-fields";
 import { TagInput } from "@/components/journal/tag-input";
-import { AscentStylePicker, GradeFeelField, SuggestedGradeField } from "@/components/send-fields";
+import {
+  GradeFeelField,
+  SendStylePicker,
+  SuggestedGradeField,
+  type SendStyleChoice,
+} from "@/components/send-fields";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass, SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { DetailsDisclosure } from "@/components/ui/details-disclosure";
@@ -75,13 +80,12 @@ export function JournalEntryFields({
   onPendingChange,
 }: JournalEntryFieldsProps) {
   const [entryDate, setEntryDate] = useState(existingEntry?.entryDate ?? today);
-  const [sent, setSent] = useState(existingEntry?.sent ?? false);
+  const [choice, setChoice] = useState<SendStyleChoice>("session");
   const [body, setBody] = useState(existingEntry?.body ?? "");
   const [companions, setCompanions] = useState<CompanionOption[]>(existingEntry?.companions ?? []);
   const [companionsChanged, setCompanionsChanged] = useState(false);
   const [tags, setTags] = useState<string[]>(existingEntry?.tags ?? []);
 
-  const [ascentStyle, setAscentStyle] = useState<AscentStyle>("redpoint");
   const [rating, setRating] = useState<number | null>(null);
   const [suggestedGrade, setSuggestedGrade] = useState(String(climb?.grade ?? ""));
   const [gradeFeel, setGradeFeel] = useState<GradeFeel>("solid");
@@ -95,6 +99,8 @@ export function JournalEntryFields({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const sent = existingEntry ? existingEntry.sent : choice !== "session";
+  const ascentStyle: AscentStyle = choice === "session" ? "redpoint" : choice;
   const isAscent = !existingEntry && sent && climb != null && !hasPriorSend;
   const isUndatedSend = isAscent && entryDate === "";
   const summary = describePendingEntry({ kind, climbName: climb?.name, sent, hasPriorSend });
@@ -158,6 +164,8 @@ export function JournalEntryFields({
 
   return (
     <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-4`}>
+      {climb && !existingEntry && <SendStylePicker value={choice} onChange={setChoice} />}
+
       <JournalEntryDateFields
         kind={kind}
         hasClimb={climb != null}
@@ -167,10 +175,6 @@ export function JournalEntryFields({
         entryDate={entryDate}
         sent={sent}
         onDateChange={setEntryDate}
-        onSentChange={setSent}
-        ascentStyle={
-          isAscent ? <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} /> : undefined
-        }
       />
 
       {isAscent && climb && (

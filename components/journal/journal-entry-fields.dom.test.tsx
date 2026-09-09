@@ -73,8 +73,8 @@ it.each(["outdoor", "repeat", "training"])(
     await openDetails(user);
     await addFriend(user);
     await fillNotes(user);
-    if (kind !== "training") await user.click(screen.getByRole("checkbox", { name: "I sent" }));
-    else expect(screen.queryByRole("checkbox", { name: "I sent" })).not.toBeInTheDocument();
+    if (kind !== "training") await user.click(screen.getByRole("radio", { name: "Redpoint" }));
+    else expect(screen.queryByRole("radio", { name: "Session" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Save entry" }));
     await waitFor(() => expect(onDone).toHaveBeenCalledOnce());
     expect(onSave).toHaveBeenCalledOnce();
@@ -109,7 +109,7 @@ it("blocks an undated send with friends and preserves their identities on recove
   const { user, onSave } = setup();
   await openDetails(user);
   await addFriend(user);
-  await user.click(screen.getByRole("checkbox", { name: "I sent" }));
+  await user.click(screen.getByRole("radio", { name: "Redpoint" }));
   await user.click(screen.getByRole("checkbox", { name: "I don't know" }));
   await user.click(screen.getByRole("button", { name: "Save send" }));
   expect(screen.getByRole("alert")).toHaveTextContent("Add a date to keep With friends.");
@@ -129,7 +129,7 @@ it("preserves undated commentary and omits journal-only tags", async () => {
   const { user, onSave } = setup();
   await openDetails(user);
   await fillNotes(user);
-  await user.click(screen.getByRole("checkbox", { name: "I sent" }));
+  await user.click(screen.getByRole("radio", { name: "Redpoint" }));
   await user.click(screen.getByRole("checkbox", { name: "I don't know" }));
   expect(screen.getByRole("checkbox", { name: "I don't know" })).toBeChecked();
   expect(screen.queryByRole("combobox", { name: "Tags" })).not.toBeInTheDocument();
@@ -206,12 +206,15 @@ it("keeps optional fields behind a collapsed Add details section", async () => {
   expect(detailsTrigger()).toHaveAttribute("aria-expanded", "false");
   expect(screen.queryByRole("combobox", { name: "Find a friend to tag" })).not.toBeInTheDocument();
   expect(screen.queryByRole("combobox", { name: "Tags" })).not.toBeInTheDocument();
-  await user.click(screen.getByRole("checkbox", { name: "I sent" }));
+  const picker = screen.getByRole("radiogroup", { name: "Session or send" });
+  expect(picker).toBeVisible();
+  expect(screen.getByRole("radio", { name: "Session" })).toHaveAttribute("aria-checked", "true");
+  expect(screen.queryByRole("button", { name: /Suggested grade/ })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("radio", { name: "Flash" }));
   // The ascent opinion is part of the visible send record, not Add details.
   expect(screen.getByRole("button", { name: /Suggested grade/ })).toBeVisible();
   expect(screen.getByRole("radiogroup", { name: "Rating" })).toBeVisible();
   expect(screen.getByRole("button", { name: "Solid" })).toBeVisible();
-  expect(screen.getByRole("radiogroup", { name: "Ascent style" })).toBeVisible();
   expect(detailsTrigger()).toHaveAttribute("aria-expanded", "false");
   await openDetails(user);
   expect(screen.getByRole("combobox", { name: "Find a friend to tag" })).toBeVisible();
@@ -221,7 +224,7 @@ it("keeps optional fields behind a collapsed Add details section", async () => {
 it("submits the default ascent opinion without opening Add details", async () => {
   const { user, onSave, onDone } = setup();
   expect(detailsTrigger()).toHaveAttribute("aria-expanded", "false");
-  await user.click(screen.getByRole("checkbox", { name: "I sent" }));
+  await user.click(screen.getByRole("radio", { name: "Redpoint" }));
   await user.click(screen.getByRole("button", { name: "Save entry" }));
   await waitFor(() => expect(onDone).toHaveBeenCalledOnce());
   const [form, undated] = onSave.mock.calls[0];
@@ -232,13 +235,24 @@ it("submits the default ascent opinion without opening Add details", async () =>
   expect(form.get("gradeFeel")).toBe("solid");
 });
 
+it("offers I don't know for a repeat but still requires a date to save it", async () => {
+  const { user, onSave } = setup({ hasPriorSend: true });
+  await user.click(screen.getByRole("radio", { name: "Redpoint" }));
+  expect(
+    screen.queryByText("Sessions and repeats need a date to appear in your journal."),
+  ).not.toBeInTheDocument();
+  await user.click(screen.getByRole("checkbox", { name: "I don't know" }));
+  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Add a date to save this entry.");
+  expect(onSave).not.toHaveBeenCalled();
+});
+
 it("requires a date once a cleared send is unchecked back to a session", async () => {
   const { user, onSave } = setup();
   expect(screen.queryByRole("checkbox", { name: "I don't know" })).not.toBeInTheDocument();
-  const sent = screen.getByRole("checkbox", { name: "I sent" });
-  await user.click(sent);
+  await user.click(screen.getByRole("radio", { name: "Redpoint" }));
   await user.click(screen.getByRole("checkbox", { name: "I don't know" }));
-  await user.click(sent);
+  await user.click(screen.getByRole("radio", { name: "Session" }));
   await user.click(screen.getByRole("button", { name: "Save entry" }));
   expect(screen.getByRole("alert")).toHaveTextContent("Add a date to save this entry.");
   expect(onSave).not.toHaveBeenCalled();
@@ -248,7 +262,7 @@ it("reopens Add details when a hidden friend blocks an undated send", async () =
   const { user, onSave } = setup();
   await openDetails(user);
   await addFriend(user);
-  await user.click(screen.getByRole("checkbox", { name: "I sent" }));
+  await user.click(screen.getByRole("radio", { name: "Redpoint" }));
   await user.click(screen.getByRole("checkbox", { name: "I don't know" }));
   await user.click(detailsTrigger());
   expect(detailsTrigger()).toHaveAttribute("aria-expanded", "false");

@@ -60,6 +60,47 @@ export function AscentStylePicker({
   );
 }
 
+export type SendStyleChoice = AscentStyle | "session";
+
+/** One pill row deciding what the entry records: Session logs plain time on
+ * the climb, while any ascent style marks it as a send in that style. */
+export function SendStylePicker({
+  value,
+  onChange,
+}: {
+  value: SendStyleChoice;
+  onChange: (value: SendStyleChoice) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label="Session or send" className="flex flex-wrap gap-1.5">
+      <button
+        type="button"
+        role="radio"
+        aria-checked={value === "session"}
+        onClick={() => onChange("session")}
+        className={choicePillClass(value === "session", "bg-foreground text-background")}
+      >
+        Session
+      </button>
+      {ASCENT_STYLES.map((style) => {
+        const selected = value === style;
+        return (
+          <button
+            key={style}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(style)}
+            className={choicePillClass(selected, ASCENT_STYLE_CHIP_CLASSNAME[style])}
+          >
+            {ASCENT_STYLE_LABELS[style]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function SuggestedGradeField({
   climbType,
   value,

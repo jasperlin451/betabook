@@ -19,7 +19,7 @@ test("send commentary help opens without submitting the form", async ({ page }, 
   await openStory(page, info, "components-journal-entry-fields--outdoor");
   const help = page.getByRole("button", { name: "About Send commentary", exact: true });
   await expect(help).toHaveCount(0);
-  await page.getByRole("checkbox", { name: "I sent", exact: true }).press("Space");
+  await page.getByRole("radio", { name: "Redpoint", exact: true }).click();
   await expect(help).toHaveAttribute("type", "button");
   await help.scrollIntoViewIfNeeded();
   if (info.project.use.hasTouch) await help.tap();
@@ -44,19 +44,19 @@ for (const story of ["outdoor", "repeat", "training"]) {
     await details.click();
     await addFriend(page);
     if (story !== "training") {
-      await page.getByRole("checkbox", { name: "I sent", exact: true }).press("Space");
+      await page.getByRole("radio", { name: "Redpoint", exact: true }).click();
       await expect(page.getByRole("button", { name: "Remove friend Sam Rivera" })).toBeVisible();
     } else {
-      await expect(page.getByRole("checkbox", { name: "I sent", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("radio", { name: "Session", exact: true })).toHaveCount(0);
     }
     const friends = await page.getByRole("group", { name: "With friends" }).boundingBox();
     const notes = await page.getByRole("textbox", { name: "Notes" }).boundingBox();
     if (!friends || !notes) throw new Error("Missing friend picker or note field");
     expect(notes.y + notes.height).toBeLessThan(friends.y);
     if (story === "outdoor") {
-      const ascent = await page.getByRole("radiogroup", { name: "Ascent style" }).boundingBox();
-      if (!ascent) throw new Error("Missing ascent fields");
-      expect(ascent.y + ascent.height).toBeLessThan(notes.y);
+      const picker = await page.getByRole("radiogroup", { name: "Session or send" }).boundingBox();
+      if (!picker) throw new Error("Missing session-or-send picker");
+      expect(picker.y + picker.height).toBeLessThan(notes.y);
     }
   });
 }
