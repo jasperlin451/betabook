@@ -61,7 +61,8 @@ function Example({
     </StoryPage>
   );
 }
-export const Selection: Story = {
+export const Selection: Story = { render: () => <Example /> };
+export const Selected: Story = {
   render: () => <Example />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
