@@ -19,26 +19,22 @@ const meta = {
     dateUnknown: false,
     onDateChange: () => {},
     onSentChange: () => {},
-    onDateUnknownChange: () => {},
   },
   render: function Example(args) {
     const [entryDate, setEntryDate] = useState(args.entryDate);
     const [sent, setSent] = useState(args.sent);
-    const [dateUnknown, setDateUnknown] = useState(args.dateUnknown);
     return (
       <StoryPage
         title="Entry date"
-        description="Date comes first, followed by send choices, without a separate section title. Record a send without a date selects I sent and hides the date; uncheck it to restore the date."
+        description="Date comes first, followed by send choices, without a separate section title. Recording a send without a date — chosen under Add details in the full Log entry form — hides the date, as in the Undated send example."
       >
         <div className={SURFACE_CARD_CLASS}>
           <JournalEntryDateFields
             {...args}
             entryDate={entryDate}
             sent={sent}
-            dateUnknown={dateUnknown}
             onDateChange={setEntryDate}
             onSentChange={setSent}
-            onDateUnknownChange={setDateUnknown}
           />
         </div>
       </StoryPage>

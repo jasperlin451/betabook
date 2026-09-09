@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Checkbox, Label, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
 import { CompanionPicker } from "@/components/journal/companion-picker";
@@ -9,6 +9,7 @@ import { TagInput } from "@/components/journal/tag-input";
 import { AscentStylePicker, GradeFeelField, SuggestedGradeField } from "@/components/send-fields";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass, SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { DetailsDisclosure } from "@/components/ui/details-disclosure";
 import { FieldHeader } from "@/components/ui/field-support";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { RatingField } from "@/components/ui/rating-field";
@@ -86,9 +87,16 @@ export function JournalEntryFields({
   const [suggestedGrade, setSuggestedGrade] = useState(String(climb?.grade ?? ""));
   const [gradeFeel, setGradeFeel] = useState<GradeFeel>("solid");
 
+  // Open when the section already holds something to review; otherwise the
+  // quick path stays date → sent → notes → save.
+  const [detailsExpanded, setDetailsExpanded] = useState(
+    (existingEntry?.companions?.length ?? 0) > 0 || (existingEntry?.tags.length ?? 0) > 0,
+  );
+
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const canRecordUndatedSend = !existingEntry && climb != null && !hasPriorSend;
   const isAscent = !existingEntry && sent && climb != null && !hasPriorSend;
   const isUndatedSend = isAscent && dateUnknown;
   const summary = describePendingEntry({ kind, climbName: climb?.name, sent, hasPriorSend });
@@ -99,6 +107,7 @@ export function JournalEntryFields({
     setError(null);
     if (isUndatedSend && companions.length > 0) {
       setError("Add a date to keep With friends.");
+      setDetailsExpanded(true);
       return;
     }
 
@@ -157,26 +166,14 @@ export function JournalEntryFields({
         sent={sent}
         dateUnknown={dateUnknown}
         onDateChange={setEntryDate}
-        onSentChange={setSent}
-        onDateUnknownChange={setDateUnknown}
+        onSentChange={(value) => {
+          setSent(value);
+          if (!value) setDateUnknown(false);
+        }}
         ascentStyle={
           isAscent ? <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} /> : undefined
         }
       />
-
-      {isAscent && climb && (
-        <div className="flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <RatingField value={rating} onValueChange={setRating} />
-            <SuggestedGradeField
-              climbType={climb.type}
-              value={suggestedGrade}
-              onChange={setSuggestedGrade}
-            />
-          </div>
-          <GradeFeelField value={gradeFeel} onChange={setGradeFeel} />
-        </div>
-      )}
 
       <TextField className="w-full min-w-0" value={body} onChange={setBody}>
         <FieldHeader
@@ -199,20 +196,62 @@ export function JournalEntryFields({
         />
       </TextField>
 
-      <div className="flex flex-wrap items-start gap-4">
-        <CompanionPicker
-          value={companions}
-          onChange={(value) => {
-            if (pending) return;
-            setCompanions(value);
-            setCompanionsChanged(true);
-          }}
-          disabled={pending}
-          editing={!!existingEntry}
-          fetcher={companionFetcher}
-        />
-        {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}
-      </div>
+      <DetailsDisclosure
+        title="Add details"
+        isExpanded={detailsExpanded}
+        onExpandedChange={setDetailsExpanded}
+      >
+        {isAscent && climb && (
+          <div className="flex flex-col gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <RatingField value={rating} onValueChange={setRating} />
+              <SuggestedGradeField
+                climbType={climb.type}
+                value={suggestedGrade}
+                onChange={setSuggestedGrade}
+              />
+            </div>
+            <GradeFeelField value={gradeFeel} onChange={setGradeFeel} />
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-start gap-4">
+          <CompanionPicker
+            value={companions}
+            onChange={(value) => {
+              if (pending) return;
+              setCompanions(value);
+              setCompanionsChanged(true);
+            }}
+            disabled={pending}
+            editing={!!existingEntry}
+            fetcher={companionFetcher}
+          />
+          {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}
+        </div>
+
+        {canRecordUndatedSend && (
+          <Checkbox
+            isSelected={sent && dateUnknown}
+            onChange={(value) => {
+              if (value) setSent(true);
+              setDateUnknown(value);
+            }}
+          >
+            <Checkbox.Content>
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              Record a send without a date
+            </Checkbox.Content>
+          </Checkbox>
+        )}
+
+        <p className="text-xs text-muted">
+          Set separate audiences for send commentary and journal entries in{" "}
+          <AppLink href="/account">Account settings</AppLink>.
+        </p>
+      </DetailsDisclosure>
 
       {!existingEntry && (
         <div className={`flex flex-col gap-1 ${cardClass("sm", "inset")}`}>
@@ -236,11 +275,6 @@ export function JournalEntryFields({
       <Button type="submit" isDisabled={pending} fullWidth>
         {existingEntry ? "Save changes" : isUndatedSend ? "Save send" : "Save entry"}
       </Button>
-
-      <p className="text-center text-xs text-muted">
-        Set separate audiences for send commentary and journal entries in{" "}
-        <AppLink href="/account">Account settings</AppLink>.
-      </p>
     </form>
   );
 }

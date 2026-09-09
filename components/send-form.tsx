@@ -12,6 +12,7 @@ import {
 } from "@/components/send-fields";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { DatePickerField } from "@/components/ui/date-picker-field";
+import { DetailsDisclosure } from "@/components/ui/details-disclosure";
 import { FieldHeader } from "@/components/ui/field-support";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { RatingField } from "@/components/ui/rating-field";
@@ -32,8 +33,17 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   const [dateUnknown, setDateUnknown] = useState(existingSend.dateSent == null);
   const [comment, setComment] = useState(existingSend.comment ?? "");
   const [rating, setRating] = useState<number | null>(existingSend.rating);
-  const [suggestedGrade, setSuggestedGrade] = useState(String(existingSend.suggestedGrade ?? ""));
+  const [suggestedGrade, setSuggestedGrade] = useState(
+    String(existingSend.suggestedGrade ?? climb.grade ?? ""),
+  );
   const [gradeFeel, setGradeFeel] = useState<GradeFeel>(existingSend.gradeFeel);
+  // Open when the send already records an opinion beyond the defaults, so
+  // those values are on screen while being edited.
+  const [detailsExpanded, setDetailsExpanded] = useState(
+    existingSend.rating != null ||
+      existingSend.gradeFeel !== "solid" ||
+      (existingSend.suggestedGrade != null && existingSend.suggestedGrade !== climb.grade),
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -77,7 +87,11 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         </Checkbox>
       </FormSection>
 
-      <FormSection label="Your opinion">
+      <DetailsDisclosure
+        title="Your opinion"
+        isExpanded={detailsExpanded}
+        onExpandedChange={setDetailsExpanded}
+      >
         <div className="grid gap-4 sm:grid-cols-2">
           <RatingField value={rating} onValueChange={setRating} />
           <SuggestedGradeField
@@ -88,7 +102,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         </div>
 
         <GradeFeelField value={gradeFeel} onChange={setGradeFeel} />
-      </FormSection>
+      </DetailsDisclosure>
 
       <FormSection label="Send commentary">
         <TextField value={comment} onChange={setComment}>

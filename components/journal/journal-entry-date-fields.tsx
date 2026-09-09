@@ -16,10 +16,10 @@ type JournalEntryDateFieldsProps = {
   today: string;
   entryDate: string;
   sent: boolean;
+  /** Selected in the owning form's Add details section; hides the date. */
   dateUnknown: boolean;
   onDateChange: (value: string) => void;
   onSentChange: (value: boolean) => void;
-  onDateUnknownChange: (value: boolean) => void;
 };
 
 export function JournalEntryDateFields({
@@ -34,7 +34,6 @@ export function JournalEntryDateFields({
   dateUnknown,
   onDateChange,
   onSentChange,
-  onDateUnknownChange,
 }: JournalEntryDateFieldsProps) {
   const canRecordUndatedSend = !existingEntry && hasClimb && !hasPriorSend;
   const isUndatedSend = canRecordUndatedSend && sent && dateUnknown;
@@ -51,34 +50,9 @@ export function JournalEntryDateFields({
         />
       )}
 
-      {canRecordUndatedSend && (
-        <div className="flex flex-col gap-1">
-          <Checkbox
-            isSelected={sent && dateUnknown}
-            onChange={(value) => {
-              if (value) onSentChange(true);
-              onDateUnknownChange(value);
-            }}
-          >
-            <Checkbox.Content>
-              <Checkbox.Control>
-                <Checkbox.Indicator />
-              </Checkbox.Control>
-              Record a send without a date
-            </Checkbox.Content>
-          </Checkbox>
-        </div>
-      )}
-
       {hasClimb && !existingEntry && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Checkbox
-            isSelected={sent}
-            onChange={(value) => {
-              onSentChange(value);
-              if (!value) onDateUnknownChange(false);
-            }}
-          >
+          <Checkbox isSelected={sent} onChange={onSentChange}>
             <Checkbox.Content>
               <Checkbox.Control>
                 <Checkbox.Indicator />

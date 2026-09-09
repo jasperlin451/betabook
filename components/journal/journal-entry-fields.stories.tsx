@@ -36,7 +36,7 @@ function Example({
   return (
     <StoryPage
       title="Log an entry"
-      description="Date comes first; send style appears beside I sent. Notes fill the form width, followed by friends and Tags. Redundant section headings are omitted. Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
+      description="Date comes first; send style appears beside I sent, and Notes fill the form width. Everything optional — rating, suggested grade, grade feel, friends, Tags and undated sends — waits behind Add details, collapsed by default. Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
     >
       <JournalEntryFields
         today="2026-09-06"
@@ -109,3 +109,11 @@ export const Ascent: Story = {
   },
 };
 export const RopeAscent: Story = { render: () => <Example rope />, play: Ascent.play };
+export const AscentDetails: Story = {
+  render: () => <Example />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("I sent", { exact: true }));
+    await userEvent.click(canvas.getByRole("button", { name: "Add details" }));
+  },
+};

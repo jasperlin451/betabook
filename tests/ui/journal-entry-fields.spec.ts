@@ -39,6 +39,9 @@ test("send commentary help opens without submitting the form", async ({ page }, 
 for (const story of ["outdoor", "repeat", "training"]) {
   test(`${story} keeps friends and tags below notes and ascent fields`, async ({ page }, info) => {
     await openStory(page, info, `components-journal-entry-fields--${story}`);
+    const details = page.getByRole("button", { name: "Add details" });
+    await expect(details).toHaveAttribute("aria-expanded", "false");
+    await details.click();
     await addFriend(page);
     if (story !== "training") {
       await page.getByRole("checkbox", { name: "I sent", exact: true }).press("Space");

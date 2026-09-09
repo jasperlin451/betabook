@@ -2,11 +2,29 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 
+import type { JournalEntry } from "@/db/queries";
 import { GENERIC_ERROR_MESSAGE, type ActionResult } from "@/lib/action-result";
 
 import { JournalEntryFields, type JournalEntryFieldsProps } from "./journal-entry-fields";
 
 const climb = { id: 17, areaId: 3, name: "Cedar Arete", type: "boulder" as const, grade: 5 };
+const savedEntry: JournalEntry = {
+  id: 41,
+  climbId: climb.id,
+  kind: "session",
+  sent: false,
+  entryDate: "2026-09-01",
+  body: "Worked the top out.",
+  tags: [],
+  companions: [],
+  climbName: climb.name,
+  climbType: climb.type,
+  climbGrade: climb.grade,
+  areaId: climb.areaId,
+  areaName: "Cedar Block",
+  isAscent: false,
+  isSendComment: false,
+};
 const success: ActionResult = { ok: true, value: undefined };
 function setup(props: Partial<JournalEntryFieldsProps> = {}) {
   const onSave = vi.fn<JournalEntryFieldsProps["onSave"]>().mockResolvedValue(success);
@@ -27,6 +45,13 @@ function setup(props: Partial<JournalEntryFieldsProps> = {}) {
   );
   return { user, onSave, onDone, onPendingChange };
 }
+function detailsTrigger() {
+  return screen.getByRole("button", { name: "Add details" });
+}
+async function openDetails(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(detailsTrigger());
+  expect(detailsTrigger()).toHaveAttribute("aria-expanded", "true");
+}
 async function addFriend(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByRole("combobox", { name: "Find a friend to tag" }), "Sam");
   await user.click(await screen.findByRole("option", { name: "Sam Rivera" }));
@@ -45,6 +70,7 @@ it.each(["outdoor", "repeat", "training"])(
       climb: kind === "training" ? null : climb,
       hasPriorSend: kind === "repeat",
     });
+    await openDetails(user);
     await addFriend(user);
     await fillNotes(user);
     if (kind !== "training") await user.click(screen.getByRole("checkbox", { name: "I sent" }));
@@ -81,6 +107,7 @@ it.each(["outdoor", "repeat", "training"])(
 
 it("blocks an undated send with friends and preserves their identities on recovery", async () => {
   const { user, onSave } = setup();
+  await openDetails(user);
   await addFriend(user);
   await user.click(screen.getByRole("checkbox", { name: "I sent" }));
   const unknown = screen.getByRole("checkbox", { name: "Record a send without a date" });
@@ -99,6 +126,7 @@ it("blocks an undated send with friends and preserves their identities on recove
 
 it("preserves undated commentary and omits journal-only tags", async () => {
   const { user, onSave } = setup();
+  await openDetails(user);
   await fillNotes(user);
   await user.click(screen.getByRole("checkbox", { name: "I sent" }));
   await user.click(screen.getByRole("checkbox", { name: "Record a send without a date" }));
@@ -120,6 +148,7 @@ it.each(["rejection", "exception"])(
     const { user, onSave, onDone, onPendingChange } = setup();
     if (failure === "exception") onSave.mockRejectedValueOnce(new Error("Private service details"));
     else onSave.mockResolvedValueOnce({ ok: false, error: "Couldn't save the entry. Try again." });
+    await openDetails(user);
     await addFriend(user);
     await fillNotes(user);
     const save = screen.getByRole("button", { name: "Save entry" });
@@ -151,6 +180,7 @@ it("prevents another submission and friend changes until the pending save comple
       finish = resolve;
     }),
   );
+  await openDetails(user);
   await addFriend(user);
   const save = screen.getByRole("button", { name: "Save entry" });
   await user.click(save);
@@ -167,4 +197,82 @@ it("prevents another submission and friend changes until the pending save comple
   expect(save).toBeEnabled();
   expect(onDone).toHaveBeenCalledOnce();
   expect(onPendingChange.mock.calls).toEqual([[true], [false]]);
+});
+
+it("keeps optional fields behind a collapsed Add details section", async () => {
+  const { user } = setup();
+  expect(detailsTrigger()).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByRole("combobox", { name: "Find a friend to tag" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("combobox", { name: "Tags" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("checkbox", { name: "I sent" }));
+  expect(screen.queryByRole("button", { name: /Suggested grade/ })).not.toBeInTheDocument();
+  expect(screen.getByRole("radiogroup", { name: "Ascent style" })).toBeVisible();
+  await openDetails(user);
+  expect(screen.getByRole("combobox", { name: "Find a friend to tag" })).toBeVisible();
+  expect(screen.getByRole("combobox", { name: "Tags" })).toBeVisible();
+  expect(screen.getByRole("button", { name: /Suggested grade/ })).toBeVisible();
+});
+
+it("submits the default ascent opinion without opening Add details", async () => {
+  const { user, onSave, onDone } = setup();
+  expect(detailsTrigger()).toHaveAttribute("aria-expanded", "false");
+  await user.click(screen.getByRole("checkbox", { name: "I sent" }));
+  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  await waitFor(() => expect(onDone).toHaveBeenCalledOnce());
+  const [form, undated] = onSave.mock.calls[0];
+  expect(undated).toBe(false);
+  expect(form.get("ascentStyle")).toBe("redpoint");
+  expect(form.get("rating")).toBe("");
+  expect(form.get("suggestedGrade")).toBe("5");
+  expect(form.get("gradeFeel")).toBe("solid");
+});
+
+it("selects a send for an unknown date and restores the date when unchecked", async () => {
+  const { user } = setup();
+  await openDetails(user);
+  const unknown = screen.getByRole("checkbox", { name: "Record a send without a date" });
+  const sent = screen.getByRole("checkbox", { name: "I sent" });
+  await user.click(unknown);
+  expect(sent).toBeChecked();
+  expect(screen.queryByRole("spinbutton", { name: /day, Date/ })).not.toBeInTheDocument();
+  await user.click(unknown);
+  expect(unknown).not.toBeChecked();
+  expect(sent).toBeChecked();
+  expect(screen.getByRole("spinbutton", { name: /day, Date/ })).toBeInTheDocument();
+  await user.click(unknown);
+  await user.click(sent);
+  expect(sent).not.toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "Record a send without a date" })).not.toBeChecked();
+});
+
+it("reopens Add details when a hidden friend blocks an undated send", async () => {
+  const { user, onSave } = setup();
+  await openDetails(user);
+  await addFriend(user);
+  await user.click(screen.getByRole("checkbox", { name: "Record a send without a date" }));
+  await user.click(detailsTrigger());
+  expect(detailsTrigger()).toHaveAttribute("aria-expanded", "false");
+  await user.click(screen.getByRole("button", { name: "Save send" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Add a date to keep With friends.");
+  expect(onSave).not.toHaveBeenCalled();
+  expect(detailsTrigger()).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("button", { name: "Remove friend Sam Rivera" })).toBeVisible();
+});
+
+it("opens Add details when editing an entry that already has companions or tags", () => {
+  setup({
+    existingEntry: {
+      ...savedEntry,
+      tags: ["technique"],
+      companions: [{ id: "sam", name: "Sam Rivera", isSelf: false }],
+    },
+  });
+  expect(detailsTrigger()).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("button", { name: "Remove tag technique" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Remove friend Sam Rivera" })).toBeVisible();
+});
+
+it("keeps Add details collapsed when editing an entry without optional values", () => {
+  setup({ existingEntry: savedEntry });
+  expect(detailsTrigger()).toHaveAttribute("aria-expanded", "false");
 });

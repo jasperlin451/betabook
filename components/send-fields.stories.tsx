@@ -13,7 +13,7 @@ const meta = {
     (Story) => (
       <StoryPage
         title="Suggested grade"
-        description="The same short grade field used in Log entry."
+        description="The same short grade field used in Log entry. Always holds a grade — it defaults to the climb's posted grade, so there is no None option."
       >
         <Story />
       </StoryPage>
@@ -28,4 +28,3 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Boulder: Story = {};
 export const Rope: Story = { args: { climbType: "sport", value: "15" } };
-export const NoSuggestion: Story = { args: { value: "" } };

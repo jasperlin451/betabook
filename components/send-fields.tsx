@@ -77,12 +77,9 @@ export function SuggestedGradeField({
       <OptionSelect
         ariaLabel="Suggested grade"
         className={FIELD_WIDTH_CLASS.short}
-        value={value || "none"}
-        onChange={(key) => onChange(key === "none" ? "" : key)}
-        options={[
-          { value: "none", label: "None" },
-          ...gradeOptions.map((label, i) => ({ value: String(i), label })),
-        ]}
+        value={value}
+        onChange={onChange}
+        options={gradeOptions.map((label, i) => ({ value: String(i), label }))}
       />
     </TextField>
   );

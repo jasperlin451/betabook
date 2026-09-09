@@ -7,7 +7,6 @@ import { JournalEntryDateFields } from "./journal-entry-date-fields";
 
 function Dates(props: Partial<ComponentProps<typeof JournalEntryDateFields>> = {}) {
   const [sent, setSent] = useState(false);
-  const [unknown, setUnknown] = useState(false);
   return (
     <JournalEntryDateFields
       kind="session"
@@ -16,57 +15,38 @@ function Dates(props: Partial<ComponentProps<typeof JournalEntryDateFields>> = {
       today="2026-09-06"
       entryDate="2026-09-01"
       sent={sent}
-      dateUnknown={unknown}
+      dateUnknown={false}
       onDateChange={() => {}}
       onSentChange={setSent}
-      onDateUnknownChange={setUnknown}
       {...props}
     />
   );
 }
-it("selects a send for an unknown date and restores the date when unchecked", async () => {
-  const user = userEvent.setup();
-  render(<Dates />);
-  const sent = screen.getByRole("checkbox", { name: "I sent" });
-  const unknown = screen.getByRole("checkbox", { name: "Record a send without a date" });
-  expect(unknown).toBeEnabled();
-  expect(unknown).not.toHaveAccessibleDescription();
-  await user.click(unknown);
-  expect(sent).toBeChecked();
-  expect(unknown).toBeChecked();
-  expect(screen.queryByRole("spinbutton", { name: /day, Date/ })).not.toBeInTheDocument();
-  await user.click(unknown);
-  expect(unknown).not.toBeChecked();
-  expect(sent).toBeChecked();
+it("hides the date for an undated send and shows it otherwise", () => {
+  const { rerender } = render(<Dates />);
   expect(screen.getByRole("spinbutton", { name: /day, Date/ })).toHaveTextContent("01");
-  await user.click(sent);
-  expect(unknown).not.toBeChecked();
+  rerender(<Dates sent dateUnknown />);
+  expect(screen.queryByRole("spinbutton", { name: /day, Date/ })).not.toBeInTheDocument();
 });
-it.each(["repeat", "training"])(
-  "explains that %s needs a date and omits unknown dates",
-  async (kind) => {
-    const user = userEvent.setup();
-    render(
-      <Dates
-        kind={kind === "training" ? "training" : "session"}
-        hasClimb={kind !== "training"}
-        hasPriorSend={kind === "repeat"}
-      />,
-    );
-    const guidance =
-      kind === "training"
-        ? "Training entries need a date to appear in your journal."
-        : "Sessions and repeats need a date to appear in your journal.";
+it.each(["repeat", "training"])("explains that %s needs a date", async (kind) => {
+  const user = userEvent.setup();
+  render(
+    <Dates
+      kind={kind === "training" ? "training" : "session"}
+      hasClimb={kind !== "training"}
+      hasPriorSend={kind === "repeat"}
+    />,
+  );
+  const guidance =
+    kind === "training"
+      ? "Training entries need a date to appear in your journal."
+      : "Sessions and repeats need a date to appear in your journal.";
+  expect(screen.getByText(guidance)).toBeInTheDocument();
+  if (kind === "repeat") {
+    await user.click(screen.getByRole("checkbox", { name: "I sent" }));
     expect(screen.getByText(guidance)).toBeInTheDocument();
-    expect(
-      screen.queryByRole("checkbox", { name: "Record a send without a date" }),
-    ).not.toBeInTheDocument();
-    if (kind === "repeat") {
-      await user.click(screen.getByRole("checkbox", { name: "I sent" }));
-      expect(screen.getByText(guidance)).toBeInTheDocument();
-    } else expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
-  },
-);
+  } else expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+});
 it.each([true, false])(
   "prevents editing a recorded date and gives ascent=%s guidance",
   async (isAscent) => {

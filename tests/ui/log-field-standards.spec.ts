@@ -4,6 +4,7 @@ test("Log entry uses shared date and grade widths and direct friend copy", async
   page,
 }, info) => {
   await openStory(page, info, "components-journal-entry-fields--outdoor");
+  await page.getByRole("button", { name: "Add details" }).click();
   await expect(page.getByRole("combobox", { name: "Find a friend to tag" })).toHaveAttribute(
     "placeholder",
     "Find a friend to tag…",
