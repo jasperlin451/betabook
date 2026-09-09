@@ -30,7 +30,6 @@ const db = createDb(env.DB);
 const custom: AnalyticsLayout = {
   ...DEFAULT_ANALYTICS_LAYOUT,
   cards: ["hardest", ...DEFAULT_ANALYTICS_LAYOUT.cards.filter((id) => id !== "hardest")],
-  hidden: ["areas"],
 };
 beforeEach(async () => {
   sessionState.userId = "owner";
@@ -64,7 +63,14 @@ it("rejects signed-out saves without changing saved preferences", async () => {
   expect(await getAnalyticsLayout(db, "owner", "owner")).toEqual(custom);
 });
 it("rejects invalid IDs, missing fields, and attempts to supply another user ID", async () => {
-  for (const value of [{}, { ...custom, hidden: ["unknown"] }, { ...custom, userId: "other" }]) {
+  for (const value of [
+    {},
+    { ...custom, cards: ["unknown"] },
+    { ...custom, cards: ["sends", "sends"] },
+    { ...custom, charts: ["sends"] },
+    { ...custom, hidden: [] },
+    { ...custom, userId: "other" },
+  ]) {
     expect((await saveAnalyticsLayout(value as AnalyticsLayout)).ok).toBe(false);
   }
   expect(await db.select().from(userAnalyticsLayouts)).toEqual([]);

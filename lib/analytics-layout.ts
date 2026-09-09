@@ -1,5 +1,7 @@
-const NEW_CARDS = ["partner", "biggestProject", "persistence", "favoriteRepeat"] as const;
-export const DEFAULT_CARDS = [
+import { z } from "zod";
+
+/** The catalog lists everything available; a layout lists only visible items. */
+export const ANALYTICS_CARD_IDS = [
   "sends",
   "hardest",
   "days",
@@ -10,58 +12,63 @@ export const DEFAULT_CARDS = [
   "areas",
   "favoriteDay",
   "layoff",
-  ...NEW_CARDS,
+  "partner",
+  "biggestProject",
+  "persistence",
+  "favoriteRepeat",
 ] as const;
-const NEW_CHARTS = ["volume", "flashRate"] as const;
-const DEFAULT_CHARTS = [
+const ANALYTICS_CHART_IDS = [
   "progression",
   "pyramid",
   "breakthroughs",
   "calendar",
-  ...NEW_CHARTS,
+  "volume",
+  "flashRate",
 ] as const;
-export type AnalyticsCardId = (typeof DEFAULT_CARDS)[number];
-type AnalyticsChartId = (typeof DEFAULT_CHARTS)[number];
-export type AnalyticsItemId = AnalyticsCardId | AnalyticsChartId;
-export type AnalyticsLayout = {
-  version: 1;
-  cards: AnalyticsCardId[];
-  charts: AnalyticsChartId[];
-  hidden: AnalyticsItemId[];
-};
+const cardId = z.enum(ANALYTICS_CARD_IDS);
+const chartId = z.enum(ANALYTICS_CHART_IDS);
+const unique = (items: readonly string[]) => new Set(items).size === items.length;
+
+/** Writes are strict: invalid IDs, duplicates, and extra fields are rejected. */
+export const analyticsLayoutSchema = z.strictObject({
+  version: z.literal(2),
+  cards: z.array(cardId).refine(unique, "Duplicate cards"),
+  charts: z.array(chartId).refine(unique, "Duplicate charts"),
+});
+export type AnalyticsLayout = z.infer<typeof analyticsLayoutSchema>;
+export type AnalyticsCardId = z.infer<typeof cardId>;
+export type AnalyticsItemId = AnalyticsCardId | z.infer<typeof chartId>;
 export const DEFAULT_ANALYTICS_LAYOUT: AnalyticsLayout = {
-  version: 1,
-  cards: [...DEFAULT_CARDS],
-  charts: [...DEFAULT_CHARTS],
-  hidden: ["streak", "busiestMonth", "areas", "favoriteDay", "layoff", ...NEW_CARDS, ...NEW_CHARTS],
+  version: 2,
+  cards: ["sends", "hardest", "days", "firstTry", "bestYear"],
+  charts: ["progression", "pyramid", "breakthroughs", "calendar"],
 };
 
-function normalizeOrder<T extends string>(value: unknown, defaults: readonly T[]): T[] {
-  const requested = Array.isArray(value)
-    ? value.filter((id): id is T => typeof id === "string" && defaults.includes(id as T))
-    : [];
-  return [...new Set([...requested, ...defaults])];
-}
-
+// Stored preferences tolerate retired IDs; new catalog items are never added automatically.
+const storedLayoutSchema = z.discriminatedUnion("version", [
+  z.object({
+    version: z.literal(1),
+    cards: z.array(z.string()),
+    charts: z.array(z.string()),
+    hidden: z.array(z.string()),
+  }),
+  z.object({ version: z.literal(2), cards: z.array(z.string()), charts: z.array(z.string()) }),
+]);
 export function parseAnalyticsLayout(value: unknown): AnalyticsLayout {
-  if (typeof value !== "object" || value === null || !("version" in value) || value.version !== 1)
-    return DEFAULT_ANALYTICS_LAYOUT;
-  const saved = value as Record<string, unknown>;
-  const allowed = new Set<string>([...DEFAULT_CARDS, ...DEFAULT_CHARTS]);
-  const hidden = Array.isArray(saved.hidden)
-    ? saved.hidden.filter((id): id is AnalyticsItemId => typeof id === "string" && allowed.has(id))
-    : DEFAULT_ANALYTICS_LAYOUT.hidden;
-  const missingNewCards = Array.isArray(saved.cards)
-    ? NEW_CARDS.filter((id) => !(saved.cards as unknown[]).includes(id))
-    : NEW_CARDS;
-  const missingNewCharts = Array.isArray(saved.charts)
-    ? NEW_CHARTS.filter((id) => !(saved.charts as unknown[]).includes(id))
-    : NEW_CHARTS;
+  const result = storedLayoutSchema.safeParse(value);
+  if (!result.success) return analyticsLayoutSchema.parse(DEFAULT_ANALYTICS_LAYOUT);
+  const saved = result.data;
+  const hidden = new Set(saved.version === 1 ? saved.hidden : []);
   return {
-    version: 1,
-    cards: normalizeOrder(saved.cards, DEFAULT_CARDS),
-    charts: normalizeOrder(saved.charts, DEFAULT_CHARTS),
-    hidden: [...new Set([...hidden, ...missingNewCards, ...missingNewCharts])],
+    version: 2,
+    cards: [...new Set(saved.cards)].flatMap((id) => {
+      const parsed = cardId.safeParse(id);
+      return parsed.success && !hidden.has(id) ? [parsed.data] : [];
+    }),
+    charts: [...new Set(saved.charts)].flatMap((id) => {
+      const parsed = chartId.safeParse(id);
+      return parsed.success && !hidden.has(id) ? [parsed.data] : [];
+    }),
   };
 }
 

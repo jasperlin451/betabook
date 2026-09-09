@@ -73,29 +73,31 @@ export async function JournalView({
   return (
     <NavigationPendingProvider>
       {tourState && <ProductTour initialState={tourState} />}
-      <SidebarLayout sidebar={<StatStrip cards={statCards} />}>
-        <div className="flex flex-col gap-3">
-          <SectionHeading>Journal</SectionHeading>
-          {counts.entries > 0 && (
-            <JournalFilterToolbar
+      <div className="flex flex-col gap-3">
+        <SectionHeading>Journal</SectionHeading>
+        <SidebarLayout sidebar={<StatStrip cards={statCards} />}>
+          <div className="flex flex-col gap-3">
+            {counts.entries > 0 && (
+              <JournalFilterToolbar
+                userId={ownerId}
+                tags={tags}
+                filter={filter}
+                climbName={filteredClimb?.name ?? null}
+              />
+            )}
+            <JournalTimeline
+              key={JSON.stringify(filter)}
               userId={ownerId}
-              tags={tags}
               filter={filter}
-              climbName={filteredClimb?.name ?? null}
+              initialEntries={firstPage.entries}
+              initialHasMore={firstPage.hasMore}
+              initialAreaBreadcrumbs={areaBreadcrumbs}
+              isOwner={isOwner}
+              hasAnyEntries={counts.entries > 0}
             />
-          )}
-          <JournalTimeline
-            key={JSON.stringify(filter)}
-            userId={ownerId}
-            filter={filter}
-            initialEntries={firstPage.entries}
-            initialHasMore={firstPage.hasMore}
-            initialAreaBreadcrumbs={areaBreadcrumbs}
-            isOwner={isOwner}
-            hasAnyEntries={counts.entries > 0}
-          />
-        </div>
-      </SidebarLayout>
+          </div>
+        </SidebarLayout>
+      </div>
     </NavigationPendingProvider>
   );
 }

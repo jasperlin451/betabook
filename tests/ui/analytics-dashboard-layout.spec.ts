@@ -182,9 +182,7 @@ test("dragging shows an insertion marker at the destination card", async ({ page
   await openStory(page, info, "components-charts-analytics-dashboard--multiple-years");
   await page.getByRole("button", { name: "Customize dashboard", exact: true }).click();
   const grid = page.getByRole("grid", { name: "Reorder cards", exact: true });
-  await page
-    .getByRole("button", { name: "Drag Sending days", exact: true })
-    .scrollIntoViewIfNeeded();
+  await grid.scrollIntoViewIfNeeded();
   const source = await page
     .getByRole("button", { name: "Drag Sending days", exact: true })
     .boundingBox();

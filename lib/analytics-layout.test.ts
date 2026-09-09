@@ -7,55 +7,60 @@ import {
 } from "./analytics-layout";
 
 describe("saved analytics layouts", () => {
-  it("preserves custom ordering and hidden items while restoring missing defaults", () => {
-    const layout = parseAnalyticsLayout({
-      version: 1,
-      cards: ["streak", "sends", "streak", "calendar", "obsolete"],
-      charts: ["calendar", "progression"],
-      hidden: ["areas", "calendar", "areas", "obsolete"],
+  it("stores only visible items in their chosen order without adding optional items", () => {
+    expect(
+      parseAnalyticsLayout({ version: 2, cards: ["partner", "sends"], charts: ["volume"] }),
+    ).toEqual({
+      version: 2,
+      cards: ["partner", "sends"],
+      charts: ["volume"],
     });
-    expect(layout.cards).toEqual([
-      "streak",
-      "sends",
-      "hardest",
-      "days",
-      "firstTry",
-      "bestYear",
-      "busiestMonth",
-      "areas",
-      "favoriteDay",
-      "layoff",
-      "partner",
-      "biggestProject",
-      "persistence",
-      "favoriteRepeat",
-    ]);
-    expect(layout.charts).toEqual([
-      "calendar",
-      "progression",
-      "pyramid",
-      "breakthroughs",
-      "volume",
-      "flashRate",
-    ]);
-    expect(layout.hidden).toEqual([
-      "areas",
-      "calendar",
-      "partner",
-      "biggestProject",
-      "persistence",
-      "favoriteRepeat",
-      "volume",
-      "flashRate",
-    ]);
+  });
+  it("migrates legacy layouts by removing hidden items while retaining order", () => {
+    expect(
+      parseAnalyticsLayout({
+        version: 1,
+        cards: ["hardest", "sends", "partner", "areas"],
+        charts: ["calendar", "volume", "pyramid"],
+        hidden: ["areas", "calendar"],
+      }),
+    ).toEqual({
+      version: 2,
+      cards: ["hardest", "sends", "partner"],
+      charts: ["volume", "pyramid"],
+    });
+  });
+  it("keeps deliberately empty layouts empty, including legacy layouts", () => {
+    expect(parseAnalyticsLayout({ version: 2, cards: [], charts: [] })).toEqual({
+      version: 2,
+      cards: [],
+      charts: [],
+    });
+    expect(
+      parseAnalyticsLayout({
+        version: 1,
+        cards: ["sends"],
+        charts: ["calendar"],
+        hidden: ["sends", "calendar"],
+      }),
+    ).toEqual({ version: 2, cards: [], charts: [] });
+  });
+  it("removes obsolete, duplicate, and wrong-section IDs without resetting the remaining choices", () => {
+    expect(
+      parseAnalyticsLayout({
+        version: 2,
+        cards: ["partner", "climbingStreak", "partner", "calendar", "sends"],
+        charts: ["flashRate", "sends", "flashRate"],
+      }),
+    ).toEqual({ version: 2, cards: ["partner", "sends"], charts: ["flashRate"] });
   });
   it("recovers corrupt or unsupported preferences", () => {
     for (const value of [
       null,
       "bad",
       {},
-      { version: 2 },
-      { version: 1, cards: "bad", charts: null, hidden: 42 },
+      { version: 3 },
+      { version: 2, cards: "bad", charts: [] },
     ]) {
       expect(parseAnalyticsLayout(value)).toEqual(DEFAULT_ANALYTICS_LAYOUT);
     }
@@ -78,34 +83,4 @@ describe("moving analytics items", () => {
     expect(moveAnalyticsItem(items, "sends", "calendar")).toEqual(items);
     expect(moveAnalyticsItem(items, "sends", "sends")).toEqual(items);
   });
-});
-
-it("removes the retired climbing streak card from saved layouts", () => {
-  const layout = parseAnalyticsLayout({
-    ...DEFAULT_ANALYTICS_LAYOUT,
-    cards: ["climbingStreak", ...DEFAULT_ANALYTICS_LAYOUT.cards],
-    hidden: ["climbingStreak"],
-  });
-  expect(layout.cards).not.toContain("climbingStreak");
-  expect(layout.hidden).not.toContain("climbingStreak");
-  expect(layout.cards).toContain("streak");
-});
-
-it("keeps new optional charts hidden in defaults and existing layouts", () => {
-  const existing = parseAnalyticsLayout({
-    version: 1,
-    cards: DEFAULT_ANALYTICS_LAYOUT.cards,
-    charts: ["calendar", "progression", "pyramid", "breakthroughs"],
-    hidden: [],
-  });
-  expect(existing.charts).toEqual([
-    "calendar",
-    "progression",
-    "pyramid",
-    "breakthroughs",
-    "volume",
-    "flashRate",
-  ]);
-  expect(existing.hidden).toEqual(["volume", "flashRate"]);
-  expect(DEFAULT_ANALYTICS_LAYOUT.hidden).toEqual(expect.arrayContaining(["volume", "flashRate"]));
 });

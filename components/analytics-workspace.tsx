@@ -332,12 +332,14 @@ export function AnalyticsWorkspace({
   charts,
   canCustomize = false,
   initialLayout = DEFAULT_ANALYTICS_LAYOUT,
+  children,
   onSave,
 }: {
   cards: AnalyticsPanel[];
   charts: AnalyticsPanel[];
   canCustomize?: boolean;
   initialLayout?: AnalyticsLayout;
+  children?: ReactNode;
   onSave?: (layout: AnalyticsLayout) => Promise<ActionResult>;
 }) {
   const [layout, setLayout] = useState(initialLayout);
@@ -413,134 +415,141 @@ export function AnalyticsWorkspace({
   };
   const hide = (id: AnalyticsItemId) =>
     change(
-      { ...layout, hidden: [...layout.hidden, id] },
+      {
+        ...layout,
+        cards: layout.cards.filter((item) => item !== id),
+        charts: layout.charts.filter((item) => item !== id),
+      },
       "Item hidden. You can add it back while customizing.",
     );
   const visible = (group: Group, items: AnalyticsPanel[]) =>
     layout[group].flatMap((id) => {
       const item = items.find((candidate) => candidate.id === id);
-      return item && !layout.hidden.includes(id) ? [item] : [];
+      return item ? [item] : [];
     });
-  const hiddenGroups = [
-    { label: "At a glance", items: cards.filter((item) => layout.hidden.includes(item.id)) },
-    { label: "Charts", items: charts.filter((item) => layout.hidden.includes(item.id)) },
+  const hiddenGroups: { label: string; key: Group; items: AnalyticsPanel[] }[] = [
+    {
+      label: "At a glance",
+      key: "cards",
+      items: cards.filter((item) => !layout.cards.some((id) => id === item.id)),
+    },
+    {
+      label: "Charts",
+      key: "charts",
+      items: charts.filter((item) => !layout.charts.some((id) => id === item.id)),
+    },
   ];
   return (
     <div className={`flex flex-col gap-6 ${editing ? "pb-24" : ""}`}>
-      <section aria-label="At a glance" className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <SectionHeading>At a glance</SectionHeading>
-          {canCustomize && !editing && (
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label="Customize dashboard"
-              onPress={openEditor}
-            >
-              <SlidersHorizontal size={16} />
-              Customize
-            </Button>
-          )}
-        </div>
-        {isEditing && (
-          <div
-            ref={editorRef}
-            tabIndex={-1}
-            aria-label="Customize your analytics dashboard"
-            className={`flex flex-col gap-3 border border-border ${cardClass("sm")}`}
-          >
-            <SectionHeading>Customize your analytics dashboard</SectionHeading>
-            <p className="text-sm text-muted">
-              Add items below, drag to reorder, or use X to hide items. Click Save layout when
-              you’re done. This only affects your own view.
-            </p>
-            {hiddenGroups
-              .filter((group) => group.items.length > 0)
-              .map((group) => (
-                <fieldset key={group.label} className="min-w-0">
-                  <legend
-                    className={`${EYEBROW_CLASS} mb-2`}
-                    style={{ color: "var(--foreground)" }}
-                  >
-                    {group.label}
-                  </legend>
-                  <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
-                    {group.items.map((item) => (
-                      <Button
-                        key={item.id}
-                        variant="secondary"
-                        isDisabled={saving}
-                        aria-label={`Add ${item.title}`}
-                        className={`h-auto min-h-20 w-full items-start justify-start gap-3 text-left whitespace-normal ${cardClass("sm", "bordered")}`}
-                        style={{ borderWidth: 0 }}
-                        onPress={() =>
-                          change(
-                            { ...layout, hidden: layout.hidden.filter((id) => id !== item.id) },
-                            `${item.title} added.`,
-                          )
-                        }
-                      >
-                        <Plus size={16} className="mt-0.5 shrink-0" aria-hidden />
-                        <span className="flex min-w-0 flex-col gap-1">
-                          <span className={EYEBROW_CLASS}>{item.title}</span>
-                          {item.description && (
-                            <span className="text-xs font-normal text-muted">
-                              {item.description}
-                            </span>
-                          )}
-                        </span>
-                      </Button>
-                    ))}
-                  </div>
-                </fieldset>
-              ))}
-            <div
-              role="group"
-              aria-label="Dashboard actions"
-              className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3"
-            >
-              <Button
-                size="sm"
-                variant="ghost"
-                isDisabled={saving}
-                aria-label="Restore default layout"
-                onPress={() => change(DEFAULT_ANALYTICS_LAYOUT, "Default layout restored.")}
-              >
-                Restore defaults
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                isDisabled={saving}
-                onPress={() => {
-                  setLayout(saved);
-                  setEditing(false);
-                  setSaveError("");
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                ref={saveButtonRef}
-                size="sm"
-                variant="primary"
-                aria-label="Save layout"
-                isDisabled={saving}
-                onPress={finish}
-              >
-                {saving ? "Saving…" : "Save layout"}
-              </Button>
-            </div>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SectionHeading>Analytics</SectionHeading>
+        {canCustomize && !editing && (
+          <Button variant="outline" size="sm" aria-label="Customize dashboard" onPress={openEditor}>
+            <SlidersHorizontal size={16} />
+            Customize
+          </Button>
         )}
-        {saveError && !showFloatingSave && (
-          <p role="alert" className="text-sm text-danger">
-            {saveError}
+      </div>
+      {isEditing && (
+        <div
+          ref={editorRef}
+          tabIndex={-1}
+          aria-label="Customize your analytics dashboard"
+          className={`flex flex-col gap-3 border border-border ${cardClass("sm")}`}
+        >
+          <SectionHeading>Customize your analytics dashboard</SectionHeading>
+          <p className="text-sm text-muted">
+            Add items below, drag to reorder, or use X to hide items. Click Save layout when you’re
+            done. This only affects your own view.
           </p>
-        )}
-        <p role="status" className="sr-only">
-          {message}
+          {hiddenGroups
+            .filter((group) => group.items.length > 0)
+            .map((group) => (
+              <fieldset key={group.label} className="min-w-0">
+                <legend className={`${EYEBROW_CLASS} mb-2`} style={{ color: "var(--foreground)" }}>
+                  {group.label}
+                </legend>
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-3">
+                  {group.items.map((item) => (
+                    <Button
+                      key={item.id}
+                      variant="secondary"
+                      isDisabled={saving}
+                      aria-label={`Add ${item.title}`}
+                      className={`h-auto min-h-20 w-full items-start justify-start gap-3 text-left whitespace-normal ${cardClass("sm", "bordered")}`}
+                      style={{ borderWidth: 0 }}
+                      onPress={() =>
+                        change(
+                          parseAnalyticsLayout({
+                            ...layout,
+                            [group.key]: [...layout[group.key], item.id],
+                          }),
+                          `${item.title} added.`,
+                        )
+                      }
+                    >
+                      <Plus size={16} className="mt-0.5 shrink-0" aria-hidden />
+                      <span className="flex min-w-0 flex-col gap-1">
+                        <span className={EYEBROW_CLASS}>{item.title}</span>
+                        {item.description && (
+                          <span className="text-xs font-normal text-muted">{item.description}</span>
+                        )}
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+              </fieldset>
+            ))}
+          <div
+            role="group"
+            aria-label="Dashboard actions"
+            className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3"
+          >
+            <Button
+              size="sm"
+              variant="ghost"
+              isDisabled={saving}
+              aria-label="Restore default layout"
+              onPress={() => change(DEFAULT_ANALYTICS_LAYOUT, "Default layout restored.")}
+            >
+              Restore defaults
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              isDisabled={saving}
+              onPress={() => {
+                setLayout(saved);
+                setEditing(false);
+                setSaveError("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              ref={saveButtonRef}
+              size="sm"
+              variant="primary"
+              aria-label="Save layout"
+              isDisabled={saving}
+              onPress={finish}
+            >
+              {saving ? "Saving…" : "Save layout"}
+            </Button>
+          </div>
+        </div>
+      )}
+      {saveError && !showFloatingSave && (
+        <p role="alert" className="text-sm text-danger">
+          {saveError}
         </p>
+      )}
+      <p role="status" className="sr-only">
+        {message}
+      </p>
+      {children}
+      <section aria-label="At a glance" className="flex flex-col gap-4">
+        <SectionHeading>At a glance</SectionHeading>
         <DashboardGroup
           onCustomize={
             canCustomize && !editing && hiddenGroups[0].items.length > 0 ? openEditor : undefined

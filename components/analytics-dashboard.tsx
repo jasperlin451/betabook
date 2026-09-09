@@ -14,7 +14,7 @@ import { SectionHeading } from "@/components/ui/typography";
 import type { ActionResult } from "@/lib/action-result";
 import { buildAnalyticsHighlights } from "@/lib/analytics-highlights";
 import type { AnalyticsLayout } from "@/lib/analytics-layout";
-import { DEFAULT_CARDS, type AnalyticsCardId } from "@/lib/analytics-layout";
+import { ANALYTICS_CARD_IDS, type AnalyticsCardId } from "@/lib/analytics-layout";
 import { formatAnalyticsYears } from "@/lib/analytics-years";
 import { formatCount } from "@/lib/format";
 import type { ClimbType } from "@/lib/grades";
@@ -166,7 +166,7 @@ export function AnalyticsDashboard({
     favoriteDay: "The day of the week you send most often.",
     layoff: "The longest gap between climbing days.",
   };
-  const cards: AnalyticsPanel[] = DEFAULT_CARDS.map((id) => ({
+  const cards: AnalyticsPanel[] = ANALYTICS_CARD_IDS.map((id) => ({
     id,
     title: tiles[id].label,
     description: descriptions[id],
@@ -295,33 +295,34 @@ export function AnalyticsDashboard({
   ];
   return (
     <section aria-label="Activity summary" className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1">
-          <SectionHeading>
-            {period == null ? "All-time activity" : `Activity in ${period}`}
-          </SectionHeading>
-        </div>
-        {periodPicker}
-        {undatedCount > 0 && (
-          <p className="text-xs text-muted">
-            {period == null
-              ? "Sends without dates count toward your totals and grade pyramid, but won’t appear in charts that track activity over time."
-              : "Sends without dates aren’t included in the selected years. Choose All to include them in your totals and grade pyramid."}
-          </p>
-        )}
-        {period != null && analytics.sendCount === 0 && analytics.daysOut === 0 && (
-          <p role="status" className="text-sm text-muted">
-            No activity in {period} for this discipline. Try another year or All.
-          </p>
-        )}
-      </div>
       <AnalyticsWorkspace
         cards={cards}
         charts={charts}
         canCustomize={canCustomize}
         initialLayout={initialLayout}
         onSave={onSave}
-      />
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <SectionHeading>
+              {period == null ? "All-time activity" : `Activity in ${period}`}
+            </SectionHeading>
+          </div>
+          {periodPicker}
+          {undatedCount > 0 && (
+            <p className="text-xs text-muted">
+              {period == null
+                ? "Sends without dates count toward your totals and grade pyramid, but won’t appear in charts that track activity over time."
+                : "Sends without dates aren’t included in the selected years. Choose All to include them in your totals and grade pyramid."}
+            </p>
+          )}
+          {period != null && analytics.sendCount === 0 && analytics.daysOut === 0 && (
+            <p role="status" className="text-sm text-muted">
+              No activity in {period} for this discipline. Try another year or All.
+            </p>
+          )}
+        </div>
+      </AnalyticsWorkspace>
     </section>
   );
 }

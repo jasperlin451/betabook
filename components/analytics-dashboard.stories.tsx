@@ -8,7 +8,11 @@ import { choicePillClass } from "@/components/ui/choice-pill";
 import { DISCIPLINE_CHIP_CLASSNAME, DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import type { AnalyticsSendRow } from "@/db/queries";
 import { buildAnalyticsHighlights, type HighlightSession } from "@/lib/analytics-highlights";
-import { DEFAULT_ANALYTICS_LAYOUT, parseAnalyticsLayout } from "@/lib/analytics-layout";
+import {
+  ANALYTICS_CARD_IDS,
+  DEFAULT_ANALYTICS_LAYOUT,
+  parseAnalyticsLayout,
+} from "@/lib/analytics-layout";
 import type { ClimbType } from "@/lib/grades";
 import { buildUserAnalytics } from "@/lib/user-analytics";
 import { StoryPage } from "@/stories/fixtures/story-layout";
@@ -125,23 +129,29 @@ function DashboardExample({
           showHighlights
             ? {
                 ...DEFAULT_ANALYTICS_LAYOUT,
-                hidden: ["streak", "busiestMonth", "areas", "favoriteDay", "layoff"],
+                cards: [
+                  ...DEFAULT_ANALYTICS_LAYOUT.cards,
+                  "partner",
+                  "biggestProject",
+                  "persistence",
+                  "favoriteRepeat",
+                ],
+                charts: [...DEFAULT_ANALYTICS_LAYOUT.charts, "volume", "flashRate"],
               }
             : hiddenCharts
               ? {
                   ...DEFAULT_ANALYTICS_LAYOUT,
-                  hidden: [...DEFAULT_ANALYTICS_LAYOUT.hidden, "calendar"],
+                  charts: DEFAULT_ANALYTICS_LAYOUT.charts.filter((id) => id !== "calendar"),
                 }
               : persistent
                 ? parseAnalyticsLayout({
                     ...DEFAULT_ANALYTICS_LAYOUT,
                     cards: [
                       "hardest",
-                      ...DEFAULT_ANALYTICS_LAYOUT.cards
-                        .slice(0, 10)
-                        .filter((id) => id !== "hardest"),
+                      ...ANALYTICS_CARD_IDS.slice(0, 10).filter(
+                        (id) => id !== "hardest" && id !== "areas",
+                      ),
                     ],
-                    hidden: ["areas"],
                   })
                 : undefined
         }

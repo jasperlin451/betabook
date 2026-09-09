@@ -14,7 +14,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Grade pyramid, Breakthroughs, and Flash rate share half-width slots on desktop; time-series charts stay full-width. Customize placeholders use the same background as ordinary stat and chart cards, with a dashed border and a Customize action. While customizing, a floating Save layout action appears after the main save button scrolls above the viewport. At a glance uses six columns from 1280px, so five default stats and Customize share a row. Optional card and chart buttons use a contrasting surface without borders against the muted editor background. The editor uses an auto-fitting grid with readable minimum tile widths, adding columns as space permits.",
+          "The Analytics page title and Customize button share a header; the expanded editor sits below them and above At a glance. Grade pyramid, Breakthroughs, and Flash rate share half-width slots on desktop; time-series charts stay full-width. Customize placeholders use the same background as ordinary stat and chart cards, with a dashed border and a Customize action. While customizing, a floating Save layout action appears after the main save button scrolls above the viewport. At a glance uses six columns from 1280px, so five default stats and Customize share a row. Optional card and chart buttons use a contrasting surface without borders against the muted editor background. The editor uses an auto-fitting grid with readable minimum tile widths, adding columns as space permits.",
       },
     },
   },
@@ -94,7 +94,11 @@ export const HiddenItems: Story = {
   ...Customize,
   args: {
     ...Customize.args,
-    initialLayout: { ...DEFAULT_ANALYTICS_LAYOUT, hidden: ["sends", "pyramid"] },
+    initialLayout: {
+      ...DEFAULT_ANALYTICS_LAYOUT,
+      cards: ["hardest", "days", "firstTry", "bestYear", "streak"],
+      charts: ["progression"],
+    },
   },
 };
 

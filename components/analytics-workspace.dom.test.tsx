@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { DEFAULT_ANALYTICS_LAYOUT, DEFAULT_CARDS } from "@/lib/analytics-layout";
+import { DEFAULT_ANALYTICS_LAYOUT, ANALYTICS_CARD_IDS } from "@/lib/analytics-layout";
 
 import { AnalyticsWorkspace } from "./analytics-workspace";
 
@@ -25,7 +25,7 @@ beforeEach(() => {
   }));
 });
 
-const cards = DEFAULT_CARDS.map((id) => ({
+const cards = ANALYTICS_CARD_IDS.map((id) => ({
   id,
   title: id,
   description: id === "streak" ? "Your longest run of consecutive climbing days." : undefined,
@@ -64,15 +64,14 @@ it("starts with five cards and lets an owner discover, add, and save another", a
   await user.click(screen.getByRole("button", { name: "Save layout" }));
   expect(onSave).toHaveBeenCalledWith({
     ...DEFAULT_ANALYTICS_LAYOUT,
-    hidden: DEFAULT_ANALYTICS_LAYOUT.hidden.filter((id) => id !== "streak"),
+    cards: [...DEFAULT_ANALYTICS_LAYOUT.cards, "streak"],
   });
 });
 
 it("preserves an existing saved layout and hides discovery controls from visitors", () => {
   const initialLayout = {
     ...DEFAULT_ANALYTICS_LAYOUT,
-    cards: DEFAULT_CARDS.slice(0, 10),
-    hidden: [],
+    cards: ANALYTICS_CARD_IDS.slice(0, 10),
   };
   const { rerender } = render(
     <AnalyticsWorkspace cards={cards} charts={[]} canCustomize initialLayout={initialLayout} />,
@@ -92,7 +91,7 @@ it("opens the same editor from hidden chart and card placeholders, including emp
       cards={cards}
       charts={charts}
       canCustomize
-      initialLayout={{ ...DEFAULT_ANALYTICS_LAYOUT, hidden: [...DEFAULT_CARDS, "pyramid"] }}
+      initialLayout={{ ...DEFAULT_ANALYTICS_LAYOUT, cards: [], charts: [] }}
     />,
   );
   expect(screen.queryByRole("button", { name: "Add cards" })).not.toBeInTheDocument();
@@ -111,7 +110,7 @@ it("has no placeholders when every item is displayed", () => {
       cards={cards}
       charts={[]}
       canCustomize
-      initialLayout={{ ...DEFAULT_ANALYTICS_LAYOUT, hidden: [] }}
+      initialLayout={{ ...DEFAULT_ANALYTICS_LAYOUT, cards: [...ANALYTICS_CARD_IDS] }}
     />,
   );
   expect(screen.getByRole("button", { name: "Customize dashboard" })).toBeVisible();

@@ -11,6 +11,7 @@ import { AppLink } from "@/components/ui/app-link";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { DISCIPLINE_CHIP_CLASSNAME, DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SectionHeading } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
 import { getJournalSessionsForAnalytics, getUserSendsForAnalytics } from "@/db/queries";
 import { getAnalyticsHighlightSessions } from "@/db/queries/analytics-highlights";
@@ -98,6 +99,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     return (
       <div className="flex flex-col gap-6">
         <ProfileHeader user={user} viewerId={session?.user.id ?? null} />
+        <SectionHeading>Analytics</SectionHeading>
         <AnalyticsHashtagFilter selectedTags={selectedTags} tags={tags} />
         <EmptyState
           message={
