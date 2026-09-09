@@ -7,63 +7,27 @@ import {
 } from "./analytics-layout";
 
 describe("saved analytics layouts", () => {
-  it("stores only visible items in their chosen order without adding optional items", () => {
-    expect(
-      parseAnalyticsLayout({ version: 2, cards: ["partner", "sends"], charts: ["volume"] }),
-    ).toEqual({
-      version: 2,
-      cards: ["partner", "sends"],
-      charts: ["volume"],
-    });
+  it("accepts only visible ordered lists and never appends optional items", () => {
+    const layout = { cards: ["partner", "sends"], charts: ["volume"] };
+    expect(parseAnalyticsLayout(layout)).toEqual(layout);
   });
-  it("migrates legacy layouts by removing hidden items while retaining order", () => {
-    expect(
-      parseAnalyticsLayout({
-        version: 1,
-        cards: ["hardest", "sends", "partner", "areas"],
-        charts: ["calendar", "volume", "pyramid"],
-        hidden: ["areas", "calendar"],
-      }),
-    ).toEqual({
-      version: 2,
-      cards: ["hardest", "sends", "partner"],
-      charts: ["volume", "pyramid"],
-    });
+  it("preserves intentionally empty sections", () => {
+    expect(parseAnalyticsLayout({ cards: [], charts: [] })).toEqual({ cards: [], charts: [] });
   });
-  it("keeps deliberately empty layouts empty, including legacy layouts", () => {
-    expect(parseAnalyticsLayout({ version: 2, cards: [], charts: [] })).toEqual({
-      version: 2,
-      cards: [],
-      charts: [],
-    });
-    expect(
-      parseAnalyticsLayout({
-        version: 1,
-        cards: ["sends"],
-        charts: ["calendar"],
-        hidden: ["sends", "calendar"],
-      }),
-    ).toEqual({ version: 2, cards: [], charts: [] });
-  });
-  it("removes obsolete, duplicate, and wrong-section IDs without resetting the remaining choices", () => {
-    expect(
-      parseAnalyticsLayout({
-        version: 2,
-        cards: ["partner", "climbingStreak", "partner", "calendar", "sends"],
-        charts: ["flashRate", "sends", "flashRate"],
-      }),
-    ).toEqual({ version: 2, cards: ["partner", "sends"], charts: ["flashRate"] });
-  });
-  it("recovers corrupt or unsupported preferences", () => {
-    for (const value of [
-      null,
-      "bad",
-      {},
-      { version: 3 },
-      { version: 2, cards: "bad", charts: [] },
-    ]) {
-      expect(parseAnalyticsLayout(value)).toEqual(DEFAULT_ANALYTICS_LAYOUT);
-    }
+  it.each([
+    { version: 1, cards: ["partner"], charts: ["volume"], hidden: [] },
+    { version: 2, cards: ["partner"], charts: ["volume"] },
+    { cards: ["partner"], charts: ["volume"], hidden: [] },
+    { cards: ["sends", "sends"], charts: [] },
+    { cards: ["calendar"], charts: [] },
+    { cards: ["obsolete"], charts: [] },
+    { cards: [], charts: ["sends"] },
+    { cards: "bad", charts: [] },
+    null,
+    "bad",
+    {},
+  ])("starts fresh for invalid stored preferences: %j", (value) => {
+    expect(parseAnalyticsLayout(value)).toEqual(DEFAULT_ANALYTICS_LAYOUT);
   });
 });
 describe("moving analytics items", () => {

@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { saveAnalyticsLayout } from "@/actions/analytics";
@@ -82,4 +82,23 @@ it("does not disclose another user's layout, and account deletion removes it", a
   expect(await getAnalyticsLayout(db, "owner", "owner")).toEqual(custom);
   await db.delete(user).where(eq(user.id, "owner"));
   expect(await db.select().from(userAnalyticsLayouts)).toEqual([]);
+});
+
+it("starts fresh for obsolete stored layouts and replaces them with the single current shape", async () => {
+  const oldLayout = { version: 2, cards: ["partner"], charts: ["volume"] };
+  await db.run(
+    sql`INSERT INTO user_analytics_layouts (user_id, layout) VALUES (${"owner"}, ${JSON.stringify(oldLayout)})`,
+  );
+  expect(await getAnalyticsLayout(db, "owner", "owner")).toEqual(DEFAULT_ANALYTICS_LAYOUT);
+  const layout = { cards: ["partner", "sends"], charts: ["volume"] };
+  expect(await saveAnalyticsLayout({ cards: ["partner", "sends"], charts: ["volume"] })).toEqual({
+    ok: true,
+    value: undefined,
+  });
+  expect(await db.select().from(userAnalyticsLayouts)).toEqual([{ userId: "owner", layout }]);
+  expect(await getAnalyticsLayout(createDb(env.DB), "owner", "owner")).toEqual(layout);
+  for (const version of [1, 2]) {
+    expect((await saveAnalyticsLayout({ ...layout, version } as AnalyticsLayout)).ok).toBe(false);
+    expect(await db.select().from(userAnalyticsLayouts)).toEqual([{ userId: "owner", layout }]);
+  }
 });

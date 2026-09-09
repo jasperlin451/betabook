@@ -31,7 +31,6 @@ const unique = (items: readonly string[]) => new Set(items).size === items.lengt
 
 /** Writes are strict: invalid IDs, duplicates, and extra fields are rejected. */
 export const analyticsLayoutSchema = z.strictObject({
-  version: z.literal(2),
   cards: z.array(cardId).refine(unique, "Duplicate cards"),
   charts: z.array(chartId).refine(unique, "Duplicate charts"),
 });
@@ -39,37 +38,14 @@ export type AnalyticsLayout = z.infer<typeof analyticsLayoutSchema>;
 export type AnalyticsCardId = z.infer<typeof cardId>;
 export type AnalyticsItemId = AnalyticsCardId | z.infer<typeof chartId>;
 export const DEFAULT_ANALYTICS_LAYOUT: AnalyticsLayout = {
-  version: 2,
   cards: ["sends", "hardest", "days", "firstTry", "bestYear"],
   charts: ["progression", "pyramid", "breakthroughs", "calendar"],
 };
 
-// Stored preferences tolerate retired IDs; new catalog items are never added automatically.
-const storedLayoutSchema = z.discriminatedUnion("version", [
-  z.object({
-    version: z.literal(1),
-    cards: z.array(z.string()),
-    charts: z.array(z.string()),
-    hidden: z.array(z.string()),
-  }),
-  z.object({ version: z.literal(2), cards: z.array(z.string()), charts: z.array(z.string()) }),
-]);
+/** Invalid local preferences start fresh; reads and writes share one schema. */
 export function parseAnalyticsLayout(value: unknown): AnalyticsLayout {
-  const result = storedLayoutSchema.safeParse(value);
-  if (!result.success) return analyticsLayoutSchema.parse(DEFAULT_ANALYTICS_LAYOUT);
-  const saved = result.data;
-  const hidden = new Set(saved.version === 1 ? saved.hidden : []);
-  return {
-    version: 2,
-    cards: [...new Set(saved.cards)].flatMap((id) => {
-      const parsed = cardId.safeParse(id);
-      return parsed.success && !hidden.has(id) ? [parsed.data] : [];
-    }),
-    charts: [...new Set(saved.charts)].flatMap((id) => {
-      const parsed = chartId.safeParse(id);
-      return parsed.success && !hidden.has(id) ? [parsed.data] : [];
-    }),
-  };
+  const result = analyticsLayoutSchema.safeParse(value);
+  return result.success ? result.data : analyticsLayoutSchema.parse(DEFAULT_ANALYTICS_LAYOUT);
 }
 
 export function moveAnalyticsItem<T extends string>(
