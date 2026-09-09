@@ -44,40 +44,6 @@ Stop the dev server before running local database scripts and restart it afterwa
 
 [`cloudflare-env.d.ts`](cloudflare-env.d.ts) is the checked-in application binding contract. Keep it aligned with binding and environment changes. `pnpm cf-typegen` generates the full Workers types for inspection; builds and tests do not depend on that gitignored output.
 
-### Terms of Service
-
-`/terms` is publicly accessible from the footer and registration forms. Email
-registration requires an unchecked-by-default agreement checkbox. Google signup
-uses the same checkbox; Google sign-in also shows an agreement notice because
-it can create an account. New accounts store the accepted version and a server
-timestamp. The auth creation hook rejects missing or outdated assent, including
-at the Google callback, and clients cannot write acceptance records directly.
-
-Migration `0038_terms_acceptance.sql` adds nullable acceptance fields and the
-acceptance-history table without claiming consent for existing accounts. Atomic
-database triggers record each account/version once. Repeated submissions keep
-the original timestamp.
-
-Existing users and users who accepted an older version must visit `/accept-terms`
-before continuing to member features. Page loaders, data APIs, and server actions
-check the database, so a cached session cannot bypass agreement. An open tab checks
-on navigation/focus and at most once per minute of active interaction; an API
-rejection also opens the acceptance screen. Idle tabs do not poll. Terms, contact,
-password recovery, and sign-out remain available without agreement.
-
-To publish a revision, add an immutable document in `components/terms/versions/`,
-add its metadata first in `TERMS_VERSIONS` in `lib/terms.ts`, and register its
-component in `components/terms-content.tsx`. The first registry entry is current.
-Keep prior documents and entries: `/terms/[version]` is their permanent URL.
-Existing accounts will need to explicitly accept the new version; never update
-their acceptance fields in a release migration. The acceptance form validates the
-displayed version again when saving, and rejects an outdated form.
-
-The initial copy in `components/terms-content.tsx` is a draft for operator and
-legal review before publication, including operator identity and jurisdiction.
-It describes current sharing controls; it is not a separate privacy policy.
-The journal tutorial is unchanged because registration happens outside it.
-
 ### Sample data
 
 `pnpm seed` creates 400 areas, 5,000 climbs, and 50 synthetic climbers by default, plus sends and journal history covering ascents, repeats, projects, and training. Synthetic accounts start at `climber1@example.com` and use `password` unless a different password is supplied when generating them.
