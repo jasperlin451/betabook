@@ -31,11 +31,10 @@ function setup(overrides: Partial<EditableSend> = {}) {
   return { user: userEvent.setup(), save, onDone };
 }
 
-it("collapses the opinion fields for a send without opinions and submits the climb's grade", async () => {
+it("shows the opinion fields and submits the climb's grade for a send without a suggestion", async () => {
   const { user, save, onDone } = setup();
-  const details = screen.getByRole("button", { name: "Your opinion" });
-  expect(details).toHaveAttribute("aria-expanded", "false");
-  expect(screen.queryByRole("button", { name: /Suggested grade/ })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Suggested grade/ })).toBeVisible();
+  expect(screen.getByRole("radiogroup", { name: "Rating" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() => expect(onDone).toHaveBeenCalledOnce());
   expect(save).toHaveBeenCalledOnce();
@@ -48,12 +47,17 @@ it("collapses the opinion fields for a send without opinions and submits the cli
   expect(form.get("gradeFeel")).toBe("solid");
 });
 
-it("opens the opinion fields when the send records one and submits edits to them", async () => {
+it("clears the sent date to make the send undated", async () => {
+  const { user, save } = setup();
+  await user.click(screen.getByRole("button", { name: "Clear date sent" }));
+  expect(screen.queryByRole("button", { name: "Clear date sent" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  expect(save.mock.calls[0][1].get("dateSent")).toBe("");
+});
+
+it("submits edits to a recorded opinion", async () => {
   const { user, save } = setup({ rating: 4, suggestedGrade: 6, gradeFeel: "high" });
-  expect(screen.getByRole("button", { name: "Your opinion" })).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
   expect(screen.getByRole("radio", { name: "4 stars" })).toBeChecked();
   await user.click(screen.getByRole("button", { name: "Low end" }));
   await user.click(screen.getByRole("button", { name: "Save changes" }));

@@ -1,6 +1,6 @@
 import { expect, test, openStory } from "./story";
 
-test("date precedes send controls and keyboard selection reveals the undated layout", async ({
+test("date precedes send controls and clearing it reveals the undated-send layout", async ({
   page,
 }, info) => {
   await openStory(page, info, "components-journal-entry-fields--outdoor");
@@ -11,13 +11,20 @@ test("date precedes send controls and keyboard selection reveals the undated lay
   if (!sentBox || !dateBox) throw new Error("Expected visible send and date controls");
   expect(dateBox.y + dateBox.height).toBeLessThan(sentBox.y);
 
-  await page.getByRole("button", { name: "Add details" }).click();
-  const unknown = page.getByRole("checkbox", { name: "Record a send without a date", exact: true });
-  await unknown.focus();
-  await page.keyboard.press("Space");
-  await expect(unknown).toBeChecked();
-  await expect(sent).toBeChecked();
-  await expect(date).toBeHidden();
+  // Clear sits beside the field, vertically aligned with it.
+  const clear = page.getByRole("button", { name: "Clear date", exact: true });
+  const clearBox = await clear.boundingBox();
+  if (!clearBox) throw new Error("Expected a visible clear control");
+  expect(clearBox.x).toBeGreaterThan(dateBox.x + dateBox.width);
+  expect(
+    Math.abs(clearBox.y + clearBox.height / 2 - (dateBox.y + dateBox.height / 2)),
+  ).toBeLessThan(3);
+
+  await clear.focus();
+  await page.keyboard.press("Enter");
+  await expect(clear).toBeHidden();
+  await sent.press("Space");
+  await expect(page.getByRole("button", { name: "Save send" })).toBeVisible();
   await info.attach("undated-send", {
     body: await page.screenshot({ fullPage: true, animations: "disabled" }),
     contentType: "image/png",

@@ -1,4 +1,3 @@
-import { Button } from "@heroui/react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { useState } from "react";
 
@@ -15,6 +14,7 @@ export default meta;
 type Story = StoryObj;
 function DateExamples() {
   const [date, setDate] = useState("");
+  const [clearable, setClearable] = useState("2026-09-01");
   return (
     <StoryPage title="Date field states">
       <DatePickerField
@@ -24,10 +24,15 @@ function DateExamples() {
         max="2026-09-06"
         description="Type a date or choose one from the calendar."
       />
+      <DatePickerField
+        label="Clearable date"
+        value={clearable}
+        onChange={setClearable}
+        max="2026-09-06"
+        onClear={() => setClearable("")}
+        description="Clear sits beside the field and leaves with the value."
+      />
       <DatePickerField label="Read-only date" value="2026-09-01" onChange={() => {}} isReadOnly />
-      <Button variant="outline" onPress={() => setDate("")}>
-        Clear date
-      </Button>
     </StoryPage>
   );
 }

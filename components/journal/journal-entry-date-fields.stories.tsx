@@ -16,7 +16,6 @@ const meta = {
     today: "2026-09-06",
     entryDate: "2026-09-01",
     sent: false,
-    dateUnknown: false,
     onDateChange: () => {},
     onSentChange: () => {},
   },
@@ -26,7 +25,7 @@ const meta = {
     return (
       <StoryPage
         title="Entry date"
-        description="Date comes first, followed by send choices, without a separate section title. Recording a send without a date — chosen under Add details in the full Log entry form — hides the date, as in the Undated send example."
+        description="Date comes first, followed by send choices, without a separate section title. The × beside the date empties it — a send saved that way is recorded without a date, as in the Undated send example."
       >
         <div className={SURFACE_CARD_CLASS}>
           <JournalEntryDateFields
@@ -46,7 +45,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Session: Story = {};
 export const Ascent: Story = { args: { sent: true } };
-export const UndatedSend: Story = { args: { sent: true, dateUnknown: true } };
+export const UndatedSend: Story = { args: { sent: true, entryDate: "" } };
 export const Repeat: Story = { args: { sent: true, hasPriorSend: true } };
 export const Training: Story = { args: { kind: "training", hasClimb: false } };
 export const EditAscent: Story = {

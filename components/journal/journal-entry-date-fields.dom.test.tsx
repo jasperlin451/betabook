@@ -7,26 +7,33 @@ import { JournalEntryDateFields } from "./journal-entry-date-fields";
 
 function Dates(props: Partial<ComponentProps<typeof JournalEntryDateFields>> = {}) {
   const [sent, setSent] = useState(false);
+  const [entryDate, setEntryDate] = useState("2026-09-01");
   return (
     <JournalEntryDateFields
       kind="session"
       hasClimb
       hasPriorSend={false}
       today="2026-09-06"
-      entryDate="2026-09-01"
+      entryDate={entryDate}
       sent={sent}
-      dateUnknown={false}
-      onDateChange={() => {}}
+      onDateChange={setEntryDate}
       onSentChange={setSent}
       {...props}
     />
   );
 }
-it("hides the date for an undated send and shows it otherwise", () => {
-  const { rerender } = render(<Dates />);
+it("clears the date and drops the clear control with the value", async () => {
+  const user = userEvent.setup();
+  render(<Dates />);
   expect(screen.getByRole("spinbutton", { name: /day, Date/ })).toHaveTextContent("01");
-  rerender(<Dates sent dateUnknown />);
-  expect(screen.queryByRole("spinbutton", { name: /day, Date/ })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Clear date" }));
+  expect(screen.getByRole("spinbutton", { name: /day, Date/ })).not.toHaveTextContent("01");
+  expect(screen.queryByRole("button", { name: "Clear date" })).not.toBeInTheDocument();
+});
+it("offers no clear control when editing an entry, which always needs its date", () => {
+  render(<Dates existingEntry={{ sent: false, isAscent: false }} />);
+  expect(screen.getByRole("spinbutton", { name: /day, Date/ })).toHaveTextContent("01");
+  expect(screen.queryByRole("button", { name: "Clear date" })).not.toBeInTheDocument();
 });
 it.each(["repeat", "training"])("explains that %s needs a date", async (kind) => {
   const user = userEvent.setup();
@@ -61,6 +68,7 @@ it.each([true, false])(
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Clear date" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Calendar Date" })).toBeDisabled();
     const day = screen.getByRole("spinbutton", { name: /day, Date/ });
     await user.click(day);

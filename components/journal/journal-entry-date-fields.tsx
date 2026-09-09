@@ -14,10 +14,9 @@ type JournalEntryDateFieldsProps = {
   hasPriorSend: boolean;
   existingEntry?: Pick<JournalEntry, "sent" | "isAscent">;
   today: string;
+  /** ISO `YYYY-MM-DD`, or "" once cleared — a send saved without a date. */
   entryDate: string;
   sent: boolean;
-  /** Selected in the owning form's Add details section; hides the date. */
-  dateUnknown: boolean;
   onDateChange: (value: string) => void;
   onSentChange: (value: boolean) => void;
 };
@@ -31,24 +30,22 @@ export function JournalEntryDateFields({
   today,
   entryDate,
   sent,
-  dateUnknown,
   onDateChange,
   onSentChange,
 }: JournalEntryDateFieldsProps) {
   const canRecordUndatedSend = !existingEntry && hasClimb && !hasPriorSend;
-  const isUndatedSend = canRecordUndatedSend && sent && dateUnknown;
 
   return (
     <div className="flex flex-col gap-3">
-      {!isUndatedSend && (
-        <DatePickerField
-          label="Date"
-          value={entryDate}
-          max={today}
-          isReadOnly={existingEntry?.sent}
-          onChange={onDateChange}
-        />
-      )}
+      <DatePickerField
+        label="Date"
+        value={entryDate}
+        max={today}
+        isReadOnly={existingEntry?.sent}
+        onChange={onDateChange}
+        // Only a new entry can become an undated send; edits keep their date.
+        onClear={existingEntry ? undefined : () => onDateChange("")}
+      />
 
       {hasClimb && !existingEntry && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">

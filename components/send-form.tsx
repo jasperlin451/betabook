@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Checkbox, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Label, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
 import { updateSend } from "@/actions";
@@ -12,7 +12,6 @@ import {
 } from "@/components/send-fields";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { DatePickerField } from "@/components/ui/date-picker-field";
-import { DetailsDisclosure } from "@/components/ui/details-disclosure";
 import { FieldHeader } from "@/components/ui/field-support";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { RatingField } from "@/components/ui/rating-field";
@@ -29,21 +28,13 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   const today = new Intl.DateTimeFormat("en-CA").format(new Date());
 
   const [ascentStyle, setAscentStyle] = useState<AscentStyle>(existingSend.ascentStyle);
-  const [dateSent, setDateSent] = useState(existingSend.dateSent ?? today);
-  const [dateUnknown, setDateUnknown] = useState(existingSend.dateSent == null);
+  const [dateSent, setDateSent] = useState(existingSend.dateSent ?? "");
   const [comment, setComment] = useState(existingSend.comment ?? "");
   const [rating, setRating] = useState<number | null>(existingSend.rating);
   const [suggestedGrade, setSuggestedGrade] = useState(
     String(existingSend.suggestedGrade ?? climb.grade ?? ""),
   );
   const [gradeFeel, setGradeFeel] = useState<GradeFeel>(existingSend.gradeFeel);
-  // Open when the send already records an opinion beyond the defaults, so
-  // those values are on screen while being edited.
-  const [detailsExpanded, setDetailsExpanded] = useState(
-    existingSend.rating != null ||
-      existingSend.gradeFeel !== "solid" ||
-      (existingSend.suggestedGrade != null && existingSend.suggestedGrade !== climb.grade),
-  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -53,7 +44,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
 
     const formData = new FormData();
     formData.set("ascentStyle", ascentStyle);
-    formData.set("dateSent", dateUnknown ? "" : dateSent);
+    formData.set("dateSent", dateSent);
     formData.set("comment", comment);
     formData.set("rating", rating == null ? "" : String(rating));
     formData.set("suggestedGrade", suggestedGrade);
@@ -74,24 +65,16 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
       <FormSection label="Ascent">
         <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} />
 
-        {!dateUnknown && (
-          <DatePickerField label="Date sent" value={dateSent} max={today} onChange={setDateSent} />
-        )}
-        <Checkbox isSelected={dateUnknown} onChange={setDateUnknown}>
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            I don&apos;t remember the date
-          </Checkbox.Content>
-        </Checkbox>
+        <DatePickerField
+          label="Date sent"
+          value={dateSent}
+          max={today}
+          onChange={setDateSent}
+          onClear={() => setDateSent("")}
+        />
       </FormSection>
 
-      <DetailsDisclosure
-        title="Your opinion"
-        isExpanded={detailsExpanded}
-        onExpandedChange={setDetailsExpanded}
-      >
+      <FormSection label="Your opinion">
         <div className="grid gap-4 sm:grid-cols-2">
           <RatingField value={rating} onValueChange={setRating} />
           <SuggestedGradeField
@@ -102,7 +85,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
         </div>
 
         <GradeFeelField value={gradeFeel} onChange={setGradeFeel} />
-      </DetailsDisclosure>
+      </FormSection>
 
       <FormSection label="Send commentary">
         <TextField value={comment} onChange={setComment}>

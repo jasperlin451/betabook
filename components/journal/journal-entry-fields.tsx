@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Checkbox, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Label, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
 import { CompanionPicker } from "@/components/journal/companion-picker";
@@ -75,7 +75,6 @@ export function JournalEntryFields({
   onPendingChange,
 }: JournalEntryFieldsProps) {
   const [entryDate, setEntryDate] = useState(existingEntry?.entryDate ?? today);
-  const [dateUnknown, setDateUnknown] = useState(false);
   const [sent, setSent] = useState(existingEntry?.sent ?? false);
   const [body, setBody] = useState(existingEntry?.body ?? "");
   const [companions, setCompanions] = useState<CompanionOption[]>(existingEntry?.companions ?? []);
@@ -96,15 +95,18 @@ export function JournalEntryFields({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const canRecordUndatedSend = !existingEntry && climb != null && !hasPriorSend;
   const isAscent = !existingEntry && sent && climb != null && !hasPriorSend;
-  const isUndatedSend = isAscent && dateUnknown;
+  const isUndatedSend = isAscent && entryDate === "";
   const summary = describePendingEntry({ kind, climbName: climb?.name, sent, hasPriorSend });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (pending) return;
     setError(null);
+    if (entryDate === "" && !isUndatedSend) {
+      setError("Add a date to save this entry.");
+      return;
+    }
     if (isUndatedSend && companions.length > 0) {
       setError("Add a date to keep With friends.");
       setDetailsExpanded(true);
@@ -164,16 +166,26 @@ export function JournalEntryFields({
         today={today}
         entryDate={entryDate}
         sent={sent}
-        dateUnknown={dateUnknown}
         onDateChange={setEntryDate}
-        onSentChange={(value) => {
-          setSent(value);
-          if (!value) setDateUnknown(false);
-        }}
+        onSentChange={setSent}
         ascentStyle={
           isAscent ? <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} /> : undefined
         }
       />
+
+      {isAscent && climb && (
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <RatingField value={rating} onValueChange={setRating} />
+            <SuggestedGradeField
+              climbType={climb.type}
+              value={suggestedGrade}
+              onChange={setSuggestedGrade}
+            />
+          </div>
+          <GradeFeelField value={gradeFeel} onChange={setGradeFeel} />
+        </div>
+      )}
 
       <TextField className="w-full min-w-0" value={body} onChange={setBody}>
         <FieldHeader
@@ -201,20 +213,6 @@ export function JournalEntryFields({
         isExpanded={detailsExpanded}
         onExpandedChange={setDetailsExpanded}
       >
-        {isAscent && climb && (
-          <div className="flex flex-col gap-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <RatingField value={rating} onValueChange={setRating} />
-              <SuggestedGradeField
-                climbType={climb.type}
-                value={suggestedGrade}
-                onChange={setSuggestedGrade}
-              />
-            </div>
-            <GradeFeelField value={gradeFeel} onChange={setGradeFeel} />
-          </div>
-        )}
-
         <div className="flex flex-wrap items-start gap-4">
           <CompanionPicker
             value={companions}
@@ -229,23 +227,6 @@ export function JournalEntryFields({
           />
           {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}
         </div>
-
-        {canRecordUndatedSend && (
-          <Checkbox
-            isSelected={sent && dateUnknown}
-            onChange={(value) => {
-              if (value) setSent(true);
-              setDateUnknown(value);
-            }}
-          >
-            <Checkbox.Content>
-              <Checkbox.Control>
-                <Checkbox.Indicator />
-              </Checkbox.Control>
-              Record a send without a date
-            </Checkbox.Content>
-          </Checkbox>
-        )}
 
         <p className="text-xs text-muted">
           Set separate audiences for send commentary and journal entries in{" "}

@@ -110,17 +110,18 @@ it("blocks an undated send with friends and preserves their identities on recove
   await openDetails(user);
   await addFriend(user);
   await user.click(screen.getByRole("checkbox", { name: "I sent" }));
-  const unknown = screen.getByRole("checkbox", { name: "Record a send without a date" });
-  await user.click(unknown);
+  await user.click(screen.getByRole("button", { name: "Clear date" }));
   await user.click(screen.getByRole("button", { name: "Save send" }));
   expect(screen.getByRole("alert")).toHaveTextContent("Add a date to keep With friends.");
   expect(onSave).not.toHaveBeenCalled();
   expect(screen.getByRole("button", { name: "Remove friend Sam Rivera" })).toBeInTheDocument();
-  await user.click(unknown);
+  await user.click(screen.getByRole("spinbutton", { name: /month, Date/ }));
+  await user.keyboard("09062026");
   await user.click(screen.getByRole("button", { name: "Save entry" }));
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(onSave).toHaveBeenCalledOnce();
   expect(onSave.mock.calls[0][1]).toBe(false);
+  expect(onSave.mock.calls[0][0].get("entryDate")).toBe("2026-09-06");
   expect(onSave.mock.calls[0][0].getAll("companion")).toEqual(["sam"]);
 });
 
@@ -129,7 +130,8 @@ it("preserves undated commentary and omits journal-only tags", async () => {
   await openDetails(user);
   await fillNotes(user);
   await user.click(screen.getByRole("checkbox", { name: "I sent" }));
-  await user.click(screen.getByRole("checkbox", { name: "Record a send without a date" }));
+  await user.click(screen.getByRole("button", { name: "Clear date" }));
+  expect(screen.queryByRole("button", { name: "Clear date" })).not.toBeInTheDocument();
   expect(screen.queryByRole("combobox", { name: "Tags" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Save send" }));
   expect(onSave).toHaveBeenCalledOnce();
@@ -205,12 +207,15 @@ it("keeps optional fields behind a collapsed Add details section", async () => {
   expect(screen.queryByRole("combobox", { name: "Find a friend to tag" })).not.toBeInTheDocument();
   expect(screen.queryByRole("combobox", { name: "Tags" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("checkbox", { name: "I sent" }));
-  expect(screen.queryByRole("button", { name: /Suggested grade/ })).not.toBeInTheDocument();
+  // The ascent opinion is part of the visible send record, not Add details.
+  expect(screen.getByRole("button", { name: /Suggested grade/ })).toBeVisible();
+  expect(screen.getByRole("radiogroup", { name: "Rating" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Solid" })).toBeVisible();
   expect(screen.getByRole("radiogroup", { name: "Ascent style" })).toBeVisible();
+  expect(detailsTrigger()).toHaveAttribute("aria-expanded", "false");
   await openDetails(user);
   expect(screen.getByRole("combobox", { name: "Find a friend to tag" })).toBeVisible();
   expect(screen.getByRole("combobox", { name: "Tags" })).toBeVisible();
-  expect(screen.getByRole("button", { name: /Suggested grade/ })).toBeVisible();
 });
 
 it("submits the default ascent opinion without opening Add details", async () => {
@@ -227,29 +232,20 @@ it("submits the default ascent opinion without opening Add details", async () =>
   expect(form.get("gradeFeel")).toBe("solid");
 });
 
-it("selects a send for an unknown date and restores the date when unchecked", async () => {
-  const { user } = setup();
-  await openDetails(user);
-  const unknown = screen.getByRole("checkbox", { name: "Record a send without a date" });
-  const sent = screen.getByRole("checkbox", { name: "I sent" });
-  await user.click(unknown);
-  expect(sent).toBeChecked();
-  expect(screen.queryByRole("spinbutton", { name: /day, Date/ })).not.toBeInTheDocument();
-  await user.click(unknown);
-  expect(unknown).not.toBeChecked();
-  expect(sent).toBeChecked();
-  expect(screen.getByRole("spinbutton", { name: /day, Date/ })).toBeInTheDocument();
-  await user.click(unknown);
-  await user.click(sent);
-  expect(sent).not.toBeChecked();
-  expect(screen.getByRole("checkbox", { name: "Record a send without a date" })).not.toBeChecked();
+it("requires a date for entries that aren't sends", async () => {
+  const { user, onSave } = setup();
+  await user.click(screen.getByRole("button", { name: "Clear date" }));
+  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Add a date to save this entry.");
+  expect(onSave).not.toHaveBeenCalled();
 });
 
 it("reopens Add details when a hidden friend blocks an undated send", async () => {
   const { user, onSave } = setup();
   await openDetails(user);
   await addFriend(user);
-  await user.click(screen.getByRole("checkbox", { name: "Record a send without a date" }));
+  await user.click(screen.getByRole("checkbox", { name: "I sent" }));
+  await user.click(screen.getByRole("button", { name: "Clear date" }));
   await user.click(detailsTrigger());
   expect(detailsTrigger()).toHaveAttribute("aria-expanded", "false");
   await user.click(screen.getByRole("button", { name: "Save send" }));

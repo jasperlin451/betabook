@@ -23,6 +23,9 @@ export type DatePickerFieldProps = {
   max?: string;
   isReadOnly?: boolean;
   description?: string;
+  /** Renders a Clear button to the right of the field that empties the
+   * value. Only shown while there is a value and the field is editable. */
+  onClear?: () => void;
 };
 
 /** The app's date field: a segmented input plus a calendar popover, themed from
@@ -35,10 +38,11 @@ export function DatePickerField({
   max,
   isReadOnly,
   description,
+  onClear,
 }: DatePickerFieldProps) {
   const maxDate = toCalendarDate(max);
 
-  return (
+  const picker = (
     <DatePicker
       className={FIELD_WIDTH_CLASS.medium}
       value={toCalendarDate(value)}
@@ -88,5 +92,23 @@ export function DatePickerField({
         </Calendar>
       </DatePicker.Popover>
     </DatePicker>
+  );
+
+  if (!onClear) return picker;
+
+  return (
+    <div className="flex items-end gap-3">
+      {picker}
+      {value && !isReadOnly && (
+        <button
+          type="button"
+          aria-label={`Clear ${label.toLowerCase()}`}
+          onClick={onClear}
+          className="flex h-10 cursor-pointer items-center text-sm font-medium text-muted transition-colors hover:text-foreground focus-visible:status-focused"
+        >
+          Clear
+        </button>
+      )}
+    </div>
   );
 }
