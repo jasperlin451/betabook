@@ -1,4 +1,5 @@
 export * from "./account";
+export * from "./terms";
 export * from "./areas";
 export * from "./climbs";
 export * from "./sends";

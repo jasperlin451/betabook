@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { NewAreaForm } from "@/components/new-area-form";
 import { PageTitle } from "@/components/ui/typography";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Add area",

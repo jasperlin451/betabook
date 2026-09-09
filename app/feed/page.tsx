@@ -11,7 +11,7 @@ import { ViewerBoundary } from "@/components/viewer-boundary";
 import { getDb } from "@/db/client";
 import { getFriendsPage, getFeedPage } from "@/db/queries";
 import { parseFeedView } from "@/lib/feed";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 import type { UrlParamsRecord } from "@/lib/url-params";
 
 export const metadata: Metadata = { title: "Feed", robots: { index: false } };

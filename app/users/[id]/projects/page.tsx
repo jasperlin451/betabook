@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { ProfileHeader, getUserById } from "@/app/users/[id]/profile-shell";
 import { ProjectsView } from "@/app/users/[id]/projects-view";
 import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 
 type UserProjectsPageProps = {
   params: Promise<{ id: string }>;

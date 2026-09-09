@@ -39,7 +39,7 @@ import { buildLoggedGradeRows } from "@/lib/grade-histogram";
 import { formatGrade } from "@/lib/grades";
 import type { AscentStyle as AscentStyleType } from "@/lib/sends";
 import { climbDescription, climbJsonLd, climbTitle, locationTrail, pageMetadata } from "@/lib/seo";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 import { signInUrl } from "@/lib/sign-in-redirect";
 import { areaHref, climbHref, slugify, withQuery } from "@/lib/slug";
 import type { UrlParamsRecord } from "@/lib/url-params";

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 
 import { requireAdminOrRedirect } from "./require-admin";
 

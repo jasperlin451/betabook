@@ -10,7 +10,7 @@ import { SectionHeading } from "@/components/ui/typography";
 import { ViewerBoundary } from "@/components/viewer-boundary";
 import { getDb } from "@/db/client";
 import { getFriendsPage } from "@/db/queries";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 import type { UrlParamsRecord } from "@/lib/url-params";
 
 export const metadata: Metadata = { title: "Friends", robots: { index: false } };

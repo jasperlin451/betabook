@@ -27,7 +27,7 @@ import { getUserHashtags } from "@/db/queries/hashtag-filter";
 import { normalizeHashtagFilters } from "@/lib/filters/hashtag-filter";
 import { formatCount } from "@/lib/format";
 import type { ClimbType } from "@/lib/grades";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 import { toArray, type UrlParamsRecord } from "@/lib/url-params";
 import {
   buildPyramid,

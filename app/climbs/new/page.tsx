@@ -6,7 +6,7 @@ import { PageTitle } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
 import { getArea, getAreaBreadcrumbs } from "@/db/queries";
 import { isClimbType } from "@/lib/climbs";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 import { parseAreaId, toArray, type UrlParamsRecord } from "@/lib/url-params";
 
 export const metadata: Metadata = {

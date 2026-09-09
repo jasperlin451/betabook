@@ -1,7 +1,24 @@
+import { TERMS_VERSION } from "@/lib/terms";
+
 import { appBaseURL } from "./app-server";
 import { expect, test } from "./story";
 
 test.use({ baseURL: appBaseURL });
+
+test(
+  "acceptance requires sign-in while published terms remain public",
+  { tag: "@behavior" },
+  async ({ page, request }) => {
+    await page.goto("/accept-terms?next=%2Ffriends%3Fview%3Drequests");
+    await expect(page).toHaveURL(/\/sign-in\?next=%2Faccept-terms/);
+    await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
+    await page.goto(`/terms/${TERMS_VERSION}`);
+    await expect(
+      page.getByRole("heading", { name: "Terms of Service", exact: true }),
+    ).toBeVisible();
+    expect((await request.get(`${appBaseURL}/terms/not-a-published-version`)).status()).toBe(404);
+  },
+);
 
 test("terms open from signup without losing entries and remain reachable from the footer", async ({
   page,
@@ -13,11 +30,11 @@ test("terms open from signup without losing entries and remain reachable from th
   const popup = context.waitForEvent("page");
   await page.getByRole("link", { name: /Read the Terms of Service/ }).click();
   const terms = await popup;
-  await expect(terms).toHaveURL(`${appBaseURL}/terms`);
+  await expect(terms).toHaveURL(`${appBaseURL}/terms/${TERMS_VERSION}`);
   await expect(terms.getByRole("heading", { name: "Terms of Service", exact: true })).toBeVisible();
   await expect(terms.locator('link[rel="canonical"]')).toHaveAttribute(
     "href",
-    "https://betabook.ca/terms",
+    `https://betabook.ca/terms/${TERMS_VERSION}`,
   );
   await expect(email).toHaveValue("climber@example.com");
   await expect(

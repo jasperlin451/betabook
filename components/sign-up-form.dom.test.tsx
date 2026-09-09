@@ -2,7 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { TERMS_VERSION } from "@/lib/terms";
+import { TERMS_VERSION, termsHref } from "@/lib/terms";
 
 import { SignUpForm } from "./sign-up-form";
 
@@ -29,7 +29,10 @@ it("requires an explicit agreement for both registration paths", async () => {
   expect(google).toBeDisabled();
   const agreement = screen.getByRole("checkbox", { name: /I agree to the Terms of Service/ });
   expect(agreement).not.toBeChecked();
-  expect(screen.getByRole("link", { name: /Terms of Service/ })).toHaveAttribute("href", "/terms");
+  expect(screen.getByRole("link", { name: /Terms of Service/ })).toHaveAttribute(
+    "href",
+    termsHref(),
+  );
   await user.click(agreement);
   expect(submit).toBeEnabled();
   expect(google).toBeEnabled();

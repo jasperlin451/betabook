@@ -54,9 +54,24 @@ timestamp. The auth creation hook rejects missing or outdated assent, including
 at the Google callback, and clients cannot write acceptance records directly.
 
 Migration `0037_terms_acceptance.sql` adds nullable acceptance fields without
-claiming consent for existing accounts. This change does not prompt existing
-users to accept terms again. A future terms revision needs a version history
-and a decision about notice and renewed acceptance.
+claiming consent for existing accounts. Migration `0038_terms_acceptance_history.sql`
+preserves genuine prior acceptance and records each account/version once using
+atomic database triggers. Repeated submissions keep the original timestamp.
+
+Existing users and users who accepted an older version must visit `/accept-terms`
+before continuing to member features. Page loaders, data APIs, and server actions
+check the database, so a cached session cannot bypass agreement. An open tab checks
+on navigation/focus and at most once per minute of active interaction; an API
+rejection also opens the acceptance screen. Idle tabs do not poll. Terms, contact,
+password recovery, and sign-out remain available without agreement.
+
+To publish a revision, add an immutable document in `components/terms/versions/`,
+add its metadata first in `TERMS_VERSIONS` in `lib/terms.ts`, and register its
+component in `components/terms-content.tsx`. The first registry entry is current.
+Keep prior documents and entries: `/terms/[version]` is their permanent URL.
+Existing accounts will need to explicitly accept the new version; never update
+their acceptance fields in a release migration. The acceptance form validates the
+displayed version again when saving, and rejects an outdated form.
 
 The initial copy in `components/terms-content.tsx` is a draft for operator and
 legal review before publication, including operator identity and jurisdiction.

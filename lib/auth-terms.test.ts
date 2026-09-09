@@ -1,8 +1,9 @@
 import { env } from "cloudflare:test";
+import { eq } from "drizzle-orm";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { createDb } from "@/db/client";
-import { user } from "@/db/schema";
+import { user, userTermsAcceptances } from "@/db/schema";
 import { initAuth } from "@/lib/auth";
 import { formatAuthErrorMessage } from "@/lib/sign-in-redirect";
 import { TERMS_REQUIRED_MESSAGE, TERMS_VERSION } from "@/lib/terms";
@@ -66,6 +67,9 @@ it("stores the accepted version with a server timestamp", async () => {
   const acceptedAt = stored.termsAcceptedAt!.getTime();
   expect(acceptedAt).toBeGreaterThanOrEqual(before);
   expect(acceptedAt).toBeLessThanOrEqual(Date.now());
+  expect(await db.select().from(userTermsAcceptances)).toEqual([
+    { userId: stored.id, version: TERMS_VERSION, acceptedAt: stored.termsAcceptedAt },
+  ]);
 });
 
 it.each([{ termsVersion: "forged" }, { termsAcceptedAt: "2000-01-01T00:00:00.000Z" }])(
@@ -161,4 +165,40 @@ it("does not backfill acceptance for an existing Google account", async () => {
   expect(await db.select().from(user)).toMatchObject([
     { id: "existing-google", termsVersion: null, termsAcceptedAt: null },
   ]);
+});
+
+it("does not allow the built-in profile-update endpoint to bypass renewed acceptance", async () => {
+  const auth = await initAuth();
+  await auth.handler(signup(TERMS_VERSION));
+  await db
+    .update(user)
+    .set({ emailVerified: true, termsVersion: "2025-01-01", termsAcceptedAt: new Date(1000) });
+  const signin = await auth.handler(
+    new Request("http://localhost:3000/api/auth/sign-in/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "http://localhost:3000" },
+      body: JSON.stringify({ email: "terms@example.com", password: "password123" }),
+    }),
+  );
+  expect(signin.status).toBe(200);
+  const cookies = signin.headers
+    .getSetCookie()
+    .map((cookie) => cookie.split(";")[0])
+    .join("; ");
+  const response = await auth.handler(
+    new Request("http://localhost:3000/api/auth/update-user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "http://localhost:3000",
+        Cookie: cookies,
+      },
+      body: JSON.stringify({ name: "Changed without agreement" }),
+    }),
+  );
+  expect(response.status).toBe(403);
+  expect(await response.json()).toMatchObject({ code: "TERMS_ACCEPTANCE_REQUIRED" });
+  expect(
+    (await db.select().from(user).where(eq(user.email, "terms@example.com")).get())?.name,
+  ).toBe("Terms Climber");
 });

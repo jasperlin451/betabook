@@ -19,7 +19,7 @@ import { PageTitle, SectionHeading } from "@/components/ui/typography";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getDb } from "@/db/client";
 import { getUser } from "@/db/queries";
-import { getSession, isAdmin } from "@/lib/session";
+import { getMemberSession as getSession, isAdmin } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Account",

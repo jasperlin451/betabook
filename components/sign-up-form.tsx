@@ -10,7 +10,7 @@ import { PageTitle } from "@/components/ui/typography";
 import { authClient } from "@/lib/auth-client";
 import { MAX_DISPLAY_NAME_LENGTH } from "@/lib/display-name";
 import { safeNextPath, signInUrl } from "@/lib/sign-in-redirect";
-import { TERMS_VERSION } from "@/lib/terms";
+import { TERMS_VERSION, termsHref } from "@/lib/terms";
 
 export function SignUpForm({
   next,
@@ -107,7 +107,7 @@ export function SignUpForm({
           </Checkbox.Content>
         </Checkbox>
         <AppLink
-          href="/terms"
+          href={termsHref()}
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm underline"

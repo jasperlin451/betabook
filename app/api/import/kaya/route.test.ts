@@ -1,6 +1,15 @@
+import { env } from "cloudflare:test";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { createDb } from "@/db/client";
+import { user } from "@/db/schema";
 import type { KayaStreamEvent } from "@/lib/kaya-import-stream";
+import { seedFixtureUser } from "@/test/fixtures";
+
+vi.mock("@/db/client", async (original) => {
+  const actual = await original<typeof import("@/db/client")>();
+  return { ...actual, getDb: async () => actual.createDb(env.DB) };
+});
 
 import { GET } from "./route";
 
@@ -25,8 +34,11 @@ async function events(response: Response): Promise<KayaStreamEvent[]> {
     .split("\n")
     .map((line) => JSON.parse(line));
 }
-beforeEach(() => {
+beforeEach(async () => {
   identity.signedIn = true;
+  const db = createDb(env.DB);
+  await db.delete(user);
+  await seedFixtureUser(db, { id: "local" });
 });
 afterEach(() => vi.unstubAllGlobals());
 

@@ -5,6 +5,7 @@ import { APIError, getOAuthState } from "better-auth/api";
 
 import { getDb } from "@/db/client";
 import { getUserIdByName } from "@/db/queries";
+import { getTermsAcceptance } from "@/db/queries/terms";
 import * as schema from "@/db/schema";
 import {
   deleteAccountPendingChangeRequests,
@@ -13,7 +14,12 @@ import {
 } from "@/lib/account";
 import { DISPLAY_NAME_TAKEN_MESSAGE, displayNameProblem } from "@/lib/display-name";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@/lib/email";
-import { TERMS_REQUIRED_MESSAGE, TERMS_VERSION } from "@/lib/terms";
+import {
+  hasAcceptedCurrentTerms,
+  TERMS_ACCESS_MESSAGE,
+  TERMS_REQUIRED_MESSAGE,
+  TERMS_VERSION,
+} from "@/lib/terms";
 import { sendWelcomeEmailOnce } from "@/lib/welcome-email";
 
 async function authBuilder() {
@@ -163,6 +169,15 @@ async function authBuilder() {
           // error. Same rules as sign-up, excluding the caller's own name
           // so a case-only change isn't rejected as taken.
           before: async (data, ctx) => {
+            if (ctx?.path === "/update-user") {
+              const userId = ctx.context.session?.user.id;
+              if (!userId || !hasAcceptedCurrentTerms(await getTermsAcceptance(db, userId))) {
+                throw new APIError("FORBIDDEN", {
+                  code: "TERMS_ACCEPTANCE_REQUIRED",
+                  message: TERMS_ACCESS_MESSAGE,
+                });
+              }
+            }
             if (typeof data.name !== "string") return { data };
             const name = data.name.trim();
             const problem = displayNameProblem(name);

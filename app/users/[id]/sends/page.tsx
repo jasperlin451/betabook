@@ -5,7 +5,7 @@ import { ProfileHeader, getUserById } from "@/app/users/[id]/profile-shell";
 import { SendsView } from "@/app/users/[id]/sends-view";
 import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { parseUserSendsFilter } from "@/lib/filters/user-sends-filter";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 import type { UrlParamsRecord } from "@/lib/url-params";
 import { canViewUser } from "@/lib/user-visibility";
 

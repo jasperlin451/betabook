@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { AppSearch } from "@/components/search/app-search";
 import { parseSearchState } from "@/lib/search";
 import { loadSearch, loadAreaSelection } from "@/lib/search-loader";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 import type { UrlParamsRecord } from "@/lib/url-params";
 
 type SearchPageProps = {

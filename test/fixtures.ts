@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { areas, climbs, user, sends, journalEntries, friendships } from "@/db/schema";
 import { friendshipPair } from "@/lib/friendships";
+import { TERMS_VERSION } from "@/lib/terms";
 
 export async function seedFixtureFriendship(
   db: Database,
@@ -107,6 +108,10 @@ export async function seedFixtureUser(db: Database, overrides: FixtureUserOverri
   const row = {
     name: `Test Climber ${overrides.id}`,
     email: `${overrides.id}@example.com`,
+    // Domain/API fixtures normally represent a member who finished onboarding.
+    // Terms-specific tests explicitly override these with legacy/null values.
+    termsVersion: TERMS_VERSION,
+    termsAcceptedAt: new Date("2026-09-09T00:00:00Z"),
     ...overrides,
   };
   await db.insert(user).values(row);

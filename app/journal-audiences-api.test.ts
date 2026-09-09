@@ -37,6 +37,7 @@ vi.mock("@/app/users/[id]/profile-shell", async () => {
 });
 vi.mock("@/lib/session", () => ({
   getSession: async () => (state.viewer ? { user: { id: state.viewer } } : null),
+  getMemberSession: async () => (state.viewer ? { user: { id: state.viewer } } : null),
 }));
 vi.mock("@/db/client", async (original) => {
   const actual = await original<typeof import("@/db/client")>();

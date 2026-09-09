@@ -7,7 +7,7 @@ import { getDb } from "@/db/client";
 import { getProductTourState } from "@/db/queries";
 import { getAcknowledgedTourVersion } from "@/lib/product-tour";
 import { findProductTour } from "@/lib/product-tour-navigation";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Product tour", robots: { index: false } };
 

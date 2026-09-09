@@ -35,7 +35,7 @@ import {
 } from "@/lib/filters/area-climbs-filter";
 import { buildGradeHistogram } from "@/lib/grade-histogram";
 import { areaDescription, areaJsonLd, areaTitle, locationTrail, pageMetadata } from "@/lib/seo";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 import { areaHref, slugify, withQuery } from "@/lib/slug";
 import type { UrlParamsRecord } from "@/lib/url-params";
 

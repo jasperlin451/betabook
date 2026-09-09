@@ -10,6 +10,7 @@ import { FORM_CARD_CLASS } from "@/components/ui/card";
 import { PageTitle } from "@/components/ui/typography";
 import { authClient } from "@/lib/auth-client";
 import { DEFAULT_SIGNED_IN_PATH, safeNextPath, signInUrl, signUpUrl } from "@/lib/sign-in-redirect";
+import { termsHref } from "@/lib/terms";
 
 export function SignInForm({
   next,
@@ -103,7 +104,7 @@ export function SignInForm({
           <p className="text-sm text-muted">
             By continuing with Google, you agree to the{" "}
             <AppLink
-              href="/terms"
+              href={termsHref()}
               target="_blank"
               rel="noopener noreferrer"
               className="inline underline"
