@@ -1,6 +1,6 @@
 "use client";
 
-import { ComboBox, Input, Label, ListBox } from "@heroui/react";
+import { Button, ComboBox, Input, Label, ListBox } from "@heroui/react";
 import { X } from "lucide-react";
 import { useContext, useEffect, useRef, useState } from "react";
 import { ComboBoxStateContext } from "react-aria-components";
@@ -95,13 +95,22 @@ export function TagsField({
               <Label>Tags</Label>
             </FieldHeader>
           )}
-          <ComboBox.InputGroup>
+          <ComboBox.InputGroup className="relative">
             <TagFieldInput
+              showHint={allowCreate && draft === "#"}
               browse={!allowCreate}
               onBlurCommit={allowCreate ? () => commit(draft) : undefined}
               scope={JSON.stringify([tags, value])}
               onCommit={() => commit(draft)}
             />
+            {allowCreate && draft === "#" && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-3 top-1/2 -translate-y-1/2 truncate text-xs text-muted"
+              >
+                #technical, #moonboard...
+              </span>
+            )}
             <ComboBox.Trigger className="hidden" />
           </ComboBox.InputGroup>
           <FieldFeedback
@@ -127,21 +136,23 @@ export function TagsField({
           </ComboBox.Popover>
         </ComboBox>
         {value.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {value.map((tag) => (
-              <button
+              <Button
                 key={tag}
+                size="sm"
+                variant="secondary"
                 type="button"
-                onClick={() => {
+                onPress={() => {
                   onChange(value.filter((selected) => selected !== tag));
                   setDraft("#");
                 }}
                 aria-label={`Remove tag ${tag}`}
-                className="flex cursor-pointer items-center gap-1 self-start rounded-full border border-border px-3 py-1 text-sm text-muted transition-colors hover:text-foreground focus-visible:status-focused"
+                className="max-w-full"
               >
-                #{tag}
+                <span className="truncate">#{tag}</span>
                 <X className="size-3.5" aria-hidden="true" />
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -152,11 +163,13 @@ export function TagsField({
 
 /** Browses the supplied filter options immediately; this never performs a record search. */
 function TagFieldInput({
+  showHint,
   scope,
   onCommit,
   browse,
   onBlurCommit,
 }: {
+  showHint: boolean;
   scope: string;
   onCommit: () => boolean;
   browse: boolean;
@@ -184,6 +197,7 @@ function TagFieldInput({
   }
   return (
     <Input
+      className={showHint ? "text-transparent caret-foreground" : undefined}
       placeholder="#"
       onBlur={onBlurCommit}
       onSelect={(event) => protectPrefix(event.currentTarget)}

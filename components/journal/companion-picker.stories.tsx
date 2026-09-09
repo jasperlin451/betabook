@@ -41,7 +41,7 @@ function Example({
   return (
     <StoryPage
       title="With friends"
-      description="Companions belong to one journal entry. Select Alex, then type Sam to add another friend; each selection closes the menu and keeps the search ready."
+      description="Selected friends appear as removable filled buttons below the field, matching tags. Companions belong to one journal entry. Select Alex, then type Sam to add another friend; each selection closes the menu and keeps the search ready."
     >
       <CompanionPicker
         value={selected}
@@ -61,7 +61,17 @@ function Example({
     </StoryPage>
   );
 }
-export const Selection: Story = { render: () => <Example /> };
+export const Selection: Story = {
+  render: () => <Example />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.type(canvas.getByRole("combobox", { name: "Find a friend to tag" }), "Alex");
+    await userEvent.click(
+      await within(canvasElement.ownerDocument.body).findByRole("option", { name: "Alex Rivera" }),
+    );
+    await expect(canvas.getByRole("button", { name: "Remove friend Alex Rivera" })).toBeVisible();
+  },
+};
 export const Maximum: Story = { render: () => <Example full /> };
 export const Unavailable: Story = {
   render: () => <Example failure />,
