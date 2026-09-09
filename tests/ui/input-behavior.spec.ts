@@ -87,23 +87,26 @@ for (const side of ["left", "right"]) {
   });
 }
 
-test("progression charts expose their summary and pan from the keyboard on phones", async ({
+test("progression charts fit the viewport and expose details from the keyboard", async ({
   page,
 }, info) => {
   await openStory(page, info, "components-charts-progression-chart--progression");
-  const chart = page.getByRole("region", { name: "boulder grade progression", exact: true });
+  const chart = page.getByRole("group", { name: "boulder grade progression", exact: true });
   await expect(
     page.getByText("Personal best V6, from Sep 2025 (V2) to Sep 2026.", { exact: true }),
   ).toHaveCount(1);
   await chart.focus();
   await expect(chart).toBeFocused();
   await chart.press("ArrowRight");
-  if (info.project.name.startsWith("mobile")) {
-    await expect.poll(() => chart.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
-  } else {
-    expect(await chart.evaluate((node) => node.scrollWidth - node.clientWidth)).toBe(0);
-  }
-  const single = page.getByRole("region", { name: "sport grade progression", exact: true });
+  await expect(chart.getByRole("tooltip")).toHaveText("Sep 2025 · Hardest V2 · Personal best V2");
+  await chart.press("ArrowRight");
+  await expect(chart.getByRole("tooltip")).toHaveText("Jan 2026 · Hardest V4 · Personal best V4");
+  await chart.press("End");
+  await expect(chart.getByRole("tooltip")).toHaveText("Sep 2026 · Hardest V6 · Personal best V6");
+  await chart.press("Escape");
+  await expect(chart.getByRole("tooltip")).toHaveCount(0);
+  expect(await chart.evaluate((node) => node.scrollWidth - node.clientWidth)).toBe(0);
+  const single = page.getByRole("group", { name: "sport grade progression", exact: true });
   await expect(single.locator("circle")).toHaveCount(1);
   const coordinates = await single.locator("circle").evaluate((node) => ({
     x: Number(node.getAttribute("cx")),
