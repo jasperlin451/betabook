@@ -173,7 +173,50 @@ describe("matchRow", () => {
     }
   });
 
-  it("falls back to the posted grade when the climber gave none", () => {
+  it("matches by the posted boulder grade while retaining the climber's grade", () => {
+    const imported = row({ postedGradeText: "V6", gradeText: "V3" });
+    const original = structuredClone(imported);
+    expect(matchRow(imported, index, NO_PREFERENCE)).toMatchObject({
+      kind: "inferred",
+      climb: { id: 2 },
+      reason: "the only V6",
+    });
+    expect(imported).toEqual(original);
+    expect(imported.gradeText).toBe("V3");
+  });
+
+  it.each(["sport", "trad"] as const)(
+    "matches %s routes using the posted grade before the climber's suggestion",
+    (type) => {
+      const candidates = indexOf([
+        candidate({ id: 41, type, grade: 10 }), // 5.10a
+        candidate({ id: 42, type, grade: 18 }), // 5.12a
+      ]);
+      expect(
+        matchRow(
+          row({ climbTypeHint: type, postedGradeText: "5.12a", gradeText: "5.10a" }),
+          candidates,
+          NO_PREFERENCE,
+        ),
+      ).toMatchObject({
+        kind: "inferred",
+        climb: { id: 42 },
+        reason: "the only 5.12a",
+      });
+    },
+  );
+
+  it("uses the climber's grade when the posted grade is missing", () => {
+    expect(
+      matchRow(row({ postedGradeText: null, gradeText: "V3" }), index, NO_PREFERENCE),
+    ).toMatchObject({
+      kind: "inferred",
+      climb: { id: 1 },
+      reason: "the only V3",
+    });
+  });
+
+  it("uses the posted grade when the climber gave none", () => {
     // A Mountain Project row: "Your Rating" blank, the route's "Rating" V6.
     const match = matchRow(row({ gradeText: null, postedGradeText: "V6" }), index, NO_PREFERENCE);
     expect(match).toMatchObject({ kind: "inferred", reason: "the only V6" });
@@ -429,4 +472,23 @@ describe("resolveRows", () => {
     expect(duplicates.get(1)?.rowIndex).toBe(0);
     expect(summarizeResolved(resolved).ready).toBe(1);
   });
+});
+
+it("matches generic outdoor routes to sport or trad while excluding same-name boulders", () => {
+  const candidates = indexOf([
+    candidate({ id: 11 }),
+    candidate({ id: 12, type: "sport" }),
+    candidate({ id: 13, type: "trad" }),
+  ]);
+  const result = matchRow(row({ climbTypeHint: "route" }), candidates, NO_PREFERENCE);
+  expect(result.kind).toBe("ambiguous");
+  if (result.kind !== "ambiguous") throw new Error("Expected an ambiguous route match");
+  expect(result.candidates.map((c) => c.id).sort((a, b) => a - b)).toEqual([12, 13]);
+  for (const type of ["sport", "trad"] as const) {
+    const single = indexOf([candidate({ id: 11 }), candidate({ id: 12, type })]);
+    expect(matchRow(row({ climbTypeHint: "route" }), single, NO_PREFERENCE)).toMatchObject({
+      kind: "exact",
+      climb: { id: 12, type },
+    });
+  }
 });

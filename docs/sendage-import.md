@@ -44,7 +44,9 @@ The source grade IDs do not change with the viewer's display setting. No grading
 preference is requested, imported, or stored. Recognized IDs become V/YDS labels;
 unknown, malformed, or unsupported discipline/grade combinations abort the entire
 download, including when encountered on a later page. Personal and posted grades
-are checked independently. Personal and posted grades stay separate; zero
+are checked independently. Personal and posted grades stay separate. Matching prefers the posted grade,
+falling back to the climber’s grade when the posted grade is absent; the climber’s
+grade remains the send’s suggested grade. Zero
 stars means unrated, null day means undated, and difficulty -1/0/1 maps to
 soft/fair/stiff. The existing parser handles HTML entities and validates dates.
 

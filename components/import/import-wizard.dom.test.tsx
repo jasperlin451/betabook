@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 
 import { importSends, resolveImportClimbs } from "@/actions";
+import { kayaStreamResponse } from "@/test/kaya";
 
 import { ImportWizard } from "./import-wizard";
 
@@ -70,12 +71,81 @@ it("takes public API data straight to matching and review without writing sends"
       ),
   );
   render(<ImportWizard profileHref="/users/local" />);
-  await userEvent.type(screen.getByRole("textbox"), "climber");
-  await userEvent.click(screen.getByRole("button", { name: "Import from Sendage" }));
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "Sendage username or profile link" }),
+    "climber",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Load sends" }));
   await waitFor(() => expect(resolveImportClimbs).toHaveBeenCalledExactlyOnceWith(["Test climb"]));
   expect(screen.getByText(/Sendage profile @climber/)).toBeInTheDocument();
   await waitFor(() => expect(screen.getByRole("button", { name: "Next: Review" })).toBeEnabled());
   await userEvent.click(screen.getByRole("button", { name: "Next: Review" }));
   expect(screen.getByText("Will import").parentElement).toHaveTextContent("1");
   expect(importSends).not.toHaveBeenCalled();
+});
+
+it("loads KAYA routes into matching and review with visible style limitations", async () => {
+  vi.mocked(resolveImportClimbs).mockClear();
+  vi.mocked(importSends).mockClear();
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(kayaStreamResponse([], 0))
+      .mockResolvedValueOnce(
+        kayaStreamResponse(
+          [
+            {
+              id: "ascent",
+              date: "2026-08-16T09:00:00.000Z",
+              rating: 4,
+              stiffness: 0,
+              comment: "Fun",
+              grade: { name: "5.12a" },
+              climb: {
+                id: "climb",
+                name: "Test climb",
+                climb_type: { id: "2", name: "Routes" },
+                grade: { name: "5.12a" },
+                gym: null,
+                board: null,
+                destination: { name: "Squamish" },
+                area: { name: "Wall" },
+              },
+            },
+          ],
+          1,
+        ),
+      ),
+  );
+  render(<ImportWizard profileHref="/users/local" />);
+  await userEvent.click(screen.getByRole("button", { name: "KAYA" }));
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "KAYA username or profile link" }),
+    "https://kaya-app.kayaclimb.com/user/suzilu",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Load sends" }));
+  await waitFor(() => expect(resolveImportClimbs).toHaveBeenCalledExactlyOnceWith(["Test climb"]));
+  expect(screen.getByText(/KAYA profile @suzilu/)).toBeInTheDocument();
+  expect(screen.getByText(/Sends are imported as redpoints/)).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole("button", { name: "Next: Review" })).toBeEnabled());
+  await userEvent.click(screen.getByRole("button", { name: "Next: Review" }));
+  expect(screen.getByText("Will import").parentElement).toHaveTextContent("1");
+  expect(importSends).not.toHaveBeenCalled();
+});
+
+it("disables competing import sources while KAYA is loading and releases them on cancel", async () => {
+  vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockReturnValue(new Promise(() => {})));
+  render(<ImportWizard profileHref="/users/local" />);
+  await userEvent.click(screen.getByRole("button", { name: "KAYA" }));
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "KAYA username or profile link" }),
+    "suzilu",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Load sends" }));
+  expect(screen.getByRole("button", { name: "Sendage" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "CSV file" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.getByRole("button", { name: "Sendage" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "CSV file" })).toBeEnabled();
 });

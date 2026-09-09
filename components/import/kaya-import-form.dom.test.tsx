@@ -2,23 +2,23 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { fetchSendageImport } from "@/lib/sendage-import";
+import { fetchKayaImport } from "@/lib/kaya-import";
 import type { ParsedCsv } from "@/lib/sends-import";
 
-import { SendageImportForm } from "./sendage-import-form";
+import { KayaImportForm } from "./kaya-import-form";
 
-vi.mock("@/lib/sendage-import", () => ({ fetchSendageImport: vi.fn<typeof fetchSendageImport>() }));
+vi.mock("@/lib/kaya-import", () => ({ fetchKayaImport: vi.fn<typeof fetchKayaImport>() }));
 const payload = {
   username: "climber",
   parsed: { headers: ["Climb"], rows: [{ Climb: "Test" }], derived: [], warnings: [] },
 };
 beforeEach(() => {
-  vi.mocked(fetchSendageImport).mockReset().mockResolvedValue(structuredClone(payload));
+  vi.mocked(fetchKayaImport).mockReset().mockResolvedValue(structuredClone(payload));
 });
 function setup() {
   const onLoaded = vi.fn<(parsed: ParsedCsv, username: string) => void>();
   const onBusyChange = vi.fn<(busy: boolean) => void>();
-  const rendered = render(<SendageImportForm onLoaded={onLoaded} onBusyChange={onBusyChange} />);
+  const rendered = render(<KayaImportForm onLoaded={onLoaded} onBusyChange={onBusyChange} />);
   return { ...rendered, onLoaded, onBusyChange };
 }
 
@@ -27,7 +27,7 @@ it("imports the entered username and starts blank when opened again", async () =
   await userEvent.type(screen.getByRole("textbox"), "climber");
   await userEvent.click(screen.getByRole("button", { name: "Load sends" }));
   await waitFor(() => expect(onLoaded).toHaveBeenCalledExactlyOnceWith(payload.parsed, "climber"));
-  expect(fetchSendageImport).toHaveBeenCalledWith(
+  expect(fetchKayaImport).toHaveBeenCalledWith(
     "climber",
     expect.objectContaining({ signal: expect.any(AbortSignal) }),
   );
@@ -39,12 +39,12 @@ it("imports the entered username and starts blank when opened again", async () =
 });
 
 it("keeps input and offers retry after a failed download", async () => {
-  vi.mocked(fetchSendageImport).mockRejectedValueOnce(new Error("Sendage unavailable"));
+  vi.mocked(fetchKayaImport).mockRejectedValueOnce(new Error("KAYA unavailable"));
   const { onLoaded } = setup();
-  await userEvent.type(screen.getByRole("textbox"), "https://sendage.com/user/climber");
+  await userEvent.type(screen.getByRole("textbox"), "https://kaya-app.kayaclimb.com/user/climber");
   await userEvent.click(screen.getByRole("button", { name: "Load sends" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("Sendage unavailable");
-  expect(screen.getByRole("textbox")).toHaveValue("https://sendage.com/user/climber");
+  expect(await screen.findByRole("alert")).toHaveTextContent("KAYA unavailable");
+  expect(screen.getByRole("textbox")).toHaveValue("https://kaya-app.kayaclimb.com/user/climber");
   expect(onLoaded).not.toHaveBeenCalled();
   await userEvent.click(screen.getByRole("button", { name: "Load sends" }));
   await waitFor(() => expect(onLoaded).toHaveBeenCalledOnce());
@@ -52,7 +52,7 @@ it("keeps input and offers retry after a failed download", async () => {
 
 it("cancels a pending download and ignores its late response", async () => {
   let resolve!: (value: typeof payload) => void;
-  vi.mocked(fetchSendageImport).mockReturnValue(
+  vi.mocked(fetchKayaImport).mockReturnValue(
     new Promise((done) => {
       resolve = done;
     }),
@@ -61,7 +61,7 @@ it("cancels a pending download and ignores its late response", async () => {
   await userEvent.type(screen.getByRole("textbox"), "climber");
   await userEvent.click(screen.getByRole("button", { name: "Load sends" }));
   expect(screen.getByRole("button", { name: "Loading sends…" })).toBeDisabled();
-  const signal = vi.mocked(fetchSendageImport).mock.calls[0][1].signal;
+  const signal = vi.mocked(fetchKayaImport).mock.calls[0][1].signal;
   await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(signal.aborted).toBe(true);
   await act(async () => resolve({ ...payload, username: "late_response" }));
@@ -71,10 +71,34 @@ it("cancels a pending download and ignores its late response", async () => {
 
 it("stops a download when unmounted", async () => {
   const { unmount } = setup();
-  vi.mocked(fetchSendageImport).mockReturnValue(new Promise(() => {}));
+  vi.mocked(fetchKayaImport).mockReturnValue(new Promise(() => {}));
   await userEvent.type(screen.getByRole("textbox"), "climber");
   await userEvent.click(screen.getByRole("button", { name: "Load sends" }));
-  const signal = vi.mocked(fetchSendageImport).mock.calls[0][1].signal;
+  const signal = vi.mocked(fetchKayaImport).mock.calls[0][1].signal;
   unmount();
   expect(signal.aborted).toBe(true);
+});
+
+it("updates the live counts and retry notice while keeping cancel available", async () => {
+  vi.mocked(fetchKayaImport).mockReturnValue(new Promise(() => {}));
+  setup();
+  expect(screen.getByText(/Large histories can take a few seconds/)).toBeVisible();
+  await userEvent.type(screen.getByRole("textbox"), "suzilu");
+  await userEvent.click(screen.getByRole("button", { name: "Load sends" }));
+  const progress = vi.mocked(fetchKayaImport).mock.calls[0][1].onProgress!;
+  act(() => progress({ discipline: "boulder", loaded: 350, total: 872, retry: null }));
+  expect(screen.getByRole("status")).toHaveTextContent("350 of 872 boulders loaded");
+  expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuemax", "872");
+  act(() =>
+    progress({
+      discipline: "boulder",
+      loaded: 350,
+      total: 872,
+      retry: { reason: "rate-limit", retryAt: Date.now() + 20_000, attempt: 1 },
+    }),
+  );
+  expect(screen.getByRole("status")).toHaveTextContent("KAYA asked us to slow down");
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
 });

@@ -1,8 +1,6 @@
 "use client";
 
 import { Button, Checkbox, Label, TextField } from "@heroui/react";
-import { clsx } from "clsx";
-import { Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 
 import {
@@ -22,6 +20,7 @@ import { PageTitle } from "@/components/ui/typography";
 import type { ClimbCandidate } from "@/db/queries";
 import { downloadCsv } from "@/lib/download";
 import { formatCount } from "@/lib/format";
+import { findImportDateClusters } from "@/lib/import-date-review";
 import { runImportBatches, type ImportProgress } from "@/lib/import-execution";
 import {
   areaLookupsNeeded,
@@ -74,13 +73,14 @@ import {
   type ParsedCsv,
 } from "@/lib/sends-import";
 
+import { ImportDateWarning } from "./import-date-warning";
 import {
   ImportMatchStep,
   defaultFilter,
   type Filter,
   type LookupStatus,
 } from "./import-match-step";
-import { SendageImportForm } from "./sendage-import-form";
+import { ImportSourceStep } from "./import-source-step";
 import {
   ASCENT_STYLE_OPTIONS,
   CLIMB_TYPE_OPTIONS,
@@ -153,7 +153,7 @@ const GRADE_SCALE_OPTIONS: readonly SelectOption<GradeScale>[] = [
 
 const SOURCE_NOTES: Record<Exclude<ImportSource, "unknown">, string> = {
   betabook: "Every column maps back to the field it was exported from.",
-  kaya: "KAYA has no area column. Its “location” is the boulder and “country” the country, so both are used as hints when a climb name matches in more than one place.",
+  kaya: "KAYA location, region, and country columns are used as hints when a climb name matches in more than one place. Routes can match sport or trad climbs.",
   sendage: "“Country” is used as a hint when a climb name matches in more than one place.",
   mountainproject:
     "“Rating” is the route's grade and “Your Rating” yours. “Location” is the full area path, used as hints from the wall up. Ascent style comes from “Lead Style”, or from “Style” where that is blank.",
@@ -196,14 +196,11 @@ function toImportSendRow(resolved: ResolvedRow, climb: ClimbCandidate): ImportSe
 
 // oxlint-disable-next-line complexity -- multi-step wizard state machine; each step adds a branch
 export function ImportWizard({ profileHref }: { profileHref: string }) {
-  const [loadingSendage, setLoadingSendage] = useState(false);
   const [directSource, setDirectSource] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("upload");
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
-  const [dragging, setDragging] = useState(false);
   const [pending, startTransition] = useTransition();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [parsedCsv, setParsedCsv] = useState<ParsedCsv | null>(null);
   const [source, setSource] = useState<ImportSource>("unknown");
@@ -216,11 +213,29 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
   const [gradeScale, setGradeScale] = useState<GradeScale>("native");
   const [onConflict, setOnConflict] = useState<"skip" | "overwrite">("skip");
 
-  const [normalized, setNormalized] = useState<{
+  const [baseNormalized, setNormalized] = useState<{
     valid: NormalizedImportRow[];
     invalid: InvalidImportRow[];
     warnings: CoercionWarning[];
   } | null>(null);
+
+  const [undatedDates, setUndatedDates] = useState<ReadonlySet<string>>(new Set());
+  const dateClusters = useMemo(
+    () => findImportDateClusters(baseNormalized?.valid ?? []),
+    [baseNormalized],
+  );
+  // Date review changes only dates. Preserve row identities and manual climb
+  // choices, and avoid repeating the name/area lookup when a checkbox changes.
+  const normalized = useMemo(
+    () =>
+      baseNormalized && {
+        ...baseNormalized,
+        valid: baseNormalized.valid.map((row) =>
+          row.dateSent && undatedDates.has(row.dateSent) ? { ...row, dateSent: null } : row,
+        ),
+      },
+    [baseNormalized, undatedDates],
+  );
 
   const [candidateIndex, setCandidateIndex] = useState<CandidateIndex | null>(null);
   const [lookup, setLookup] = useState<LookupStatus>({ phase: "done" });
@@ -345,7 +360,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
   }, [importResult, normalized, resolved]);
 
   async function handleFile(file: File) {
-    if (reading || loadingSendage) return;
+    if (reading) return;
     setError(null);
     if (file.size > MAX_IMPORT_FILE_BYTES) {
       setError("That CSV is larger than 10 MB. Split it into smaller files and try again.");
@@ -403,21 +418,6 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     }
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const input = e.target;
-    const file = input.files?.[0];
-    // Clear so selecting the same file again fires change.
-    input.value = "";
-    if (file) void handleFile(file);
-  }
-
-  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    setDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) void handleFile(file);
-  }
-
   function guessValueMappings(parsed: ParsedCsv, mapping: ColumnMapping) {
     const dateSample = distinctValues(parsed.rows, mapping.date).slice(0, DATE_SAMPLE_SIZE);
     return {
@@ -473,6 +473,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
           : [],
       },
     );
+    setUndatedDates(new Set());
     setNormalized(result);
     // A remapped file invalidates choices tied to the old normalized rows.
     setManual(new Map());
@@ -630,6 +631,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
     setGradeScale("native");
     setOnConflict("skip");
     setNormalized(null);
+    setUndatedDates(new Set());
     setAutoMapped(false);
     setCandidateIndex(null);
     setLookup({ phase: "done" });
@@ -685,65 +687,18 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
       {error && <p className="text-sm text-danger">{error}</p>}
 
       {step === "upload" && (
-        <div className="flex flex-col gap-4">
-          <SendageImportForm
-            key={profileHref}
-            disabled={reading}
-            onBusyChange={setLoadingSendage}
-            onLoaded={(parsed, username) => {
-              setError(null);
-              setDirectSource(`Sendage profile @${username}`);
-              acceptParsedRows(parsed);
-            }}
-          />
-          <p className="text-sm text-muted">
-            Or upload a CSV export of your climbing log. Mountain Project, KAYA, Sendage, and
-            betabook exports are recognized and mapped automatically. Any CSV with a climb name and
-            an ascent style column works.
-          </p>
-          {/* The file input stays in the DOM but hidden: it's the only way to
-              open the picker, and the drop zone drives it so the styling
-              stays consistent with the rest of the wizard. */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            disabled={reading || loadingSendage}
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <div
-            role="button"
-            tabIndex={reading || loadingSendage ? -1 : 0}
-            aria-disabled={reading || loadingSendage}
-            aria-label="Choose a CSV file"
-            onClick={() => {
-              if (!reading && !loadingSendage) fileInputRef.current?.click();
-            }}
-            onKeyDown={(e) => {
-              if (!reading && !loadingSendage && (e.key === "Enter" || e.key === " ")) {
-                e.preventDefault();
-                fileInputRef.current?.click();
-              }
-            }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
-            className={clsx(
-              "flex cursor-pointer flex-col items-center gap-3 rounded-panel border border-dashed px-6 py-10 text-center transition-colors focus-visible:status-focused",
-              dragging ? "border-accent bg-surface" : "border-border hover:bg-surface/60",
-            )}
-          >
-            <Upload className="size-6 text-muted" aria-hidden />
-            <p className="text-sm">
-              {reading ? "Reading file…" : "Drop a CSV here, or choose a file"}
-            </p>
-            <p className="text-xs text-muted">Up to 10 MB, 50,000 rows.</p>
-          </div>
-        </div>
+        <ImportSourceStep
+          key={profileHref}
+          reading={reading}
+          onFile={(file) => {
+            void handleFile(file);
+          }}
+          onLoaded={(parsed, source, username) => {
+            setError(null);
+            setDirectSource(`${source === "kaya" ? "KAYA" : "Sendage"} profile @${username}`);
+            acceptParsedRows(parsed);
+          }}
+        />
       )}
 
       {step === "columns" && columnMapping && parsedCsv && (
@@ -948,6 +903,15 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
             <Button onPress={handleValuesNext}>Next: Climbs</Button>
           </div>
         </div>
+      )}
+
+      {(step === "match" || step === "review") && (
+        <ImportDateWarning
+          clusters={dateClusters}
+          undatedDates={undatedDates}
+          onChange={setUndatedDates}
+          disabled={pending}
+        />
       )}
 
       {step === "match" && normalized && (
