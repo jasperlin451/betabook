@@ -19,8 +19,9 @@ test("signed-out discovery and member pages show accessible authentication callo
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+  // Hiding the caret mutates input styles and can race with React hydration.
   await info.attach("signed-out-search", {
-    body: await page.screenshot({ fullPage: true }),
+    body: await page.screenshot({ fullPage: true, caret: "initial" }),
     contentType: "image/png",
   });
 
@@ -37,7 +38,7 @@ test("signed-out discovery and member pages show accessible authentication callo
     `/sign-up?next=${encodeURIComponent(next)}`,
   );
   await info.attach("locked-profile", {
-    body: await page.screenshot({ fullPage: true }),
+    body: await page.screenshot({ fullPage: true, caret: "initial" }),
     contentType: "image/png",
   });
   await callout.getByRole("link", { name: "Sign in" }).click();
@@ -49,7 +50,7 @@ test("signed-out discovery and member pages show accessible authentication callo
   await dialog.getByRole("combobox", { name: "Search Betabook" }).fill("Ridge");
   await expect(dialog.getByRole("region", { name: "Member content" })).toBeVisible();
   await info.attach("public-quick-search", {
-    body: await page.screenshot({ fullPage: true }),
+    body: await page.screenshot({ fullPage: true, caret: "initial" }),
     contentType: "image/png",
   });
   await dialog.getByRole("link", { name: "Sign up", exact: true }).click();
