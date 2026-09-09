@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@heroui/react";
+import { X } from "lucide-react";
 import { useState } from "react";
 
 import { SearchSelectionField } from "@/components/search/search-selection-field";
@@ -51,25 +52,6 @@ export function CompanionPicker({
       aria-label="With friends"
       className={`${FIELD_WIDTH_CLASS.long} flex flex-col gap-2`}
     >
-      {value.length > 0 && (
-        <ul aria-label="Selected friends" className="flex flex-wrap gap-2">
-          {value.map((friend) => (
-            <li key={friend.id} className="max-w-full min-w-0">
-              <Button
-                size="sm"
-                variant="secondary"
-                isDisabled={disabled}
-                aria-label={`Remove friend ${friend.name}`}
-                onPress={() => onChange(value.filter((item) => item.id !== friend.id))}
-                className="max-w-full"
-              >
-                <span className="truncate">{friend.name}</span>
-                <span aria-hidden>×</span>
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
       <SearchSelectionField
         emptyMessage="No matching friends. Try a more specific name."
         errorMessage="Couldn’t load friends. Your selections are kept."
@@ -109,6 +91,25 @@ export function CompanionPicker({
           }
         }}
       />
+      {value.length > 0 && (
+        <ul aria-label="Selected friends" className="flex flex-wrap gap-2">
+          {value.map((friend) => (
+            <li key={friend.id} className="max-w-full min-w-0">
+              <Button
+                size="sm"
+                variant="secondary"
+                isDisabled={disabled}
+                aria-label={`Remove friend ${friend.name}`}
+                onPress={() => onChange(value.filter((item) => item.id !== friend.id))}
+                className="max-w-full"
+              >
+                <span className="truncate">{friend.name}</span>
+                <X className="size-3.5" aria-hidden="true" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
       {editing && (
         <Button
           type="button"

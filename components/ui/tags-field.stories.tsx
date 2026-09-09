@@ -12,7 +12,7 @@ const meta = {
     (Story) => (
       <StoryPage
         title="Tags"
-        description="One shared medium-width field for Journal, Sends, Analytics and Log entry. Enter, Space, or comma separate tags. Creation fields show a live count beside the label; restrictions appear only for invalid input."
+        description="One shared medium-width field for Journal, Sends, Analytics and Log entry. Empty creation fields show #technical, #moonboard... in muted text; existing-tag fields show only the # prefix. Selected tags appear as removable filled buttons below the field, matching selected friends. Enter, Space, or comma separate tags. Creation fields show a live count beside the label; restrictions appear only for invalid input."
       >
         <Story />
       </StoryPage>

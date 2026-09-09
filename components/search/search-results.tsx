@@ -72,11 +72,7 @@ export function SearchResultContent({
           </span>
         )
       )}
-      {picking ? (
-        <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
-      ) : (
-        <ArrowUpRight className="size-4 shrink-0 text-muted" aria-hidden />
-      )}
+      {!picking && <ArrowUpRight className="size-4 shrink-0 text-muted" aria-hidden />}
     </>
   );
 }

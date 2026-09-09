@@ -16,7 +16,10 @@ function Example({ status = "ready" }: { status?: SearchStatus }) {
   const [current, setCurrent] = useState(status);
   const [selected, setSelected] = useState<SearchResult | null>(null);
   return (
-    <StoryPage title="Search results">
+    <StoryPage
+      title="Search results"
+      description="Navigation results show an arrow; selection results omit it."
+    >
       <SearchResults
         sections={[
           {
