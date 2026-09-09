@@ -56,7 +56,7 @@ it("uses fixed public queries, outdoor filters, page size and no credentials", a
   expect(fetcher).toHaveBeenCalledTimes(2);
   for (const [url, init] of fetcher.mock.calls) {
     expect(url).toBe("https://kaya-beta.kayaclimb.com/graphql");
-    expect(init).toMatchObject({ method: "POST", credentials: "omit", redirect: "error" });
+    expect(init).toMatchObject({ method: "POST", credentials: "omit", redirect: "manual" });
     expect(new Headers(init?.headers).has("authorization")).toBe(false);
     expect(new Headers(init?.headers).has("cookie")).toBe(false);
   }

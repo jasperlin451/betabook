@@ -114,7 +114,9 @@ async function requestKaya(query: string, variables: Record<string, unknown>, si
     const response = await fetch("https://kaya-beta.kayaclimb.com/graphql", {
       method: "POST",
       credentials: "omit",
-      redirect: "error",
+      // Workers rejects "error" before fetching. Manual keeps the fixed
+      // upstream URL; readResponse rejects redirect statuses without retrying.
+      redirect: "manual",
       signal: controller.signal,
       // KAYA requires the public website Origin/Referer. Never forward user credentials.
       headers: {
