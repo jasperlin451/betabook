@@ -48,6 +48,12 @@ Stop the dev server before running local database scripts and restart it afterwa
 
 `pnpm seed` creates 400 areas, 5,000 climbs, and 50 synthetic climbers by default, plus sends and journal history covering ascents, repeats, projects, and training. Synthetic accounts start at `climber1@example.com` and use `password` unless a different password is supplied when generating them.
 
+The development account and all but the highest-numbered synthetic climber have
+accepted the current Terms of Service. With the default seed, use
+`climber50@example.com` to test the agreement flow. Every `pnpm seed` run, including
+`pnpm seed --social`, refreshes acceptance for existing seeded accounts and resets
+that climber's acceptance and history. Other accounts are left alone.
+
 Social seeding assigns a repeatable mix of profile, send commentary, and journal audiences. The first four accounts demonstrate independent sharing and the private-profile override:
 
 | Account                | Profile | Send commentary          | Journal entries          |
@@ -194,8 +200,8 @@ pnpm test -- lib/journal.test.ts           # focused test run
 pnpm exec opennextjs-cloudflare build      # production Workers build used by CI
 ```
 
-Tests are colocated with the code. `pnpm test` runs both Vitest projects, so
-`pnpm check` and CI include both:
+Tests are colocated with the code. `pnpm test` runs all three Vitest projects, so
+`pnpm check` and CI include all three:
 
 - **components:** `components/**/*.dom.test.{ts,tsx}` and `hooks/**/*.dom.test.{ts,tsx}`
   mount real React components/hooks in jsdom. Use Testing Library's accessible
@@ -207,6 +213,9 @@ Tests are colocated with the code. `pnpm test` runs both Vitest projects, so
   with real D1 migrations through [`test/apply-migrations.ts`](test/apply-migrations.ts).
   Its entrypoint is [`test/worker.ts`](test/worker.ts), so tests need neither seeded
   local data nor a production build. DOM tests are explicitly excluded.
+- **scripts:** `scripts/**/*.test.ts` run the local seed CLI under Node.js against
+  disposable SQLite databases with real migrations. Run them with
+  `pnpm test --project=scripts`; they do not use your local development database.
 
 Run one DOM file with `pnpm test:components components/journal/tag-input.dom.test.tsx`,
 or just the Workers project with `pnpm test --project=workers`. See
