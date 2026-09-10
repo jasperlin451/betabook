@@ -16,6 +16,7 @@ export function AreaLookup({
   placeholder,
   defaultQuery = "",
   isInvalid = false,
+  isRequired = false,
   fetcher = fetchAreaSuggestions,
 }: {
   fetcher?: LookupFetcher<AreaSuggestion>;
@@ -26,6 +27,7 @@ export function AreaLookup({
   placeholder?: string;
   defaultQuery?: string;
   isInvalid?: boolean;
+  isRequired?: boolean;
 }) {
   const [query, setQuery] = useState(value?.name ?? defaultQuery);
   const [identity, setIdentity] = useState(value?.id);
@@ -42,6 +44,7 @@ export function AreaLookup({
       query={query}
       selectedId={value?.id}
       isInvalid={isInvalid}
+      isRequired={isRequired}
       status={lookup.status}
       onRetry={lookup.retry}
       items={lookup.items.map((area) => ({

@@ -63,7 +63,7 @@ export function JournalTourPage({ section, mode, href, steps }: ProductTourPageP
           )
           .sort((a, b) => sections.indexOf(a.section) - sections.indexOf(b.section))
           .map((step) => ({
-            label: step.section,
+            label: step.section === "Account" ? "Account settings" : step.section,
             href: href(step.id),
             current: section === step.section,
             badge:
@@ -124,7 +124,7 @@ export function JournalTourPage({ section, mode, href, steps }: ProductTourPageP
         <DemoFeed />
       ) : (
         <section
-          aria-label="Alex's Account"
+          aria-label="Alex's Account settings"
           className={`${cardClass("md")} flex max-w-xl flex-col gap-4`}
         >
           <SectionHeading>Privacy</SectionHeading>

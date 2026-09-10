@@ -26,6 +26,7 @@ export function SearchSelectionField({
   onSelect,
   onRetry,
   isInvalid = false,
+  isRequired = false,
   isDisabled = false,
   emptyMessage = "No matches.",
   errorMessage,
@@ -35,6 +36,7 @@ export function SearchSelectionField({
   emptyMessage?: string;
   errorMessage?: string;
   isInvalid?: boolean;
+  isRequired?: boolean;
   isDisabled?: boolean;
   label: string;
   labelSuffix?: ReactNode;
@@ -54,6 +56,8 @@ export function SearchSelectionField({
         aria-label={hideLabel ? label : undefined}
         isInvalid={isInvalid || status === "error"}
         isDisabled={isDisabled}
+        isRequired={isRequired}
+        validationBehavior={isRequired ? "aria" : undefined}
         inputValue={query}
         onInputChange={onQueryChange}
         selectedKey={selectedId}
@@ -72,7 +76,7 @@ export function SearchSelectionField({
       >
         {!hideLabel && (
           <FieldHeader usage={usage}>
-            <Label>{label}</Label>
+            <Label isRequired={isRequired}>{label}</Label>
             {/* Label help is independent of the combobox dropdown trigger. */}
             <ButtonContext.Provider value={null}>{labelSuffix}</ButtonContext.Provider>
           </FieldHeader>

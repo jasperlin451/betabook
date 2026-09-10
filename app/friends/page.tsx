@@ -41,7 +41,7 @@ export default async function FriendsPage({
           </p>
           <div className="flex flex-wrap gap-4">
             <AppLink href="/?mode=climber">Find climbers</AppLink>
-            <AppLink href="/account">Journal privacy</AppLink>
+            <AppLink href="/account">Account settings</AppLink>
           </div>
           <FriendTabs requestsOnly={requestsOnly} userId={session.user.id} />
           <FriendList
