@@ -36,7 +36,7 @@ function Example({
   return (
     <StoryPage
       title="Log an entry"
-      description="The session-or-send pills come first: Session logs plain time on the climb, while Redpoint, Flash, or Onsight marks a send in that style. Then the date, the ascent opinion, and Notes filling the form width. Friends and Tags wait behind Add details, collapsed by default. With a send style chosen, the I don't know checkbox beside the date empties it to record a send without one; entries always need a date to save. Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
+      description="The session-or-send pills come first: Session logs plain time on the climb, while Redpoint, Flash, or Onsight marks a send in that style. A climb already sent offers Session or Repeat instead — a repeat records another sent day without touching the ascent. Then the date, the ascent opinion, and Notes filling the form width. Friends and Tags wait behind Add details, collapsed by default. With a send style chosen on a first ascent, the I don't know checkbox beside the date empties it to record a send without one; repeats always need a date, so they never offer it. Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
     >
       <JournalEntryFields
         today="2026-09-06"
@@ -101,6 +101,13 @@ export const Repeat: Story = { render: () => <Example repeat /> };
 export const Training: Story = { render: () => <Example training /> };
 export const SaveFailure: Story = { render: () => <Example failure /> };
 export const Saving: Story = { render: () => <Example slow /> };
+
+export const RepeatChosen: Story = {
+  render: () => <Example repeat />,
+  play: async ({ canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("radio", { name: "Repeat" }));
+  },
+};
 
 export const Ascent: Story = {
   render: () => <Example />,

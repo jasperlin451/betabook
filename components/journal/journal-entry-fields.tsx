@@ -100,7 +100,8 @@ export function JournalEntryFields({
   const [pending, startTransition] = useTransition();
 
   const sent = existingEntry ? existingEntry.sent : choice !== "session";
-  const ascentStyle: AscentStyle = choice === "session" ? "redpoint" : choice;
+  const ascentStyle: AscentStyle =
+    choice === "session" || choice === "repeat" ? "redpoint" : choice;
   const isAscent = !existingEntry && sent && climb != null && !hasPriorSend;
   const isUndatedSend = isAscent && entryDate === "";
   const summary = describePendingEntry({ kind, climbName: climb?.name, sent, hasPriorSend });
@@ -164,7 +165,9 @@ export function JournalEntryFields({
 
   return (
     <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-4`}>
-      {climb && !existingEntry && <SendStylePicker value={choice} onChange={setChoice} />}
+      {climb && !existingEntry && (
+        <SendStylePicker value={choice} onChange={setChoice} hasPriorSend={hasPriorSend} />
+      )}
 
       <JournalEntryDateFields
         kind={kind}

@@ -44,7 +44,8 @@ for (const story of ["outdoor", "repeat", "training"]) {
     await details.click();
     await addFriend(page);
     if (story !== "training") {
-      await page.getByRole("radio", { name: "Redpoint", exact: true }).click();
+      const send = story === "repeat" ? "Repeat" : "Redpoint";
+      await page.getByRole("radio", { name: send, exact: true }).click();
       await expect(page.getByRole("button", { name: "Remove friend Sam Rivera" })).toBeVisible();
     } else {
       await expect(page.getByRole("radio", { name: "Session", exact: true })).toHaveCount(0);

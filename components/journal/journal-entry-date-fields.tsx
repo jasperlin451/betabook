@@ -27,8 +27,7 @@ export function JournalEntryDateFields({
   sent,
   onDateChange,
 }: JournalEntryDateFieldsProps) {
-  const canMarkUnknown = !existingEntry && hasClimb && sent;
-  const needsDateHint = !sent && (!!existingEntry || !hasClimb || hasPriorSend);
+  const canMarkUnknown = !existingEntry && hasClimb && sent && !hasPriorSend;
 
   return (
     <div className="flex flex-col gap-3">
@@ -38,9 +37,9 @@ export function JournalEntryDateFields({
         max={today}
         isReadOnly={existingEntry?.sent}
         onChange={onDateChange}
-        // I don't know appears once a send style is chosen. A first ascent
-        // saved that way is recorded undated; a repeat still needs a date,
-        // which submitting explains.
+        // I don't know appears once a send style is chosen on a first ascent,
+        // recording it undated. A repeat always needs a date, so it never
+        // offers the control.
         onUnknownChange={
           canMarkUnknown ? (unknown) => onDateChange(unknown ? "" : today) : undefined
         }
@@ -52,11 +51,9 @@ export function JournalEntryDateFields({
             ? "To change the ascent date, use Edit send on the climb page."
             : "To change this repeat’s date, delete the entry and log it again."}
         </p>
-      ) : needsDateHint ? (
+      ) : kind === "training" ? (
         <p className="text-xs text-muted">
-          {kind === "training"
-            ? "Training entries need a date to appear in your journal."
-            : "Sessions and repeats need a date to appear in your journal."}
+          Training entries need a date to appear in your journal.
         </p>
       ) : null}
     </div>
