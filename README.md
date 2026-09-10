@@ -48,6 +48,12 @@ Stop the dev server before running local database scripts and restart it afterwa
 
 `pnpm seed` creates 400 areas, 5,000 climbs, and 50 synthetic climbers by default, plus sends and journal history covering ascents, repeats, projects, and training. Synthetic accounts start at `climber1@example.com` and use `password` unless a different password is supplied when generating them.
 
+The development account and all but the highest-numbered synthetic climber have
+accepted the current Terms of Service. With the default seed, use
+`climber50@example.com` to test the agreement flow. Every `pnpm seed` run, including
+`pnpm seed --social`, refreshes acceptance for existing seeded accounts and resets
+that climber's acceptance and history. Other accounts are left alone.
+
 Social seeding assigns a repeatable mix of profile, send commentary, and journal audiences. The first four accounts demonstrate independent sharing and the private-profile override:
 
 | Account                | Profile | Send commentary          | Journal entries          |

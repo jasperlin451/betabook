@@ -23,6 +23,9 @@ import { DatabaseSync } from "node:sqlite";
 import { faker } from "@faker-js/faker";
 import { hashPassword } from "better-auth/crypto";
 
+// Bare Node.js does not resolve the app's @/ alias; share the current terms version directly.
+// oxlint-disable-next-line import/no-relative-parent-imports
+import { TERMS_VERSION } from "../lib/terms.ts";
 import { requireLocalDb } from "./d1-local.ts";
 import { seedSocialData } from "./seed-social.ts";
 
@@ -134,6 +137,8 @@ async function main() {
       console.log(`Left ${existing.toLocaleString()} existing climbs alone (--force regenerates).`);
     }
 
+    seedTermsAcceptance(db, email);
+
     if (regenerate || args.includes("--social")) {
       const viewer = db.prepare("SELECT id FROM user WHERE email = ?").get(email) as { id: string };
       const socialCount = seedSocialData(db, viewer.id);
@@ -153,6 +158,36 @@ async function main() {
     throw error;
   } finally {
     db.close();
+  }
+}
+
+/** Keep one synthetic account behind the agreement gate on every local refresh. */
+function seedTermsAcceptance(db: DatabaseSync, email: string) {
+  const users = db
+    .prepare(
+      "SELECT id, email FROM user WHERE email GLOB 'climber[0-9]*@example.com' ORDER BY CAST(substr(email, 8) AS INTEGER)",
+    )
+    .all() as { id: string; email: string }[];
+  const pending = users.findLast((person) => person.email !== email);
+  const accept = db.prepare(
+    "UPDATE user SET terms_version = ?, terms_accepted_at = COALESCE(" +
+      " (SELECT accepted_at FROM user_terms_acceptances WHERE user_id = user.id AND version = ?)," +
+      " cast(unixepoch('subsecond') * 1000 as integer))" +
+      " WHERE email = ? AND (terms_version IS NOT ? OR terms_accepted_at IS NULL)",
+  );
+  for (const acceptedEmail of new Set([email, ...users.map((person) => person.email)])) {
+    if (acceptedEmail !== pending?.email) {
+      accept.run(TERMS_VERSION, TERMS_VERSION, acceptedEmail, TERMS_VERSION);
+    }
+  }
+  if (pending) {
+    db.prepare("UPDATE user SET terms_version = NULL, terms_accepted_at = NULL WHERE id = ?").run(
+      pending.id,
+    );
+    // This local fixture must behave like an account that has never agreed,
+    // including after testing acceptance and rerunning the seed.
+    db.prepare("DELETE FROM user_terms_acceptances WHERE user_id = ?").run(pending.id);
+    console.log(`Terms accepted for seeded accounts except ${pending.email}.`);
   }
 }
 
