@@ -17,9 +17,11 @@ import { getJournalSessionsForAnalytics, getUserSendsForAnalytics } from "@/db/q
 import { getAnalyticsHighlightSessions } from "@/db/queries/analytics-highlights";
 import { getAnalyticsLayout } from "@/db/queries/analytics-layout";
 import { canReadJournal } from "@/db/queries/content-access";
+import { isFeatureAnnouncementDismissed } from "@/db/queries/feature-announcements";
 import { getUserHashtags } from "@/db/queries/hashtag-filter";
 import { buildAnalyticsHighlights } from "@/lib/analytics-highlights";
 import { parseAnalyticsYears } from "@/lib/analytics-years";
+import { ANALYTICS_CUSTOMIZE_ANNOUNCEMENT } from "@/lib/feature-announcements";
 import { normalizeHashtagFilters } from "@/lib/filters/hashtag-filter";
 import type { ClimbType } from "@/lib/grades";
 import { getMemberSession as getSession } from "@/lib/session";
@@ -113,7 +115,16 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
   }
 
   const isOwner = viewerId === id;
-  const initialLayout = await getAnalyticsLayout(db, id, viewerId);
+  const [initialLayout, customizeDismissed] = await Promise.all([
+    getAnalyticsLayout(db, id, viewerId),
+    isOwner
+      ? isFeatureAnnouncementDismissed(
+          db,
+          session.user.id,
+          ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.featureId,
+        )
+      : Promise.resolve(true),
+  ]);
   const highlightSessions = journalVisible
     ? await getAnalyticsHighlightSessions(db, id, viewerId, selectedTags)
     : [];
@@ -133,6 +144,9 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
       <AnalyticsDashboard
         key={id}
         canCustomize={isOwner}
+        customizeAnnouncement={
+          isOwner ? { userId: session.user.id, initialDismissed: customizeDismissed } : undefined
+        }
         initialLayout={initialLayout}
         onSave={isOwner ? saveAnalyticsLayout : undefined}
         analytics={analytics}

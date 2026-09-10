@@ -5,7 +5,11 @@ import { AnalyticsFlashChart } from "@/components/analytics-flash-chart";
 import { AnalyticsGradePyramid } from "@/components/analytics-grade-pyramid";
 import { StatTileContent, type StatTile } from "@/components/analytics-stat-tiles";
 import { AnalyticsVolumeChart } from "@/components/analytics-volume-chart";
-import { AnalyticsWorkspace, type AnalyticsPanel } from "@/components/analytics-workspace";
+import {
+  AnalyticsWorkspace,
+  type AnalyticsPanel,
+  type AnalyticsCustomizeAnnouncement,
+} from "@/components/analytics-workspace";
 import { BreakthroughList } from "@/components/breakthrough-list";
 import { ProgressionChart } from "@/components/progression-chart";
 import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
@@ -36,6 +40,7 @@ export function AnalyticsDashboard({
   selectedYears,
   periodPicker,
   canCustomize = false,
+  customizeAnnouncement,
   initialLayout,
   onSave,
   highlights = buildAnalyticsHighlights([], scope, selectedYears),
@@ -50,6 +55,7 @@ export function AnalyticsDashboard({
   selectedYears: number[];
   periodPicker: ReactNode;
   canCustomize?: boolean;
+  customizeAnnouncement?: AnalyticsCustomizeAnnouncement;
   initialLayout?: AnalyticsLayout;
   onSave?: (layout: AnalyticsLayout) => Promise<ActionResult>;
 }) {
@@ -331,6 +337,7 @@ export function AnalyticsDashboard({
         cards={cards}
         charts={charts}
         canCustomize={canCustomize}
+        customizeAnnouncement={customizeAnnouncement}
         initialLayout={initialLayout}
         onSave={onSave}
       >

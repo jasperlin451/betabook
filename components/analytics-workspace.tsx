@@ -2,7 +2,14 @@
 
 import { Button } from "@heroui/react";
 import { ArrowDown, ArrowUp, GripVertical, Plus, SlidersHorizontal, X } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+  type ComponentProps,
+} from "react";
 import {
   DropIndicator,
   GridList,
@@ -11,6 +18,7 @@ import {
   type DropIndicatorProps,
 } from "react-aria-components";
 
+import { FeatureAnnouncement } from "@/components/feature-announcement";
 import { cardClass } from "@/components/ui/card";
 import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
 import { InlineAlert } from "@/components/ui/inline-alert";
@@ -24,6 +32,7 @@ import {
   type AnalyticsItemId,
   type AnalyticsLayout,
 } from "@/lib/analytics-layout";
+import { ANALYTICS_CUSTOMIZE_ANNOUNCEMENT } from "@/lib/feature-announcements";
 
 export type AnalyticsPanel = {
   id: AnalyticsItemId;
@@ -31,6 +40,11 @@ export type AnalyticsPanel = {
   description?: string;
   content: ReactNode;
 };
+export type AnalyticsCustomizeAnnouncement = Pick<
+  ComponentProps<typeof FeatureAnnouncement>,
+  "userId" | "initialDismissed" | "dismissAction"
+>;
+
 type Group = "cards" | "charts";
 
 /** Anchor the insertion line to the destination card, without taking a grid cell. */
@@ -328,6 +342,7 @@ export function AnalyticsWorkspace({
   cards,
   charts,
   canCustomize = false,
+  customizeAnnouncement,
   initialLayout = DEFAULT_ANALYTICS_LAYOUT,
   children,
   onSave,
@@ -335,6 +350,7 @@ export function AnalyticsWorkspace({
   cards: AnalyticsPanel[];
   charts: AnalyticsPanel[];
   canCustomize?: boolean;
+  customizeAnnouncement?: AnalyticsCustomizeAnnouncement;
   initialLayout?: AnalyticsLayout;
   children?: ReactNode;
   onSave?: (layout: AnalyticsLayout) => Promise<ActionResult>;
@@ -436,15 +452,28 @@ export function AnalyticsWorkspace({
       items: charts.filter((item) => !layout.charts.some((id) => id === item.id)),
     },
   ];
+  const customizeButton =
+    canCustomize && !editing ? (
+      <Button variant="outline" size="sm" aria-label="Customize dashboard" onPress={openEditor}>
+        <SlidersHorizontal size={16} />
+        Customize
+      </Button>
+    ) : null;
   return (
     <div className={`flex flex-col gap-6 ${editing ? "pb-24" : ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SectionHeading>Analytics</SectionHeading>
-        {canCustomize && !editing && (
-          <Button variant="outline" size="sm" aria-label="Customize dashboard" onPress={openEditor}>
-            <SlidersHorizontal size={16} />
-            Customize
-          </Button>
+        {canCustomize && customizeAnnouncement ? (
+          <FeatureAnnouncement
+            {...ANALYTICS_CUSTOMIZE_ANNOUNCEMENT}
+            {...customizeAnnouncement}
+            placement="bottom end"
+            isEnabled={!editing}
+          >
+            {customizeButton}
+          </FeatureAnnouncement>
+        ) : (
+          customizeButton
         )}
       </div>
       {isEditing && (

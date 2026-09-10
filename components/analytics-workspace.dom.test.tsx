@@ -6,6 +6,10 @@ import { DEFAULT_ANALYTICS_LAYOUT, ANALYTICS_CARD_IDS } from "@/lib/analytics-la
 
 import { AnalyticsWorkspace } from "./analytics-workspace";
 
+vi.mock("@/actions/feature-announcements", () => ({
+  dismissFeatureAnnouncement: vi.fn<() => Promise<{ ok: true; value: undefined }>>(),
+}));
+
 beforeEach(() => {
   // Visibility is exercised in Playwright; jsdom has no viewport geometry.
   vi.stubGlobal(
@@ -132,4 +136,62 @@ it("offers optional charts through the chart placeholder and hides it after addi
   expect(screen.getByRole("article", { name: "Volume over time" })).toBeVisible();
   expect(screen.getByRole("article", { name: "Flash rate by grade" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "Customize charts" })).not.toBeInTheDocument();
+});
+
+it("announces Customize to owners until X is pressed, without treating editing as dismissal", async () => {
+  const user = userEvent.setup();
+  const dismissAction = vi
+    .fn<() => Promise<{ ok: true; value: undefined }>>()
+    .mockResolvedValue({ ok: true, value: undefined });
+  render(
+    <AnalyticsWorkspace
+      cards={cards}
+      charts={[]}
+      canCustomize
+      customizeAnnouncement={{ userId: "owner", initialDismissed: false, dismissAction }}
+    />,
+  );
+  expect(screen.getByRole("heading", { name: "Make Analytics your own" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Customize dashboard" }));
+  expect(
+    screen.queryByRole("heading", { name: "Make Analytics your own" }),
+  ).not.toBeInTheDocument();
+  expect(dismissAction).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.getByRole("heading", { name: "Make Analytics your own" })).toBeVisible();
+  await user.click(
+    screen.getByRole("button", { name: "Dismiss announcement: Make Analytics your own" }),
+  );
+  expect(dismissAction).toHaveBeenCalledExactlyOnceWith("analytics-customize");
+  await user.click(screen.getByRole("button", { name: "Customize dashboard" }));
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(
+    screen.queryByRole("heading", { name: "Make Analytics your own" }),
+  ).not.toBeInTheDocument();
+});
+
+it("does not announce Customize to visitors or owners who already dismissed it", () => {
+  const announcement = { userId: "owner", initialDismissed: true };
+  const view = render(
+    <AnalyticsWorkspace
+      cards={cards}
+      charts={[]}
+      canCustomize
+      customizeAnnouncement={announcement}
+    />,
+  );
+  expect(
+    screen.queryByRole("heading", { name: "Make Analytics your own" }),
+  ).not.toBeInTheDocument();
+  view.rerender(
+    <AnalyticsWorkspace
+      cards={cards}
+      charts={[]}
+      customizeAnnouncement={{ ...announcement, initialDismissed: false }}
+    />,
+  );
+  expect(screen.queryByRole("button", { name: "Customize dashboard" })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("heading", { name: "Make Analytics your own" }),
+  ).not.toBeInTheDocument();
 });

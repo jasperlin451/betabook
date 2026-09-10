@@ -106,6 +106,8 @@ function DashboardExample({
   showHighlights = false,
   hiddenCharts = false,
   showFilters = false,
+  announcement = false,
+  announcementDismissed = false,
 }: {
   initialPeriod?: number[];
   undatedOnly?: boolean;
@@ -115,6 +117,8 @@ function DashboardExample({
   showHighlights?: boolean;
   hiddenCharts?: boolean;
   showFilters?: boolean;
+  announcement?: boolean;
+  announcementDismissed?: boolean;
 }) {
   const [scope, setScope] = useState<ClimbType>("boulder");
   const [period, setPeriod] = useState<number[]>(initialPeriod);
@@ -126,6 +130,15 @@ function DashboardExample({
       <AnalyticsDashboard
         sends={rows}
         canCustomize={!visitor}
+        customizeAnnouncement={
+          announcement
+            ? {
+                userId: "sample",
+                initialDismissed: announcementDismissed,
+                dismissAction: async () => ({ ok: true, value: undefined }),
+              }
+            : undefined
+        }
         initialLayout={
           showHighlights
             ? {
@@ -285,4 +298,12 @@ export const ExpandedFilters: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Expand filters" }));
   },
+};
+
+/** Real dashboard and announcement; only dismissal transport is local to Storybook. */
+export const CustomizeAnnouncement: Story = {
+  render: () => <DashboardExample announcement showFilters />,
+};
+export const CustomizeAnnouncementDismissed: Story = {
+  render: () => <DashboardExample announcement announcementDismissed showFilters />,
 };
