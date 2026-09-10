@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar, DateField, DatePicker, Description, Label } from "@heroui/react";
+import { Calendar, Checkbox, DateField, DatePicker, Description, Label } from "@heroui/react";
 import { parseDate, type CalendarDate } from "@internationalized/date";
 
 import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
@@ -23,6 +23,10 @@ export type DatePickerFieldProps = {
   max?: string;
   isReadOnly?: boolean;
   description?: string;
+  /** Renders an "I don't know" checkbox to the right of the field for a date
+   * the user can't recall. Checked mirrors an empty value, so the caller
+   * empties or restores the date here and typing a date unchecks it. */
+  onUnknownChange?: (unknown: boolean) => void;
 };
 
 /** The app's date field: a segmented input plus a calendar popover, themed from
@@ -35,10 +39,11 @@ export function DatePickerField({
   max,
   isReadOnly,
   description,
+  onUnknownChange,
 }: DatePickerFieldProps) {
   const maxDate = toCalendarDate(max);
 
-  return (
+  const picker = (
     <DatePicker
       className={FIELD_WIDTH_CLASS.medium}
       value={toCalendarDate(value)}
@@ -88,5 +93,21 @@ export function DatePickerField({
         </Calendar>
       </DatePicker.Popover>
     </DatePicker>
+  );
+
+  if (!onUnknownChange || isReadOnly) return picker;
+
+  return (
+    <div className="flex items-end gap-4">
+      {picker}
+      <Checkbox isSelected={value === ""} onChange={onUnknownChange}>
+        <Checkbox.Content className="flex h-10 items-center">
+          <Checkbox.Control>
+            <Checkbox.Indicator />
+          </Checkbox.Control>
+          I don&apos;t know
+        </Checkbox.Content>
+      </Checkbox>
+    </div>
   );
 }

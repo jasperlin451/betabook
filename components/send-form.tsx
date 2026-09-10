@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Checkbox, Label, TextArea, TextField } from "@heroui/react";
+import { Button, Label, TextArea, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
 import { updateSend } from "@/actions";
@@ -28,11 +28,12 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
   const today = new Intl.DateTimeFormat("en-CA").format(new Date());
 
   const [ascentStyle, setAscentStyle] = useState<AscentStyle>(existingSend.ascentStyle);
-  const [dateSent, setDateSent] = useState(existingSend.dateSent ?? today);
-  const [dateUnknown, setDateUnknown] = useState(existingSend.dateSent == null);
+  const [dateSent, setDateSent] = useState(existingSend.dateSent ?? "");
   const [comment, setComment] = useState(existingSend.comment ?? "");
   const [rating, setRating] = useState<number | null>(existingSend.rating);
-  const [suggestedGrade, setSuggestedGrade] = useState(String(existingSend.suggestedGrade ?? ""));
+  const [suggestedGrade, setSuggestedGrade] = useState(
+    String(existingSend.suggestedGrade ?? climb.grade ?? ""),
+  );
   const [gradeFeel, setGradeFeel] = useState<GradeFeel>(existingSend.gradeFeel);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -43,7 +44,7 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
 
     const formData = new FormData();
     formData.set("ascentStyle", ascentStyle);
-    formData.set("dateSent", dateUnknown ? "" : dateSent);
+    formData.set("dateSent", dateSent);
     formData.set("comment", comment);
     formData.set("rating", rating == null ? "" : String(rating));
     formData.set("suggestedGrade", suggestedGrade);
@@ -64,17 +65,15 @@ export function SendForm({ climb, existingSend, onDone }: SendFormProps) {
       <FormSection label="Ascent">
         <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} />
 
-        {!dateUnknown && (
-          <DatePickerField label="Date sent" value={dateSent} max={today} onChange={setDateSent} />
-        )}
-        <Checkbox isSelected={dateUnknown} onChange={setDateUnknown}>
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            I don&apos;t remember the date
-          </Checkbox.Content>
-        </Checkbox>
+        <DatePickerField
+          label="Date sent"
+          value={dateSent}
+          max={today}
+          onChange={setDateSent}
+          onUnknownChange={(unknown) =>
+            setDateSent(unknown ? "" : (existingSend.dateSent ?? today))
+          }
+        />
       </FormSection>
 
       <FormSection label="Your opinion">

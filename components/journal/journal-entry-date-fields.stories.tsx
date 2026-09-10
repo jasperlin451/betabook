@@ -16,30 +16,17 @@ const meta = {
     today: "2026-09-06",
     entryDate: "2026-09-01",
     sent: false,
-    dateUnknown: false,
     onDateChange: () => {},
-    onSentChange: () => {},
-    onDateUnknownChange: () => {},
   },
   render: function Example(args) {
     const [entryDate, setEntryDate] = useState(args.entryDate);
-    const [sent, setSent] = useState(args.sent);
-    const [dateUnknown, setDateUnknown] = useState(args.dateUnknown);
     return (
       <StoryPage
         title="Entry date"
-        description="Date comes first, followed by send choices, without a separate section title. Record a send without a date selects I sent and hides the date; uncheck it to restore the date."
+        description="The entry's date, with guidance for entries that must keep one. For a new send (the owning form's session-or-send picker chooses that) an I don't know checkbox appears beside the date and empties it — a send saved that way is recorded without a date, as in the Undated send example."
       >
         <div className={SURFACE_CARD_CLASS}>
-          <JournalEntryDateFields
-            {...args}
-            entryDate={entryDate}
-            sent={sent}
-            dateUnknown={dateUnknown}
-            onDateChange={setEntryDate}
-            onSentChange={setSent}
-            onDateUnknownChange={setDateUnknown}
-          />
+          <JournalEntryDateFields {...args} entryDate={entryDate} onDateChange={setEntryDate} />
         </div>
       </StoryPage>
     );
@@ -50,7 +37,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Session: Story = {};
 export const Ascent: Story = { args: { sent: true } };
-export const UndatedSend: Story = { args: { sent: true, dateUnknown: true } };
+export const UndatedSend: Story = { args: { sent: true, entryDate: "" } };
 export const Repeat: Story = { args: { sent: true, hasPriorSend: true } };
 export const Training: Story = { args: { kind: "training", hasClimb: false } };
 export const EditAscent: Story = {

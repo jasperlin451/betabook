@@ -53,10 +53,17 @@ test("calendar selection respects the latest day, clears, and keeps read-only da
   await expect(page.getByRole("spinbutton", { name: "year, Empty date", exact: true })).toHaveText(
     "2026",
   );
-  await page.getByRole("button", { name: "Clear date", exact: true }).click();
-  await expect(page.getByRole("spinbutton", { name: "day, Empty date", exact: true })).toHaveText(
-    "dd",
-  );
+  const unknown = page.getByRole("checkbox", { name: "I don't know", exact: true });
+  await unknown.press("Space");
+  await expect(unknown).toBeChecked();
+  await expect(
+    page.getByRole("spinbutton", { name: "day, Forgettable date", exact: true }),
+  ).toHaveText("dd");
+  await unknown.press("Space");
+  await expect(unknown).not.toBeChecked();
+  await expect(
+    page.getByRole("spinbutton", { name: "day, Forgettable date", exact: true }),
+  ).toHaveText("06");
   const readonly = page.getByRole("spinbutton", { name: "day, Read-only date", exact: true });
   await readonly.press("ArrowUp");
   await expect(readonly).toHaveText("01");

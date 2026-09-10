@@ -36,7 +36,7 @@ function Example({
   return (
     <StoryPage
       title="Log an entry"
-      description="Date comes first; send style appears beside I sent. Notes fill the form width, followed by friends and Tags. Redundant section headings are omitted. Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
+      description="The session-or-send pills come first: Session logs plain time on the climb, while Redpoint, Flash, or Onsight marks a send in that style. Then the date, the ascent opinion, and Notes filling the form width. Friends and Tags wait behind Add details, collapsed by default. With a send style chosen, the I don't know checkbox beside the date empties it to record a send without one; entries always need a date to save. Local save boundary. Submitted entries show the real form payload, including friend identities, notes, dates and tags. No account data is written."
     >
       <JournalEntryFields
         today="2026-09-06"
@@ -105,7 +105,15 @@ export const Saving: Story = { render: () => <Example slow /> };
 export const Ascent: Story = {
   render: () => <Example />,
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByText("I sent", { exact: true }));
+    await userEvent.click(within(canvasElement).getByRole("radio", { name: "Redpoint" }));
   },
 };
 export const RopeAscent: Story = { render: () => <Example rope />, play: Ascent.play };
+export const AscentDetails: Story = {
+  render: () => <Example />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("radio", { name: "Redpoint" }));
+    await userEvent.click(canvas.getByRole("button", { name: "Add details" }));
+  },
+};

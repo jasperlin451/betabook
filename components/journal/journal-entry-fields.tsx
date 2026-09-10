@@ -6,9 +6,15 @@ import { useState, useTransition } from "react";
 import { CompanionPicker } from "@/components/journal/companion-picker";
 import { JournalEntryDateFields } from "@/components/journal/journal-entry-date-fields";
 import { TagInput } from "@/components/journal/tag-input";
-import { AscentStylePicker, GradeFeelField, SuggestedGradeField } from "@/components/send-fields";
+import {
+  GradeFeelField,
+  SendStylePicker,
+  SuggestedGradeField,
+  type SendStyleChoice,
+} from "@/components/send-fields";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass, SURFACE_CARD_CLASS } from "@/components/ui/card";
+import { DetailsDisclosure } from "@/components/ui/details-disclosure";
 import { FieldHeader } from "@/components/ui/field-support";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
 import { RatingField } from "@/components/ui/rating-field";
@@ -74,31 +80,42 @@ export function JournalEntryFields({
   onPendingChange,
 }: JournalEntryFieldsProps) {
   const [entryDate, setEntryDate] = useState(existingEntry?.entryDate ?? today);
-  const [dateUnknown, setDateUnknown] = useState(false);
-  const [sent, setSent] = useState(existingEntry?.sent ?? false);
+  const [choice, setChoice] = useState<SendStyleChoice>("session");
   const [body, setBody] = useState(existingEntry?.body ?? "");
   const [companions, setCompanions] = useState<CompanionOption[]>(existingEntry?.companions ?? []);
   const [companionsChanged, setCompanionsChanged] = useState(false);
   const [tags, setTags] = useState<string[]>(existingEntry?.tags ?? []);
 
-  const [ascentStyle, setAscentStyle] = useState<AscentStyle>("redpoint");
   const [rating, setRating] = useState<number | null>(null);
   const [suggestedGrade, setSuggestedGrade] = useState(String(climb?.grade ?? ""));
   const [gradeFeel, setGradeFeel] = useState<GradeFeel>("solid");
 
+  // Open when the section already holds something to review; otherwise the
+  // quick path stays date → sent → notes → save.
+  const [detailsExpanded, setDetailsExpanded] = useState(
+    (existingEntry?.companions?.length ?? 0) > 0 || (existingEntry?.tags.length ?? 0) > 0,
+  );
+
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const sent = existingEntry ? existingEntry.sent : choice !== "session";
+  const ascentStyle: AscentStyle = choice === "session" ? "redpoint" : choice;
   const isAscent = !existingEntry && sent && climb != null && !hasPriorSend;
-  const isUndatedSend = isAscent && dateUnknown;
+  const isUndatedSend = isAscent && entryDate === "";
   const summary = describePendingEntry({ kind, climbName: climb?.name, sent, hasPriorSend });
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (pending) return;
     setError(null);
+    if (entryDate === "" && !isUndatedSend) {
+      setError("Add a date to save this entry.");
+      return;
+    }
     if (isUndatedSend && companions.length > 0) {
       setError("Add a date to keep With friends.");
+      setDetailsExpanded(true);
       return;
     }
 
@@ -147,6 +164,8 @@ export function JournalEntryFields({
 
   return (
     <form onSubmit={handleSubmit} className={`${SURFACE_CARD_CLASS} gap-4`}>
+      {climb && !existingEntry && <SendStylePicker value={choice} onChange={setChoice} />}
+
       <JournalEntryDateFields
         kind={kind}
         hasClimb={climb != null}
@@ -155,13 +174,7 @@ export function JournalEntryFields({
         today={today}
         entryDate={entryDate}
         sent={sent}
-        dateUnknown={dateUnknown}
         onDateChange={setEntryDate}
-        onSentChange={setSent}
-        onDateUnknownChange={setDateUnknown}
-        ascentStyle={
-          isAscent ? <AscentStylePicker value={ascentStyle} onChange={setAscentStyle} /> : undefined
-        }
       />
 
       {isAscent && climb && (
@@ -199,20 +212,31 @@ export function JournalEntryFields({
         />
       </TextField>
 
-      <div className="flex flex-wrap items-start gap-4">
-        <CompanionPicker
-          value={companions}
-          onChange={(value) => {
-            if (pending) return;
-            setCompanions(value);
-            setCompanionsChanged(true);
-          }}
-          disabled={pending}
-          editing={!!existingEntry}
-          fetcher={companionFetcher}
-        />
-        {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}
-      </div>
+      <DetailsDisclosure
+        title="Add details"
+        isExpanded={detailsExpanded}
+        onExpandedChange={setDetailsExpanded}
+      >
+        <div className="flex flex-wrap items-start gap-4">
+          <CompanionPicker
+            value={companions}
+            onChange={(value) => {
+              if (pending) return;
+              setCompanions(value);
+              setCompanionsChanged(true);
+            }}
+            disabled={pending}
+            editing={!!existingEntry}
+            fetcher={companionFetcher}
+          />
+          {!isUndatedSend && <TagInput value={tags} onChange={setTags} />}
+        </div>
+
+        <p className="text-xs text-muted">
+          Set separate audiences for send commentary and journal entries in{" "}
+          <AppLink href="/account">Account settings</AppLink>.
+        </p>
+      </DetailsDisclosure>
 
       {!existingEntry && (
         <div className={`flex flex-col gap-1 ${cardClass("sm", "inset")}`}>
@@ -236,11 +260,6 @@ export function JournalEntryFields({
       <Button type="submit" isDisabled={pending} fullWidth>
         {existingEntry ? "Save changes" : isUndatedSend ? "Save send" : "Save entry"}
       </Button>
-
-      <p className="text-center text-xs text-muted">
-        Set separate audiences for send commentary and journal entries in{" "}
-        <AppLink href="/account">Account settings</AppLink>.
-      </p>
     </form>
   );
 }

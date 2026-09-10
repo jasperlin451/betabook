@@ -4,6 +4,7 @@ test("Log entry uses shared date and grade widths and direct friend copy", async
   page,
 }, info) => {
   await openStory(page, info, "components-journal-entry-fields--outdoor");
+  await page.getByRole("button", { name: "Add details" }).click();
   await expect(page.getByRole("combobox", { name: "Find a friend to tag" })).toHaveAttribute(
     "placeholder",
     "Find a friend to tag…",
@@ -11,14 +12,10 @@ test("Log entry uses shared date and grade widths and direct friend copy", async
   const date = await page.getByRole("group", { name: "Date", exact: true }).boundingBox();
   if (!date) throw new Error("Missing date field");
   expect(date.width).toBe(176);
-  await page.getByRole("checkbox", { name: "I sent", exact: true }).press("Space");
-  const sent = await page.getByRole("checkbox", { name: "I sent", exact: true }).boundingBox();
-  const style = await page.getByRole("radiogroup", { name: "Ascent style" }).boundingBox();
-  if (!sent || !style) throw new Error("Missing send/style controls");
-  if (info.project.use.viewport && info.project.use.viewport.width >= 768) {
-    expect(style.x).toBeGreaterThan(sent.x + sent.width);
-    expect(Math.abs(style.y + style.height / 2 - (sent.y + sent.height / 2))).toBeLessThan(2);
-  }
+  const style = await page.getByRole("radiogroup", { name: "Session or send" }).boundingBox();
+  if (!style) throw new Error("Missing session-or-send picker");
+  expect(style.y + style.height).toBeLessThan(date.y);
+  await page.getByRole("radio", { name: "Redpoint", exact: true }).click();
   const grade = await page.getByRole("button", { name: /Suggested grade$/ }).boundingBox();
   if (!grade) throw new Error("Missing grade field");
   expect(grade.width).toBe(112);
