@@ -29,7 +29,7 @@ export function PrimaryPageLinks({
         relatedPaths={["/feed", "/friends"]}
         onClick={onNavigate}
       >
-        My Journal
+        My profile
       </NavLink>
     </>
   );

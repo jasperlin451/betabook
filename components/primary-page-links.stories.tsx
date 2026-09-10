@@ -23,7 +23,7 @@ const meta = {
           <Story />
           {context.args.direction === "col" && (
             <NavLink href="/account" appearance="primary" layout="menu">
-              Account
+              Account settings
             </NavLink>
           )}
         </nav>
@@ -34,6 +34,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const MyJournal: Story = {
+  name: "My profile",
   parameters: { nextjs: { navigation: { pathname: "/users/sample" } } },
 };
 export const AddClimb: Story = {

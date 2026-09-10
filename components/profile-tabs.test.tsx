@@ -15,8 +15,8 @@ vi.mock("next/link", () => ({
 }));
 
 it.each([
-  ["/users/owner", "My Journal"],
-  ["/users/owner/journal", "My Journal"],
+  ["/users/owner", "Journal"],
+  ["/users/owner/journal", "Journal"],
   ["/users/owner/sends", "Sends"],
   ["/users/owner/projects", "Projects"],
   ["/users/owner/analytics", "Analytics"],

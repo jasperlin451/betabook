@@ -21,11 +21,11 @@ it.each([
   state.pathname = pathname;
   const html = renderToStaticMarkup(
     <NavLink href="/users/alice" matchWithin relatedPaths={["/feed"]}>
-      My Journal
+      My profile
     </NavLink>,
   );
   expect(html).toContain('href="/users/alice"');
-  expect(html).toContain(">My Journal</a>");
+  expect(html).toContain(">My profile</a>");
   if (current) expect(html).toContain(`aria-current="${current}"`);
   else expect(html).not.toContain("aria-current=");
 });

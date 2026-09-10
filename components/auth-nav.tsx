@@ -68,7 +68,9 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
 
   if (session) {
     const hasRequests = requests.userId === session.user.id && (requests.count ?? 0) > 0;
-    const accountLabel = hasRequests ? "Account, pending friend requests" : "Account";
+    const accountLabel = hasRequests
+      ? "Account settings, pending friend requests"
+      : "Account settings";
     return (
       <span className={signedInGroupClass}>
         <PrimaryPageLinks userId={session.user.id} direction={direction} onNavigate={onNavigate} />
@@ -92,7 +94,7 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
             className="gap-1.5"
             onClick={onNavigate}
           >
-            Account
+            Account settings
             {hasRequests && <FriendRequestDot />}
           </NavLink>
         )}
