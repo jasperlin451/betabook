@@ -7,12 +7,19 @@ import { useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
 
-export function SignOutButton() {
+export function SignOutButton({
+  onSignOut,
+  compact = false,
+}: { onSignOut?: () => void; compact?: boolean } = {}) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function handleSignOut() {
+    if (onSignOut) {
+      onSignOut();
+      return;
+    }
     setError(null);
     setPending(true);
     void authClient.signOut({
@@ -30,8 +37,9 @@ export function SignOutButton() {
   return (
     <div className="flex flex-col gap-2">
       <Button
-        variant="outline"
-        fullWidth
+        type="button"
+        variant={compact ? "ghost" : "outline"}
+        fullWidth={!compact}
         className="gap-2"
         onPress={handleSignOut}
         isDisabled={pending}

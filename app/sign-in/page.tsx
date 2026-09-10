@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { SignInForm } from "@/components/sign-in-form";
 import { isGoogleOAuthEnabled } from "@/lib/auth";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 import { formatAuthErrorMessage, safeNextPath } from "@/lib/sign-in-redirect";
 
 export const metadata: Metadata = {

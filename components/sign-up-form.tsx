@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Input, Label, TextField } from "@heroui/react";
+import { Button, Checkbox, Input, Label, TextField } from "@heroui/react";
 import { useState } from "react";
 
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
@@ -10,6 +10,7 @@ import { PageTitle } from "@/components/ui/typography";
 import { authClient } from "@/lib/auth-client";
 import { MAX_DISPLAY_NAME_LENGTH } from "@/lib/display-name";
 import { safeNextPath, signInUrl } from "@/lib/sign-in-redirect";
+import { TERMS_VERSION, termsHref } from "@/lib/terms";
 
 export function SignUpForm({
   next,
@@ -25,6 +26,7 @@ export function SignUpForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -39,13 +41,14 @@ export function SignUpForm({
     e.preventDefault();
     setError(null);
     setSubmitAttempted(true);
-    if (password !== confirmPassword) return;
+    if (pending || !termsAccepted || password !== confirmPassword) return;
     setPending(true);
     void authClient.signUp.email(
       // The verification link lands back on sign-in, carrying the original
       // destination so the continuation survives sign-up → verify → sign-in.
       { name, email, password, callbackURL: signInUrl(nextPath) },
       {
+        body: { acceptedTermsVersion: TERMS_VERSION },
         onSuccess: () => setDone(true),
         onError: (ctx) => setError(ctx.error.message ?? "Sign up failed"),
         onResponse: () => setPending(false),
@@ -89,9 +92,36 @@ export function SignUpForm({
   return (
     <form onSubmit={handleSubmit} className={FORM_CARD_CLASS}>
       <PageTitle>Sign up</PageTitle>
+      <div className="flex flex-col gap-2 text-sm">
+        <Checkbox
+          isSelected={termsAccepted}
+          onChange={setTermsAccepted}
+          isDisabled={pending}
+          isRequired
+        >
+          <Checkbox.Content>
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            I agree to the Terms of Service
+          </Checkbox.Content>
+        </Checkbox>
+        <AppLink
+          href={termsHref()}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm underline"
+        >
+          Read the Terms of Service
+        </AppLink>
+      </div>
       {googleEnabled && (
         <>
-          <GoogleSignInButton nextPath={nextPath} onError={setError} disabled={pending} />
+          <GoogleSignInButton
+            nextPath={nextPath}
+            onError={setError}
+            disabled={pending || !termsAccepted}
+          />
           <div className="relative flex items-center py-1">
             <div className="grow border-t border-separator" />
             <span className="mx-3 shrink text-xs text-muted uppercase">or</span>
@@ -125,7 +155,7 @@ export function SignUpForm({
           {error}
         </p>
       )}
-      <Button type="submit" fullWidth isDisabled={pending}>
+      <Button type="submit" fullWidth isDisabled={pending || !termsAccepted}>
         Sign up
       </Button>
       <p className="text-sm text-muted">

@@ -1,4 +1,7 @@
+import { getDb } from "@/db/client";
+import { getTermsAcceptance } from "@/db/queries/terms";
 import { getSession } from "@/lib/session";
+import { hasAcceptedCurrentTerms, TERMS_ACCESS_MESSAGE } from "@/lib/terms";
 
 type Session = NonNullable<Awaited<ReturnType<typeof getSession>>>;
 
@@ -10,9 +13,17 @@ export function withApiSession<Args extends unknown[]>(
     let response: Response;
     try {
       const session = await getSession();
-      response = session
-        ? await handler(session, ...args)
-        : Response.json({ error: "Not signed in" }, { status: 401 });
+      const acceptance = session
+        ? await getTermsAcceptance(await getDb(), session.user.id)
+        : undefined;
+      if (!session || !acceptance)
+        response = Response.json({ error: "Not signed in" }, { status: 401 });
+      else if (!hasAcceptedCurrentTerms(acceptance))
+        response = Response.json(
+          { error: TERMS_ACCESS_MESSAGE, code: "TERMS_ACCEPTANCE_REQUIRED" },
+          { status: 428 },
+        );
+      else response = await handler(session, ...args);
     } catch (error) {
       console.error("Application data request failed", error);
       response = Response.json({ error: "Internal server error" }, { status: 500 });

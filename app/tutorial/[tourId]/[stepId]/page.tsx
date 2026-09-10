@@ -8,7 +8,7 @@ import {
   type ProductTourSearchParams,
   PRODUCT_TOUR_STEPS,
 } from "@/lib/product-tour-navigation";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 
 export default async function TutorialPage({
   params,

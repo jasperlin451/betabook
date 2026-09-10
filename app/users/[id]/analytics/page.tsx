@@ -22,7 +22,7 @@ import { buildAnalyticsHighlights } from "@/lib/analytics-highlights";
 import { parseAnalyticsYears } from "@/lib/analytics-years";
 import { normalizeHashtagFilters } from "@/lib/filters/hashtag-filter";
 import type { ClimbType } from "@/lib/grades";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 import { toArray, type UrlParamsRecord } from "@/lib/url-params";
 import { buildUserAnalytics, DISCIPLINE_ORDER, parseDisciplineScope } from "@/lib/user-analytics";
 import { canViewUser } from "@/lib/user-visibility";

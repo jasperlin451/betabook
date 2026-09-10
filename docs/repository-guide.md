@@ -28,6 +28,7 @@ Betabook is a climbing logbook and crag database built with Next.js 16 App Route
 - `components/ui/` must not import feature components. Reuse its primitives and the existing HeroUI/Tailwind tokens in `app/globals.css`.
 - Import boundaries, cycles, duplicates, and relative-parent imports are checked by [`oxlint.config.ts`](../oxlint.config.ts). Use `@/` for cross-directory imports; sibling imports are allowed.
 - Public catalog reads expose area/subarea/route names and hierarchy, area and route descriptions, and route grades and disciplines. All other data APIs use `withApiSession`, and pages and metadata authorize before reading protected data. Locked pages show Sign in/Sign up callouts. Any future middleware must use the edge runtime supported by OpenNext and must not replace real authorization.
+- Member page loaders and metadata use `getMemberSession`; actions use `requireSession`, and member APIs use `withApiSession`. These check current terms acceptance in D1, including for existing sessions. Raw `getSession` establishes identity only and is reserved for the template, authentication, and agreement flow; it does not authorize member data. Keep `/terms`, its version archives, `/accept-terms`, contact, and account recovery reachable before acceptance.
 - Respect the browser targets in `package.json` and the library baseline in `tsconfig.json`. New built-in JavaScript APIs are not automatically polyfilled.
 
 ## Data rules to preserve

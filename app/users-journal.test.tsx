@@ -46,7 +46,9 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("@/lib/session", () => ({
-  getSession: vi.fn<() => Promise<{ user: { id: string } } | null>>(async () => state.session),
+  getMemberSession: vi.fn<() => Promise<{ user: { id: string } } | null>>(
+    async () => state.session,
+  ),
 }));
 
 vi.mock("@/app/users/[id]/profile-shell", () => ({

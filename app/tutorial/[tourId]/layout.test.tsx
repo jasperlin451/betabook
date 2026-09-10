@@ -5,10 +5,10 @@ import TutorialLayout, { metadata } from "@/app/tutorial/[tourId]/layout";
 import TutorialStart from "@/app/tutorial/[tourId]/page";
 import { getDb } from "@/db/client";
 import { getProductTourState } from "@/db/queries";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 
 vi.mock("next/link", () => ({ default: () => null }));
-vi.mock("@/lib/session", () => ({ getSession: vi.fn<typeof getSession>() }));
+vi.mock("@/lib/session", () => ({ getMemberSession: vi.fn<typeof getSession>() }));
 vi.mock("@/db/client", () => ({ getDb: vi.fn<typeof getDb>() }));
 vi.mock("@/db/queries", () => ({ getProductTourState: vi.fn<typeof getProductTourState>() }));
 vi.mock("@/components/product-tours/tour-experience", () => ({ TourExperience: () => null }));

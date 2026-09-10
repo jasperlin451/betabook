@@ -12,7 +12,7 @@ import { climbs } from "@/db/schema";
 import { seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 import { resetDb } from "@/test/reset-db";
 
-vi.mock("@/lib/session", () => ({ getSession: async () => null }));
+vi.mock("@/lib/session", () => ({ getMemberSession: async () => null }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NOT_FOUND");

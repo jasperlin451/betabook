@@ -28,7 +28,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/session", () => ({
-  getSession: vi.fn<() => Promise<{ user: { id: string } } | null>>(
+  getMemberSession: vi.fn<() => Promise<{ user: { id: string } } | null>>(
     async () => sessionState.session,
   ),
 }));

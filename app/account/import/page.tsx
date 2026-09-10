@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { ImportWizard } from "@/components/import";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Import sends",

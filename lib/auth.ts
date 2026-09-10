@@ -1,10 +1,11 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
+import { APIError, getOAuthState } from "better-auth/api";
 
 import { getDb } from "@/db/client";
 import { getUserIdByName } from "@/db/queries";
+import { getTermsAcceptance } from "@/db/queries/terms";
 import * as schema from "@/db/schema";
 import {
   deleteAccountPendingChangeRequests,
@@ -13,6 +14,12 @@ import {
 } from "@/lib/account";
 import { DISPLAY_NAME_TAKEN_MESSAGE, displayNameProblem } from "@/lib/display-name";
 import { sendResetPasswordEmail, sendVerificationEmail } from "@/lib/email";
+import {
+  hasAcceptedCurrentTerms,
+  TERMS_ACCESS_MESSAGE,
+  TERMS_REQUIRED_MESSAGE,
+  TERMS_VERSION,
+} from "@/lib/terms";
 import { sendWelcomeEmailOnce } from "@/lib/welcome-email";
 
 async function authBuilder() {
@@ -86,6 +93,8 @@ async function authBuilder() {
       // scripts/promote-admin.ts.
       additionalFields: {
         role: { type: "string", required: false, input: false },
+        termsVersion: { type: "string", required: false, input: false },
+        termsAcceptedAt: { type: "date", required: false, input: false },
       },
       deleteUser: {
         enabled: true,
@@ -109,6 +118,20 @@ async function authBuilder() {
           // chose — failing would block the sign-in itself, so suffix the
           // name into uniqueness instead; it can be changed on /account.
           before: async (newUser, ctx) => {
+            // Email sends a separate assent field; OAuth carries it in Better
+            // Auth's verified state. Never trust a provider profile, callback
+            // query, or client timestamp as an acceptance record.
+            const acceptedVersion =
+              ctx?.path === "/sign-up/email"
+                ? ctx.body?.acceptedTermsVersion
+                : (await getOAuthState())?.acceptedTermsVersion;
+            if (acceptedVersion !== TERMS_VERSION) {
+              throw new APIError("BAD_REQUEST", {
+                code: "TERMS_ACCEPTANCE_REQUIRED",
+                message: TERMS_REQUIRED_MESSAGE,
+              });
+            }
+            const terms = { termsVersion: TERMS_VERSION, termsAcceptedAt: new Date() };
             if (ctx?.path === "/sign-up/email") {
               const name = newUser.name.trim();
               const problem = displayNameProblem(name);
@@ -118,9 +141,11 @@ async function authBuilder() {
                   message: DISPLAY_NAME_TAKEN_MESSAGE,
                 });
               }
-              return { data: { ...newUser, name } };
+              return { data: { ...newUser, name, ...terms } };
             }
-            return { data: { ...newUser, name: await uniqueDisplayName(db, newUser.name) } };
+            return {
+              data: { ...newUser, name: await uniqueDisplayName(db, newUser.name), ...terms },
+            };
           },
           after: async (createdUser) => {
             // OAuth users register with emailVerified: true immediately,
@@ -144,6 +169,15 @@ async function authBuilder() {
           // error. Same rules as sign-up, excluding the caller's own name
           // so a case-only change isn't rejected as taken.
           before: async (data, ctx) => {
+            if (ctx?.path === "/update-user") {
+              const userId = ctx.context.session?.user.id;
+              if (!userId || !hasAcceptedCurrentTerms(await getTermsAcceptance(db, userId))) {
+                throw new APIError("FORBIDDEN", {
+                  code: "TERMS_ACCEPTANCE_REQUIRED",
+                  message: TERMS_ACCESS_MESSAGE,
+                });
+              }
+            }
             if (typeof data.name !== "string") return { data };
             const name = data.name.trim();
             const problem = displayNameProblem(name);

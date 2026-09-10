@@ -11,7 +11,7 @@ import { resetDb } from "@/test/reset-db";
 
 const state = vi.hoisted(() => ({ viewer: null as string | null }));
 vi.mock("@/lib/session", () => ({
-  getSession: async () => (state.viewer ? { user: { id: state.viewer } } : null),
+  getMemberSession: async () => (state.viewer ? { user: { id: state.viewer } } : null),
 }));
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => {

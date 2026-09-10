@@ -14,7 +14,7 @@ import {
   REVIEW_QUEUE_PAGE_SIZE,
 } from "@/db/queries";
 import { getReviewQueueDetails } from "@/lib/moderation";
-import { getSession } from "@/lib/session";
+import { getMemberSession as getSession } from "@/lib/session";
 import { areaHref } from "@/lib/slug";
 
 export const metadata: Metadata = { title: "Review requests" };

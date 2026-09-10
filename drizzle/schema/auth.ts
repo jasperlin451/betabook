@@ -13,6 +13,9 @@ export const user = sqliteTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: integer("email_verified", { mode: "boolean" }).default(false).notNull(),
   image: text("image"),
+  // Existing accounts stay null: do not infer acceptance from prior use.
+  termsVersion: text("terms_version"),
+  termsAcceptedAt: integer("terms_accepted_at", { mode: "timestamp_ms" }),
   // Our own moderation marker, not a better-auth plugin column: null for
   // every ordinary user, "admin" only via scripts/promote-admin.ts. Exposed
   // into session.user through user.additionalFields (lib/auth.ts) so
