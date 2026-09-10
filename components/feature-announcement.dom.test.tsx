@@ -6,7 +6,7 @@ import type { ActionResult } from "@/lib/action-result";
 
 import { FeatureAnnouncement } from "./feature-announcement";
 
-vi.mock("@/actions/feature-announcements", () => ({
+vi.mock("@/actions", () => ({
   dismissFeatureAnnouncement: vi.fn<(featureId: string) => Promise<ActionResult>>(),
 }));
 const base = {

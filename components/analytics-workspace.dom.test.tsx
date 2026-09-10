@@ -6,7 +6,7 @@ import { DEFAULT_ANALYTICS_LAYOUT, ANALYTICS_CARD_IDS } from "@/lib/analytics-la
 
 import { AnalyticsWorkspace } from "./analytics-workspace";
 
-vi.mock("@/actions/feature-announcements", () => ({
+vi.mock("@/actions", () => ({
   dismissFeatureAnnouncement: vi.fn<() => Promise<{ ok: true; value: undefined }>>(),
 }));
 

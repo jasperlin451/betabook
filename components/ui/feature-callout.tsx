@@ -46,7 +46,7 @@ export function FeatureCallout({
         placement={placement}
         offset={12}
         containerPadding={12}
-        className="z-50 w-96 max-w-[calc(100vw-24px)] rounded-2xl bg-accent p-4 text-accent-foreground shadow-lg outline-none"
+        className="z-50 w-96 max-w-[calc(100%-24px)] rounded-2xl bg-accent p-4 text-accent-foreground shadow-lg outline-none"
       >
         <OverlayArrow className="group">
           <svg

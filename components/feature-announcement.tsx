@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-import { dismissFeatureAnnouncement } from "@/actions/feature-announcements";
+import { dismissFeatureAnnouncement } from "@/actions";
 import { FeatureCallout, type FeatureCalloutProps } from "@/components/ui/feature-callout";
 import { GENERIC_ERROR_MESSAGE, type ActionResult } from "@/lib/action-result";
 

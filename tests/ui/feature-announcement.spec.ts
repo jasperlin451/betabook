@@ -1,5 +1,8 @@
 import { expect, openStory, test } from "./story";
 
+// Include classic scrollbars, as used by the in-app browser on macOS.
+test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } });
+
 for (const story of [
   "components-feature-callout--default",
   "components-feature-callout--near-right-edge",
@@ -62,4 +65,23 @@ test("analytics announcement fits the screen and leaves Customize usable", async
   await expect(
     page.getByRole("heading", { name: "Customize your analytics dashboard" }),
   ).toBeVisible();
+});
+
+test.describe("visible scrollbar layout", () => {
+  test("callout fits the usable viewport beside a scrollbar", async ({ page }, info) => {
+    await openStory(page, info, "components-feature-callout--near-right-edge");
+    await page.addStyleTag({
+      content: "html { overflow-y: scroll; } ::-webkit-scrollbar { width: 15px; }",
+    });
+    const viewport = await page.evaluate(() => ({
+      usable: document.documentElement.clientWidth,
+      outer: window.innerWidth,
+    }));
+    expect(viewport.usable).toBeLessThan(viewport.outer);
+    const callout = page.getByRole("region", { name: "Your journal, organized" });
+    const bounds = await callout.boundingBox();
+    if (!bounds) throw new Error("Missing callout bounds");
+    // Include the callout's 16px right padding, not just its content region.
+    expect(bounds.x + bounds.width + 16).toBeLessThanOrEqual(viewport.usable);
+  });
 });
