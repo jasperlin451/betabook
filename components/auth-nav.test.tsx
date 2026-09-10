@@ -4,10 +4,13 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { AuthNav } from "@/components/auth-nav";
 
-const state = vi.hoisted((): { requests: { userId: string; count: number | null } } => ({
-  requests: { userId: "owner", count: 2 },
-}));
-vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+const state = vi.hoisted(
+  (): { requests: { userId: string; count: number | null }; pathname: string } => ({
+    requests: { userId: "owner", count: 2 },
+    pathname: "/",
+  }),
+);
+vi.mock("next/navigation", () => ({ usePathname: () => state.pathname }));
 vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: { href: string; children: ReactNode }) => (
     <a href={href} {...props}>
@@ -27,6 +30,7 @@ vi.mock("@/components/friend-requests-provider", () => ({
 }));
 
 beforeEach(() => {
+  state.pathname = "/";
   state.requests = { userId: "owner", count: 2 };
 });
 
@@ -59,3 +63,12 @@ it("does not show a previous account's requests", () => {
   expect(html).not.toContain("pending friend requests");
   expect(html).not.toContain("size-2.5");
 });
+
+it.each(["row", "col"] as const)(
+  "keeps My Journal visible and current in %s navigation",
+  (direction) => {
+    state.pathname = "/users/owner";
+    const html = renderToStaticMarkup(<AuthNav direction={direction} />);
+    expect(html).toMatch(/href="\/users\/owner"[^>]*aria-current="page"[^>]*>My Journal<\/a>/);
+  },
+);

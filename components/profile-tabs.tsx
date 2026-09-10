@@ -21,7 +21,9 @@ export function ProfileTabs({ userId, showJournal, showProjects, isOwner }: Prof
   const base = `/users/${userId}`;
 
   const tabs: { href: string; label: string; roots: string[]; badge?: ReactNode }[] = [
-    ...(showJournal ? [{ href: `${base}/journal`, label: "Journal", roots: [base] }] : []),
+    ...(showJournal
+      ? [{ href: `${base}/journal`, label: isOwner ? "My Journal" : "Journal", roots: [base] }]
+      : []),
     { href: `${base}/sends`, label: "Sends", roots: showJournal ? [] : [base] },
     ...(isOwner
       ? [

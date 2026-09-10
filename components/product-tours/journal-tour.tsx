@@ -63,7 +63,7 @@ export function JournalTourPage({ section, mode, href, steps }: ProductTourPageP
           )
           .sort((a, b) => sections.indexOf(a.section) - sections.indexOf(b.section))
           .map((step) => ({
-            label: step.section,
+            label: step.section === "Journal" ? "My Journal" : step.section,
             href: href(step.id),
             current: section === step.section,
             badge:

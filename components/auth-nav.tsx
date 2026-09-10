@@ -5,6 +5,7 @@ import { clsx } from "clsx";
 import { FriendRequestDot } from "@/components/friend-request-badge";
 import { useFriendRequests } from "@/components/friend-requests-provider";
 import { NavLink } from "@/components/nav-link";
+import { PrimaryPageLinks } from "@/components/primary-page-links";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { useMounted } from "@/hooks/use-mounted";
@@ -42,7 +43,7 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
   // same geometry.
   const signedInGroupClass = clsx(
     "flex",
-    direction === "col" ? "flex-col items-start gap-4" : "items-center gap-6",
+    direction === "col" ? "w-full flex-col items-stretch gap-2" : "items-center gap-2",
   );
 
   if (!mounted || isPending) {
@@ -70,15 +71,7 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
     const accountLabel = hasRequests ? "Account, pending friend requests" : "Account";
     return (
       <span className={signedInGroupClass}>
-        <NavLink href="/climbs/new" onClick={onNavigate}>
-          Add climb
-        </NavLink>
-        <NavLink href="/areas/new" onClick={onNavigate}>
-          Add area
-        </NavLink>
-        <NavLink href={`/users/${session.user.id}`} hideWithin onClick={onNavigate}>
-          My Journal
-        </NavLink>
+        <PrimaryPageLinks userId={session.user.id} direction={direction} onNavigate={onNavigate} />
         {direction === "row" ? (
           <NavLink
             href="/account"
@@ -94,7 +87,9 @@ export function AuthNav({ direction = "row", onNavigate }: AuthNavProps) {
           <NavLink
             href="/account"
             aria-label={accountLabel}
-            className="inline-flex items-center gap-1.5"
+            appearance="primary"
+            layout="menu"
+            className="gap-1.5"
             onClick={onNavigate}
           >
             Account
