@@ -22,7 +22,7 @@ import { getUser } from "@/db/queries";
 import { getMemberSession as getSession, isAdmin } from "@/lib/session";
 
 export const metadata: Metadata = {
-  title: "Account",
+  title: "Account settings",
   robots: { index: false },
 };
 
@@ -67,7 +67,7 @@ export default async function AccountPage() {
           <div className="flex min-w-0 items-center gap-4">
             <UserAvatar name={name} image={image} size="lg" />
             <div className="min-w-0">
-              <Eyebrow>Account</Eyebrow>
+              <Eyebrow>Account settings</Eyebrow>
               <PageTitle className="truncate">{name}</PageTitle>
               <p className="truncate text-sm text-muted">{session.user.email}</p>
             </div>

@@ -34,7 +34,20 @@ const config: StorybookConfig = {
             .sort(),
         ),
       },
-      resolve: { alias: { "@": fileURLToPath(new URL("../", import.meta.url)) } },
+      resolve: {
+        alias: [
+          // Keep interactive form stories local; match the barrel without affecting submodules.
+          {
+            find: /^@\/actions$/,
+            replacement: fileURLToPath(new URL("./mocks/actions.ts", import.meta.url)),
+          },
+          {
+            find: /^@\/lib\/search-suggestions$/,
+            replacement: fileURLToPath(new URL("./mocks/search-suggestions.ts", import.meta.url)),
+          },
+          { find: "@", replacement: fileURLToPath(new URL("../", import.meta.url)) },
+        ],
+      },
     }),
 };
 
