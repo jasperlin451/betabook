@@ -283,6 +283,16 @@ test("analytics filters follow the activity heading with expansion beside the ye
   expect(discipline.y).toBeGreaterThanOrEqual(heading.y + heading.height);
   expect(years.y).toBeGreaterThanOrEqual(discipline.y + discipline.height);
   expect(trigger.x).toBeGreaterThanOrEqual(years.x + years.width);
+  const yearPill = await page
+    .getByRole("group", { name: "Years", exact: true })
+    .getByRole("button")
+    .last()
+    .boundingBox();
+  if (!yearPill) throw new Error("Missing year pill");
+  expect(Math.abs(trigger.y + trigger.height / 2 - yearPill.y - yearPill.height / 2)).toBeLessThan(
+    1,
+  );
+
   await expand.click();
   await expect(page.getByRole("region", { name: "Filter options", exact: true })).toBeVisible();
   await info.attach("analytics-filter-placement", {

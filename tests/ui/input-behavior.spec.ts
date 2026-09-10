@@ -98,22 +98,29 @@ test("progression charts fit the viewport and expose details from the keyboard",
   page,
 }, info) => {
   await openStory(page, info, "components-charts-progression-chart--progression");
-  const chart = page.getByRole("group", { name: "boulder grade progression", exact: true });
+  const chart = page.getByRole("region", { name: "boulder grade progression", exact: true });
   await expect(
     page.getByText("Personal best V6, from Sep 2025 (V2) to Sep 2026.", { exact: true }),
   ).toHaveCount(1);
   await chart.focus();
   await expect(chart).toBeFocused();
   await chart.press("ArrowRight");
-  await expect(chart.getByRole("tooltip")).toHaveText("Sep 2025 · Hardest V2 · Personal best V2");
-  await chart.press("ArrowRight");
-  await expect(chart.getByRole("tooltip")).toHaveText("Jan 2026 · Hardest V4 · Personal best V4");
-  await chart.press("End");
-  await expect(chart.getByRole("tooltip")).toHaveText("Sep 2026 · Hardest V6 · Personal best V6");
-  await chart.press("Escape");
-  await expect(chart.getByRole("tooltip")).toHaveCount(0);
+  await expect(chart.getByRole("button", { name: /Sep 2025/ })).toBeFocused();
+  await expect(page.getByRole("tooltip")).toContainText("Sep 2025 · V2");
+  await expect(page.getByRole("tooltip").getByText("Cedar Arete", { exact: true })).toBeVisible();
+  await expect(page.getByRole("tooltip")).not.toContainText("2025-09-01");
+  await page.keyboard.press("ArrowRight");
+  await expect(chart.getByRole("button", { name: /Jan 2026/ })).toBeFocused();
+  await expect(page.getByRole("tooltip").filter({ hasText: "Sep 2025" })).toHaveCount(0);
+  await expect(page.getByRole("tooltip")).toContainText("Jan 2026 · V4 · 5 sends");
+  await page.keyboard.press("End");
+  await expect(chart.getByRole("button", { name: /Sep 2026/ })).toBeFocused();
+  await expect(page.getByRole("tooltip").filter({ hasText: "Jan 2026" })).toHaveCount(0);
+  await expect(page.getByRole("tooltip")).toContainText("Sep 2026 · V6");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
   expect(await chart.evaluate((node) => node.scrollWidth - node.clientWidth)).toBe(0);
-  const single = page.getByRole("group", { name: "sport grade progression", exact: true });
+  const single = page.getByRole("region", { name: "sport grade progression", exact: true });
   await expect(single.locator("circle")).toHaveCount(1);
   const coordinates = await single.locator("circle").evaluate((node) => ({
     x: Number(node.getAttribute("cx")),

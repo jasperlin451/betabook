@@ -11,19 +11,25 @@ import { ProgressionChart } from "@/components/progression-chart";
 import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { SectionHeading } from "@/components/ui/typography";
+import type { AnalyticsSendRow } from "@/db/queries";
 import type { ActionResult } from "@/lib/action-result";
 import { buildAnalyticsHighlights } from "@/lib/analytics-highlights";
 import type { AnalyticsLayout } from "@/lib/analytics-layout";
 import { ANALYTICS_CARD_IDS, type AnalyticsCardId } from "@/lib/analytics-layout";
 import { formatAnalyticsYears } from "@/lib/analytics-years";
+import { sendChartRows, sessionChartRows, type ChartSession } from "@/lib/chart-details";
 import { formatCount } from "@/lib/format";
 import type { ClimbType } from "@/lib/grades";
 import { formatDaySpan, formatMonthLabel, type UserAnalytics } from "@/lib/user-analytics";
+
+const EMPTY_SESSIONS: ChartSession[] = [];
 
 /** Every summary and chart reads the same filtered analytics; customization changes presentation only. */
 // oxlint-disable-next-line complexity -- independent summary and empty-chart states
 export function AnalyticsDashboard({
   analytics,
+  sends,
+  sessions = EMPTY_SESSIONS,
   undatedCount,
   scope,
   journalVisible,
@@ -35,6 +41,8 @@ export function AnalyticsDashboard({
   highlights = buildAnalyticsHighlights([], scope, selectedYears),
 }: {
   analytics: UserAnalytics;
+  sends: AnalyticsSendRow[];
+  sessions?: ChartSession[];
   highlights?: ReturnType<typeof buildAnalyticsHighlights>;
   undatedCount: number;
   scope: ClimbType;
@@ -45,6 +53,22 @@ export function AnalyticsDashboard({
   initialLayout?: AnalyticsLayout;
   onSave?: (layout: AnalyticsLayout) => Promise<ActionResult>;
 }) {
+  const chartSends = sends.filter(
+    (send) =>
+      send.climbType === scope &&
+      (selectedYears.length === 0 ||
+        (send.dateSent != null && selectedYears.includes(Number(send.dateSent.slice(0, 4))))),
+  );
+  const activities = journalVisible
+    ? sessionChartRows(
+        sessions.filter(
+          (entry) =>
+            entry.climbType === scope &&
+            (!selectedYears.length || selectedYears.includes(Number(entry.entryDate.slice(0, 4)))),
+        ),
+        sends,
+      )
+    : sendChartRows(chartSends);
   const period = selectedYears.length ? formatAnalyticsYears(selectedYears) : null;
   const calendarYears = (selectedYears.length ? selectedYears : analytics.calendarYears).toSorted(
     (a, b) => a - b,
@@ -181,6 +205,8 @@ export function AnalyticsDashboard({
       content: (
         <AnalyticsVolumeChart
           rows={analytics.volume}
+          sends={chartSends}
+          activities={activities}
           type={scope}
           journalVisible={journalVisible}
         />
@@ -192,6 +218,7 @@ export function AnalyticsDashboard({
       description: "Total sends and the percentage flashed at each grade.",
       content: (
         <AnalyticsFlashChart
+          sends={chartSends}
           rows={analytics.flashByGrade.find((group) => group.type === scope)?.rows ?? []}
           type={scope}
         />
@@ -209,7 +236,11 @@ export function AnalyticsDashboard({
             </p>
           </div>
           {analytics.progression.length ? (
-            <ProgressionChart type={scope} points={analytics.progression[0].points} />
+            <ProgressionChart
+              type={scope}
+              points={analytics.progression[0].points}
+              sends={chartSends}
+            />
           ) : (
             <p className="text-sm text-muted">
               No dated sends with grades yet — progression appears once sends carry dates.
@@ -228,7 +259,7 @@ export function AnalyticsDashboard({
             <p className="text-xs text-muted">Sends per grade, hardest on top.</p>
           </div>
           {pyramidRows.length ? (
-            <AnalyticsGradePyramid type={scope} rows={pyramidRows} />
+            <AnalyticsGradePyramid type={scope} rows={pyramidRows} sends={chartSends} />
           ) : (
             <p className="text-sm text-muted">
               {period == null ? "No graded sends yet." : `No graded sends in ${period}.`}
@@ -279,6 +310,7 @@ export function AnalyticsDashboard({
               key={calendarYears.join(",")}
               years={calendarYears}
               countsByDay={analytics.calendarCounts}
+              activities={activities}
               hue={DISCIPLINE_HUE[scope]}
               unit={journalVisible ? "session" : "send"}
             />

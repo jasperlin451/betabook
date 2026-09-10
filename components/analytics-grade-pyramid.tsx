@@ -1,12 +1,21 @@
-import { ChartInspection } from "@/components/chart-inspection";
+import { ChartClimbDetails } from "@/components/chart-climb-details";
 import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
+import type { AnalyticsSendRow } from "@/db/queries";
 import { formatCount } from "@/lib/format";
 import type { ClimbType } from "@/lib/grades";
 import type { PyramidRow } from "@/lib/user-analytics";
 
 /** The send pyramid: one bar per grade from a climber's hardest down to
  * their easiest, so the shape shows whether the peak stands on a base. */
-export function AnalyticsGradePyramid({ type, rows }: { type: ClimbType; rows: PyramidRow[] }) {
+export function AnalyticsGradePyramid({
+  type,
+  rows,
+  sends,
+}: {
+  type: ClimbType;
+  rows: PyramidRow[];
+  sends: AnalyticsSendRow[];
+}) {
   if (rows.length === 0) return null;
   const max = Math.max(...rows.map((row) => row.count), 1);
   const hue = DISCIPLINE_HUE[type];
@@ -18,41 +27,44 @@ export function AnalyticsGradePyramid({ type, rows }: { type: ClimbType; rows: P
 
   return (
     <>
+      <p className="mb-2 text-xs text-muted">
+        Hover or tap to preview climbs. Groups larger than three open the full list.
+      </p>
       <p className="sr-only">Send pyramid: {summary}.</p>
-      <ChartInspection label="Sends by grade">
-        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1.5 text-xs tabular-nums">
-          {rows.map((row, i) => (
-            <div
-              key={row.label}
-              data-chart-detail={`${row.label}: ${formatCount(row.count, "send")}`}
-              className="col-span-3 grid grid-cols-subgrid items-center"
-            >
-              <span className="w-11 text-foreground">{row.label}</span>
-              {row.count > 0 ? (
-                <>
-                  <div className="relative">
-                    <div
-                      className="h-3 rounded-xs motion-safe:animate-bar-grow-x"
-                      style={{
-                        width: `${(row.count / max) * 100}%`,
-                        backgroundColor: hue,
-                        opacity: 0.65,
-                        animationDelay: `${i * 15}ms`,
-                      }}
-                    />
-                  </div>
-                  <span className="text-muted">{row.count}</span>
-                </>
-              ) : (
-                <>
-                  <div className="h-3" />
-                  <span />
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      </ChartInspection>
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1.5 text-xs tabular-nums">
+        {rows.map((row, i) => (
+          <div key={row.label} className="col-span-3 grid grid-cols-subgrid items-center">
+            <span className="w-11 text-foreground">{row.label}</span>
+            {row.count > 0 ? (
+              <>
+                <ChartClimbDetails
+                  label={row.label}
+                  sends={sends.filter(
+                    (send) => send.climbType === type && send.suggestedGrade === row.grade,
+                  )}
+                  className="relative h-7 w-full min-w-0 justify-start rounded-xs p-0"
+                >
+                  <div
+                    className="h-3 rounded-xs motion-safe:animate-bar-grow-x"
+                    style={{
+                      width: `${(row.count / max) * 100}%`,
+                      backgroundColor: hue,
+                      opacity: 0.65,
+                      animationDelay: `${i * 15}ms`,
+                    }}
+                  />
+                </ChartClimbDetails>
+                <span className="text-muted">{row.count}</span>
+              </>
+            ) : (
+              <>
+                <div className="h-3" />
+                <span />
+              </>
+            )}
+          </div>
+        ))}
+      </div>
     </>
   );
 }

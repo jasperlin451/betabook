@@ -124,6 +124,7 @@ function DashboardExample({
   return (
     <StoryPage title="Analytics">
       <AnalyticsDashboard
+        sends={rows}
         canCustomize={!visitor}
         initialLayout={
           showHighlights

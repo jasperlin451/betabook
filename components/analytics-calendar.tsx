@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 import { ClimbingCalendar } from "@/components/climbing-calendar";
+import type { ChartClimbRow } from "@/lib/chart-details";
 
 /** One fitted calendar at a time, with ascending year navigation. */
 export function AnalyticsCalendar({
@@ -13,11 +14,13 @@ export function AnalyticsCalendar({
   countsByDay,
   hue,
   unit,
+  activities,
 }: {
   years: number[];
   countsByDay: Record<string, number>;
   hue: string;
   unit: "send" | "session";
+  activities?: ChartClimbRow[];
 }) {
   const [index, setIndex] = useState(0);
   const active = Math.min(index, years.length - 1);
@@ -79,7 +82,13 @@ export function AnalyticsCalendar({
             aria-label={`Calendar ${year}`}
             className="relative w-full min-w-0 pb-2"
           >
-            <ClimbingCalendar countsByDay={countsByDay} year={year} hue={hue} unit={unit} />
+            <ClimbingCalendar
+              countsByDay={countsByDay}
+              year={year}
+              hue={hue}
+              unit={unit}
+              activities={activities}
+            />
           </section>
         ))}
       </div>

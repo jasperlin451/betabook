@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
+import { activitySends, activityAnalytics } from "@/stories/fixtures/chart-activity";
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
 import { AnalyticsFlashChart } from "./analytics-flash-chart";
@@ -34,7 +35,9 @@ const meta = {
 } satisfies Meta<typeof AnalyticsFlashChart>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Grades: Story = {};
+export const Grades: Story = {
+  args: { rows: activityAnalytics.flashByGrade[0].rows, sends: activitySends },
+};
 export const Empty: Story = { args: { rows: [] } };
 export const SingleGrade: Story = {
   args: { rows: [{ grade: 3, label: "V2", sends: 1, flashes: 1, rate: 100 }] },
