@@ -200,8 +200,8 @@ pnpm test -- lib/journal.test.ts           # focused test run
 pnpm exec opennextjs-cloudflare build      # production Workers build used by CI
 ```
 
-Tests are colocated with the code. `pnpm test` runs all three Vitest projects, so
-`pnpm check` and CI include all three:
+Tests are colocated with the code. `pnpm test` runs both Vitest projects, so
+`pnpm check` and CI include both:
 
 - **components:** `components/**/*.dom.test.{ts,tsx}` and `hooks/**/*.dom.test.{ts,tsx}`
   mount real React components/hooks in jsdom. Use Testing Library's accessible
@@ -213,9 +213,6 @@ Tests are colocated with the code. `pnpm test` runs all three Vitest projects, s
   with real D1 migrations through [`test/apply-migrations.ts`](test/apply-migrations.ts).
   Its entrypoint is [`test/worker.ts`](test/worker.ts), so tests need neither seeded
   local data nor a production build. DOM tests are explicitly excluded.
-- **scripts:** `scripts/**/*.test.ts` run the local seed CLI under Node.js against
-  disposable SQLite databases with real migrations. Run them with
-  `pnpm test --project=scripts`; they do not use your local development database.
 
 Run one DOM file with `pnpm test:components components/journal/tag-input.dom.test.tsx`,
 or just the Workers project with `pnpm test --project=workers`. See

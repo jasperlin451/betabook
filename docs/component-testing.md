@@ -7,17 +7,16 @@ different responsibility in each suite.
 
 ## Choose the environment
 
-| What must fail if the implementation breaks?                                                                 | Test type                                                          | Example                                                                          |
-| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| A calculation, parser, validator or serializer returns the wrong value                                       | Workers unit test, `*.test.ts`                                     | [Date filter calculations](../lib/filters/date-filter.test.ts)                   |
-| An action, query or route permits the wrong user, writes incorrect data or leaves partial state              | Workers integration test with migrated D1, `*.test.ts`             | [Journal companion mutations](../actions/journal-companions.test.ts)             |
-| A local seed command creates incorrect accounts or changes unrelated data                                    | Node.js integration test with migrated SQLite, `scripts/*.test.ts` | [Seed account acceptance](../scripts/seed.test.ts)                               |
-| Clicking, typing or changing props produces the wrong state, callback, identity, payload or error            | Mounted React test in jsdom, `*.dom.test.tsx`                      | [Journal form behavior](../components/journal/journal-entry-fields.dom.test.tsx) |
-| A hook mishandles debounce, cancellation, stale responses or cleanup                                         | Real hook in jsdom, `*.dom.test.ts` or `*.dom.test.tsx`            | [Search lookup lifecycle](../hooks/use-search-lookup.dom.test.tsx)               |
-| A server-rendered element has the wrong content or link before hydration                                     | Workers rendering test, `*.test.tsx`                               | [Server-rendered navigation links](../components/nav-link.test.tsx)              |
-| Layout, clipping, scrolling, painted focus, native editing, touch or accessibility depends on real rendering | Playwright, `tests/ui/*.spec.ts`                                   | [Hashtag caret and layout](../tests/ui/hashtag-filter.spec.ts)                   |
-| The app's routing, history, hydration or opening a new tab breaks                                            | Playwright against the local app, `tests/ui/*.spec.ts`             | [Search navigation](../tests/ui/search-integration.spec.ts)                      |
-| A component needs a reproducible appearance or state for review                                              | Colocated `*.stories.tsx`, plus behavioral tests where needed      | [Pagination states](../components/ui/load-more-button.stories.tsx)               |
+| What must fail if the implementation breaks?                                                                 | Test type                                                     | Example                                                                          |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| A calculation, parser, validator or serializer returns the wrong value                                       | Workers unit test, `*.test.ts`                                | [Date filter calculations](../lib/filters/date-filter.test.ts)                   |
+| An action, query or route permits the wrong user, writes incorrect data or leaves partial state              | Workers integration test with migrated D1, `*.test.ts`        | [Journal companion mutations](../actions/journal-companions.test.ts)             |
+| Clicking, typing or changing props produces the wrong state, callback, identity, payload or error            | Mounted React test in jsdom, `*.dom.test.tsx`                 | [Journal form behavior](../components/journal/journal-entry-fields.dom.test.tsx) |
+| A hook mishandles debounce, cancellation, stale responses or cleanup                                         | Real hook in jsdom, `*.dom.test.ts` or `*.dom.test.tsx`       | [Search lookup lifecycle](../hooks/use-search-lookup.dom.test.tsx)               |
+| A server-rendered element has the wrong content or link before hydration                                     | Workers rendering test, `*.test.tsx`                          | [Server-rendered navigation links](../components/nav-link.test.tsx)              |
+| Layout, clipping, scrolling, painted focus, native editing, touch or accessibility depends on real rendering | Playwright, `tests/ui/*.spec.ts`                              | [Hashtag caret and layout](../tests/ui/hashtag-filter.spec.ts)                   |
+| The app's routing, history, hydration or opening a new tab breaks                                            | Playwright against the local app, `tests/ui/*.spec.ts`        | [Search navigation](../tests/ui/search-integration.spec.ts)                      |
+| A component needs a reproducible appearance or state for review                                              | Colocated `*.stories.tsx`, plus behavioral tests where needed | [Pagination states](../components/ui/load-more-button.stories.tsx)               |
 
 A click does not by itself require Playwright. Form submission and React keyboard
 handlers usually belong in jsdom. Use a browser when the assertion depends on
@@ -37,20 +36,18 @@ others cannot.
 These rules describe actual collection in
 [the component config](../vitest.components.config.mts),
 [the Workers config](../vitest.workers.config.mts), and
-[the Playwright config](../playwright.config.ts). The Node.js scripts project is
-configured in [the root Vitest config](../vitest.config.mts). Match the more specific
+[the Playwright config](../playwright.config.ts). Match the more specific
 `.dom.test` suffix before the general `.test` suffix. `.tsx` enables JSX; it does
 not select a runner.
 
-| Path and filename                                                                                                                                                           | Runner and rules                                                                                   |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `components/**/*.dom.test.{ts,tsx}` and `hooks/**/*.dom.test.{ts,tsx}`                                                                                                      | Vitest `components` project; follow [jsdom rules](#jsdom-rules)                                    |
-| `actions/**/*.test.{ts,tsx}`, `app/**/*.test.{ts,tsx}`, `components/**/*.test.{ts,tsx}`, `db/**/*.test.{ts,tsx}`, `lib/**/*.test.{ts,tsx}`, excluding `*.dom.test.{ts,tsx}` | Vitest `workers` project; follow [Workers rules](#workers-rules)                                   |
-| `tests/ui/*.spec.ts`                                                                                                                                                        | Playwright; follow [browser rules](#browser-rules)                                                 |
-| `scripts/**/*.test.ts`                                                                                                                                                      | Vitest `scripts` project in Node.js; run the real CLI against disposable migrated SQLite databases |
-| Colocated `*.stories.tsx`                                                                                                                                                   | Storybook examples; follow [story rules](#story-rules)                                             |
+| Path and filename                                                                                                                                                           | Runner and rules                                                 |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `components/**/*.dom.test.{ts,tsx}` and `hooks/**/*.dom.test.{ts,tsx}`                                                                                                      | Vitest `components` project; follow [jsdom rules](#jsdom-rules)  |
+| `actions/**/*.test.{ts,tsx}`, `app/**/*.test.{ts,tsx}`, `components/**/*.test.{ts,tsx}`, `db/**/*.test.{ts,tsx}`, `lib/**/*.test.{ts,tsx}`, excluding `*.dom.test.{ts,tsx}` | Vitest `workers` project; follow [Workers rules](#workers-rules) |
+| `tests/ui/*.spec.ts`                                                                                                                                                        | Playwright; follow [browser rules](#browser-rules)               |
+| Colocated `*.stories.tsx`                                                                                                                                                   | Storybook examples; follow [story rules](#story-rules)           |
 
-A `.dom.test.tsx` file under `app/` or `lib/` is not collected by any Vitest
+A `.dom.test.tsx` file under `app/` or `lib/` is not collected by either Vitest
 project. An ordinary `.test.ts` under `hooks/` or `test/` is also not collected.
 Keep tests beside production code in the configured directories; `test/` holds
 shared setup and fixtures. If a new location is necessary, update collection
@@ -219,14 +216,13 @@ or PR, rather than adding run logs or migration history to this guide.
 | One component file                                  | `pnpm test:components components/journal/tag-input.dom.test.tsx`                         |
 | All jsdom tests                                     | `pnpm test:components`                                                                   |
 | One Workers file                                    | `pnpm test --project=workers db/queries/journal.privacy.test.ts`                         |
-| All three Vitest projects                           | `pnpm test`                                                                              |
-| Local seed CLI                                      | `pnpm test --project=scripts scripts/seed.test.ts`                                       |
+| Both Vitest projects                                | `pnpm test`                                                                              |
 | One browser file after building the current gallery | `pnpm storybook:build`, then `pnpm exec playwright test tests/ui/hashtag-filter.spec.ts` |
 | Full browser suite, including gallery build         | `pnpm test:ui`                                                                           |
 | All normal checks before committing                 | `pnpm check`                                                                             |
 
 Confirm the focused run collected the intended test. Run the affected suite and
-checks in [the repository guide](repository-guide.md#testing-and-validation); `pnpm check` includes all three Vitest
+checks in [the repository guide](repository-guide.md#testing-and-validation); `pnpm check` includes both Vitest
 projects but does not include Playwright or the Cloudflare build. UI changes also
 need `pnpm test:ui`. Runtime, dependency, route or Cloudflare configuration changes
 also need `pnpm exec opennextjs-cloudflare build`. Documentation-only changes need
