@@ -14,6 +14,7 @@ import { Example, StoryPage } from "@/stories/fixtures/story-layout";
 
 const meta = {
   title: "Patterns/Chart interactions",
+  component: StoryPage,
   parameters: {
     docs: {
       description: {
@@ -22,7 +23,7 @@ const meta = {
       },
     },
   },
-} satisfies Meta;
+} satisfies Meta<typeof StoryPage>;
 export default meta;
 type Story = StoryObj;
 
