@@ -60,40 +60,54 @@ export function AscentStylePicker({
   );
 }
 
-export type SendStyleChoice = AscentStyle | "session";
+export type SendStyleChoice = AscentStyle | "session" | "repeat";
+
+// Repeats carry no ascent style, so the pill wears the same neutral selected
+// pair as Session rather than an ascent-style chip color.
+const PLAIN_CHOICE_CLASSNAME = "bg-foreground text-background";
 
 /** One pill row deciding what the entry records: Session logs plain time on
- * the climb, while any ascent style marks it as a send in that style. */
+ * the climb, while any ascent style marks it as a send in that style. A climb
+ * with a prior send offers Repeat instead of styles — style, rating and grade
+ * stay with the recorded ascent. */
 export function SendStylePicker({
   value,
   onChange,
+  hasPriorSend = false,
 }: {
   value: SendStyleChoice;
   onChange: (value: SendStyleChoice) => void;
+  hasPriorSend?: boolean;
 }) {
+  const sendChoices: { choice: SendStyleChoice; label: string; className: string }[] = hasPriorSend
+    ? [{ choice: "repeat", label: "Repeat", className: PLAIN_CHOICE_CLASSNAME }]
+    : ASCENT_STYLES.map((style) => ({
+        choice: style,
+        label: ASCENT_STYLE_LABELS[style],
+        className: ASCENT_STYLE_CHIP_CLASSNAME[style],
+      }));
+  const choices = [
+    { choice: "session" as const, label: "Session", className: PLAIN_CHOICE_CLASSNAME },
+    ...sendChoices,
+  ];
   return (
-    <div role="radiogroup" aria-label="Session or send" className="flex flex-wrap gap-1.5">
-      <button
-        type="button"
-        role="radio"
-        aria-checked={value === "session"}
-        onClick={() => onChange("session")}
-        className={choicePillClass(value === "session", "bg-foreground text-background")}
-      >
-        Session
-      </button>
-      {ASCENT_STYLES.map((style) => {
-        const selected = value === style;
+    <div
+      role="radiogroup"
+      aria-label={hasPriorSend ? "Session or repeat" : "Session or send"}
+      className="flex flex-wrap gap-1.5"
+    >
+      {choices.map(({ choice, label, className }) => {
+        const selected = value === choice;
         return (
           <button
-            key={style}
+            key={choice}
             type="button"
             role="radio"
             aria-checked={selected}
-            onClick={() => onChange(style)}
-            className={choicePillClass(selected, ASCENT_STYLE_CHIP_CLASSNAME[style])}
+            onClick={() => onChange(choice)}
+            className={choicePillClass(selected, className)}
           >
-            {ASCENT_STYLE_LABELS[style]}
+            {label}
           </button>
         );
       })}

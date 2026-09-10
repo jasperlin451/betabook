@@ -23,7 +23,7 @@ const meta = {
     return (
       <StoryPage
         title="Entry date"
-        description="The entry's date, with guidance for entries that must keep one. For a new send (the owning form's session-or-send picker chooses that) an I don't know checkbox appears beside the date and empties it — a send saved that way is recorded without a date, as in the Undated send example."
+        description="The entry's date, with guidance for entries that must keep one. For a new first ascent (the owning form's session-or-send picker chooses that) an I don't know checkbox appears beside the date and empties it — a send saved that way is recorded without a date, as in the Undated send example. A repeat always needs a date, so the Repeat example offers no checkbox."
       >
         <div className={SURFACE_CARD_CLASS}>
           <JournalEntryDateFields {...args} entryDate={entryDate} onDateChange={setEntryDate} />

@@ -35,31 +35,26 @@ it("offers I don't know only for a send, emptying and restoring the date", async
   expect(unknown).not.toBeChecked();
   expect(screen.getByRole("spinbutton", { name: /day, Date/ })).toHaveTextContent("06");
 });
-it("offers I don't know for a repeat and drops its needs-a-date hint", () => {
+it("hides I don't know for a repeat, which always needs a date", () => {
   render(<Dates hasPriorSend sent />);
-  expect(screen.getByRole("checkbox", { name: "I don't know" })).toBeInTheDocument();
-  expect(
-    screen.queryByText("Sessions and repeats need a date to appear in your journal."),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByRole("checkbox", { name: "I don't know" })).not.toBeInTheDocument();
+  expect(screen.queryByText(/need a date/)).not.toBeInTheDocument();
 });
 it("offers no I don't know control when editing an entry, which always needs its date", () => {
   render(<Dates existingEntry={{ sent: false, isAscent: false }} sent />);
   expect(screen.getByRole("spinbutton", { name: /day, Date/ })).toHaveTextContent("01");
   expect(screen.queryByRole("checkbox", { name: "I don't know" })).not.toBeInTheDocument();
 });
-it.each(["repeat", "training"])("explains that %s needs a date while not a send", (kind) => {
-  render(
-    <Dates
-      kind={kind === "training" ? "training" : "session"}
-      hasClimb={kind !== "training"}
-      hasPriorSend={kind === "repeat"}
-    />,
-  );
-  const guidance =
-    kind === "training"
-      ? "Training entries need a date to appear in your journal."
-      : "Sessions and repeats need a date to appear in your journal.";
-  expect(screen.getByText(guidance)).toBeInTheDocument();
+it("explains that training needs a date", () => {
+  render(<Dates kind="training" hasClimb={false} />);
+  expect(
+    screen.getByText("Training entries need a date to appear in your journal."),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+});
+it("shows no date hint on a sent climb before a pill is chosen", () => {
+  render(<Dates hasPriorSend />);
+  expect(screen.queryByText(/need a date/)).not.toBeInTheDocument();
   expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 });
 it.each([true, false])(
