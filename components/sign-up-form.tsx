@@ -6,6 +6,8 @@ import { useState } from "react";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { AppLink } from "@/components/ui/app-link";
 import { FORM_CARD_CLASS } from "@/components/ui/card";
+import { FieldFeedback } from "@/components/ui/field-support";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { PageTitle } from "@/components/ui/typography";
 import { authClient } from "@/lib/auth-client";
 import { MAX_DISPLAY_NAME_LENGTH } from "@/lib/display-name";
@@ -77,14 +79,14 @@ export function SignUpForm({
     return (
       <div className={FORM_CARD_CLASS}>
         <PageTitle>Check your email</PageTitle>
-        <p className="text-sm text-muted">
+        <InlineAlert status="success">
           We sent a verification link to {email}. Verify your address, then{" "}
           <AppLink href={signInUrl(nextPath)}>sign in</AppLink>.
-        </p>
+        </InlineAlert>
         <Button variant="ghost" onPress={resendVerification} isDisabled={resent || resendPending}>
           {resent ? "Verification email sent" : "Resend verification email"}
         </Button>
-        {resendError && <p className="text-sm text-danger">{resendError}</p>}
+        {resendError && <InlineAlert>{resendError}</InlineAlert>}
       </div>
     );
   }
@@ -141,20 +143,18 @@ export function SignUpForm({
         <Label>Password</Label>
         <Input />
       </TextField>
-      <TextField value={confirmPassword} onChange={setConfirmPassword} type="password" isRequired>
+      <TextField
+        value={confirmPassword}
+        onChange={setConfirmPassword}
+        type="password"
+        isRequired
+        isInvalid={passwordMismatch}
+      >
         <Label>Confirm password</Label>
         <Input />
+        <FieldFeedback error={passwordMismatch ? "Passwords do not match." : null} />
       </TextField>
-      {passwordMismatch && (
-        <p role="alert" className="text-sm text-danger">
-          Passwords do not match.
-        </p>
-      )}
-      {error && (
-        <p role="alert" className="text-sm text-danger">
-          {error}
-        </p>
-      )}
+      {error && <InlineAlert>{error}</InlineAlert>}
       <Button type="submit" fullWidth isDisabled={pending || !termsAccepted}>
         Sign up
       </Button>

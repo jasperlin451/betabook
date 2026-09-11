@@ -8,6 +8,7 @@ type AreaPickerProps = {
   selected: PickedArea | null;
   onSelectedChange: (area: PickedArea | null) => void;
   isInvalid?: boolean;
+  validationError?: string;
   isRequired?: boolean;
   /** Text to start the field with when nothing is picked yet. */
   defaultQuery?: string;
@@ -20,6 +21,7 @@ export function AreaPicker({
   onSelectedChange,
   isInvalid,
   isRequired,
+  validationError,
   defaultQuery,
 }: AreaPickerProps) {
   return (
@@ -37,6 +39,7 @@ export function AreaPicker({
       }
       isInvalid={isInvalid}
       isRequired={isRequired}
+      validationError={validationError}
       defaultQuery={defaultQuery}
     />
   );

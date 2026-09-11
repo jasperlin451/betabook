@@ -7,6 +7,7 @@ import { useState, useTransition } from "react";
 
 import { requestClimbMerge } from "@/actions";
 import { ClimbPicker } from "@/components/climb-picker";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { PAGE_MAX_WIDTH_CLASS } from "@/components/ui/layout";
 import type { ClimbWithAreaName } from "@/db/queries";
 import { climbHref } from "@/lib/slug";
@@ -79,7 +80,7 @@ export function ClimbMergeDrawer({ climbId, state }: ClimbMergeDrawerProps) {
                   this page won&apos;t exist separately once that lands.
                 </p>
                 <ClimbPicker onPick={handlePick} allowSentClimbs excludedClimbId={climbId} />
-                {error && <p className="text-sm text-danger">{error}</p>}
+                {error && <InlineAlert>{error}</InlineAlert>}
                 {pending && <p className="text-sm text-muted">Marking as duplicate…</p>}
               </div>
             )}

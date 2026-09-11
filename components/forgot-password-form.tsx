@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { AppLink } from "@/components/ui/app-link";
 import { FORM_CARD_CLASS } from "@/components/ui/card";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { PageTitle } from "@/components/ui/typography";
 import { authClient } from "@/lib/auth-client";
 
@@ -32,10 +33,10 @@ export function ForgotPasswordForm() {
     return (
       <div className={FORM_CARD_CLASS}>
         <PageTitle>Check your email</PageTitle>
-        <p className="text-sm text-muted">
+        <InlineAlert status="success">
           If an account exists for {email}, we sent a link to reset your password.{" "}
           <AppLink href="/sign-in">Back to sign in</AppLink>.
-        </p>
+        </InlineAlert>
       </div>
     );
   }
@@ -50,7 +51,7 @@ export function ForgotPasswordForm() {
         <Label>Email</Label>
         <Input placeholder="you@example.com" />
       </TextField>
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <InlineAlert>{error}</InlineAlert>}
       <Button type="submit" fullWidth isDisabled={pending}>
         Send reset link
       </Button>

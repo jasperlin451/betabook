@@ -12,6 +12,7 @@ import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Grade } from "@/components/ui/grade";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import type { ClimbCandidate } from "@/db/queries";
 import { formatCount } from "@/lib/format";
@@ -481,7 +482,7 @@ export function ImportMatchStep({
 
       {lookup.phase === "failed" && (
         <div className="flex flex-col gap-2">
-          <p className="text-sm text-danger">Couldn&apos;t look up climb names: {lookup.error}</p>
+          <InlineAlert>Couldn&apos;t look up climb names: {lookup.error}</InlineAlert>
           <div>
             <Button variant="outline" onPress={onRetryLookup}>
               Try again

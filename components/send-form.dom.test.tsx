@@ -67,3 +67,50 @@ it("submits edits to a recorded opinion", async () => {
   expect(form.get("suggestedGrade")).toBe("6");
   expect(form.get("gradeFeel")).toBe("low");
 });
+
+it("edits the original journal details with the send and keeps its date required", async () => {
+  const save = vi.mocked(updateSend).mockResolvedValue({ ok: true, value: undefined });
+  save.mockClear();
+  const user = userEvent.setup();
+  render(
+    <SendForm
+      climb={climb}
+      existingSend={send}
+      existingEntry={{
+        id: 42,
+        tags: ["beta"],
+        companions: [{ id: "sam", name: "Sam", isSelf: false }],
+      }}
+    />,
+  );
+  expect(screen.queryByRole("checkbox", { name: "I don't know" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Remove friend Sam" })).toBeVisible();
+  await user.type(screen.getByRole("combobox", { name: "Tags" }), "footwork{Enter}");
+  await user.click(screen.getByRole("button", { name: "Remove friend Sam" }));
+  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  const form = save.mock.calls[0][1];
+  expect(form.getAll("tag")).toEqual(["beta", "footwork"]);
+  expect(form.get("tagsChanged")).toBe("true");
+  expect(form.get("companionsChanged")).toBe("true");
+  expect(form.getAll("companion")).toEqual([]);
+  expect(form.get("journalEntryId")).toBe("42");
+});
+
+it("preserves journal edits after a rejected save and retries", async () => {
+  const { user, save, onDone } = setup();
+  save.mockResolvedValueOnce({
+    ok: false,
+    error: "The ascent date can't be later than a logged repeat",
+  });
+  await user.type(screen.getByRole("textbox", { name: "Notes" }), "Keep this beta");
+  await user.click(screen.getByRole("button", { name: "Add details" }));
+  await user.type(screen.getByRole("combobox", { name: "Tags" }), "footwork{Enter}");
+  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("later than a logged repeat");
+  expect(onDone).not.toHaveBeenCalled();
+  expect(screen.getByRole("textbox", { name: "Notes" })).toHaveValue("Keep this beta");
+  await user.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(onDone).toHaveBeenCalledOnce());
+  expect(save.mock.calls[1][1].getAll("tag")).toEqual(["footwork"]);
+});

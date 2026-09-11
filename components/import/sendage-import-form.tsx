@@ -4,6 +4,7 @@ import { Button, Input, Label, TextField } from "@heroui/react";
 import { Download } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { fetchSendageImport } from "@/lib/sendage-import";
 import type { ParsedCsv } from "@/lib/sends-import";
 
@@ -117,11 +118,7 @@ export function SendageImportForm({
           {count ? `${count} sends loaded…` : "Connecting to Sendage…"}
         </p>
       )}
-      {error && (
-        <p role="alert" className="text-sm text-danger">
-          {error}
-        </p>
-      )}
+      {error && <InlineAlert>{error}</InlineAlert>}
     </section>
   );
 }

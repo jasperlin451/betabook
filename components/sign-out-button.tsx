@@ -5,6 +5,7 @@ import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { authClient } from "@/lib/auth-client";
 
 export function SignOutButton({
@@ -47,7 +48,7 @@ export function SignOutButton({
         <LogOut className="size-4" />
         Sign out
       </Button>
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <InlineAlert>{error}</InlineAlert>}
     </div>
   );
 }

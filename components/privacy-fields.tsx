@@ -1,7 +1,9 @@
 "use client";
 
-import { Description, FieldError, Label, Switch, Select, ListBox } from "@heroui/react";
+import { Label, Switch, Select, ListBox } from "@heroui/react";
 
+import { FieldFeedback } from "@/components/ui/field-support";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { SHARING_AUDIENCES, type SharingAudience } from "@/lib/privacy";
 
 /** Controlled fields shared by Account and the local tutorial example. */
@@ -44,11 +46,7 @@ export function PrivacyFields({
             ? "Only you can see your profile and climbing history. Friends and request recipients can still see your name. Your saved audiences will apply when your profile is visible to members."
             : "Signed-in Betabook members can see your profile and send details: climbs, dates, ascent styles, ratings, and grades. Choose who can read your commentary and journal below."}
         </p>
-        {profileError && (
-          <p role="alert" className="text-sm text-danger">
-            {profileError}
-          </p>
-        )}
+        {profileError && <InlineAlert>{profileError}</InlineAlert>}
       </div>
       <div className="flex flex-col gap-5 border-t border-separator pt-4">
         <AudienceField
@@ -117,12 +115,7 @@ function AudienceField({
           ))}
         </ListBox>
       </Select.Popover>
-      <Description>{description}</Description>
-      {error && (
-        <FieldError className="px-0 text-sm">
-          <span role="alert">{error}</span>
-        </FieldError>
-      )}
+      <FieldFeedback helper={description} error={error} />
     </Select>
   );
 }

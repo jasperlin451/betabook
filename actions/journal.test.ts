@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  getSendEditorData,
   createJournalEntry,
   createUndatedSend,
   deleteJournalEntry,
@@ -711,4 +712,77 @@ describe("deleteJournalEntry", () => {
     expect(await deleteJournalEntry(entry.id)).toEqual({ ok: false, error: "Entry not found" });
     expect(await entriesFor("j-user")).toHaveLength(1);
   });
+});
+
+it("updates journal tags together with send facts and preserves tags for older callers", async () => {
+  expect((await createJournalEntry(ascentFormData())).ok).toBe(true);
+  const send = (await sendFor("j-user", HIGHBALL))!;
+  const form = undatedFormData({
+    dateSent: "2026-03-02",
+    comment: "New beta",
+    rating: "5",
+    tagsChanged: "true",
+  });
+  form.append("tag", "footwork");
+  expect(await updateSend(send.id, form)).toMatchObject({ ok: true });
+  expect(await entriesFor("j-user")).toMatchObject([
+    { entryDate: "2026-03-02", body: "New beta", tags: ["footwork"] },
+  ]);
+  expect(await sendFor("j-user", HIGHBALL)).toMatchObject({
+    dateSent: "2026-03-02",
+    comment: "New beta",
+    rating: 5,
+  });
+  form.delete("tagsChanged");
+  form.delete("tag");
+  expect(await updateSend(send.id, form)).toMatchObject({ ok: true });
+  expect(await entriesFor("j-user")).toMatchObject([{ tags: ["footwork"] }]);
+  form.set("tagsChanged", "true");
+  expect(await updateSend(send.id, form)).toMatchObject({ ok: true });
+  expect(await entriesFor("j-user")).toMatchObject([{ tags: null }]);
+});
+
+it("loads the same owner-only editor from the send and its original ascent", async () => {
+  await createJournalEntry(ascentFormData());
+  const send = (await sendFor("j-user", HIGHBALL))!;
+  const [entry] = await entriesFor("j-user");
+  const fromSend = await getSendEditorData({ sendId: send.id });
+  expect(fromSend).toMatchObject({
+    ok: true,
+    value: {
+      send: { id: send.id, rating: 4, ascentStyle: "flash" },
+      entry: { id: entry.id, tags: [] },
+      climb: { id: HIGHBALL },
+    },
+  });
+  expect(await getSendEditorData({ entryId: entry.id })).toEqual(fromSend);
+  sessionState.userId = "j-other";
+  expect((await getSendEditorData({ sendId: send.id })).ok).toBe(false);
+  expect((await getSendEditorData({ entryId: entry.id })).ok).toBe(false);
+  sessionState.userId = null;
+  expect(await getSendEditorData({ sendId: send.id })).toEqual({
+    ok: false,
+    error: SESSION_EXPIRED_MESSAGE,
+  });
+});
+
+it("rejects invalid tags and a changed journal link without changing either record", async () => {
+  await createJournalEntry(ascentFormData());
+  const send = (await sendFor("j-user", HIGHBALL))!;
+  const before = await entriesFor("j-user");
+  const form = undatedFormData({ dateSent: "2026-03-02", comment: "Changed", tagsChanged: "true" });
+  form.append("tag", "invalid tag!");
+  expect((await updateSend(send.id, form)).ok).toBe(false);
+  form.delete("tag");
+  form.set("journalEntryId", String(before[0].id + 1));
+  expect((await updateSend(send.id, form)).ok).toBe(false);
+  expect(await entriesFor("j-user")).toEqual(before);
+  expect(await sendFor("j-user", HIGHBALL)).toEqual(send);
+});
+
+it("does not open a repeat in the send editor", async () => {
+  await createJournalEntry(ascentFormData());
+  await createJournalEntry(entryFormData({ sent: "true", entryDate: "2026-03-02" }));
+  const repeat = (await entriesFor("j-user")).find((entry) => !entry.isAscent)!;
+  expect((await getSendEditorData({ entryId: repeat.id })).ok).toBe(false);
 });

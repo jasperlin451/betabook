@@ -3,6 +3,8 @@
 import { Button } from "@heroui/react";
 import { useId } from "react";
 
+import { InlineAlert } from "@/components/ui/inline-alert";
+
 type LoadMoreButtonProps = {
   onPress: () => void;
   loading: boolean;
@@ -18,11 +20,7 @@ export function LoadMoreButton({ onPress, loading, failed = false }: LoadMoreBut
   const errorId = useId();
   return (
     <div className="flex flex-col items-center gap-2">
-      {failed && (
-        <p id={errorId} role="alert" className="text-sm text-danger">
-          Couldn&apos;t load more — try again.
-        </p>
-      )}
+      {failed && <InlineAlert id={errorId}>Couldn&apos;t load more — try again.</InlineAlert>}
       <Button
         variant="ghost"
         onPress={onPress}

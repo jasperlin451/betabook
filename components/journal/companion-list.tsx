@@ -3,6 +3,7 @@
 import { Button } from "@heroui/react";
 
 import { AppLink } from "@/components/ui/app-link";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { JournalCompanion } from "@/lib/journal-companions";
 
 const NO_COMPANIONS: JournalCompanion[] = [];
@@ -50,11 +51,7 @@ export function CompanionList({
           {pending ? "Removing…" : "Remove my tag"}
         </Button>
       )}
-      {error && (
-        <p role="alert" className="text-danger">
-          {error}
-        </p>
-      )}
+      {error && <InlineAlert>{error}</InlineAlert>}
     </div>
   );
 }

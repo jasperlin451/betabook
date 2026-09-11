@@ -4,6 +4,7 @@ import { Button } from "@heroui/react";
 import { Download } from "lucide-react";
 import { useState } from "react";
 
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { UserSendRow } from "@/db/queries";
 import { apiFetch } from "@/lib/api-client";
 import { downloadCsv } from "@/lib/download";
@@ -82,7 +83,7 @@ export function ExportSendsButton({ userId }: { userId: string }) {
         <Download className="size-4" />
         {exporting ? `Exporting… ${formatCount(exportedRows, "row")}` : "Export sends"}
       </Button>
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <InlineAlert>{error}</InlineAlert>}
     </div>
   );
 }

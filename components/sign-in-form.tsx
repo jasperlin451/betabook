@@ -7,6 +7,7 @@ import { useState } from "react";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { AppLink } from "@/components/ui/app-link";
 import { FORM_CARD_CLASS } from "@/components/ui/card";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { PageTitle } from "@/components/ui/typography";
 import { authClient } from "@/lib/auth-client";
 import { DEFAULT_SIGNED_IN_PATH, safeNextPath, signInUrl, signUpUrl } from "@/lib/sign-in-redirect";
@@ -132,18 +133,16 @@ export function SignInForm({
       <AppLink href="/forgot-password" className="text-sm text-muted">
         Forgot password?
       </AppLink>
-      {error && (
-        <p role="alert" className="text-sm text-danger">
-          {error}
-        </p>
-      )}
+      {error && <InlineAlert>{error}</InlineAlert>}
       {unverifiedEmail !== null && (
-        <div className="flex flex-col gap-2 text-sm text-danger">
-          <p>Please verify your email address before signing in.</p>
+        <div className="flex flex-col gap-2">
+          <InlineAlert status="warning">
+            Please verify your email address before signing in.
+          </InlineAlert>
           <Button variant="ghost" onPress={resendVerification} isDisabled={resent || resendPending}>
             {resent ? "Verification email sent" : "Resend verification email"}
           </Button>
-          {resendError && <p>{resendError}</p>}
+          {resendError && <InlineAlert>{resendError}</InlineAlert>}
         </div>
       )}
       <Button type="submit" fullWidth isDisabled={pending}>

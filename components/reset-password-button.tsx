@@ -4,6 +4,7 @@ import { Button } from "@heroui/react";
 import { KeyRound } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { authClient } from "@/lib/auth-client";
 
 /** How long a successful send stays disabled before offering "Send again" —
@@ -51,7 +52,7 @@ export function ResetPasswordButton({ email }: { email: string }) {
         <KeyRound className="size-4" />
         {cooldown ? "Reset email sent" : sent ? "Send again" : "Reset password"}
       </Button>
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <InlineAlert>{error}</InlineAlert>}
     </div>
   );
 }
