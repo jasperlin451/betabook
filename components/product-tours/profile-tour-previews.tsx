@@ -11,6 +11,7 @@ import { ProgressionChart } from "@/components/progression-chart";
 import { SendGradeCell } from "@/components/send-grade-cell";
 import { cardClass } from "@/components/ui/card";
 import { choicePillClass } from "@/components/ui/choice-pill";
+import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
 import { ListRow } from "@/components/ui/list-row";
 import { formatDate } from "@/lib/format-date";
 import type { SharingAudience } from "@/lib/privacy";
@@ -200,13 +201,26 @@ export function DemoSends() {
 
 export function DemoProjects() {
   const [expanded, setExpanded] = useState(false);
+  const [latest] = TOUR_DEMO_PROJECT.sessions;
   return (
-    <div className="flex flex-col gap-3">
+    // Deliberately not the app's ProjectCard: that card links its climb and
+    // pages older sessions from the journal API, and Alex's IDs are negative
+    // samples that must never reach either.
+    <div className={`flex flex-col gap-3 ${cardClass("sm", "bordered")}`}>
       <ListRow
         title={TOUR_DEMO_PROJECT.name}
         meta={TOUR_DEMO_PROJECT.grade}
-        subtitle={`${TOUR_DEMO_PROJECT.sessions.length} sessions · Last: March 14`}
+        subtitle={`${TOUR_DEMO_PROJECT.sessions.length} sessions · Last ${formatDate(latest.date)}`}
       />
+      {!expanded && (
+        <div className="flex flex-col gap-1 rounded-panel bg-surface-tertiary p-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className={EYEBROW_CLASS}>Latest note</span>
+            <span className="text-xs text-muted">{formatDate(latest.date)}</span>
+          </div>
+          <p className="text-sm leading-relaxed text-foreground">{latest.note}</p>
+        </div>
+      )}
       <div data-tour-target="project-sessions" className="self-start">
         <Button
           variant="secondary"
@@ -214,12 +228,12 @@ export function DemoProjects() {
           aria-controls="demo-project-sessions"
           onPress={() => setExpanded(!expanded)}
         >
-          {expanded ? "Hide sessions" : "See Alex's sessions"}
+          {expanded ? "Hide sessions" : "Read Alex's notes"}
         </Button>
       </div>
       <div id="demo-project-sessions" hidden={!expanded} className="divide-y divide-border">
         {TOUR_DEMO_PROJECT.sessions.map((entry) => (
-          <ListRow key={entry.id} title={entry.date} comment={entry.note} />
+          <ListRow key={entry.id} title={formatDate(entry.date)} comment={entry.note} />
         ))}
       </div>
     </div>

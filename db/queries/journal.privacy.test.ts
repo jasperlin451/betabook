@@ -9,6 +9,7 @@ import {
   getJournalPage,
   getJournalSessionsForAnalytics,
   getOpenProjects,
+  getOpenProjectSessions,
 } from "@/db/queries";
 import { user } from "@/db/schema";
 import { DEFAULT_JOURNAL_FILTER } from "@/lib/filters/journal-filter";
@@ -83,10 +84,18 @@ const GATED_READS = [
         areaId: 4,
         areaName: "Test Highball Alcove",
         sessionCount: 1,
+        noteCount: 1,
         firstSession: "2026-02-01",
         lastSession: "2026-02-01",
       },
     ],
+    empty: [],
+  },
+  {
+    name: "getOpenProjectSessions",
+    read: (ownerId: string, viewerId: string | null) =>
+      getOpenProjectSessions(db, ownerId, viewerId, [CLIMB]),
+    visible: [expectedEntry],
     empty: [],
   },
   {
@@ -146,7 +155,7 @@ describe.each(GATED_READS)("$name", ({ name, read, empty, visible }) => {
     await db.update(user).set({ journalVisibility: "public" }).where(eq(user.id, OWNER_ID));
     expect(await read(OWNER_ID, null)).toEqual(empty);
     expect(await read(OWNER_ID, "someone-else")).toEqual(
-      name === "getOpenProjects" ? empty : visible,
+      name.startsWith("getOpenProject") ? empty : visible,
     );
   });
 });

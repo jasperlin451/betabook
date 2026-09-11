@@ -1,13 +1,39 @@
-import { OpenProjectList } from "@/components/journal";
+import { ProjectBoard } from "@/components/journal";
+import type { ProjectWithSessions } from "@/components/journal";
 import { SectionHeading } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
-import { getOpenProjects, OPEN_PROJECT_PAGE_SIZE } from "@/db/queries";
+import {
+  getOpenProjects,
+  getOpenProjectSessions,
+  OPEN_PROJECT_PAGE_SIZE,
+  type JournalEntry,
+} from "@/db/queries";
 import { formatCount } from "@/lib/format";
 
 export async function ProjectsView({ ownerId }: { ownerId: string }) {
-  const rows = await getOpenProjects(await getDb(), ownerId, ownerId, OPEN_PROJECT_PAGE_SIZE + 1);
+  const db = await getDb();
+  const rows = await getOpenProjects(db, ownerId, ownerId, OPEN_PROJECT_PAGE_SIZE + 1);
   const hasMore = rows.length > OPEN_PROJECT_PAGE_SIZE;
-  const projects = hasMore ? rows.slice(0, OPEN_PROJECT_PAGE_SIZE) : rows;
+  const projects = rows.slice(0, OPEN_PROJECT_PAGE_SIZE);
+
+  // One read for the whole page's notes, so every card opens without one.
+  const sessions = await getOpenProjectSessions(
+    db,
+    ownerId,
+    ownerId,
+    projects.map((project) => project.climbId),
+  );
+  const byClimb = new Map<number, JournalEntry[]>();
+  for (const entry of sessions) {
+    if (entry.climbId == null) continue;
+    const climbSessions = byClimb.get(entry.climbId);
+    if (climbSessions) climbSessions.push(entry);
+    else byClimb.set(entry.climbId, [entry]);
+  }
+  const withSessions: ProjectWithSessions[] = projects.map((project) => ({
+    ...project,
+    sessions: byClimb.get(project.climbId) ?? [],
+  }));
 
   return (
     <div className="flex flex-col gap-3">
@@ -19,7 +45,7 @@ export async function ProjectsView({ ownerId }: { ownerId: string }) {
             : formatCount(projects.length, "open project")}
         </span>
       </div>
-      <OpenProjectList projects={projects} hasMore={hasMore} />
+      <ProjectBoard userId={ownerId} projects={withSessions} hasMore={hasMore} />
     </div>
   );
 }
