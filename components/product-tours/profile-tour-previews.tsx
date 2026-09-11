@@ -241,7 +241,11 @@ export function DemoAnalytics() {
       />
       <div data-tour-target="analytics-chart">
         <h3 className="mb-2 text-sm font-medium">Boulder progression</h3>
-        <ProgressionChart type="boulder" points={analytics.progression[0].points} />
+        <ProgressionChart
+          type="boulder"
+          points={analytics.progression[0].points}
+          sends={TOUR_DEMO_SENDS}
+        />
       </div>
       <Button
         variant="secondary"

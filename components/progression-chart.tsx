@@ -1,6 +1,8 @@
 "use client";
-import { ChartInspection } from "@/components/chart-inspection";
+/* oxlint-disable jsx-a11y/no-noninteractive-tabindex, jsx-a11y/no-noninteractive-element-interactions -- The named scroll region needs keyboard focus so arrow keys can pan the chart on narrow screens. */
+import { ChartClimbDetails } from "@/components/chart-climb-details";
 import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
+import type { AnalyticsSendRow } from "@/db/queries";
 import { useChartWidth } from "@/hooks/use-chart-width";
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
 import { formatMonthLabel, type ProgressionPoint } from "@/lib/user-analytics";
@@ -21,12 +23,13 @@ function monthIndex(month: string): number {
 export function ProgressionChart({
   type,
   points,
+  sends,
 }: {
   type: ClimbType;
   points: ProgressionPoint[];
+  sends: AnalyticsSendRow[];
 }) {
-  const { ref, width: W } = useChartWidth();
-  const PLOT_W = W - MARGIN.left - MARGIN.right;
+  const { ref, width } = useChartWidth();
   if (points.length === 0) return null;
 
   const scale = nativeGradeArray(type);
@@ -35,6 +38,21 @@ export function ProgressionChart({
   const m0 = monthIndex(points[0].month);
   const m1 = monthIndex(points[points.length - 1].month);
   const singleMonth = m1 === m0;
+  // Leave room between 24px targets even in a dense, multi-year log. Grow
+  // the SVG's coordinate system too, so scrolling never stretches its height.
+  const closestMonths =
+    points.length > 1
+      ? Math.min(
+          ...points
+            .slice(1)
+            .map((point, i) => monthIndex(point.month) - monthIndex(points[i].month)),
+        )
+      : 1;
+  const W = Math.max(
+    width,
+    Math.ceil((m1 - m0) / Math.max(closestMonths, 1)) * 28 + MARGIN.left + MARGIN.right,
+  );
+  const PLOT_W = W - MARGIN.left - MARGIN.right;
   const x = (month: string) =>
     singleMonth
       ? MARGIN.left + PLOT_W / 2
@@ -81,90 +99,129 @@ export function ProgressionChart({
 
   return (
     <div ref={ref}>
+      <p className="mb-2 text-xs text-muted">
+        Hover or tap to preview the month’s hardest climbs. Groups larger than three open the full
+        list.
+      </p>
       <p className="sr-only">
         Personal best {scale[latest.best]}, from {formatMonthLabel(points[0].month)} (
         {scale[points[0].hardest]}) to {formatMonthLabel(latest.month)}.
       </p>
-      <ChartInspection label={`${type} grade progression`}>
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full text-muted" aria-hidden>
-          {grades.map((grade) => (
-            <g key={grade}>
-              <line
-                x1={MARGIN.left}
-                x2={MARGIN.left + PLOT_W}
-                y1={y(grade)}
-                y2={y(grade)}
-                stroke="currentColor"
-                strokeOpacity={0.15}
-                strokeWidth={0.5}
-              />
-              {(gradeCount - 1 - (grade - gradeMin)) % labelStep === 0 && (
-                <text
-                  x={MARGIN.left - 6}
-                  y={y(grade)}
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                  fontSize={10}
-                  fill="currentColor"
-                >
-                  {scale[grade]}
-                </text>
-              )}
-            </g>
-          ))}
-          {shownYears.map((tick) => (
-            <text
-              key={tick.label + tick.x}
-              x={tick.x}
-              y={H - 8}
-              textAnchor="middle"
-              fontSize={10}
-              fill="currentColor"
-            >
-              {tick.label}
-            </text>
-          ))}
-          <path
-            d={pathParts.join(" ")}
-            fill="none"
-            stroke={hue}
-            strokeWidth={2.5}
-            strokeLinejoin="round"
-            pathLength={1}
-            className="motion-safe:animate-line-draw"
-          />
+      {/* min-w keeps the chart readable on phones — it scrolls inside its
+          own container instead of shrinking the axis text away. */}
+      <div
+        role="region"
+        aria-label={`${type} grade progression`}
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (
+            !event.currentTarget.contains(event.target as Node) ||
+            !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+          )
+            return;
+          const buttons = Array.from(
+            event.currentTarget.querySelectorAll<HTMLButtonElement>("button"),
+          );
+          if (!buttons.length) return;
+          event.preventDefault();
+          const active = buttons.indexOf(event.target as HTMLButtonElement);
+          const next =
+            event.key === "Home"
+              ? 0
+              : event.key === "End"
+                ? buttons.length - 1
+                : Math.max(
+                    0,
+                    Math.min(buttons.length - 1, active + (event.key === "ArrowLeft" ? -1 : 1)),
+                  );
+          buttons[next].focus();
+        }}
+        className="overflow-x-auto focus-visible:status-focused"
+      >
+        <div className="relative" style={{ minWidth: W }}>
+          <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full text-muted" aria-hidden>
+            {grades.map((grade) => (
+              <g key={grade}>
+                <line
+                  x1={MARGIN.left}
+                  x2={MARGIN.left + PLOT_W}
+                  y1={y(grade)}
+                  y2={y(grade)}
+                  stroke="currentColor"
+                  strokeOpacity={0.15}
+                  strokeWidth={0.5}
+                />
+                {(gradeCount - 1 - (grade - gradeMin)) % labelStep === 0 && (
+                  <text
+                    x={MARGIN.left - 6}
+                    y={y(grade)}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                    fontSize={10}
+                    fill="currentColor"
+                  >
+                    {scale[grade]}
+                  </text>
+                )}
+              </g>
+            ))}
+            {shownYears.map((tick) => (
+              <text
+                key={tick.label + tick.x}
+                x={tick.x}
+                y={H - 8}
+                textAnchor="middle"
+                fontSize={10}
+                fill="currentColor"
+              >
+                {tick.label}
+              </text>
+            ))}
+            <path
+              d={pathParts.join(" ")}
+              fill="none"
+              stroke={hue}
+              strokeWidth={2.5}
+              strokeLinejoin="round"
+              pathLength={1}
+              className="motion-safe:animate-line-draw"
+            />
+            {points.map((point) => (
+              <circle
+                key={point.month}
+                cx={x(point.month)}
+                cy={y(point.hardest)}
+                r={3}
+                fill={hue}
+                fillOpacity={0.55}
+              >
+                <title>{`${formatMonthLabel(point.month)} · ${scale[point.hardest]}`}</title>
+              </circle>
+            ))}
+          </svg>
           {points.map((point) => (
-            <circle
+            <ChartClimbDetails
               key={point.month}
-              cx={x(point.month)}
-              cy={y(point.hardest)}
-              r={5}
-              fill={hue}
-              fillOpacity={0.55}
+
+              hideSingleCount
+              label={`${formatMonthLabel(point.month)} · ${scale[point.hardest]}`}
+              sends={sends.filter(
+                (send) =>
+                  send.climbType === type &&
+                  send.suggestedGrade === point.hardest &&
+                  send.dateSent?.startsWith(`${point.month}-`),
+              )}
+              className="absolute size-6 min-w-0 -translate-x-1/2 -translate-y-1/2 rounded-full p-0 hover:bg-default"
+              style={{
+                left: `${(x(point.month) / W) * 100}%`,
+                top: `${(y(point.hardest) / H) * 100}%`,
+              }}
             >
-              <title>{`${formatMonthLabel(point.month)} · ${scale[point.hardest]}`}</title>
-            </circle>
+              <span className="size-2 rounded-full" style={{ backgroundColor: hue }} />
+            </ChartClimbDetails>
           ))}
-          {points.map((point, i) => {
-            const left = i ? (x(points[i - 1].month) + x(point.month)) / 2 : MARGIN.left;
-            const right =
-              i < points.length - 1
-                ? (x(point.month) + x(points[i + 1].month)) / 2
-                : MARGIN.left + PLOT_W;
-            return (
-              <rect
-                key={`hit-${point.month}`}
-                x={left}
-                y={MARGIN.top}
-                width={right - left}
-                height={PLOT_H}
-                fill="transparent"
-                data-chart-detail={`${formatMonthLabel(point.month)} · Hardest ${scale[point.hardest]} · Personal best ${scale[point.best]}`}
-              />
-            );
-          })}
-        </svg>
-      </ChartInspection>
+        </div>
+      </div>
     </div>
   );
 }

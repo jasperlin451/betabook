@@ -1,6 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
 import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
+import { sessionChartRows } from "@/lib/chart-details";
+import {
+  activitySessions,
+  activityAnalytics,
+  activitySends,
+} from "@/stories/fixtures/chart-activity";
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
 import { AnalyticsCalendar } from "./analytics-calendar";
@@ -33,5 +39,11 @@ export const MultipleYears: Story = {
 };
 export const SingleYear: Story = {
   ...MultipleYears,
-  args: { ...MultipleYears.args, years: [2026] },
+  args: {
+    years: [2026],
+    countsByDay: activityAnalytics.calendarCounts,
+    hue: DISCIPLINE_HUE.boulder,
+    unit: "session",
+    activities: sessionChartRows(activitySessions, activitySends),
+  },
 };

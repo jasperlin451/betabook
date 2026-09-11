@@ -136,6 +136,8 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         initialLayout={initialLayout}
         onSave={isOwner ? saveAnalyticsLayout : undefined}
         analytics={analytics}
+        sends={rows}
+        sessions={highlightSessions}
         highlights={buildAnalyticsHighlights(highlightSessions, scope, selectedYears)}
         undatedCount={lifetime.datelessCount}
         scope={scope}

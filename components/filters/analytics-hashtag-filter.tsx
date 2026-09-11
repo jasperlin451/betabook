@@ -33,6 +33,8 @@ export function AnalyticsHashtagFilter({
   return (
     <FilterToolbarLayout
       controls={controls}
+      controlsAlignment="end"
+      triggerClassName="h-9"
       activeFilters={hashtagActiveFilters(filter, setFilter)}
       onReset={() => setFilter([])}
       filters={<HashtagFilter inlineLabel value={filter} onChange={setFilter} tags={tags} />}

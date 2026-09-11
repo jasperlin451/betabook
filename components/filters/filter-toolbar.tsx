@@ -65,8 +65,12 @@ export function FilterToolbarLayout({
   filters,
   onReset,
   activeFilters = EMPTY_ACTIVE_FILTERS,
+  controlsAlignment = "center",
+  triggerClassName,
 }: {
   controls: ReactNode;
+  controlsAlignment?: "center" | "end";
+  triggerClassName?: string;
   sortControl?: ReactNode;
   filters: ReactNode;
   activeFilters?: ActiveFilter[];
@@ -79,7 +83,7 @@ export function FilterToolbarLayout({
           <div
             role="group"
             aria-label="Filter controls"
-            className="flex flex-wrap items-center gap-x-3 gap-y-2"
+            className={`flex flex-wrap gap-x-3 gap-y-2 ${controlsAlignment === "end" ? "items-end" : "items-center"}`}
           >
             {controls}
 
@@ -88,6 +92,7 @@ export function FilterToolbarLayout({
                 className={buttonVariants({
                   variant: "outline",
                   size: "sm",
+                  className: triggerClassName,
                 })}
               >
                 {isExpanded ? (

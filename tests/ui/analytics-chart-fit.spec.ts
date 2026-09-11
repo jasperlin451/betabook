@@ -31,7 +31,7 @@ test("a decade of volume fits with readable labels and immediate hover details",
   const plot = page.getByRole("group", { name: "Monthly sends", exact: true });
   expect(await plot.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
   const svg = plot.locator("svg");
-  await svg.hover({ position: { x: 100, y: 100 } });
+  await plot.hover({ position: { x: 100, y: 100 } });
   await expect(plot.getByRole("tooltip")).toBeVisible();
   const box = await plot.getByRole("tooltip").boundingBox();
   const chart = await plot.boundingBox();

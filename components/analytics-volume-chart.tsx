@@ -1,51 +1,58 @@
 "use client";
 import { useState } from "react";
-import {
-  ReferenceLine,
-  type TooltipContentProps,
-  CartesianGrid,
-  Line,
-  LineChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { ReferenceLine, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
+import { ChartInspection, ChartHitRegions } from "@/components/chart-inspection";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { DISCIPLINE_HUE } from "@/components/ui/discipline-chip";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import type { AnalyticsSendRow } from "@/db/queries";
 import { useChartWidth } from "@/hooks/use-chart-width";
+import { sendChartRows, type ChartClimbRow, type ChartDetailGroup } from "@/lib/chart-details";
+import { formatCount } from "@/lib/format";
 import type { ClimbType } from "@/lib/grades";
 import { formatMonthLabel, type MonthlyVolume } from "@/lib/user-analytics";
-
-function VolumeTooltip({
-  active,
-  payload,
-  label: month,
-  metricLabel,
-}: Partial<TooltipContentProps<number, string>> & { metricLabel: string }) {
-  return active && payload?.length ? (
-    <div
-      role="tooltip"
-      className="rounded-panel border border-border bg-overlay p-3 text-xs text-foreground shadow-lg"
-    >
-      {formatMonthLabel(String(month))}: {String(payload[0].value)} {metricLabel}
-    </div>
-  ) : null;
-}
 
 export function AnalyticsVolumeChart({
   rows,
   type,
   journalVisible = false,
+  sends,
+  activities,
 }: {
   rows: MonthlyVolume[];
   type: ClimbType;
   journalVisible?: boolean;
+  sends?: AnalyticsSendRow[];
+  activities?: ChartClimbRow[];
 }) {
   const [metric, setMetric] = useState<"sends" | "days">("sends");
   const label = metric === "sends" ? "Sends" : "Days out";
   const { ref, width } = useChartWidth();
+  const labels = rows.map(
+    (row) => `${formatMonthLabel(row.month)}: ${row[metric]} ${label.toLowerCase()}`,
+  );
+  const detailRows =
+    metric === "sends"
+      ? sends && sendChartRows(sends.filter((send) => send.climbType === type))
+      : activities;
+  const details =
+    detailRows &&
+    Object.fromEntries(
+      rows.map((row, i) => {
+        const matches = detailRows.filter((entry) => entry.date?.startsWith(`${row.month}-`));
+        return [
+          labels[i],
+          {
+            title: formatMonthLabel(row.month),
+
+            rows: matches,
+            summary:
+              metric === "sends" ? formatCount(row.sends, "send") : formatCount(row.days, "day"),
+          } satisfies ChartDetailGroup,
+        ];
+      }),
+    );
   return (
     <section aria-label="Volume over time" className="min-w-0" ref={ref}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -74,49 +81,51 @@ export function AnalyticsVolumeChart({
         </div>
       </div>
       {rows.length ? (
-        <div role="group" aria-label={`Monthly ${label.toLowerCase()}`} className="min-w-0">
-          <LineChart
-            key={metric}
-            width={width}
-            height={240}
-            data={rows}
-            margin={{ top: 16, right: 16, bottom: 8, left: 0 }}
-          >
-            <CartesianGrid vertical={false} stroke="var(--separator)" />
-            <XAxis
-              dataKey="month"
-              tickFormatter={formatMonthLabel}
-              minTickGap={40}
-              tick={{ fontSize: 11, fill: "var(--muted)" }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis
-              allowDecimals={false}
-              width={32}
-              tick={{ fontSize: 11, fill: "var(--muted)" }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip
-              isAnimationActive={false}
-              cursor={{ stroke: "var(--muted)", strokeDasharray: "3 3" }}
-              content={<VolumeTooltip metricLabel={label.toLowerCase()} />}
-            />
-            <Line
-              type="monotone"
-              dataKey={metric}
-              stroke={DISCIPLINE_HUE[type]}
-              strokeWidth={2.5}
-              dot={false}
-              activeDot={false}
-              isAnimationActive={false}
-            />
-            {rows.length === 1 && (
-              <ReferenceLine y={rows[0][metric]} stroke={DISCIPLINE_HUE[type]} strokeWidth={2.5} />
-            )}
-          </LineChart>
-        </div>
+        <ChartInspection key={metric} label={`Monthly ${label.toLowerCase()}`} details={details}>
+          <div className="relative">
+            <LineChart
+              key={metric}
+              width={width}
+              height={240}
+              data={rows}
+              margin={{ top: 16, right: 16, bottom: 8, left: 0 }}
+            >
+              <CartesianGrid vertical={false} stroke="var(--separator)" />
+              <XAxis
+                dataKey="month"
+                tickFormatter={formatMonthLabel}
+                minTickGap={40}
+                tick={{ fontSize: 11, fill: "var(--muted)" }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                width={32}
+                tick={{ fontSize: 11, fill: "var(--muted)" }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Line
+                type="monotone"
+                dataKey={metric}
+                stroke={DISCIPLINE_HUE[type]}
+                strokeWidth={2.5}
+                dot={false}
+                activeDot={false}
+                isAnimationActive={false}
+              />
+              {rows.length === 1 && (
+                <ReferenceLine
+                  y={rows[0][metric]}
+                  stroke={DISCIPLINE_HUE[type]}
+                  strokeWidth={2.5}
+                />
+              )}
+            </LineChart>
+            <ChartHitRegions labels={labels} endpointHalf />
+          </div>
+        </ChartInspection>
       ) : (
         <p className="text-sm text-muted">No dated activity in the selected years.</p>
       )}

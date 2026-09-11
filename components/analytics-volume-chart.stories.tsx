@@ -1,5 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 
+import { sessionChartRows } from "@/lib/chart-details";
+import {
+  activitySends,
+  activitySessions,
+  activityAnalytics,
+} from "@/stories/fixtures/chart-activity";
 import { StoryPage } from "@/stories/fixtures/story-layout";
 
 import { AnalyticsVolumeChart } from "./analytics-volume-chart";
@@ -36,7 +42,14 @@ const meta = {
 } satisfies Meta<typeof AnalyticsVolumeChart>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Monthly: Story = {};
+export const Monthly: Story = {
+  args: {
+    rows: activityAnalytics.volume,
+    sends: activitySends,
+    activities: sessionChartRows(activitySessions, activitySends),
+    journalVisible: true,
+  },
+};
 export const Empty: Story = { args: { rows: [] } };
 
 export const LongHistory: Story = {
