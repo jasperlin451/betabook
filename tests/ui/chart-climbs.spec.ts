@@ -31,7 +31,11 @@ test("chart preview stays hoverable and the climb table fits the viewport", asyn
   await expect(dialog.getByRole("list", { name: "Climbs" })).toHaveCSS("font-size", "12px");
   await expect(dialog.getByRole("link")).toHaveCount(0);
   expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  // The gallery already audits this story. Scope the scan to the popup so
+  // this test pays only for the state the gallery cannot reach.
+  expect((await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations).toEqual(
+    [],
+  );
   await page.screenshot({ path: info.outputPath("climb-table.png") });
 });
 
@@ -53,26 +57,28 @@ test("progression point targets and large climb tables are usable on small scree
   await expect(page.getByRole("button", { name: "Close", exact: true })).toBeInViewport();
 });
 
-test("dense progression keeps adjacent touch targets separate without growing taller", async ({
-  page,
-}, info) => {
-  await openStory(page, info, "components-charts-progression-chart--dense-history");
-  const first = page.getByRole("button", { name: /Jan 2024/ });
-  const second = page.getByRole("button", { name: /Feb 2024/ });
-  const firstBox = await first.boundingBox();
-  const secondBox = await second.boundingBox();
-  if (!firstBox || !secondBox) throw new Error("Missing chart points");
-  expect(secondBox.x - firstBox.x).toBeGreaterThanOrEqual(24);
-  const chart = page.getByRole("region", { name: "boulder grade progression" });
-  const chartBox = await chart.boundingBox();
-  if (!chartBox) throw new Error("Missing chart");
-  expect(chartBox.height).toBeLessThanOrEqual(220);
-  await second.scrollIntoViewIfNeeded();
-  if (info.project.use.hasTouch) await second.tap();
-  else await second.click();
-  await expect(page.getByRole("tooltip")).toContainText("Feb 2024");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-});
+test(
+  "dense progression keeps adjacent touch targets separate without growing taller",
+  { tag: "@layout" },
+  async ({ page }, info) => {
+    await openStory(page, info, "components-charts-progression-chart--dense-history");
+    const first = page.getByRole("button", { name: /Jan 2024/ });
+    const second = page.getByRole("button", { name: /Feb 2024/ });
+    const firstBox = await first.boundingBox();
+    const secondBox = await second.boundingBox();
+    if (!firstBox || !secondBox) throw new Error("Missing chart points");
+    expect(secondBox.x - firstBox.x).toBeGreaterThanOrEqual(24);
+    const chart = page.getByRole("region", { name: "boulder grade progression" });
+    const chartBox = await chart.boundingBox();
+    if (!chartBox) throw new Error("Missing chart");
+    expect(chartBox.height).toBeLessThanOrEqual(220);
+    await second.scrollIntoViewIfNeeded();
+    if (info.project.use.hasTouch) await second.tap();
+    else await second.click();
+    await expect(page.getByRole("tooltip")).toContainText("Feb 2024");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  },
+);
 
 test("complete three-climb previews work on touch without offering a table", async ({
   page,
@@ -94,26 +100,28 @@ test("complete three-climb previews work on touch without offering a table", asy
   await page.screenshot({ path: info.outputPath("complete-preview.png") });
 });
 
-test("detail popups fit their content and clamp long names to the screen", async ({
-  page,
-}, info) => {
-  await openStory(page, info, "components-charts-climb-details--compact-popup");
-  const compact = await page.getByRole("dialog").boundingBox();
-  if (!compact) throw new Error("Missing compact popup");
-  expect(compact.width).toBeLessThan(300);
-  await expect(
-    page.getByRole("dialog").getByRole("heading", { name: "Climb", exact: true }),
-  ).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Close", exact: true })).toHaveText("");
-  await page.screenshot({ path: info.outputPath("compact-popup.png") });
-  await openStory(page, info, "components-charts-climb-details--large-group");
-  await page.getByRole("button", { name: /60 sends/ }).click();
-  const large = await page.getByRole("dialog").boundingBox();
-  if (!large) throw new Error("Missing long-list popup");
-  expect(large.width).toBeGreaterThan(compact.width);
-  expect(large.x).toBeGreaterThanOrEqual(0);
-  const viewport = page.viewportSize();
-  if (!viewport) throw new Error("Missing viewport");
-  expect(large.x + large.width).toBeLessThanOrEqual(viewport.width);
-  await page.screenshot({ path: info.outputPath("long-popup.png") });
-});
+test(
+  "detail popups fit their content and clamp long names to the screen",
+  { tag: "@layout" },
+  async ({ page }, info) => {
+    await openStory(page, info, "components-charts-climb-details--compact-popup");
+    const compact = await page.getByRole("dialog").boundingBox();
+    if (!compact) throw new Error("Missing compact popup");
+    expect(compact.width).toBeLessThan(300);
+    await expect(
+      page.getByRole("dialog").getByRole("heading", { name: "Climb", exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Close", exact: true })).toHaveText("");
+    await page.screenshot({ path: info.outputPath("compact-popup.png") });
+    await openStory(page, info, "components-charts-climb-details--large-group");
+    await page.getByRole("button", { name: /60 sends/ }).click();
+    const large = await page.getByRole("dialog").boundingBox();
+    if (!large) throw new Error("Missing long-list popup");
+    expect(large.width).toBeGreaterThan(compact.width);
+    expect(large.x).toBeGreaterThanOrEqual(0);
+    const viewport = page.viewportSize();
+    if (!viewport) throw new Error("Missing viewport");
+    expect(large.x + large.width).toBeLessThanOrEqual(viewport.width);
+    await page.screenshot({ path: info.outputPath("long-popup.png") });
+  },
+);

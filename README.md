@@ -175,12 +175,18 @@ workers. **UI reference** requires all four projects to pass; each project uploa
 its own `ui-reference-report-<project>` artifact. To run one project locally, use
 `pnpm test:ui --project=mobile-dark`.
 
+A local run uses half the machine's cores instead, because it runs all four
+projects in one process. It also skips trace recording, which otherwise writes a
+trace for every passing test; re-run a failing case with `--trace on` to get one.
+
 Component state and callback checks run with `pnpm test:components` using jsdom
 and React Testing Library. They do not build Storybook or start Next.js, a browser,
 or D1. Playwright retains rendering, responsive layout, focus/scrolling, touch,
 calendar editing, accessibility and real navigation coverage. Browser checks
 tagged `@behavior` run only in `desktop-light` because their behavior is independent
-of viewport and theme; visual and responsive checks keep all four projects.
+of viewport and theme. Checks tagged `@layout` measure geometry no theme can
+change, so they run the `desktop-light`/`mobile-dark` diagonal and still produce a
+screenshot in each theme. Visual and theme-sensitive checks keep all four projects.
 
 Story tests use shared theme/render readiness and a
 fixed date; live story API requests and unhandled browser errors fail the suite.

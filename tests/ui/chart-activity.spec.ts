@@ -43,7 +43,11 @@ test("monthly sends and days out show their metrics and unique climb names", asy
   await expect(dialog).toContainText("4 days");
   await expect(dialog.getByRole("rowheader")).toHaveCount(0);
   await expect(dialog.getByText("Cedar Arete", { exact: true })).toHaveCount(1);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  // The gallery already audits this story. Scope the scan to the popup so
+  // this test pays only for the state the gallery cannot reach.
+  expect((await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations).toEqual(
+    [],
+  );
   await page.screenshot({ path: info.outputPath("days-table.png") });
 });
 
@@ -60,7 +64,11 @@ test("flash details show the grade metric and include undated climbs", async ({ 
   await expect(dialog).toContainText("Forgotten Date");
   await expect(dialog).not.toContainText("Undated");
   await expect(dialog.getByRole("columnheader")).toHaveCount(0);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  // The gallery already audits this story. Scope the scan to the popup so
+  // this test pays only for the state the gallery cannot reach.
+  expect((await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations).toEqual(
+    [],
+  );
   await page.screenshot({ path: info.outputPath("flash-table.png") });
 });
 
@@ -84,6 +92,10 @@ test("calendar taps show small previews and open only larger days", async ({ pag
   );
   await expect(page.getByRole("dialog")).toContainText("4 sessions");
   await expect(page.getByRole("dialog")).toContainText("River Stone");
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  // The gallery already audits this story. Scope the scan to the popup so
+  // this test pays only for the state the gallery cannot reach.
+  expect((await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations).toEqual(
+    [],
+  );
   await page.screenshot({ path: info.outputPath("calendar-table.png") });
 });

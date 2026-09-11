@@ -1,25 +1,29 @@
 import { appBaseURL } from "./app-server";
 import { expect, test, openStory } from "./story";
 
-test("auth and recovery pages use the canonical page title", async ({ page }, info) => {
-  for (const [path, title] of [
-    ["/sign-in", "Sign in"],
-    ["/sign-up", "Sign up"],
-    ["/forgot-password", "Forgot password"],
-    ["/reset-password", "Invalid reset link"],
-  ]) {
-    await page.goto(`${appBaseURL}${path}`);
-    const heading = page.getByRole("heading", { level: 1, name: title, exact: true });
-    await expect(heading).toHaveCSS("font-size", "30px");
-    await expect(heading).toHaveCSS("font-family", /barlow/i);
-    await expect(heading).toHaveCSS("font-weight", "600");
-    await info.attach(title, {
-      // Hiding carets mutates SSR input styles and can race React hydration.
-      body: await page.screenshot({ animations: "disabled", caret: "initial" }),
-      contentType: "image/png",
-    });
-  }
-});
+test(
+  "auth and recovery pages use the canonical page title",
+  { tag: "@behavior" },
+  async ({ page }, info) => {
+    for (const [path, title] of [
+      ["/sign-in", "Sign in"],
+      ["/sign-up", "Sign up"],
+      ["/forgot-password", "Forgot password"],
+      ["/reset-password", "Invalid reset link"],
+    ]) {
+      await page.goto(`${appBaseURL}${path}`);
+      const heading = page.getByRole("heading", { level: 1, name: title, exact: true });
+      await expect(heading).toHaveCSS("font-size", "30px");
+      await expect(heading).toHaveCSS("font-family", /barlow/i);
+      await expect(heading).toHaveCSS("font-weight", "600");
+      await info.attach(title, {
+        // Hiding carets mutates SSR input styles and can race React hydration.
+        body: await page.screenshot({ animations: "disabled", caret: "initial" }),
+        contentType: "image/png",
+      });
+    }
+  },
+);
 
 test("tag feedback is associated, readable and uses the invalid field treatment", async ({
   page,
