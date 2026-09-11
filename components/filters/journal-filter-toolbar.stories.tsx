@@ -11,6 +11,11 @@ const meta = {
   component: JournalFilterToolbar,
   args: {
     userId: "example",
+    isOwner: true,
+    friends: [
+      { id: "sam", name: "Sam Rivera" },
+      { id: "alex", name: "Alex Chen" },
+    ],
     filter: DEFAULT_JOURNAL_FILTER,
     climbName: null,
     tags: ["power", "strength", "trip"],
@@ -27,7 +32,9 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Selected: Story = {
-  args: { filter: { ...DEFAULT_JOURNAL_FILTER, tags: ["power", "trip"] } },
+  args: {
+    filter: { ...DEFAULT_JOURNAL_FILTER, tags: ["power", "trip"], friendIds: ["sam", "alex"] },
+  },
 };
 
 export const Expanded: StoryObj<typeof meta> = {
@@ -55,3 +62,5 @@ export const SingleDay: StoryObj<typeof meta> = {
 export const DateRange: StoryObj<typeof meta> = {
   args: { filter: { ...DEFAULT_JOURNAL_FILTER, dateFrom: "2025-06-01", dateTo: "2025-08-31" } },
 };
+
+export const Visitor: Story = { args: { isOwner: false } };

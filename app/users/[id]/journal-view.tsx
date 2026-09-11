@@ -16,13 +16,14 @@ import {
   getProductTourState,
 } from "@/db/queries";
 import { getUserHashtags } from "@/db/queries/hashtag-filter";
+import { getJournalFilterFriends } from "@/db/queries/journal-companions";
 import type { JournalFilter } from "@/lib/filters/journal-filter";
 import { calendarMonth } from "@/lib/format-date";
 
 export async function JournalView({
   ownerId,
   viewerId,
-  filter,
+  filter: requestedFilter,
 }: {
   ownerId: string;
   viewerId: string | null;
@@ -30,15 +31,17 @@ export async function JournalView({
 }) {
   const db = await getDb();
   const isOwner = viewerId === ownerId;
+  const filter = isOwner ? requestedFilter : { ...requestedFilter, friendIds: [] };
   const { cf } = await getCloudflareContext({ async: true });
   const month = calendarMonth(new Date(), cf?.timezone ?? "UTC");
 
-  const [counts, firstPage, filteredClimb, tourState, tags] = await Promise.all([
+  const [counts, firstPage, filteredClimb, tourState, tags, friends] = await Promise.all([
     getJournalCounts(db, ownerId, viewerId, month),
     getJournalPage(db, ownerId, viewerId, filter),
     filter.climbId === null ? Promise.resolve(null) : getClimb(db, filter.climbId),
     isOwner ? getProductTourState(db, ownerId) : Promise.resolve(null),
     getUserHashtags(db, ownerId, viewerId, false, true),
+    isOwner ? getJournalFilterFriends(db, ownerId) : Promise.resolve([]),
   ]);
   const areaBreadcrumbs = await getAreaBreadcrumbs(
     db,
@@ -81,6 +84,8 @@ export async function JournalView({
               <JournalFilterToolbar
                 userId={ownerId}
                 tags={tags}
+                isOwner={isOwner}
+                friends={friends}
                 filter={filter}
                 climbName={filteredClimb?.name ?? null}
               />

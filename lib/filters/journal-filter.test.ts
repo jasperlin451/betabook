@@ -8,6 +8,7 @@ import {
   journalFilterToSearchParams,
   parseJournalFilter,
 } from "@/lib/filters/journal-filter";
+import { searchParamsToRecord } from "@/lib/url-params";
 
 describe("parseJournalFilter", () => {
   it("reads an empty query as the default view", () => {
@@ -67,11 +68,12 @@ describe("journalFilterToSearchParams", () => {
       view: "training" as const,
       query: "top move",
       tags: ["happy-boulders"],
+      friendIds: ["sam", "alex"],
       climbId: 7,
       year: 2025,
     };
     const params = journalFilterToSearchParams(filter);
-    expect(parseJournalFilter(Object.fromEntries(params))).toEqual(filter);
+    expect(parseJournalFilter(searchParamsToRecord(params))).toEqual(filter);
   });
 });
 

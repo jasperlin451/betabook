@@ -39,3 +39,16 @@ export async function searchCompanionFriends(
     ORDER BY u.name COLLATE NOCASE, u.id LIMIT 20
   `);
 }
+
+/** Existing friends for the owner's journal filter, including private friends by name only. */
+export async function getJournalFilterFriends(
+  db: Database,
+  ownerId: string,
+): Promise<CompanionOption[]> {
+  return db.all<CompanionOption>(sql`
+    SELECT u.id, u.name FROM friendships f
+    JOIN user u ON u.id = CASE WHEN f.user_id = ${ownerId} THEN f.friend_id ELSE f.user_id END
+    WHERE (f.user_id = ${ownerId} OR f.friend_id = ${ownerId}) AND f.status = 'accepted'
+    ORDER BY u.name COLLATE NOCASE, u.id
+  `);
+}

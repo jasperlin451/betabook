@@ -55,3 +55,78 @@ it("keeps text filtering local and builds view links from the entered filter", a
     }),
   );
 });
+
+it("filters the owner's journal by friend and resets the selection", async () => {
+  const user = userEvent.setup();
+  const { rerender } = render(
+    <JournalFilterToolbar
+      userId="alex"
+      isOwner
+      friends={[
+        { id: "sam", name: "Sam Rivera" },
+        { id: "lee", name: "Lee Park" },
+      ]}
+      filter={DEFAULT_JOURNAL_FILTER}
+      climbName={null}
+      tags={[]}
+    />,
+  );
+  expect(screen.queryByRole("combobox", { name: "With friend" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Expand filters" }));
+  await user.click(screen.getByRole("combobox", { name: "With friend" }));
+  await user.click(screen.getByRole("option", { name: "Sam Rivera" }));
+  await waitFor(() =>
+    expect(router.replace).toHaveBeenCalledWith("/users/alex/journal?friendId=sam", {
+      scroll: false,
+    }),
+  );
+  expect(screen.getByRole("link", { name: "Sessions" })).toHaveAttribute(
+    "href",
+    "/users/alex/journal?view=sessions&friendId=sam",
+  );
+  await user.click(screen.getByRole("combobox", { name: "With friend" }));
+  await user.click(screen.getByRole("option", { name: "Lee Park" }));
+  await waitFor(() =>
+    expect(router.replace).toHaveBeenLastCalledWith(
+      "/users/alex/journal?friendId=sam&friendId=lee",
+      { scroll: false },
+    ),
+  );
+  await user.click(screen.getByRole("button", { name: "Remove friend Sam Rivera" }));
+  await waitFor(() =>
+    expect(router.replace).toHaveBeenLastCalledWith("/users/alex/journal?friendId=lee", {
+      scroll: false,
+    }),
+  );
+  rerender(
+    <JournalFilterToolbar
+      userId="alex"
+      isOwner
+      friends={[
+        { id: "sam", name: "Sam Rivera" },
+        { id: "lee", name: "Lee Park" },
+      ]}
+      filter={{ ...DEFAULT_JOURNAL_FILTER, friendIds: ["lee"] }}
+      climbName={null}
+      tags={[]}
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: "Clear all" }));
+  await waitFor(() =>
+    expect(router.replace).toHaveBeenLastCalledWith("/users/alex/journal", { scroll: false }),
+  );
+});
+
+it("omits friend filtering on another user's journal", async () => {
+  const user = userEvent.setup();
+  render(
+    <JournalFilterToolbar
+      userId="alex"
+      filter={DEFAULT_JOURNAL_FILTER}
+      climbName={null}
+      tags={[]}
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: "Expand filters" }));
+  expect(screen.queryByText("With friend")).not.toBeInTheDocument();
+});

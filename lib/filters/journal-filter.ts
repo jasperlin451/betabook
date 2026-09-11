@@ -13,6 +13,7 @@ export type JournalFilter = DateFilterValue & {
   view: JournalView;
   query: string | null;
   tags: string[];
+  friendIds: string[];
   climbId: number | null;
   year: number | null;
 };
@@ -21,6 +22,7 @@ export const DEFAULT_JOURNAL_FILTER: JournalFilter = {
   view: "all",
   query: null,
   tags: [],
+  friendIds: [],
   climbId: null,
   year: null,
 };
@@ -50,6 +52,13 @@ export function parseJournalFilter(params: UrlParamsRecord): JournalFilter {
     view,
     query: query || null,
     tags,
+    friendIds: [
+      ...new Set(
+        toArray(params.friendId)
+          .map((id) => id.trim())
+          .filter(Boolean),
+      ),
+    ],
     climbId: Number.isInteger(climbId) && climbId > 0 ? climbId : null,
     year:
       Number.isInteger(year) && year >= MIN_JOURNAL_YEAR && year <= MAX_JOURNAL_YEAR ? year : null,
@@ -63,6 +72,7 @@ export function journalFilterToSearchParams(filter: JournalFilter): URLSearchPar
   if (filter.query) params.set("q", filter.query);
   for (const tag of filter.tags) params.append("tag", tag);
   if (filter.climbId) params.set("climbId", String(filter.climbId));
+  for (const id of filter.friendIds) params.append("friendId", id);
   if (filter.year) params.set("year", String(filter.year));
   return params;
 }

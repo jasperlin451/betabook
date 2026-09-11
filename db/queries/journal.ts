@@ -154,11 +154,22 @@ export async function getJournalPage(
   cursor: JournalCursor | null = null,
   pageSize: number = JOURNAL_PAGE_SIZE,
 ): Promise<JournalPage> {
+  if (filter.friendIds.length > 0 && ownerId !== viewerId) {
+    return { entries: [], hasMore: false, nextCursor: null };
+  }
   const conditions = [
     sql`j.user_id = ${ownerId}`,
     journalVisibleSql(viewerId, sql`j.user_id`),
     ...filterConditions(filter, viewerId),
   ];
+  if (filter.friendIds.length > 0) {
+    conditions.push(sql`EXISTS (
+      SELECT 1 FROM json_each(${companionsJsonSql(viewerId, sql`j.id`)}) companion_filter
+      WHERE json_extract(companion_filter.value, '$.id') IN (
+        SELECT value FROM json_each(${JSON.stringify(filter.friendIds)})
+      )
+    )`);
+  }
   if (cursor) {
     conditions.push(sql`(j.entry_date, j.id) < (${cursor.entryDate}, ${cursor.id})`);
   }
