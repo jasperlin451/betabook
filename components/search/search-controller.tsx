@@ -5,6 +5,7 @@ import { AuthCallout } from "@/components/auth-callout";
 import { ClimbFilterControls } from "@/components/filters/climb-filter-controls";
 import { useSearch } from "@/hooks/use-search";
 import type { AreaSelection } from "@/lib/area-selection";
+import { DEFAULT_CLIMB_LIST_SORT } from "@/lib/climb-list-sort";
 import { DEFAULT_CLIMB_FILTER } from "@/lib/filters/climb-filter";
 import { withClimbFilterArea } from "@/lib/filters/climb-filter-state";
 import { searchHref } from "@/lib/search";
@@ -67,7 +68,7 @@ export function SearchController({
               category,
               area: null,
               filter: DEFAULT_CLIMB_FILTER,
-              sort: "name_asc",
+              sort: DEFAULT_CLIMB_LIST_SORT,
             },
       ),
     area: state.area,
@@ -133,7 +134,7 @@ export function SearchController({
             query: "",
             filter: DEFAULT_CLIMB_FILTER,
             area: null,
-            sort: "name_asc",
+            sort: DEFAULT_CLIMB_LIST_SORT,
           })
         }
       />

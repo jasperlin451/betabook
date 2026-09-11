@@ -12,7 +12,7 @@ import {
   type SearchState,
 } from "@/lib/search";
 
-import { SAMPLE_AREAS, CATALOG_FIXTURES } from "./catalog-data";
+import { SAMPLE_AREAS, CATALOG_FIXTURES, type SearchFixture } from "./catalog-data";
 import { StoryPage } from "./story-layout";
 
 export const searchAreaFetcher = async (query: string) =>
@@ -76,11 +76,27 @@ function createSearchFixtureFetcher({
           return false;
       }
       return true;
-    }).sort(
-      (a, b) =>
-        (a.name.localeCompare(b.name) || a.id.localeCompare(b.id)) *
-        (state.sort.endsWith("_desc") ? -1 : 1),
-    );
+    }).sort((a, b) => {
+      // Mirrors searchClimbs's ORDER BY: the chosen field leads, name and id
+      // break ties. Every fixture climb shares one ascent count, so the
+      // default ascents sort ties straight into the name tie-break.
+      const sortValue = (item: SearchFixture) =>
+        item.kind !== "climb"
+          ? 0
+          : state.sort.startsWith("grade")
+            ? (item.grade ?? 0)
+            : state.sort.startsWith("rating")
+              ? (item.rating ?? 0)
+              : 0;
+      const lead = state.sort.startsWith("name")
+        ? a.name.localeCompare(b.name)
+        : sortValue(a) - sortValue(b);
+      return (
+        lead * (state.sort.endsWith("_desc") ? -1 : 1) ||
+        a.name.localeCompare(b.name) ||
+        a.id.localeCompare(b.id)
+      );
+    });
     const items = matches.slice((page - 1) * 5, page * 5).map((item): AppSearchResult => ({
       ...item,
       href: "",
