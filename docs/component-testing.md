@@ -126,9 +126,14 @@ production behavior.
   interaction. Use the existing accessibility helpers for rendered audits.
   Review affected screenshots at mobile and desktop sizes in both themes.
 - Keep visual, responsive and touch-sensitive cases in the full project matrix.
-  Use `@behavior` only for a necessary browser test whose assertion is independent
-  of viewport and theme; it runs once in desktop-light. Needing fewer runs is not
-  itself a reason to apply the tag.
+  Two tags narrow it, and each states something the assertions cannot depend on.
+  Use `@layout` when no theme can change the measurement: it runs the
+  desktop-light/mobile-dark diagonal, so both viewports are still measured and
+  review still receives one light and one dark screenshot. Use `@behavior` when
+  neither viewport nor theme can change the result; it runs once in desktop-light.
+  A test that reads a color, compares against a palette token, or renders
+  differently per theme stays untagged. Needing fewer runs is not itself a reason
+  to apply either tag.
 - The [gallery suite](../tests/ui/design-system.spec.ts) already audits and captures
   every built story. Add focused cases for interactions or invariants it does not
   cover, such as an overlay opened by the user or an element's actual geometry.

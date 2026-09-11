@@ -1,60 +1,66 @@
 import { expect, test, openStory } from "./story";
 
-test("connected climb card deduplicates the climb while retaining separate author notes", async ({
-  page,
-}, testInfo) => {
-  await openStory(page, testInfo, `components-journal-feed-group-card--shared-climb`);
-  await expect(page.getByRole("link", { name: "Cedar Arete", exact: true })).toHaveCount(1);
-  const authors = page.getByRole("heading", { name: "Alex Rivera and Jordan Lee", exact: true });
-  await expect(authors).toBeVisible();
-  const authorBox = await authors.boundingBox();
-  const climbBox = await page.getByRole("link", { name: "Cedar Arete", exact: true }).boundingBox();
-  if (!authorBox || !climbBox) throw new Error("Missing author or climb layout bounds");
-  expect(authorBox.y).toBeLessThan(climbBox.y);
-  await expect(
-    page.getByText("Worked the opening moves with Jordan.", { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByText("Found a comfortable high foot.", { exact: true })).toBeVisible();
-  await expect(page.getByText(/^With /)).toHaveCount(0);
-  await expect(authors.getByRole("link", { name: "Alex Rivera", exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "View activity for Jordan Lee on Sep 2, 2026", exact: true }),
-  ).toHaveAttribute("href", "/users/jordan/journal?date=2026-09-02");
-  await page.screenshot({
-    path: testInfo.outputPath("connected-climb.png"),
-    fullPage: true,
-    animations: "disabled",
-  });
-});
-test("large connected group expands locally without additional requests", async ({
-  page,
-}, testInfo) => {
-  await openStory(page, testInfo, `components-journal-feed-group-card--large-group`);
-  await expect(page.getByText("Notes from climber 2.", { exact: true })).toBeVisible();
-  await expect(page.getByText("Notes from climber 3.", { exact: true })).toBeHidden();
-  await expect(
-    page.getByRole("heading", {
-      name: "Climbing friend 1 with a long name and 7 others",
-      exact: true,
-    }),
-  ).toBeVisible();
-  const requests: string[] = [];
-  page.on("request", (request) => {
-    if (["fetch", "xhr"].includes(request.resourceType())) requests.push(request.url());
-  });
-  await page.getByText("See all activity (6 more)", { exact: true }).click();
-  await expect(page.getByText("Notes from climber 7.", { exact: true })).toBeVisible();
-  await expect(page.getByText("Notes from climber 8.", { exact: true })).toBeVisible();
-  expect(requests).toEqual([]);
-  await page.screenshot({
-    path: testInfo.outputPath("expanded-group.png"),
-    fullPage: true,
-    animations: "disabled",
-  });
-  await page.getByText("Show less", { exact: true }).click();
-  await expect(page.getByText("Notes from climber 3.", { exact: true })).toBeHidden();
-  await expect(page.getByText("See all activity (6 more)", { exact: true })).toBeVisible();
-});
+test(
+  "connected climb card deduplicates the climb while retaining separate author notes",
+  { tag: "@layout" },
+  async ({ page }, testInfo) => {
+    await openStory(page, testInfo, `components-journal-feed-group-card--shared-climb`);
+    await expect(page.getByRole("link", { name: "Cedar Arete", exact: true })).toHaveCount(1);
+    const authors = page.getByRole("heading", { name: "Alex Rivera and Jordan Lee", exact: true });
+    await expect(authors).toBeVisible();
+    const authorBox = await authors.boundingBox();
+    const climbBox = await page
+      .getByRole("link", { name: "Cedar Arete", exact: true })
+      .boundingBox();
+    if (!authorBox || !climbBox) throw new Error("Missing author or climb layout bounds");
+    expect(authorBox.y).toBeLessThan(climbBox.y);
+    await expect(
+      page.getByText("Worked the opening moves with Jordan.", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Found a comfortable high foot.", { exact: true })).toBeVisible();
+    await expect(page.getByText(/^With /)).toHaveCount(0);
+    await expect(authors.getByRole("link", { name: "Alex Rivera", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "View activity for Jordan Lee on Sep 2, 2026", exact: true }),
+    ).toHaveAttribute("href", "/users/jordan/journal?date=2026-09-02");
+    await page.screenshot({
+      path: testInfo.outputPath("connected-climb.png"),
+      fullPage: true,
+      animations: "disabled",
+    });
+  },
+);
+test(
+  "large connected group expands locally without additional requests",
+  { tag: "@behavior" },
+  async ({ page }, testInfo) => {
+    await openStory(page, testInfo, `components-journal-feed-group-card--large-group`);
+    await expect(page.getByText("Notes from climber 2.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Notes from climber 3.", { exact: true })).toBeHidden();
+    await expect(
+      page.getByRole("heading", {
+        name: "Climbing friend 1 with a long name and 7 others",
+        exact: true,
+      }),
+    ).toBeVisible();
+    const requests: string[] = [];
+    page.on("request", (request) => {
+      if (["fetch", "xhr"].includes(request.resourceType())) requests.push(request.url());
+    });
+    await page.getByText("See all activity (6 more)", { exact: true }).click();
+    await expect(page.getByText("Notes from climber 7.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Notes from climber 8.", { exact: true })).toBeVisible();
+    expect(requests).toEqual([]);
+    await page.screenshot({
+      path: testInfo.outputPath("expanded-group.png"),
+      fullPage: true,
+      animations: "disabled",
+    });
+    await page.getByText("Show less", { exact: true }).click();
+    await expect(page.getByText("Notes from climber 3.", { exact: true })).toBeHidden();
+    await expect(page.getByText("See all activity (6 more)", { exact: true })).toBeVisible();
+  },
+);
 
 test("the other authors are named in a tooltip on hover and keyboard focus", async ({
   page,

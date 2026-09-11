@@ -78,8 +78,19 @@ jobs:
           runtime: node@24
           cache: true
           require-lockfile: true
+      # Playwright pins the browser build to its own version, so the lockfile is
+      # the cache key. Without this every job re-downloads Chromium.
+      - name: Cache Playwright browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - name: Install browser
         run: pnpm exec playwright install --with-deps chromium
+      # The run takes one worker per core, so a change in runner size shows up
+      # as a change in test duration. Record what it actually got.
+      - name: Report runner size
+        run: 'echo "cores: $(nproc)  memory: $(free -g | awk ''/^Mem:/ {print $2}'')GB"'
       - name: Prepare local app environment
         run: cp .dev.vars.example .dev.vars
       - name: Build component gallery
