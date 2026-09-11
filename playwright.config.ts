@@ -10,10 +10,12 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: true,
   retries: 0,
-  // A CI runner is dedicated to a single project, so give the run every core it
-  // has; the old fixed 2 left half of a four-core runner idle. Locally the run
-  // shares the machine with the developer, so take half.
-  workers: ci ? "100%" : "50%",
+  // A four-core runner also hosts the gallery preview and `next dev`. Measured:
+  // four workers starve the dev server until the app tests miss their
+  // navigation timeouts, and the run gets slower, not faster. Two leaves the
+  // servers a core each. CI buys parallelism by sharding across runners
+  // instead. Locally there are cores to spare, so take half the machine.
+  workers: ci ? 2 : "50%",
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: "http://127.0.0.1:6007",
