@@ -1,7 +1,7 @@
 import type { AreaWithAncestorPath, ClimberRow, ClimbWithAreaName } from "@/db/queries";
 import type { AreaSelection } from "@/lib/area-selection";
 import type { ClimbListPage } from "@/lib/climb-list-pages";
-import { parseClimbListSort } from "@/lib/climb-list-sort";
+import { DEFAULT_CLIMB_LIST_SORT, parseClimbListSort } from "@/lib/climb-list-sort";
 import {
   climbFilterToSearchParams,
   DEFAULT_CLIMB_FILTER,
@@ -65,7 +65,7 @@ export const EMPTY_SEARCH: SearchState = {
   query: "",
   category: "all",
   filter: DEFAULT_CLIMB_FILTER,
-  sort: "name_asc",
+  sort: DEFAULT_CLIMB_LIST_SORT,
   area: null,
 };
 
@@ -79,7 +79,7 @@ export function parseSearchState(
     query: toArray(params.name)[0] ?? "",
     category,
     filter: parseClimbFilter(params),
-    sort: params.sort ? parseClimbListSort(params) : "name_asc",
+    sort: parseClimbListSort(params),
     area,
   };
 }

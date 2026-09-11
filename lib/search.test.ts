@@ -34,6 +34,12 @@ describe("unified search URL state", () => {
     expect(params.get("areaId")).toBe("2");
     expect(params.has("areaName")).toBe(false);
   });
+  it("opens on most ascents first and keeps any explicit sort", () => {
+    expect(EMPTY_SEARCH.sort).toBe("ascents_desc");
+    expect(parseSearchState({}).sort).toBe("ascents_desc");
+    expect(parseSearchState({ sort: "name_asc" }).sort).toBe("name_asc");
+    expect(parseSearchState({ sort: "not a sort" }).sort).toBe("ascents_desc");
+  });
   it("clears an area identity and obsolete text scoping together while keeping the query", () => {
     const state = withClimbFilterArea(
       {

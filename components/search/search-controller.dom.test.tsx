@@ -191,6 +191,11 @@ it("sort and expanded grade/rating controls refine results and reset restores th
   render(<IntegratedSearchDemo />);
   await user.click(button("Climbs"));
   expect(await result(local)).toBeEnabled();
+  // Search opens on most ascents first, so reaching Z–A means picking the
+  // name field before flipping direction.
+  expect(button("Sort descending")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: /Sort by/ }));
+  await user.click(await screen.findByRole("option", { name: "Name" }));
   await user.click(button("Sort ascending"));
   const results = screen.getByRole("region", { name: "Climbs results" });
   await waitFor(() =>

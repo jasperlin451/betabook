@@ -9,6 +9,7 @@ import { statsActiveFilters } from "@/components/filters/active-filter-values";
 import { ClimbFilters } from "@/components/filters/climb-filters";
 import { ClimbStatsFields } from "@/components/filters/climb-stats-filter-fields";
 import { AreaLookup } from "@/components/search/area-lookup";
+import { DEFAULT_CLIMB_LIST_SORT } from "@/lib/climb-list-sort";
 import { DEFAULT_CLIMB_FILTER } from "@/lib/filters/climb-filter";
 import { withClimbFilterArea } from "@/lib/filters/climb-filter-state";
 import type { ClimbFilterState } from "@/lib/filters/climb-filter-state";
@@ -77,7 +78,13 @@ export function ClimbFilterControls({
       ]}
       onReset={
         onReset ??
-        (() => onChange({ ...value, filter: DEFAULT_CLIMB_FILTER, sort: "name_asc", area: null }))
+        (() =>
+          onChange({
+            ...value,
+            filter: DEFAULT_CLIMB_FILTER,
+            sort: DEFAULT_CLIMB_LIST_SORT,
+            area: null,
+          }))
       }
       areaControl={
         !value.area ? (
