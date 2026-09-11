@@ -350,3 +350,16 @@ export async function getOpenProjects(
     LIMIT ${boundedLimit}
   `);
 }
+
+/** Owner-only editing projection, including currently visible companion selections. */
+export async function getJournalEntryForEdit(
+  db: Database,
+  entryId: number,
+  ownerId: string,
+): Promise<JournalEntry | null> {
+  const row = await db.get<JournalEntryRow>(sql`
+    ${journalEntrySelect(ownerId)}
+    WHERE j.id = ${entryId} AND j.user_id = ${ownerId}
+  `);
+  return row ? toJournalEntry(row) : null;
+}
