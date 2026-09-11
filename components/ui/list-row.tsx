@@ -23,14 +23,7 @@ type ListRowProps = {
    * separate from `trailing` so it never gets pulled into that column's
    * own vertical stack. */
   actions?: ReactNode;
-  /** Give longer action controls their own line on narrow screens. */
-  stackActionsOnMobile?: boolean;
   comment?: string | null;
-  /** Who the comment belongs to — rendered on its own line directly above
-   * it, outside the clamp so it never spends one of the comment's visible
-   * lines. Only lists that mix authors need it (the home feed); a list
-   * that's already scoped to one climber leaves it off. */
-  commentAuthor?: ReactNode;
   /** Keep author names readable in activity rows with a fixed outcome column. */
   wrapTitle?: boolean;
   className?: string;
@@ -45,9 +38,7 @@ export function ListRow({
   tags,
   trailing,
   actions,
-  stackActionsOnMobile = false,
   comment,
-  commentAuthor,
   wrapTitle = false,
   className,
 }: ListRowProps) {
@@ -58,7 +49,6 @@ export function ListRow({
         // divide-y hairlines, so no rounding — px keeps the tap target
         // breathing while py-3 tightens the table.
         "relative flex items-center gap-4 px-4 py-3",
-        stackActionsOnMobile && "flex-wrap sm:flex-nowrap",
         href != null &&
           "transition-colors focus-within:bg-surface-secondary/60 hover:bg-surface-secondary/60",
         className,
@@ -113,13 +103,12 @@ export function ListRow({
             )}
             {tags && <div className="relative z-10 mt-1 flex w-fit flex-wrap gap-2">{tags}</div>}
           </div>
-          {(commentAuthor != null || comment != null) && (
+          {comment != null && (
             // Lifted above the row-link overlay like the other slots so the
-            // comment text stays selectable (and the author's link stays
-            // clickable) instead of click-navigating with the row.
+            // comment text stays selectable instead of click-navigating with
+            // the row.
             <div className="relative z-10 text-sm leading-relaxed text-foreground">
-              {commentAuthor != null && <div className="font-medium">{commentAuthor}</div>}
-              {comment != null && <ClampedComment>{comment}</ClampedComment>}
+              <ClampedComment>{comment}</ClampedComment>
             </div>
           )}
         </div>
@@ -127,16 +116,7 @@ export function ListRow({
          * right — and it must never shrink, or the values it holds wrap. */}
         {trailing && <div className="shrink-0 text-right tabular-nums">{trailing}</div>}
       </div>
-      {actions && (
-        <div
-          className={clsx(
-            "relative z-10 shrink-0",
-            stackActionsOnMobile && "basis-full sm:basis-auto",
-          )}
-        >
-          {actions}
-        </div>
-      )}
+      {actions && <div className="relative z-10 shrink-0">{actions}</div>}
     </div>
   );
 }

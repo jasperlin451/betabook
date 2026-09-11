@@ -39,18 +39,6 @@ function IndexSelect({ label, options, index, onChange }: IndexSelectProps) {
   );
 }
 
-/** An `IndexSelect` with a visible label beside it, for a standalone
- * dropdown that isn't part of an `IndexRangeSelect` pair (whose own visible
- * label already gives the min/max selects context). */
-export function LabeledIndexSelect({ label, options, index, onChange }: IndexSelectProps) {
-  return (
-    <div className={FILTER_ROW_CLASS}>
-      <span className={FILTER_LABEL_CLASS}>{label}</span>
-      <IndexSelect label={label} options={options} index={index} onChange={onChange} />
-    </div>
-  );
-}
-
 type IndexRangeSelectProps = {
   label: string;
   minOptions: readonly string[];
