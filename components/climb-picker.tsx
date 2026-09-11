@@ -91,6 +91,7 @@ export function ClimbPicker({
             />
           ) : (
             <DisciplineChips
+              single
               value={state.filter.disciplines}
               onChange={(disciplines) =>
                 setState({ ...state, filter: { ...state.filter, disciplines } })
