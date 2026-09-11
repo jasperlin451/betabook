@@ -6,7 +6,10 @@ import type { CompanionOption } from "@/lib/journal-companions";
 import { journalVisibleSql } from "./content-access";
 
 /** Correlated only with already selected journal rows / final feed previews.
- * The partial index excludes arbitrarily many self-removal tombstones. */
+ * The partial index excludes arbitrarily many self-removal tombstones.
+ * A tag is company on the author's entry, so it follows the author's audience,
+ * not the companion's. Only an explicit `private` journal opts a companion out,
+ * and never against the author or the companion, who needs it to remove the tag. */
 export function companionsJsonSql(viewerId: string | null, entryId: SQL): SQL {
   return sql`(SELECT json_group_array(json_object('id', companion.id, 'name', companion.name,
     'isSelf', json(CASE WHEN companion.id = ${viewerId} THEN 'true' ELSE 'false' END)))
@@ -18,7 +21,8 @@ export function companionsJsonSql(viewerId: string | null, entryId: SQL): SQL {
     WHERE jc.entry_id = ${entryId} AND jc.suppressed = 0 AND companion.is_private = 0
       AND tagged_friendship.status = 'accepted'
       AND ${journalVisibleSql(viewerId, sql`tagged_entry.user_id`)}
-      AND (tagged_entry.user_id = ${viewerId} OR ${journalVisibleSql(viewerId, sql`companion.id`)})
+      AND (tagged_entry.user_id = ${viewerId} OR companion.id = ${viewerId}
+        OR companion.journal_visibility <> 'private')
   )`;
 }
 
