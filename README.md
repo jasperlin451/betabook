@@ -170,17 +170,26 @@ The shared Storybook preview also sets `chromatic.disableSnapshot: true` to prev
 captures. There are no Chromatic visual baselines or review approvals to maintain.
 Require **Test & Build** and **UI reference** for PRs; publishing is advisory and
 fork PRs need no Chromatic secret.
-CI runs each viewport/theme project on a separate runner with two Playwright
-workers. **UI reference** requires all four projects to pass; each project uploads
-its own `ui-reference-report-<project>` artifact. To run one project locally, use
-`pnpm test:ui --project=mobile-dark`.
+CI splits each viewport/theme project across two runners, eight jobs in all, and
+each runner uses two Playwright workers. The worker count is deliberate: a runner
+has four cores and also hosts the gallery preview and `next dev`, so more workers
+starve the dev server until the app checks miss their navigation timeouts. Extra
+parallelism comes from runners, not workers. **UI reference** requires all eight
+jobs to pass; each uploads its own `ui-reference-report-<project>-<shard>`
+artifact. To run one project locally, use `pnpm test:ui --project=mobile-dark`.
+
+A local run takes half the machine's cores instead, because it runs all four
+projects in one process. It also skips trace recording, which otherwise writes a
+trace for every passing test; re-run a failing case with `--trace on` to get one.
 
 Component state and callback checks run with `pnpm test:components` using jsdom
 and React Testing Library. They do not build Storybook or start Next.js, a browser,
 or D1. Playwright retains rendering, responsive layout, focus/scrolling, touch,
 calendar editing, accessibility and real navigation coverage. Browser checks
 tagged `@behavior` run only in `desktop-light` because their behavior is independent
-of viewport and theme; visual and responsive checks keep all four projects.
+of viewport and theme. Checks tagged `@layout` measure geometry no theme can
+change, so they run the `desktop-light`/`mobile-dark` diagonal and still produce a
+screenshot in each theme. Visual and theme-sensitive checks keep all four projects.
 
 Story tests use shared theme/render readiness and a
 fixed date; live story API requests and unhandled browser errors fail the suite.

@@ -32,15 +32,25 @@ for (const story of stories) {
       const emailResults = await auditEmailPreview(page);
       expect(emailResults.violations).toEqual([]);
     }
-    const results = await new AxeBuilder({ page })
+    const audit = new AxeBuilder({ page })
       // Email documents are audited above. Their sandbox blocks the timers axe
       // needs, which can hang a recursive scan or silently discard frame results.
       // The default Playwright driver traverses frames even with iframes: false;
       // legacy mode delegates traversal to axe, which honors that option.
       .setLegacyMode(hasEmailPreview)
-      .options({ iframes: !hasEmailPreview })
-      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-      .analyze();
+      .options({ iframes: !hasEmailPreview });
+    // A theme only swaps custom properties on [data-theme], so a story renders
+    // the same DOM in both. Structure, names and roles therefore reach the same
+    // verdict in dark as in light, and only the colour rules can differ. The
+    // light projects own the full WCAG A/AA set for both viewports; dark runs
+    // the rules a palette can actually break. Add a rule here if a theme ever
+    // changes markup rather than colour.
+    const darkTheme = testInfo.project.use.colorScheme === "dark";
+    const results = await (
+      darkTheme
+        ? audit.withRules(["color-contrast", "link-in-text-block"])
+        : audit.withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    ).analyze();
     expect(results.violations).toEqual([]);
     const dimensions = await page.evaluate(() => ({
       content: document.documentElement.scrollWidth,

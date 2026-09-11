@@ -20,12 +20,16 @@ for (const [story, label] of [
   });
 }
 
-test("another climber's journal does not mark My profile current", async ({ page }, info) => {
-  await openStory(page, info, "components-navigation-primary-page-links--other-climber");
-  const nav = page.getByRole("navigation", { name: "Primary" });
-  await expect(nav.getByRole("link", { name: "My profile", exact: true })).toBeVisible();
-  await expect(nav.locator("a[aria-current]")).toHaveCount(0);
-});
+test(
+  "another climber's journal does not mark My profile current",
+  { tag: "@behavior" },
+  async ({ page }, info) => {
+    await openStory(page, info, "components-navigation-primary-page-links--other-climber");
+    const nav = page.getByRole("navigation", { name: "Primary" });
+    await expect(nav.getByRole("link", { name: "My profile", exact: true })).toBeVisible();
+    await expect(nav.locator("a[aria-current]")).toHaveCount(0);
+  },
+);
 
 test("side-menu selection fills the menu row", async ({ page }, info) => {
   await openStory(page, info, "components-navigation-primary-page-links--side-menu");
