@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, useOverlayState } from "@heroui/react";
+import { useOverlayState } from "@heroui/react";
 import { useMemo, useState } from "react";
 
 import { StatTiles } from "@/components/analytics-stat-tiles";
@@ -61,7 +61,6 @@ type ProjectBoardProps = {
 export function ProjectBoard({ userId, projects, hasMore }: ProjectBoardProps) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<ProjectSort>("recent");
-  const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set());
   const [selected, setSelected] = useState<ProjectWithSessions | null>(null);
   const drawer = useOverlayState();
   const mounted = useMounted();
@@ -82,8 +81,6 @@ export function ProjectBoard({ userId, projects, hasMore }: ProjectBoardProps) {
       <EmptyState message="No open projects. Log a session on a climb you haven't sent and it starts one." />
     );
   }
-
-  const allExpanded = visible.length > 0 && visible.every((p) => expanded.has(p.climbId));
 
   return (
     <div className="flex flex-col gap-4">
@@ -128,16 +125,6 @@ export function ProjectBoard({ userId, projects, hasMore }: ProjectBoardProps) {
           options={SORTS}
           className="w-44 max-w-full"
         />
-        <Button
-          size="sm"
-          variant="ghost"
-          className="ms-auto"
-          onPress={() =>
-            setExpanded(allExpanded ? new Set() : new Set(visible.map((p) => p.climbId)))
-          }
-        >
-          {allExpanded ? "Collapse all" : "Expand all"}
-        </Button>
       </div>
 
       {visible.length === 0 ? (
@@ -150,15 +137,6 @@ export function ProjectBoard({ userId, projects, hasMore }: ProjectBoardProps) {
                 project={project}
                 userId={userId}
                 today={today}
-                isExpanded={expanded.has(project.climbId)}
-                onExpandedChange={(isExpanded) =>
-                  setExpanded((current) => {
-                    const next = new Set(current);
-                    if (isExpanded) next.add(project.climbId);
-                    else next.delete(project.climbId);
-                    return next;
-                  })
-                }
                 onLogSession={() => {
                   setSelected(project);
                   drawer.open();

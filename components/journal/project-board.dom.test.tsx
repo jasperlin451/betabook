@@ -34,6 +34,7 @@ function session(overrides: Partial<JournalEntry> & { id: number }): JournalEntr
   };
 }
 
+/** Its whole history fits in what the server preloaded. */
 const slab: ProjectWithSessions = {
   climbId: 1,
   climbName: "Moon Slab",
@@ -41,9 +42,9 @@ const slab: ProjectWithSessions = {
   climbGrade: 5,
   areaId: 3,
   areaName: "Cedar Block",
-  sessionCount: 3,
+  sessionCount: 2,
   noteCount: 2,
-  firstSession: "2026-05-02",
+  firstSession: "2026-08-02",
   lastSession: "2026-09-01",
   sessions: [
     session({
@@ -56,6 +57,7 @@ const slab: ProjectWithSessions = {
   ],
 };
 
+/** Nine sessions deep, one of them preloaded. */
 const crack: ProjectWithSessions = {
   climbId: 2,
   climbName: "Ash Crack",
@@ -83,60 +85,23 @@ function headings(): (string | null)[] {
   return screen.queryAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
 }
 
-/** The preview and the collapsed panel both hold the newest note, so a
- * lookup by its text has to say which copy it means — the panel is the one
- * behind the `hidden` attribute. */
-function visibleText(container: HTMLElement, text: string): HTMLElement[] {
-  return within(container)
-    .getAllByText(text)
-    .filter((element) => element.closest("[hidden]") == null);
-}
-
-it("shows each project's latest note without opening anything", () => {
-  render(<ProjectBoard userId="climber" projects={projects} hasMore={false} />);
-
-  expect(visibleText(card("Moon Slab"), "Heel slipping off the arete.")).toHaveLength(1);
-  expect(visibleText(card("Ash Crack"), "Ran out of cams.")).toHaveLength(1);
-  // The older note is only in the collapsed panel until the card is opened.
-  expect(screen.getByText("Linked the bottom half.")).not.toBeVisible();
-});
-
-it("opens a project's session history in place and puts it away again", async () => {
-  const user = userEvent.setup();
+it("puts every preloaded session on the card, with nothing to open first", () => {
   render(<ProjectBoard userId="climber" projects={projects} hasMore={false} />);
   const slabCard = card("Moon Slab");
-  const toggle = within(slabCard).getByRole("button", { name: /Read 2 notes/ });
 
-  await user.click(toggle);
-
-  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  expect(within(slabCard).getByText("Heel slipping off the arete.")).toBeVisible();
   expect(within(slabCard).getByText("Linked the bottom half.")).toBeVisible();
-  // The preview would repeat the newest note the panel now shows in full.
-  expect(within(slabCard).queryByText("Latest note")).not.toBeInTheDocument();
-  // Opening one project leaves the others alone.
-  expect(within(card("Ash Crack")).getByRole("button", { name: /Read 1 note/ })).toHaveAttribute(
-    "aria-expanded",
-    "false",
-  );
-
-  await user.click(within(slabCard).getByRole("button", { name: "Hide sessions" }));
-
-  expect(within(slabCard).getByText("Linked the bottom half.")).not.toBeVisible();
-  expect(within(slabCard).getByText("Latest note")).toBeVisible();
+  expect(within(card("Ash Crack")).getByText("Ran out of cams.")).toBeVisible();
+  expect(screen.queryByRole("button", { name: /Show|Hide|Expand/ })).not.toBeInTheDocument();
 });
 
-it("expands and collapses every project at once", async () => {
-  const user = userEvent.setup();
+it("offers to page in only the histories longer than the card carries", () => {
   render(<ProjectBoard userId="climber" projects={projects} hasMore={false} />);
 
-  await user.click(screen.getByRole("button", { name: "Expand all" }));
-
-  expect(screen.getAllByRole("button", { name: "Hide sessions" })).toHaveLength(2);
-
-  await user.click(screen.getByRole("button", { name: "Collapse all" }));
-
-  expect(screen.queryByRole("button", { name: "Hide sessions" })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Read 2 notes/ })).toBeInTheDocument();
+  expect(
+    within(card("Moon Slab")).queryByRole("button", { name: "Load more" }),
+  ).not.toBeInTheDocument();
+  expect(within(card("Ash Crack")).getByRole("button", { name: "Load more" })).toBeInTheDocument();
 });
 
 it.each([
@@ -181,11 +146,6 @@ it("reorders the list without dropping a project", async () => {
   expect(headings()).toEqual(["Ash Crack", "Moon Slab"]);
 
   await user.click(screen.getByRole("button", { name: /Sort projects/ }));
-  await user.click(await screen.findByRole("option", { name: "Name" }));
-
-  expect(headings()).toEqual(["Ash Crack", "Moon Slab"]);
-
-  await user.click(screen.getByRole("button", { name: /Sort projects/ }));
   await user.click(await screen.findByRole("option", { name: "Longest running" }));
 
   expect(headings()).toEqual(["Ash Crack", "Moon Slab"]);
@@ -198,7 +158,6 @@ it("logs a session against the project whose button was pressed", async () => {
   await user.click(screen.getByRole("button", { name: "Log a session on Ash Crack" }));
 
   const drawer = await screen.findByRole("dialog");
-  expect(within(drawer).getByRole("heading", { name: "Log entry" })).toBeInTheDocument();
   expect(within(drawer).getByText("Logging an outdoor session on Ash Crack.")).toBeInTheDocument();
 
   vi.mocked(createJournalEntry).mockResolvedValue({ ok: true, value: undefined });

@@ -2,16 +2,13 @@
 
 import { Button } from "@heroui/react";
 import { clsx } from "clsx";
-import { ChevronDown, CirclePlus } from "lucide-react";
-import { useId } from "react";
+import { CirclePlus } from "lucide-react";
 
 import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { ProjectSessionNotes } from "@/components/journal/project-session-notes";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass } from "@/components/ui/card";
-import { ClampedComment } from "@/components/ui/clamped-comment";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
-import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
 import { Grade } from "@/components/ui/grade";
 import type { JournalEntry, OpenProject } from "@/db/queries";
 import { formatCount } from "@/lib/format";
@@ -29,27 +26,18 @@ type ProjectCardProps = {
    * server cannot know the reader's timezone, so how long ago the last
    * session was only joins the meta line after mount. */
   today: string | null;
-  isExpanded: boolean;
-  onExpandedChange: (expanded: boolean) => void;
   onLogSession: () => void;
 };
 
-/** One open project: what it is, how long it has been going, the last thing
- * the climber wrote about it, and its full session history a click away.
+/** One open project: what it is, how long it has been going, and the last
+ * few sessions the climber wrote about it.
  *
- * The notes panel stays mounted while collapsed so a project whose older
- * sessions have been paged in keeps them — reopening a long project is free
- * the second time. */
-export function ProjectCard({
-  project,
-  userId,
-  today,
-  isExpanded,
-  onExpandedChange,
-  onLogSession,
-}: ProjectCardProps) {
-  const panelId = useId();
-  const latestNote = project.sessions.find((entry) => entry.body != null);
+ * The recent sessions are on the card rather than behind a disclosure. A
+ * single note was too thin to be worth the row it cost, and the whole point
+ * of this tab is reading what you wrote last time — so the card carries
+ * everything the server preloaded, and a longer history pages in from
+ * there. */
+export function ProjectCard({ project, userId, today, onLogSession }: ProjectCardProps) {
   const daysSince = today == null ? null : daysBetween(project.lastSession, today);
 
   return (
@@ -95,66 +83,25 @@ export function ProjectCard({
         )}
       </p>
 
-      {!isExpanded && latestNote?.body != null && (
-        <div className="flex flex-col gap-1 rounded-panel bg-surface-tertiary p-3">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className={EYEBROW_CLASS}>Latest note</span>
-            <time dateTime={latestNote.entryDate} className="text-xs text-muted">
-              {formatDate(latestNote.entryDate)}
-            </time>
-          </div>
-          <div className="text-sm leading-relaxed text-foreground">
-            <ClampedComment>{latestNote.body}</ClampedComment>
-          </div>
-        </div>
-      )}
+      <ProjectSessionNotes
+        userId={userId}
+        climbId={project.climbId}
+        sessionCount={project.sessionCount}
+        initialSessions={project.sessions}
+      />
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* AppLink's recipe on a button, as in ClampedComment: a boxed
-         * control here would compete with the card's own Log session. */}
-        <button
-          type="button"
-          aria-expanded={isExpanded}
-          aria-controls={panelId}
-          onClick={() => onExpandedChange(!isExpanded)}
-          className="link inline-flex items-center gap-1 text-sm font-medium focus-visible:status-focused"
-        >
-          {isExpanded ? "Hide sessions" : sessionsLabel(project)}
-          <ChevronDown
-            aria-hidden
-            className={clsx("size-4 transition-transform", isExpanded && "rotate-180")}
-          />
-        </button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="gap-1.5"
-          aria-label={`Log a session on ${project.climbName}`}
-          onPress={onLogSession}
-        >
-          <CirclePlus className="size-4" />
-          Log session
-        </Button>
-      </div>
-
-      <div id={panelId} hidden={!isExpanded}>
-        <ProjectSessionNotes
-          userId={userId}
-          climbId={project.climbId}
-          sessionCount={project.sessionCount}
-          initialSessions={project.sessions}
-        />
-      </div>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="gap-1.5 self-start"
+        aria-label={`Log a session on ${project.climbName}`}
+        onPress={onLogSession}
+      >
+        <CirclePlus className="size-4" />
+        Log session
+      </Button>
     </article>
   );
-}
-
-/** Says what opening the panel is worth: the notes when there are any, the
- * bare history when the climber only logged dates. */
-function sessionsLabel(project: OpenProject): string {
-  return project.noteCount > 0
-    ? `Read ${formatCount(project.noteCount, "note")}`
-    : "Session history";
 }
 
 function Separator() {
