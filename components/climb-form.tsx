@@ -9,6 +9,8 @@ import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { DISCIPLINE_CHIP_CLASSNAME, DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
 import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
+import { FieldFeedback } from "@/components/ui/field-support";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { OptionSelect } from "@/components/ui/option-select";
 import type { Climb } from "@/db/queries";
 import { nativeGradeArray, type ClimbType } from "@/lib/grades";
@@ -99,7 +101,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
           <TextArea placeholder="Describe the climb…" rows={6} />
         </TextField>
 
-        {error && <p className="text-sm text-danger">{error}</p>}
+        {error && <InlineAlert>{error}</InlineAlert>}
 
         <Button type="submit" isDisabled={pending} className="self-start">
           Save changes
@@ -117,9 +119,9 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
             selected={pickedArea}
             onSelectedChange={setPickedArea}
             isInvalid={areaInvalid}
+            validationError={areaInvalid ? "Select an area." : undefined}
             defaultQuery={initial?.areaName}
           />
-          {areaInvalid && <p className="text-sm text-danger">Select an area.</p>}
         </div>
       )}
 
@@ -133,7 +135,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
       >
         <Label>Name</Label>
         <Input />
-        {nameInvalid && <p className="text-sm text-danger">Name is required.</p>}
+        <FieldFeedback error={nameInvalid ? "Name is required." : null} />
       </TextField>
 
       <fieldset>
@@ -178,7 +180,7 @@ export function ClimbForm({ areaId: fixedAreaId, climb, initial, onDone }: Climb
         <TextArea placeholder="Describe the climb…" rows={6} />
       </TextField>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <InlineAlert>{error}</InlineAlert>}
 
       <Button type="submit" isDisabled={pending} className="self-start">
         Add climb

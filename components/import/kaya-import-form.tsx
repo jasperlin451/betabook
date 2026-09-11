@@ -4,6 +4,7 @@ import { Button, Input, Label, TextField } from "@heroui/react";
 import { Download, Info } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { fetchKayaImport } from "@/lib/kaya-import";
 import type { KayaImportProgress as ImportProgress } from "@/lib/kaya-import-stream";
 import type { ParsedCsv } from "@/lib/sends-import";
@@ -147,11 +148,7 @@ export function KayaImportForm({
         </p>
       )}
       {busy && <KayaImportProgress progress={progress} />}
-      {error && (
-        <p role="alert" className="text-sm text-danger">
-          {error}
-        </p>
-      )}
+      {error && <InlineAlert>{error}</InlineAlert>}
     </section>
   );
 }

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { acceptTerms } from "@/actions/terms";
 import { SignOutButton } from "@/components/sign-out-button";
 import { AppLink } from "@/components/ui/app-link";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { ActionResult } from "@/lib/action-result";
 import { termsHref } from "@/lib/terms";
 import { termsNextPath } from "@/lib/terms-navigation";
@@ -93,11 +94,7 @@ export function TermsAcceptanceForm({
                   Contact us
                 </AppLink>
               </p>
-              {error && (
-                <p role="alert" className="text-sm text-danger">
-                  {error}
-                </p>
-              )}
+              {error && <InlineAlert>{error}</InlineAlert>}
             </Modal.Body>
             <Modal.Footer className="flex flex-wrap items-center justify-between gap-2">
               <SignOutButton onSignOut={onSignOut} compact />

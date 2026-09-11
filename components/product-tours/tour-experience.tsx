@@ -11,6 +11,7 @@ import type { ProductTourPage } from "@/components/product-tours/types";
 import { useTourFrame } from "@/components/product-tours/use-tour-frame";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass } from "@/components/ui/card";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
 import { suspendMobileHelper } from "@/lib/mobile-helper-suspension";
 import type { ProductTourDefinition } from "@/lib/product-tour";
@@ -131,7 +132,7 @@ export function TourExperience({
         </AppLink>
       </div>
       {failed ? (
-        <div role="alert" className="flex flex-col items-start gap-3">
+        <InlineAlert>
           <p>Couldn't load the tour.</p>
           <Button
             onPress={() => {
@@ -141,7 +142,7 @@ export function TourExperience({
           >
             Try again
           </Button>
-        </div>
+        </InlineAlert>
       ) : Page ? (
         <div className={styles.layout}>
           {/* The scroll region needs a tab stop so keyboard users can scroll the demo. */}

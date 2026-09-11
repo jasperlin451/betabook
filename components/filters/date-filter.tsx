@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { DatePickerField } from "@/components/ui/date-picker-field";
 import { FIELD_WIDTH_CLASS, FILTER_ROW_CLASS, FILTER_LABEL_CLASS } from "@/components/ui/field";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { OptionSelect } from "@/components/ui/option-select";
 import {
   datePresetFilter,
@@ -128,11 +129,7 @@ export function DateFilter({
               )}
             </div>
           </div>
-          {reversed && (
-            <p role="alert" className="text-sm text-danger">
-              End date must be on or after start date.
-            </p>
-          )}
+          {reversed && <InlineAlert>End date must be on or after start date.</InlineAlert>}
         </>
       )}
     </div>

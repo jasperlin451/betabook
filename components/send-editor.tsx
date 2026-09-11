@@ -1,10 +1,11 @@
 "use client";
 
-import { Alert, Button } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { useEffect, useState } from "react";
 
 import { getSendEditorData } from "@/actions";
 import { SendForm } from "@/components/send-form";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/action-result";
 
 type EditorResult = Awaited<ReturnType<typeof getSendEditorData>>;
@@ -42,12 +43,7 @@ function SendEditorContent({ sendId, entryId, onDone }: SendEditorProps) {
   if (!result.ok)
     return (
       <div className="flex flex-col gap-3">
-        <Alert status="danger" role="alert">
-          <Alert.Indicator />
-          <Alert.Content>
-            <Alert.Description>{result.error}</Alert.Description>
-          </Alert.Content>
-        </Alert>
+        <InlineAlert>{result.error}</InlineAlert>
         <Button
           onPress={() => {
             setResult(null);

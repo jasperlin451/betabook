@@ -4,6 +4,7 @@ import { Button, Input, Label, TextField } from "@heroui/react";
 import { useState, useTransition } from "react";
 
 import { updateDisplayName } from "@/actions";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { MAX_DISPLAY_NAME_LENGTH } from "@/lib/display-name";
 
 export function DisplayNameForm({ initialName }: { initialName: string }) {
@@ -46,16 +47,8 @@ export function DisplayNameForm({ initialName }: { initialName: string }) {
           </Button>
         </div>
       </TextField>
-      {error && (
-        <p role="alert" className="text-sm text-danger">
-          {error}
-        </p>
-      )}
-      {saved && !error && (
-        <p role="status" aria-live="polite" className="text-sm text-muted">
-          Display name updated.
-        </p>
-      )}
+      {error && <InlineAlert>{error}</InlineAlert>}
+      {saved && !error && <InlineAlert status="success">Display name updated.</InlineAlert>}
     </form>
   );
 }

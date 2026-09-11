@@ -1,9 +1,8 @@
 "use client";
 
 import { Checkbox } from "@heroui/react";
-import { CalendarDays } from "lucide-react";
 
-import { cardClass } from "@/components/ui/card";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { SectionHeading } from "@/components/ui/typography";
 import { formatDate } from "@/lib/format-date";
 import type { ImportDateCluster } from "@/lib/import-date-review";
@@ -21,22 +20,18 @@ export function ImportDateWarning({
 }) {
   if (!clusters.length) return null;
   return (
-    <section
-      aria-label="Review repeated dates"
-      className={`flex flex-col gap-3 ${cardClass("sm", "inset")}`}
-    >
-      <div className="flex items-center gap-2">
-        <CalendarDays className="size-4 shrink-0 text-warning" aria-hidden />
+    <section aria-label="Review repeated dates" className="flex flex-col gap-3">
+      <InlineAlert status="warning">
         <SectionHeading>
           {clusters.length === 1
             ? "Many sends share the same date"
             : "Many sends share a few dates"}
         </SectionHeading>
-      </div>
-      <p className="text-sm text-muted">
-        These may be bulk import dates. Keeping them can skew your activity charts and grade
-        progression. Keep dates you trust, or choose to import these sends without dates.
-      </p>
+        <p className="mt-2">
+          These may be bulk import dates. Keeping them can skew your activity charts and grade
+          progression. Keep dates you trust, or choose to import these sends without dates.
+        </p>
+      </InlineAlert>
       <ul className="flex flex-col gap-3">
         {clusters.map(({ date, count, datedCount }) => (
           <li key={date} className="flex flex-col gap-2">

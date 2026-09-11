@@ -13,6 +13,7 @@ import {
 
 import { cardClass } from "@/components/ui/card";
 import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { SectionHeading } from "@/components/ui/typography";
 import { useIsomorphicLayoutEffect } from "@/hooks/use-isomorphic-layout-effect";
 import type { ActionResult } from "@/lib/action-result";
@@ -308,11 +309,7 @@ function FloatingLayoutSave({
       aria-label="Save layout reminder"
       className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-2"
     >
-      {error && (
-        <p role="alert" className={`text-sm text-danger ${cardClass("sm", "floating")}`}>
-          {error}
-        </p>
-      )}
+      {error && <InlineAlert className={cardClass("sm", "floating")}>{error}</InlineAlert>}
       <Button
         variant="primary"
         aria-label="Save layout"
@@ -539,11 +536,7 @@ export function AnalyticsWorkspace({
           </div>
         </div>
       )}
-      {saveError && !showFloatingSave && (
-        <p role="alert" className="text-sm text-danger">
-          {saveError}
-        </p>
-      )}
+      {saveError && !showFloatingSave && <InlineAlert>{saveError}</InlineAlert>}
       <p role="status" className="sr-only">
         {message}
       </p>

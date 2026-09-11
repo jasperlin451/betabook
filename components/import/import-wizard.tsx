@@ -13,6 +13,7 @@ import { AppLink } from "@/components/ui/app-link";
 import { cardClass } from "@/components/ui/card";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { OptionSelect, type SelectOption } from "@/components/ui/option-select";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { SegmentedButtons } from "@/components/ui/segmented-buttons";
@@ -684,7 +685,7 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
         <WizardSteps step={step} onJump={pending || step === "result" ? null : goBack} />
       </div>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <InlineAlert>{error}</InlineAlert>}
 
       {step === "upload" && (
         <ImportSourceStep
@@ -718,11 +719,13 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
               </div>
             )}
             {parsedCsv.warnings.length > 0 && (
-              <ul className="flex flex-col gap-1 text-xs text-warning">
-                {parsedCsv.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
+              <InlineAlert status="warning">
+                <ul className="flex flex-col gap-1">
+                  {parsedCsv.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </InlineAlert>
             )}
           </div>
 
@@ -932,11 +935,13 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
               </p>
               {/* The columns step would have shown these; this path skipped it. */}
               {parsedCsv && parsedCsv.warnings.length > 0 && (
-                <ul className="flex flex-col gap-1 text-xs text-warning">
-                  {parsedCsv.warnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
-                  ))}
-                </ul>
+                <InlineAlert status="warning">
+                  <ul className="flex flex-col gap-1">
+                    {parsedCsv.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                </InlineAlert>
               )}
             </div>
           )}
@@ -1033,15 +1038,17 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
           {normalized.warnings.length > 0 && (
             <div className="flex flex-col gap-1">
               <p className="text-sm">Some values will be adjusted during import:</p>
-              <ul className="flex flex-col gap-1 text-xs text-warning">
-                {normalized.warnings.map((warning) => (
-                  <li key={warning.field}>
-                    {warning.count} {warning.count === 1 ? "row" : "rows"}: {warning.message} (
-                    {warning.examples.join("; ")}
-                    {warning.count > warning.examples.length ? "; …" : ""})
-                  </li>
-                ))}
-              </ul>
+              <InlineAlert status="warning">
+                <ul className="flex flex-col gap-1">
+                  {normalized.warnings.map((warning) => (
+                    <li key={warning.field}>
+                      {warning.count} {warning.count === 1 ? "row" : "rows"}: {warning.message} (
+                      {warning.examples.join("; ")}
+                      {warning.count > warning.examples.length ? "; …" : ""})
+                    </li>
+                  ))}
+                </ul>
+              </InlineAlert>
             </div>
           )}
 
@@ -1061,10 +1068,10 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
                 {progress.alreadyLogged} already logged &middot; {progress.failed} failed
               </p>
               {progress.lastError && (
-                <p className="text-xs text-danger">
+                <InlineAlert>
                   {progress.failed} {progress.failed === 1 ? "row has" : "rows have"} failed so far.
                   Latest error: {progress.lastError}
-                </p>
+                </InlineAlert>
               )}
               <div>
                 <Button variant="ghost" onPress={handleCancel} isDisabled={cancelRequested}>
@@ -1084,10 +1091,10 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
                 />
               </TextField>
               {onConflict === "overwrite" ? (
-                <p className="text-sm text-danger">
+                <InlineAlert status="warning">
                   Imported values will replace your existing send data for any already-logged
                   climbs. This cannot be undone.
-                </p>
+                </InlineAlert>
               ) : (
                 <p className="text-sm text-muted">
                   Climbs you&apos;ve already logged are left untouched and counted as already
@@ -1111,9 +1118,9 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
       {step === "result" && importResult && (
         <div className="flex flex-col gap-6">
           {importResult.stopped && (
-            <p className="text-sm text-danger">
+            <InlineAlert>
               {importResult.stopped.message} Rows imported before it stopped were kept.
-            </p>
+            </InlineAlert>
           )}
 
           <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">

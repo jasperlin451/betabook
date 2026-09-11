@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { useTourTarget } from "@/components/product-tours/use-tour-target";
 import { AppLink } from "@/components/ui/app-link";
 import { cardClass } from "@/components/ui/card";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
 import type { ProductTourStepDefinition } from "@/lib/product-tour-navigation";
 import { signInUrl } from "@/lib/sign-in-redirect";
@@ -119,14 +120,14 @@ export function TourOverlay({
             </nav>
           )}
           {error && (
-            <div role="alert" className="mt-2 flex flex-col gap-2 text-sm">
-              <p className="text-danger">{error}</p>
+            <InlineAlert className="mt-2">
+              <p>{error}</p>
               {error === SESSION_EXPIRED_MESSAGE ? (
                 <AppLink href={signInUrl(href(step.id))}>Sign in to finish</AppLink>
               ) : (
                 <p>Try finishing again.</p>
               )}
-            </div>
+            </InlineAlert>
           )}
         </div>
         <div className="flex shrink-0 items-center justify-between gap-2">

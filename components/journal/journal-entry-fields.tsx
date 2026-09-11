@@ -17,6 +17,7 @@ import { cardClass, SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { DetailsDisclosure } from "@/components/ui/details-disclosure";
 import { FieldHeader } from "@/components/ui/field-support";
 import { HelpTooltip } from "@/components/ui/help-tooltip";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { RatingField } from "@/components/ui/rating-field";
 import type { JournalEntry, SendableClimb } from "@/db/queries";
 import type { LookupFetcher } from "@/hooks/use-search-lookup";
@@ -254,11 +255,7 @@ export function JournalEntryFields({
         </div>
       )}
 
-      {error && (
-        <p role="alert" className="text-sm text-danger">
-          {error}
-        </p>
-      )}
+      {error && <InlineAlert>{error}</InlineAlert>}
 
       <Button type="submit" isDisabled={pending} fullWidth>
         {existingEntry ? "Save changes" : isUndatedSend ? "Save send" : "Save entry"}

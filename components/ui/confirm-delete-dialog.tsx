@@ -3,6 +3,8 @@
 import { AlertDialog, Button } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
 
+import { InlineAlert } from "@/components/ui/inline-alert";
+
 type ConfirmDeleteDialogProps = {
   state: UseOverlayStateReturn;
   /** What is being deleted, as the noun the heading names ("area", "climb",
@@ -56,15 +58,11 @@ export function ConfirmDeleteDialog({
           </AlertDialog.Header>
           <AlertDialog.Body>
             {pendingNotice ? (
-              <p className="text-sm text-muted">{pendingNotice}</p>
+              <InlineAlert status="success">{pendingNotice}</InlineAlert>
             ) : (
               <>
                 <p className="text-sm text-muted">{description}</p>
-                {error && (
-                  <p role="alert" className="text-sm text-danger">
-                    {error}
-                  </p>
-                )}
+                {error && <InlineAlert>{error}</InlineAlert>}
               </>
             )}
           </AlertDialog.Body>

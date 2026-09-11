@@ -12,6 +12,7 @@ import {
 import { useFriendRequests } from "@/components/friend-requests-provider";
 import { FriendshipActionButton } from "@/components/friendship-action-button";
 import { AppLink } from "@/components/ui/app-link";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { FriendshipStatus } from "@/lib/friendships";
 import { signInUrl } from "@/lib/sign-in-redirect";
 
@@ -81,11 +82,7 @@ export function FriendshipButton({
           />
         ))}
       </div>
-      {error && (
-        <p role="alert" className="max-w-64 text-sm text-danger">
-          {error}
-        </p>
-      )}
+      {error && <InlineAlert className="max-w-64">{error}</InlineAlert>}
     </div>
   );
 }

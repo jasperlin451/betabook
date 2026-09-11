@@ -9,6 +9,7 @@ import { AppLink } from "@/components/ui/app-link";
 import { DisciplineChip } from "@/components/ui/discipline-chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Grade } from "@/components/ui/grade";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import { RatingStars } from "@/components/ui/rating-stars";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SectionHeading } from "@/components/ui/typography";
@@ -245,9 +246,7 @@ function ResultState({
       )}
       {section.status === "error" && (
         <div className="flex flex-wrap items-center gap-2 px-3 py-4">
-          <p role="alert" className="text-sm text-danger">
-            Couldn’t load {SEARCH_LABELS[section.kind].toLowerCase()}.
-          </p>
+          <InlineAlert>Couldn’t load {SEARCH_LABELS[section.kind].toLowerCase()}.</InlineAlert>
           <Button
             variant="ghost"
             size="sm"

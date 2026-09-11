@@ -30,11 +30,13 @@ export function SearchSelectionField({
   isDisabled = false,
   emptyMessage = "No matches.",
   errorMessage,
+  validationError,
 }: {
   usage?: FieldUsage;
   helper?: string;
   emptyMessage?: string;
   errorMessage?: string;
+  validationError?: string;
   isInvalid?: boolean;
   isRequired?: boolean;
   isDisabled?: boolean;
@@ -93,7 +95,7 @@ export function SearchSelectionField({
           error={
             status === "error"
               ? (errorMessage ?? `Couldn’t load ${label.toLowerCase()}.`)
-              : undefined
+              : validationError
           }
         />
         <ComboBox.Popover>

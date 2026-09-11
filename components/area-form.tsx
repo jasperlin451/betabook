@@ -7,6 +7,7 @@ import { createArea, updateArea } from "@/actions";
 import { AreaPicker, type PickedArea } from "@/components/area-picker";
 import { SURFACE_CARD_CLASS } from "@/components/ui/card";
 import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
+import { InlineAlert } from "@/components/ui/inline-alert";
 import type { Area } from "@/db/queries";
 
 type AreaFormProps = {
@@ -79,7 +80,7 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
           <TextArea placeholder="Describe the area…" rows={6} />
         </TextField>
 
-        {error && <p className="text-sm text-danger">{error}</p>}
+        {error && <InlineAlert>{error}</InlineAlert>}
 
         <Button type="submit" isDisabled={pending} className="self-start">
           Save changes
@@ -98,8 +99,8 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
             selected={pickedParent}
             onSelectedChange={setPickedParent}
             isInvalid={parentInvalid}
+            validationError={parentInvalid ? "Select a parent area." : undefined}
           />
-          {parentInvalid && <p className="text-sm text-danger">Select a parent area.</p>}
         </div>
       )}
 
@@ -113,7 +114,7 @@ export function AreaForm({ parentId: fixedParentId, area, onDone }: AreaFormProp
         <TextArea placeholder="Describe the area…" rows={6} />
       </TextField>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <InlineAlert>{error}</InlineAlert>}
 
       <Button type="submit" isDisabled={pending || !trimmedName} className="self-start">
         Add area
