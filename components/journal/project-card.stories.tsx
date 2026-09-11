@@ -1,67 +1,50 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { useState } from "react";
 
 import { ashCrack, moonSlab, riverRoute } from "@/stories/fixtures/open-projects";
 import { Example, StoryPage } from "@/stories/fixtures/story-layout";
 
-import { ProjectCard, type ProjectWithSessions } from "./project-card";
+import { ProjectCard } from "./project-card";
 
 const meta = {
   title: "Components/Journal/Project card",
   component: ProjectCard,
 } satisfies Meta<typeof ProjectCard>;
 export default meta;
-// Expansion belongs to the board in production; these examples hold it locally.
 type Story = StoryObj;
 
+// The gallery's clock, so the staleness line is the same in every capture.
 const TODAY = "2026-09-06";
-
-function Card({
-  project,
-  initiallyExpanded = false,
-}: {
-  project: ProjectWithSessions;
-  initiallyExpanded?: boolean;
-}) {
-  const [expanded, setExpanded] = useState(initiallyExpanded);
-  return (
-    <ProjectCard
-      project={project}
-      userId="storybook-climber"
-      today={TODAY}
-      isExpanded={expanded}
-      onExpandedChange={setExpanded}
-      onLogSession={() => setExpanded(true)}
-    />
-  );
-}
 
 export const Project: Story = {
   render: () => (
     <StoryPage
       title="Project card"
-      description="What the climber wrote last is on the card; the rest of the history is one press away."
+      description="The recent sessions are on the card itself. A project with more history than the page preloaded pages the rest in from the journal."
     >
-      <Example title="Worked recently">
-        <Card project={moonSlab} />
+      <Example title="Worked recently, more history to load">
+        <ProjectCard
+          project={moonSlab}
+          userId="storybook-climber"
+          today={TODAY}
+          onLogSession={() => {}}
+        />
       </Example>
       <Example title="Gone cold">
-        <Card project={riverRoute} />
+        <ProjectCard
+          project={riverRoute}
+          userId="storybook-climber"
+          today={TODAY}
+          onLogSession={() => {}}
+        />
       </Example>
       <Example title="Dates only, no notes written">
-        <Card project={ashCrack} />
+        <ProjectCard
+          project={ashCrack}
+          userId="storybook-climber"
+          today={TODAY}
+          onLogSession={() => {}}
+        />
       </Example>
-    </StoryPage>
-  ),
-};
-
-export const SessionsOpen: Story = {
-  render: () => (
-    <StoryPage
-      title="Project card"
-      description="Opened, the card drops the single-note preview and shows the session history in full."
-    >
-      <Card project={moonSlab} initiallyExpanded />
     </StoryPage>
   ),
 };

@@ -17,7 +17,7 @@ export const Projects: Story = {
   render: (args) => (
     <StoryPage
       title="Projects"
-      description="Every open project arrives with its latest note already on the card. Search covers climbs, areas, tags and the notes themselves; opening a card shows the session history in place."
+      description="Every open project arrives with its recent sessions already on the card. Search covers climbs, areas, tags and the notes themselves; a project with more history than the page preloaded pages the rest in from the journal."
     >
       <ProjectBoard {...args} />
     </StoryPage>
