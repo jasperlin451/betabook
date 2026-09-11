@@ -59,7 +59,8 @@ export function CompanionPicker({
         labelSuffix={
           <HelpTooltip label="About With friends">
             For this entry only. Friends log their own activity; tags don’t grant access. Anyone who
-            can read this entry sees the tags, unless that friend sets their own journal to Only me.
+            can read this entry sees the tags, unless that friend turns their profile private or
+            sets their journal to Only me. You always see the friends you tagged.
             {editing && " Changes replace all tags, including hidden ones."}
           </HelpTooltip>
         }

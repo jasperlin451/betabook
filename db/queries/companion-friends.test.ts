@@ -25,9 +25,10 @@ beforeEach(async () => {
   await seedFixtureFriendship(db, "viewer", "pending", "pending");
   await seedFixtureFriendship(db, "viewer", "private");
 });
-it("searches both directions of accepted public friendships, with no private identifiers", async () => {
+it("searches both directions of accepted friendships, including a private friend", async () => {
   expect(await searchCompanionFriends(db, "viewer", " Alex ")).toEqual([
     { id: "a", name: "Alex Accepted" },
+    { id: "private", name: "Alex Private" },
     { id: "z", name: "Alex Reverse" },
   ]);
 });
