@@ -193,22 +193,25 @@ it("requires ownership to edit and only lets the tagged person remove their tag"
   expect((await removeMyJournalTag(entry.id)).ok).toBe(false);
   expect((await page()).entries[0].companions).toHaveLength(1);
 });
-it("rechecks private profiles and retains hidden tags when only notes change", async () => {
+it("tags a private friend, re-sends that tag, and keeps it through an ordinary edit", async () => {
   await createJournalEntry(form(["partner"]));
   const [entry] = await db.select().from(journalEntries);
   await db.update(user).set({ isPrivate: true }).where(eq(user.id, "partner"));
-  expect((await page()).entries[0].companions).toEqual([]);
-  expect((await updateJournalEntry(entry.id, form(["partner"], { body: "Should fail" }))).ok).toBe(
-    false,
+  // The author sees their own tag, so the edit form re-sends it on the next save.
+  expect((await page()).entries[0].companions).toMatchObject([{ id: "partner" }]);
+  expect((await updateJournalEntry(entry.id, form(["partner"], { body: "Re-saved" }))).ok).toBe(
+    true,
   );
+  // A friend who is already private can also be tagged for the first time.
+  await seedFixtureUser(db, { id: "mentor", journalVisibility: "public", isPrivate: true });
+  await seedFixtureFriendship(db, "author", "mentor");
+  expect((await updateJournalEntry(entry.id, form(["partner", "mentor"]))).ok).toBe(true);
   const ordinary = form([], { body: "Edited note" });
   ordinary.delete("companionsChanged");
   expect((await updateJournalEntry(entry.id, ordinary)).ok).toBe(true);
-  await db.update(user).set({ isPrivate: false }).where(eq(user.id, "partner"));
-  expect((await page()).entries[0]).toMatchObject({
-    body: "Edited note",
-    companions: [{ id: "partner" }],
-  });
+  const entries = (await page()).entries;
+  expect(entries[0].body).toBe("Edited note");
+  expect(entries[0].companions?.map((friend) => friend.id).sort()).toEqual(["mentor", "partner"]);
 });
 it("keeps each session and repeat's own companions when a separate send is recorded", async () => {
   await createJournalEntry(form(["partner"]));

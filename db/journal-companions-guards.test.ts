@@ -38,13 +38,11 @@ beforeEach(async () => {
   }
 });
 
-it.each(["pending", "private", "wrong friendship"])(
+it.each(["pending", "wrong friendship"])(
   "rejects a %s companion and rolls back earlier batch writes",
   async (reason) => {
     if (reason === "pending") {
       await db.update(friendships).set({ status: "pending" });
-    } else if (reason === "private") {
-      await db.update(user).set({ isPrivate: true }).where(eq(user.id, "partner"));
     }
     const insert =
       reason === "wrong friendship"
@@ -66,6 +64,17 @@ it.each(["pending", "private", "wrong friendship"])(
     ).toEqual({ body: null });
   },
 );
+
+it("tags a private friend and takes the re-send of an unchanged tag as a no-op", async () => {
+  await db.update(user).set({ isPrivate: true }).where(eq(user.id, "partner"));
+  await insertCompanion().run();
+  const before = await db.select().from(journalCompanions);
+  expect(before).toMatchObject([{ entryId: ENTRY_ID, userId: "partner", suppressed: false }]);
+  // Re-saving an entry re-sends its unchanged tags, and BEFORE INSERT runs even
+  // where ON CONFLICT DO NOTHING makes the row a no-op.
+  await insertCompanion().run();
+  expect(await db.select().from(journalCompanions)).toEqual(before);
+});
 
 it("rejects reinserting a removed companion even when conflicts would be ignored", async () => {
   await insertCompanion().run();
