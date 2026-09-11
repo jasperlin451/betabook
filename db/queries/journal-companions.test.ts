@@ -14,6 +14,7 @@ import { resetDb } from "@/test/reset-db";
 
 import { getFeedPage } from "./feed";
 import { getJournalForClimb, getJournalPage } from "./journal";
+import { getJournalFilterFriends } from "./journal-companions";
 
 const db = createDb(env.DB);
 async function tag(entryId: number, author: string, companion: string) {
@@ -415,4 +416,46 @@ it("enforces the active tag cap in D1 and preserves tags through a climb move", 
   await db.update(journalEntries).set({ climbId: 2 }).where(eq(journalEntries.id, entryId));
   expect((await visible("author"))[0]).toMatchObject({ id: entryId, climbId: 2 });
   expect((await visible("author"))[0].companions).toHaveLength(10);
+});
+
+it("filters by visible friend tags only for the owner, including pagination", async () => {
+  const tagged = await entry();
+  await tag(tagged, "author", "partner");
+  const untagged = await entry();
+  const filter = { ...DEFAULT_JOURNAL_FILTER, friendIds: ["partner"] };
+  expect(
+    (await getJournalPage(db, "author", "author", filter, null, 1)).entries.map((row) => row.id),
+  ).toEqual([tagged]);
+  expect((await getJournalPage(db, "author", "viewer", filter)).entries).toEqual([]);
+  expect((await visible("viewer")).map((row) => row.id)).toEqual([untagged, tagged]);
+  await db
+    .update(journalCompanions)
+    .set({ suppressed: true })
+    .where(eq(journalCompanions.entryId, tagged));
+  expect((await getJournalPage(db, "author", "author", filter)).entries).toEqual([]);
+});
+
+it("matches any selected friend and lists all existing friends independently of journal tags", async () => {
+  const first = await entry();
+  await tag(first, "author", "partner");
+  const second = await entry();
+  await tag(second, "author", "viewer");
+  await entry();
+  const filter = { ...DEFAULT_JOURNAL_FILTER, friendIds: ["partner", "viewer"] };
+  const page = await getJournalPage(db, "author", "author", filter, null, 1);
+  expect(page.entries.map((row) => row.id)).toEqual([second]);
+  expect(page.hasMore).toBe(true);
+  expect(
+    (await getJournalPage(db, "author", "author", filter, page.nextCursor)).entries.map(
+      (row) => row.id,
+    ),
+  ).toEqual([first]);
+  expect((await getJournalFilterFriends(db, "author")).map((friend) => friend.id)).toEqual([
+    "partner",
+    "viewer",
+  ]);
+  await db.update(user).set({ isPrivate: true }).where(eq(user.id, "partner"));
+  expect(
+    (await getJournalPage(db, "author", "author", filter)).entries.map((row) => row.id),
+  ).toEqual([second]);
 });

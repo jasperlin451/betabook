@@ -6,6 +6,7 @@ import { dateActiveFilters, hashtagActiveFilters } from "@/components/filters/ac
 import { DateFilter } from "@/components/filters/date-filter";
 import { FilterInput } from "@/components/filters/filter-input";
 import { FilterToolbarLayout } from "@/components/filters/filter-toolbar";
+import { FriendFilter } from "@/components/filters/friend-filter";
 import { HashtagFilter } from "@/components/filters/hashtag-filter";
 import { AppLink } from "@/components/ui/app-link";
 import { choicePillClass } from "@/components/ui/choice-pill";
@@ -20,6 +21,9 @@ import {
   type JournalView,
 } from "@/lib/filters/journal-filter";
 import { formatDate } from "@/lib/format-date";
+import type { CompanionOption } from "@/lib/journal-companions";
+
+const NO_FRIENDS: CompanionOption[] = [];
 
 const VIEW_LABELS: Record<JournalView, string> = {
   all: "All",
@@ -38,11 +42,15 @@ export function JournalFilterToolbar({
   filter,
   climbName,
   tags,
+  isOwner = false,
+  friends = NO_FRIENDS,
 }: {
   userId: string;
   filter: JournalFilter;
   climbName: string | null;
   tags: string[];
+  isOwner?: boolean;
+  friends?: CompanionOption[];
 }) {
   const base = `/users/${userId}/journal`;
   const {
@@ -59,6 +67,17 @@ export function JournalFilterToolbar({
     <FilterToolbarLayout
       onReset={reset}
       activeFilters={[
+        ...(isOwner
+          ? localFilter.friendIds.map((id) => ({
+              id: `friend-${id}`,
+              label: `With: ${friends.find((friend) => friend.id === id)?.name ?? "Selected friend"}`,
+              onRemove: () =>
+                setFilter({
+                  ...localFilter,
+                  friendIds: localFilter.friendIds.filter((value) => value !== id),
+                }),
+            }))
+          : []),
         ...dateActiveFilters(localFilter, setFilter),
         ...hashtagActiveFilters(localFilter.tags, (tags) => setFilter({ ...localFilter, tags })),
         ...(localFilter.query
@@ -104,6 +123,13 @@ export function JournalFilterToolbar({
             value={localFilter}
             onChange={(dates) => setFilter({ ...localFilter, ...dates, year: null })}
           />
+          {isOwner && (
+            <FriendFilter
+              value={localFilter.friendIds}
+              friends={friends}
+              onChange={(friendIds) => setFilter({ ...localFilter, friendIds })}
+            />
+          )}
           <HashtagFilter
             inlineLabel
             value={localFilter.tags}
