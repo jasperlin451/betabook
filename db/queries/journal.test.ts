@@ -10,6 +10,7 @@ import {
   getJournalPage,
   getJournalSessionsForAnalytics,
   getOpenProjects,
+  getOpenProjectSessions,
 } from "@/db/queries";
 import { DEFAULT_JOURNAL_FILTER, type JournalFilter } from "@/lib/filters/journal-filter";
 import {
@@ -331,9 +332,31 @@ describe("getOpenProjects", () => {
       climbName: "Test Slab",
       areaName: "Test Slab Area",
       sessionCount: 2,
+      noteCount: 0,
       firstSession: "2025-03-05",
       lastSession: "2025-03-06",
     });
+  });
+
+  it("counts only the sessions that carry a written note", async () => {
+    const ownerId = "tl-project-notes";
+    await seedFixtureUser(db, { id: ownerId });
+    await seedFixtureJournalEntry(db, {
+      userId: ownerId,
+      climbId: SLAB,
+      entryDate: "2025-07-01",
+      body: "Crux feels impossible.",
+    });
+    await seedFixtureJournalEntry(db, { userId: ownerId, climbId: SLAB, entryDate: "2025-07-02" });
+    await seedFixtureJournalEntry(db, {
+      userId: ownerId,
+      climbId: SLAB,
+      entryDate: "2025-07-03",
+      body: "   ",
+    });
+
+    const [project] = await getOpenProjects(db, ownerId, ownerId);
+    expect(project).toMatchObject({ sessionCount: 3, noteCount: 1 });
   });
 
   it("drops a climb once it is sent — nothing has to be marked done", async () => {
@@ -376,6 +399,103 @@ describe("getOpenProjects", () => {
     const projects = await getOpenProjects(db, ownerId, ownerId, 1);
     expect(projects).toHaveLength(1);
     expect(projects[0]?.climbId).toBe(4);
+  });
+});
+
+describe("getOpenProjectSessions", () => {
+  const SESSIONS_OWNER = "tl-project-sessions";
+
+  beforeEach(async () => {
+    await seedFixtureUser(db, { id: SESSIONS_OWNER });
+    await seedFixtureJournalEntry(db, {
+      userId: SESSIONS_OWNER,
+      climbId: SLAB,
+      entryDate: "2025-08-01",
+      body: "First look. Heels everywhere.",
+    });
+    await seedFixtureJournalEntry(db, {
+      userId: SESSIONS_OWNER,
+      climbId: SLAB,
+      entryDate: "2025-08-08",
+      body: "Linked the bottom.",
+    });
+    await seedFixtureJournalEntry(db, {
+      userId: SESSIONS_OWNER,
+      climbId: SLAB,
+      entryDate: "2025-08-15",
+      body: "One move from the top.",
+    });
+    await seedFixtureJournalEntry(db, {
+      userId: SESSIONS_OWNER,
+      climbId: SLAB,
+      entryDate: "2025-08-22",
+      body: "Skin gone. Back Tuesday.",
+      tags: ["beta", "skin"],
+    });
+    await seedFixtureJournalEntry(db, {
+      userId: SESSIONS_OWNER,
+      climbId: CRIMPER,
+      entryDate: "2025-08-20",
+      body: "Clipping stance is the whole problem.",
+    });
+  });
+
+  it("returns the newest sessions of every requested project in one read", async () => {
+    const sessions = await getOpenProjectSessions(db, SESSIONS_OWNER, SESSIONS_OWNER, [
+      SLAB,
+      CRIMPER,
+    ]);
+
+    expect(sessions.map((entry) => [entry.climbId, entry.entryDate])).toEqual([
+      [SLAB, "2025-08-22"],
+      [CRIMPER, "2025-08-20"],
+      [SLAB, "2025-08-15"],
+      [SLAB, "2025-08-08"],
+    ]);
+    expect(sessions[0]).toMatchObject({
+      body: "Skin gone. Back Tuesday.",
+      climbName: "Test Slab",
+      areaName: "Test Slab Area",
+      climbType: "boulder",
+      sent: false,
+      tags: ["beta", "skin"],
+      companions: [],
+    });
+  });
+
+  it("ranks per climb, so a busy project cannot crowd out a quiet one", async () => {
+    const sessions = await getOpenProjectSessions(
+      db,
+      SESSIONS_OWNER,
+      SESSIONS_OWNER,
+      [SLAB, CRIMPER],
+      1,
+    );
+
+    expect(sessions.map((entry) => [entry.climbId, entry.entryDate])).toEqual([
+      [SLAB, "2025-08-22"],
+      [CRIMPER, "2025-08-20"],
+    ]);
+  });
+
+  it("reads only the climbs it was asked for", async () => {
+    const sessions = await getOpenProjectSessions(db, SESSIONS_OWNER, SESSIONS_OWNER, [CRIMPER]);
+    expect(sessions.map((entry) => entry.climbId)).toEqual([CRIMPER]);
+    expect(await getOpenProjectSessions(db, SESSIONS_OWNER, SESSIONS_OWNER, [])).toEqual([]);
+  });
+
+  it("drops a climb from the preload once it is sent", async () => {
+    await seedFixtureSend(db, {
+      userId: SESSIONS_OWNER,
+      climbId: SLAB,
+      dateSent: "2025-08-23",
+    });
+
+    const sessions = await getOpenProjectSessions(db, SESSIONS_OWNER, SESSIONS_OWNER, [
+      SLAB,
+      CRIMPER,
+    ]);
+    expect(sessions.map((entry) => entry.climbId)).toEqual([CRIMPER]);
   });
 });
 
