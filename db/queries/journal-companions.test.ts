@@ -71,7 +71,7 @@ beforeEach(async () => {
   await seedFixtureFriendship(db, "author", "partner");
   await seedFixtureFriendship(db, "author", "viewer");
 });
-it("applies the complete author/companion audience intersection to anonymous, self, friend and stranger readers", async () => {
+it("applies the author audience and the companion's only-me opt-out to anonymous, self, friend and stranger readers", async () => {
   const entryId = await entry();
   await tag(entryId, "author", "partner");
   for (const authorAudience of ["private", "friends", "public"] as const) {
@@ -93,7 +93,7 @@ it("applies the complete author/companion audience intersection to anonymous, se
         }
         expect(entries.map((row) => row.id)).toEqual([entryId]);
         const canSeePartner =
-          viewer === "author" || viewer === "partner" || partnerAudience === "public";
+          viewer === "author" || viewer === "partner" || partnerAudience !== "private";
         expect(entries[0].companions).toEqual(
           canSeePartner
             ? [{ id: "partner", name: "Test Climber partner", isSelf: viewer === "partner" }]
@@ -104,6 +104,7 @@ it("applies the complete author/companion audience intersection to anonymous, se
   }
   await db.update(user).set({ journalVisibility: "public" }).where(eq(user.id, "author"));
   await db.update(user).set({ journalVisibility: "friends" }).where(eq(user.id, "partner"));
+  // Befriending the partner adds nothing the author's audience did not already grant.
   await seedFixtureFriendship(db, "partner", "viewer");
   expect((await visible("viewer"))[0].companions).toMatchObject([{ id: "partner" }]);
   await db.update(user).set({ isPrivate: true }).where(eq(user.id, "partner"));
@@ -458,4 +459,29 @@ it("matches any selected friend and lists all existing friends independently of 
   expect(
     (await getJournalPage(db, "author", "author", filter)).entries.map((row) => row.id),
   ).toEqual([second]);
+});
+
+it("names tagged partners to readers outside the partner's own friends, honoring an only-me opt-out", async () => {
+  const entryId = await entry();
+  await tag(entryId, "author", "partner");
+  const named = [{ id: "partner", name: "Test Climber partner", isSelf: false }];
+  // `viewer` is the author's friend but never the partner's; `stranger` is
+  // neither, and reads the author's entry through the Members audience.
+  for (const partnerAudience of ["friends", "public"] as const) {
+    await db.update(user).set({ journalVisibility: partnerAudience }).where(eq(user.id, "partner"));
+    expect((await visible("viewer"))[0].companions).toEqual(named);
+    expect((await visible("stranger"))[0].companions).toEqual(named);
+    expect((await getFeedPage(db, "viewer")).days[0].activities[0].companions).toEqual(named);
+  }
+  await db.update(user).set({ journalVisibility: "private" }).where(eq(user.id, "partner"));
+  expect((await visible("viewer"))[0].companions).toEqual([]);
+  expect((await getFeedPage(db, "viewer")).days[0].activities[0].companions).toEqual([]);
+  // The opt-out never hides the tag from the author who wrote it, nor from the
+  // partner themselves, who needs it to remove their own tag.
+  expect((await visible("author"))[0].companions).toEqual(named);
+  expect((await visible("partner"))[0].companions).toEqual([{ ...named[0], isSelf: true }]);
+  await db.update(user).set({ journalVisibility: "friends" }).where(eq(user.id, "partner"));
+  await db.update(user).set({ isPrivate: true }).where(eq(user.id, "partner"));
+  for (const reader of ["viewer", "stranger", "author", "partner"])
+    expect((await visible(reader))[0].companions).toEqual([]);
 });
