@@ -13,6 +13,7 @@ export default meta;
 function ChoiceExamples() {
   const [feel, setFeel] = useState<GradeFeel>("solid");
   const [disciplines, setDisciplines] = useState<Discipline[]>(["boulder"]);
+  const [discipline, setDiscipline] = useState<Discipline[]>(["sport"]);
   return (
     <StoryPage title="Segments and choice tags">
       <Example title="Exactly one choice">
@@ -20,6 +21,9 @@ function ChoiceExamples() {
       </Example>
       <Example title="Multiple filter choices">
         <DisciplineChips value={disciplines} onChange={setDisciplines} />
+      </Example>
+      <Example title="One filter choice or none">
+        <DisciplineChips single value={discipline} onChange={setDiscipline} />
       </Example>
     </StoryPage>
   );

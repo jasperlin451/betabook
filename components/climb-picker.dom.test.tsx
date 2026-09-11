@@ -91,15 +91,18 @@ it("import seeds text but only constrains the area after selecting an identity",
   ).toBeEnabled();
 });
 
-it("logging retains discipline choices without an expanded filter panel", async () => {
+it("logging narrows to one discipline at a time without an expanded filter panel", async () => {
   const user = userEvent.setup();
   render(<IntegratedClimbPickerDemo />);
   expect(screen.queryByRole("button", { name: /Expand filters/ })).not.toBeInTheDocument();
-  for (const name of ["Boulder", "Sport", "Trad"]) {
-    const button = screen.getByRole("button", { name });
-    await user.click(button);
-    expect(button).toHaveAttribute("aria-pressed", "true");
-    await user.click(button);
-    expect(button).toHaveAttribute("aria-pressed", "false");
-  }
+  const boulder = screen.getByRole("button", { name: "Boulder" });
+  const sport = screen.getByRole("button", { name: "Sport" });
+  await user.click(boulder);
+  expect(boulder).toHaveAttribute("aria-pressed", "true");
+  await user.click(sport);
+  expect(sport).toHaveAttribute("aria-pressed", "true");
+  expect(boulder).toHaveAttribute("aria-pressed", "false");
+  await user.click(sport);
+  expect(sport).toHaveAttribute("aria-pressed", "false");
+  expect(screen.getByRole("button", { name: "Trad" })).toHaveAttribute("aria-pressed", "false");
 });
