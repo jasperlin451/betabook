@@ -46,7 +46,7 @@ export const PRODUCT_TOUR_STEPS: Record<ProductTourId, readonly ProductTourStepD
       section: "Projects",
       title: "Pick up where you left off",
       description:
-        "Climbs you haven't sent appear here automatically. Open the sessions to review your notes. This list is private.",
+        "Climbs you haven't sent appear here automatically, each with its latest note. Open a project to read the rest of its sessions. This list is private.",
       target: "project-sessions",
     },
     {

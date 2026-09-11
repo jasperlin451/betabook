@@ -313,6 +313,9 @@ export type OpenProject = {
   areaId: number;
   areaName: string;
   sessionCount: number;
+  /** Sessions that actually carry a written note — what the card's notes
+   * toggle is worth opening for. */
+  noteCount: number;
   firstSession: string;
   lastSession: string;
 };
@@ -339,6 +342,8 @@ export async function getOpenProjects(
       climbs.area_id    AS areaId,
       areas.name        AS areaName,
       COUNT(*)          AS sessionCount,
+      COUNT(*) FILTER (WHERE TRIM(COALESCE(j.body, '')) <> '')
+                        AS noteCount,
       MIN(j.entry_date) AS firstSession,
       MAX(j.entry_date) AS lastSession
     FROM journal_entries j
@@ -349,6 +354,67 @@ export async function getOpenProjects(
     ORDER BY lastSession DESC, j.climb_id ASC
     LIMIT ${boundedLimit}
   `);
+}
+
+/** Sessions carried with each project card. Three is what a card needs to
+ * show its latest note and open a short history with no request at all; a
+ * longer project pages the rest in from the journal API when opened. */
+const OPEN_PROJECT_SESSION_PRELOAD = 3;
+
+/** The most recent sessions on each of `climbIds`, ranked per climb in one
+ * pass — a projects list would otherwise need a query per card before it
+ * could show a single note. Same owner-only gate as the projects it
+ * annotates, and the same entry projection as the journal timeline, so the
+ * client can page older sessions straight onto these from the journal API. */
+export async function getOpenProjectSessions(
+  db: Database,
+  ownerId: string,
+  viewerId: string | null,
+  climbIds: number[],
+  perProject: number = OPEN_PROJECT_SESSION_PRELOAD,
+): Promise<JournalEntry[]> {
+  if (ownerId !== viewerId || climbIds.length === 0) return [];
+  const bounded = Number.isInteger(perProject)
+    ? Math.min(Math.max(perProject, 1), OPEN_PROJECT_SESSION_PRELOAD)
+    : OPEN_PROJECT_SESSION_PRELOAD;
+
+  const rows = await db.all<JournalEntryRow>(sql`
+    WITH ranked AS (
+      SELECT
+        j.id AS id,
+        j.climb_id AS climbId,
+        j.kind AS kind,
+        j.sent AS sent,
+        j.entry_date AS entryDate,
+        ${visibleBody(viewerId)} AS body,
+        j.tags AS tags,
+        ${companionsJsonSql(viewerId, sql`j.id`)} AS companions,
+        climbs.name AS climbName,
+        climbs.type AS climbType,
+        climbs.grade AS climbGrade,
+        climbs.area_id AS areaId,
+        areas.name AS areaName,
+        j.is_ascent AS isAscent,
+        j.is_send_comment AS isSendComment,
+        ROW_NUMBER() OVER (
+          PARTITION BY j.climb_id ORDER BY j.entry_date DESC, j.id DESC
+        ) AS seq
+      FROM journal_entries j
+      JOIN climbs ON climbs.id = j.climb_id
+      JOIN areas ON areas.id = climbs.area_id
+      WHERE j.user_id = ${ownerId}
+        AND ${journalVisibleSql(viewerId, sql`j.user_id`)}
+        AND ${IS_OPEN_PROJECT}
+        AND j.climb_id IN (SELECT value FROM json_each(${JSON.stringify(climbIds)}))
+    )
+    SELECT
+      id, climbId, kind, sent, entryDate, body, tags, companions,
+      climbName, climbType, climbGrade, areaId, areaName, isAscent, isSendComment
+    FROM ranked
+    WHERE seq <= ${bounded}
+    ORDER BY entryDate DESC, id DESC
+  `);
+  return rows.map(toJournalEntry);
 }
 
 /** Owner-only editing projection, including currently visible companion selections. */
