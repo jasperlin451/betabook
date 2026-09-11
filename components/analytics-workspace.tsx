@@ -2,14 +2,7 @@
 
 import { Button } from "@heroui/react";
 import { ArrowDown, ArrowUp, GripVertical, Plus, SlidersHorizontal, X } from "lucide-react";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-  type ComponentProps,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   DropIndicator,
   GridList,
@@ -40,11 +33,6 @@ export type AnalyticsPanel = {
   description?: string;
   content: ReactNode;
 };
-export type AnalyticsCustomizeAnnouncement = Pick<
-  ComponentProps<typeof FeatureAnnouncement>,
-  "userId" | "initialDismissed" | "dismissAction"
->;
-
 type Group = "cards" | "charts";
 
 /** Anchor the insertion line to the destination card, without taking a grid cell. */
@@ -342,7 +330,6 @@ export function AnalyticsWorkspace({
   cards,
   charts,
   canCustomize = false,
-  customizeAnnouncement,
   initialLayout = DEFAULT_ANALYTICS_LAYOUT,
   children,
   onSave,
@@ -350,7 +337,6 @@ export function AnalyticsWorkspace({
   cards: AnalyticsPanel[];
   charts: AnalyticsPanel[];
   canCustomize?: boolean;
-  customizeAnnouncement?: AnalyticsCustomizeAnnouncement;
   initialLayout?: AnalyticsLayout;
   children?: ReactNode;
   onSave?: (layout: AnalyticsLayout) => Promise<ActionResult>;
@@ -463,17 +449,14 @@ export function AnalyticsWorkspace({
     <div className={`flex flex-col gap-6 ${editing ? "pb-24" : ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SectionHeading>Analytics</SectionHeading>
-        {canCustomize && customizeAnnouncement ? (
+        {canCustomize && (
           <FeatureAnnouncement
-            {...ANALYTICS_CUSTOMIZE_ANNOUNCEMENT}
-            {...customizeAnnouncement}
+            featureId={ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.featureId}
             placement="bottom end"
             isEnabled={!editing}
           >
             {customizeButton}
           </FeatureAnnouncement>
-        ) : (
-          customizeButton
         )}
       </div>
       {isEditing && (

@@ -4,19 +4,40 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ActionResult } from "@/lib/action-result";
 
-import { FeatureAnnouncement } from "./feature-announcement";
+import { FeatureAnnouncement, FeatureAnnouncementScope } from "./feature-announcement";
 
 vi.mock("@/actions", () => ({
   dismissFeatureAnnouncement: vi.fn<(featureId: string) => Promise<ActionResult>>(),
 }));
-const base = {
-  userId: "one",
+const feature = {
   featureId: "journal-tags",
+  launchedAt: "2026-01-01T00:00:00Z",
+  page: "/journal",
   title: "Organize your journal",
   description: "Find sessions with tags.",
-  initialDismissed: false,
-  children: <button type="button">Tags</button>,
 };
+function announcement({
+  userId = "one",
+  initialDismissed = false,
+  dismissAction,
+}: {
+  userId?: string;
+  initialDismissed?: boolean;
+  dismissAction: (id: string) => Promise<ActionResult>;
+}) {
+  return (
+    <FeatureAnnouncementScope
+      userId={userId}
+      page={feature.page}
+      announcements={initialDismissed ? [] : [feature]}
+      dismissAction={dismissAction}
+    >
+      <FeatureAnnouncement featureId={feature.featureId}>
+        <button type="button">Tags</button>
+      </FeatureAnnouncement>
+    </FeatureAnnouncementScope>
+  );
+}
 
 describe("feature announcements", () => {
   it("stays open until a successful explicit dismissal, prevents duplicate saves, and preserves its target", async () => {
@@ -28,15 +49,15 @@ describe("feature announcements", () => {
           resolve = done;
         }),
     );
-    render(<FeatureAnnouncement {...base} dismissAction={save} />);
+    render(announcement({ dismissAction: save }));
     await user.click(screen.getByRole("button", { name: "Tags" }));
     await user.keyboard("{Escape}");
-    expect(screen.getByRole("heading", { name: base.title })).toBeVisible();
+    expect(screen.getByRole("heading", { name: feature.title })).toBeVisible();
     const close = screen.getByRole("button", { name: /Dismiss announcement/ });
     await user.click(close);
     await user.click(close);
     expect(save).toHaveBeenCalledExactlyOnceWith("journal-tags");
-    expect(screen.getByRole("heading", { name: base.title })).toBeVisible();
+    expect(screen.getByRole("heading", { name: feature.title })).toBeVisible();
     resolve({ ok: true, value: undefined });
     await waitFor(() => expect(screen.queryByRole("heading")).not.toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Tags" })).toBeVisible();
@@ -47,7 +68,7 @@ describe("feature announcements", () => {
       .fn<(featureId: string) => Promise<ActionResult>>()
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValue({ ok: true, value: undefined });
-    render(<FeatureAnnouncement {...base} dismissAction={save} />);
+    render(announcement({ dismissAction: save }));
     await user.click(screen.getByRole("button", { name: /Dismiss announcement/ }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Try dismissing again");
     await user.click(screen.getByRole("button", { name: /Dismiss announcement/ }));
@@ -58,12 +79,22 @@ describe("feature announcements", () => {
     const save = vi
       .fn<(featureId: string) => Promise<ActionResult>>()
       .mockResolvedValue({ ok: true, value: undefined });
-    const view = render(<FeatureAnnouncement {...base} initialDismissed dismissAction={save} />);
+    const view = render(announcement({ initialDismissed: true, dismissAction: save }));
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
-    view.rerender(<FeatureAnnouncement {...base} dismissAction={save} />);
+    view.rerender(announcement({ userId: "two", dismissAction: save }));
     await user.click(screen.getByRole("button", { name: /Dismiss announcement/ }));
     await waitFor(() => expect(screen.queryByRole("heading")).not.toBeInTheDocument());
-    view.rerender(<FeatureAnnouncement {...base} userId="two" dismissAction={save} />);
+    view.rerender(announcement({ userId: "three", dismissAction: save }));
     expect(screen.getByRole("heading")).toBeVisible();
   });
+});
+
+it("renders only the target without an eligibility scope", () => {
+  render(
+    <FeatureAnnouncement featureId={feature.featureId}>
+      <button type="button">Tags</button>
+    </FeatureAnnouncement>,
+  );
+  expect(screen.getByRole("button", { name: "Tags" })).toBeVisible();
+  expect(screen.queryByRole("heading")).not.toBeInTheDocument();
 });

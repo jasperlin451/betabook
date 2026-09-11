@@ -69,10 +69,19 @@ test("analytics announcement fits the screen and leaves Customize usable", async
 
 test.describe("visible scrollbar layout", () => {
   test("callout fits the usable viewport beside a scrollbar", async ({ page }, info) => {
-    await openStory(page, info, "components-feature-callout--near-right-edge");
-    await page.addStyleTag({
-      content: "html { overflow-y: scroll; } ::-webkit-scrollbar { width: 15px; }",
+    // Apply the browser's scrollbar condition before the overlay is positioned.
+    await page.route("**/iframe.html?**", async (route) => {
+      const response = await route.fetch();
+      const html = await response.text();
+      await route.fulfill({
+        response,
+        body: html.replace(
+          "<head>",
+          "<head><style>html { overflow-y: scroll; } ::-webkit-scrollbar { width: 15px; }</style>",
+        ),
+      });
     });
+    await openStory(page, info, "components-feature-callout--near-right-edge");
     const viewport = await page.evaluate(() => ({
       usable: document.documentElement.clientWidth,
       outer: window.innerWidth,
@@ -84,4 +93,31 @@ test.describe("visible scrollbar layout", () => {
     // Include the callout's 16px right padding, not just its content region.
     expect(bounds.x + bounds.width + 16).toBeLessThanOrEqual(viewport.usable);
   });
+});
+
+test("the next release anchors to its own target on a later visit", async ({ page }, info) => {
+  await openStory(page, info, "patterns-feature-announcements--joined-after-third-launch");
+  const dismiss = page.getByRole("button", { name: "Dismiss announcement: Partner summaries" });
+  if (info.project.use.hasTouch) await dismiss.tap();
+  else await dismiss.click();
+  const revisit = page.getByRole("button", { name: "Revisit page" });
+  if (info.project.use.hasTouch) await revisit.tap();
+  else await revisit.click();
+  const panel = page.getByRole("region", { name: "Flash charts" }).locator("..");
+  await expect(panel).toBeVisible();
+  const bounds = await panel.boundingBox();
+  const target = await page.getByRole("button", { name: "Feature 5: Flash charts" }).boundingBox();
+  const viewport = await page.evaluate(() => ({
+    width: document.documentElement.clientWidth,
+    height: window.innerHeight,
+  }));
+  if (!bounds || !target) throw new Error("Missing announcement or target bounds");
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
+  expect(bounds.y).toBeGreaterThanOrEqual(0);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(viewport.height);
+  const placement = await panel.getAttribute("data-placement");
+  expect(placement).toMatch(/^(top|bottom)$/);
+  if (placement === "top") expect(bounds.y + bounds.height).toBeLessThanOrEqual(target.y);
+  else expect(bounds.y).toBeGreaterThanOrEqual(target.y + target.height);
 });

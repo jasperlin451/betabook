@@ -6,6 +6,7 @@ import { ProfileHeader, getUserById } from "@/app/users/[id]/profile-shell";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 import { AnalyticsYearNavigation } from "@/components/analytics-year-filter";
 import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
+import { FeatureAnnouncementScope } from "@/components/feature-announcement";
 import { AnalyticsHashtagFilter } from "@/components/filters/analytics-hashtag-filter";
 import { AppLink } from "@/components/ui/app-link";
 import { choicePillClass } from "@/components/ui/choice-pill";
@@ -17,7 +18,7 @@ import { getJournalSessionsForAnalytics, getUserSendsForAnalytics } from "@/db/q
 import { getAnalyticsHighlightSessions } from "@/db/queries/analytics-highlights";
 import { getAnalyticsLayout } from "@/db/queries/analytics-layout";
 import { canReadJournal } from "@/db/queries/content-access";
-import { isFeatureAnnouncementDismissed } from "@/db/queries/feature-announcements";
+import { getPageFeatureAnnouncements } from "@/db/queries/feature-announcements";
 import { getUserHashtags } from "@/db/queries/hashtag-filter";
 import { buildAnalyticsHighlights } from "@/lib/analytics-highlights";
 import { parseAnalyticsYears } from "@/lib/analytics-years";
@@ -98,7 +99,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
   const scope = requested !== "all" && present.includes(requested) ? requested : (dominant ?? null);
 
   if (scope == null) {
-    return (
+    const content = (
       <div className="flex flex-col gap-6">
         <ProfileHeader user={user} viewerId={session?.user.id ?? null} />
         <SectionHeading>Analytics</SectionHeading>
@@ -112,18 +113,26 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         />
       </div>
     );
+    return (
+      <FeatureAnnouncementScope
+        userId={session.user.id}
+        page={`/users/${id}/analytics`}
+        announcements={[]}
+      >
+        {content}
+      </FeatureAnnouncementScope>
+    );
   }
 
   const isOwner = viewerId === id;
-  const [initialLayout, customizeDismissed] = await Promise.all([
+  const [initialLayout, announcements] = await Promise.all([
     getAnalyticsLayout(db, id, viewerId),
     isOwner
-      ? isFeatureAnnouncementDismissed(
-          db,
-          session.user.id,
-          ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.featureId,
-        )
-      : Promise.resolve(true),
+      ? getPageFeatureAnnouncements(db, session.user, {
+          page: ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.page,
+          availableFeatureIds: [ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.featureId],
+        })
+      : Promise.resolve([]),
   ]);
   const highlightSessions = journalVisible
     ? await getAnalyticsHighlightSessions(db, id, viewerId, selectedTags)
@@ -137,16 +146,13 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     ? buildUserAnalytics(rows, scope, journalSessions, selectedYears)
     : lifetime;
 
-  return (
+  const content = (
     <div className="flex flex-col gap-6">
       <ProfileHeader user={user} viewerId={session?.user.id ?? null} />
 
       <AnalyticsDashboard
         key={id}
         canCustomize={isOwner}
-        customizeAnnouncement={
-          isOwner ? { userId: session.user.id, initialDismissed: customizeDismissed } : undefined
-        }
         initialLayout={initialLayout}
         onSave={isOwner ? saveAnalyticsLayout : undefined}
         analytics={analytics}
@@ -189,5 +195,14 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         }
       />
     </div>
+  );
+  return (
+    <FeatureAnnouncementScope
+      userId={session.user.id}
+      page={`/users/${id}/analytics`}
+      announcements={announcements}
+    >
+      {content}
+    </FeatureAnnouncementScope>
   );
 }

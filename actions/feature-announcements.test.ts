@@ -5,7 +5,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { dismissFeatureAnnouncement } from "@/actions";
 import { createDb } from "@/db/client";
-import { isFeatureAnnouncementDismissed } from "@/db/queries";
+import { getDismissedFeatureAnnouncementIds } from "@/db/queries";
 import { user, featureAnnouncementDismissals } from "@/db/schema";
 import { SESSION_EXPIRED_MESSAGE } from "@/lib/action-result";
 import { seedFixtureUser } from "@/test/fixtures";
@@ -44,15 +44,22 @@ describe("feature announcement dismissals", () => {
     expect(revalidatePath).toHaveBeenCalledExactlyOnceWith("/users/tour-other/analytics");
   });
   it("persists per account and feature, with idempotent writes", async () => {
-    expect(await isFeatureAnnouncementDismissed(db, "tour-owner", "journal-tags")).toBe(false);
-    expect((await dismissFeatureAnnouncement("journal-tags")).ok).toBe(true);
-    expect((await dismissFeatureAnnouncement("journal-tags")).ok).toBe(true);
-    expect(await isFeatureAnnouncementDismissed(db, "tour-owner", "journal-tags")).toBe(true);
-    expect(await isFeatureAnnouncementDismissed(db, "tour-other", "journal-tags")).toBe(false);
-    expect(await isFeatureAnnouncementDismissed(db, "tour-owner", "another-feature")).toBe(false);
-    expect(revalidatePath).not.toHaveBeenCalled();
+    expect(
+      await getDismissedFeatureAnnouncementIds(db, "tour-owner", ["analytics-customize"]),
+    ).toEqual([]);
+    expect((await dismissFeatureAnnouncement("analytics-customize")).ok).toBe(true);
+    expect((await dismissFeatureAnnouncement("analytics-customize")).ok).toBe(true);
+    expect(
+      await getDismissedFeatureAnnouncementIds(db, "tour-owner", ["analytics-customize"]),
+    ).toEqual(["analytics-customize"]);
+    expect(
+      await getDismissedFeatureAnnouncementIds(db, "tour-other", ["analytics-customize"]),
+    ).toEqual([]);
+    expect(await getDismissedFeatureAnnouncementIds(db, "tour-owner", ["another-feature"])).toEqual(
+      [],
+    );
     expect(await db.select().from(featureAnnouncementDismissals)).toEqual([
-      { userId: "tour-owner", featureId: "journal-tags" },
+      { userId: "tour-owner", featureId: "analytics-customize" },
     ]);
     await db.delete(user).where(eq(user.id, "tour-owner"));
     expect(await db.select().from(featureAnnouncementDismissals)).toEqual([]);
@@ -60,12 +67,12 @@ describe("feature announcement dismissals", () => {
   });
   it("requires authentication and validates IDs without writes", async () => {
     sessionState.userId = null;
-    expect(await dismissFeatureAnnouncement("journal-tags")).toEqual({
+    expect(await dismissFeatureAnnouncement("analytics-customize")).toEqual({
       ok: false,
       error: SESSION_EXPIRED_MESSAGE,
     });
     sessionState.userId = "tour-owner";
-    for (const id of ["", "bad id", "x".repeat(101)])
+    for (const id of ["", "unknown-feature", "bad id", "x".repeat(101)])
       expect((await dismissFeatureAnnouncement(id)).ok).toBe(false);
     expect(await db.select().from(featureAnnouncementDismissals)).toEqual([]);
   });

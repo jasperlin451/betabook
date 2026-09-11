@@ -2,7 +2,10 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 
+import { FeatureAnnouncementScope } from "@/components/feature-announcement";
+import type { ActionResult } from "@/lib/action-result";
 import { DEFAULT_ANALYTICS_LAYOUT, ANALYTICS_CARD_IDS } from "@/lib/analytics-layout";
+import { ANALYTICS_CUSTOMIZE_ANNOUNCEMENT } from "@/lib/feature-announcements";
 
 import { AnalyticsWorkspace } from "./analytics-workspace";
 
@@ -138,19 +141,33 @@ it("offers optional charts through the chart placeholder and hides it after addi
   expect(screen.queryByRole("button", { name: "Customize charts" })).not.toBeInTheDocument();
 });
 
+function announcedWorkspace({
+  dismissed = false,
+  owner = true,
+  dismissAction,
+}: {
+  dismissed?: boolean;
+  owner?: boolean;
+  dismissAction?: (id: string) => Promise<ActionResult>;
+} = {}) {
+  return (
+    <FeatureAnnouncementScope
+      userId="owner"
+      page={ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.page}
+      announcements={dismissed ? [] : [ANALYTICS_CUSTOMIZE_ANNOUNCEMENT]}
+      dismissAction={dismissAction}
+    >
+      <AnalyticsWorkspace cards={cards} charts={[]} canCustomize={owner} />
+    </FeatureAnnouncementScope>
+  );
+}
+
 it("announces Customize to owners until X is pressed, without treating editing as dismissal", async () => {
   const user = userEvent.setup();
   const dismissAction = vi
     .fn<() => Promise<{ ok: true; value: undefined }>>()
     .mockResolvedValue({ ok: true, value: undefined });
-  render(
-    <AnalyticsWorkspace
-      cards={cards}
-      charts={[]}
-      canCustomize
-      customizeAnnouncement={{ userId: "owner", initialDismissed: false, dismissAction }}
-    />,
-  );
+  render(announcedWorkspace({ dismissAction }));
   expect(screen.getByRole("heading", { name: "Make Analytics your own" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Customize dashboard" }));
   expect(
@@ -171,25 +188,11 @@ it("announces Customize to owners until X is pressed, without treating editing a
 });
 
 it("does not announce Customize to visitors or owners who already dismissed it", () => {
-  const announcement = { userId: "owner", initialDismissed: true };
-  const view = render(
-    <AnalyticsWorkspace
-      cards={cards}
-      charts={[]}
-      canCustomize
-      customizeAnnouncement={announcement}
-    />,
-  );
+  const view = render(announcedWorkspace({ dismissed: true }));
   expect(
     screen.queryByRole("heading", { name: "Make Analytics your own" }),
   ).not.toBeInTheDocument();
-  view.rerender(
-    <AnalyticsWorkspace
-      cards={cards}
-      charts={[]}
-      customizeAnnouncement={{ ...announcement, initialDismissed: false }}
-    />,
-  );
+  view.rerender(announcedWorkspace({ owner: false }));
   expect(screen.queryByRole("button", { name: "Customize dashboard" })).not.toBeInTheDocument();
   expect(
     screen.queryByRole("heading", { name: "Make Analytics your own" }),
