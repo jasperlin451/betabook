@@ -49,7 +49,7 @@ const examples: Record<string, string> = {
   "ui/eyebrow.tsx": "components-data-display-eyebrow--with-icon",
   "ui/field.ts": "patterns-fields-standard-widths--comparison",
   "ui/grade.tsx": "components-data-display-grade--boulder",
-  "ui/index-select.tsx": "components-inputs-index-select--default",
+  "ui/index-select.tsx": "components-inputs-index-select--range",
   "ui/layout.ts": "patterns-layout-and-feedback--panels",
   "ui/list-row.tsx": "components-data-display-list-row--default",
   "ui/load-more-button.tsx": "components-feedback-load-more-button--retry",

@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 
+import type { DateFilterValue } from "@/lib/filters/date-filter";
 import { DEFAULT_JOURNAL_FILTER } from "@/lib/filters/journal-filter";
 import { DEFAULT_USER_SENDS_FILTER } from "@/lib/filters/user-sends-filter";
 
@@ -79,3 +80,58 @@ it("Analytics keeps selected Tags clearable outside its collapsed disclosure", a
   await user.click(screen.getByRole("button", { name: "Clear all" }));
   expect(screen.queryByRole("region", { name: "Active filters" })).not.toBeInTheDocument();
 });
+
+// Both toolbars render their date selection twice: as a removable chip in the
+// collapsed summary and as the control inside the disclosure. Removing the
+// chip has to reset the control too, or a reopened panel still reads "Custom
+// dates" over a filter that is no longer applied.
+const DATE_CASES = [
+  { name: "a single day", dates: { date: "2025-06-01" }, label: "Dates: 2025-06-01" },
+  {
+    name: "a date range",
+    dates: { dateFrom: "2025-06-01", dateTo: "2025-08-31" },
+    label: "Dates: 2025-06-01 \u2013 2025-08-31",
+  },
+];
+
+const TOOLBARS = [
+  {
+    name: "Journal",
+    render: (dates: DateFilterValue) => (
+      <JournalFilterToolbar
+        userId="sample"
+        filter={{ ...DEFAULT_JOURNAL_FILTER, ...dates }}
+        climbName={null}
+        tags={["power"]}
+      />
+    ),
+  },
+  {
+    name: "Sends",
+    render: (dates: DateFilterValue) => (
+      <UserSendsFilterToolbar
+        filter={{ ...DEFAULT_USER_SENDS_FILTER, ...dates }}
+        basePath="/sample/sends"
+      />
+    ),
+  },
+];
+
+for (const toolbar of TOOLBARS) {
+  for (const { name, dates, label } of DATE_CASES) {
+    it(`${toolbar.name} keeps ${name} across the disclosure and resets Dates when the chip goes`, async () => {
+      const user = userEvent.setup();
+      render(toolbar.render(dates));
+      const chip = () => screen.queryByRole("button", { name: `Remove ${label}` });
+      expect(chip()).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Expand filters" }));
+      expect(screen.getByRole("button", { name: "Custom dates Dates" })).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Hide filters" }));
+      expect(chip()).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: `Remove ${label}` }));
+      expect(chip()).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Expand filters" }));
+      expect(screen.getByRole("button", { name: "All time Dates" })).toBeInTheDocument();
+    });
+  }
+}

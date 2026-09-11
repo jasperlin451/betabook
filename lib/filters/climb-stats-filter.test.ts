@@ -15,8 +15,8 @@ describe("RATING_OPTIONS / DEFAULT_RATING_RANGE", () => {
   });
 
   it("keeps the default range meaning 'filter inactive' on both bounds", () => {
-    // min 0 = "Any" (no lower bound); max MAX_RATING = no upper bound, since
-    // no avg_rating exceeds it — the exact encoding old default URLs used.
+    // 0 on both sides is the "Any" sentinel, so neither bound applies — the
+    // exact encoding old shared URLs carry.
     expect(DEFAULT_RATING_RANGE).toEqual([0, 0]);
   });
 });

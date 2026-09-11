@@ -46,28 +46,3 @@ test("custom date calendars select both endpoints", async ({ page }, testInfo) =
     '{"dateFrom":"2025-06-02","dateTo":"2025-08-30"}',
   );
 });
-
-for (const view of ["journal", "sends"]) {
-  for (const [story, label] of [
-    ["single-day", "Dates: 2025-06-01"],
-    ["date-range", "Dates: 2025-06-01 – 2025-08-31"],
-  ]) {
-    test(`${view} retains and clears ${story} outside the collapsed panel`, async ({
-      page,
-    }, info) => {
-      await openStory(page, info, `components-filters-${view}-toolbar--${story}`);
-      const chip = page.getByRole("button", { name: `Remove ${label}`, exact: true });
-      await expect(chip).toBeVisible();
-      await page.getByRole("button", { name: "Expand filters", exact: true }).click();
-      await expect(
-        page.getByRole("button", { name: "Custom dates Dates", exact: true }),
-      ).toBeVisible();
-      await page.getByRole("button", { name: "Hide filters", exact: true }).click();
-      await expect(chip).toBeVisible();
-      await chip.click();
-      await expect(chip).toHaveCount(0);
-      await page.getByRole("button", { name: "Expand filters", exact: true }).click();
-      await expect(page.getByRole("button", { name: "All time Dates", exact: true })).toBeVisible();
-    });
-  }
-}
