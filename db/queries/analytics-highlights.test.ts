@@ -45,12 +45,10 @@ it("reads matching sessions with visible companions and respects fresh audience 
   });
   expect(await getAnalyticsHighlightSessions(db, "owner", "viewer", ["missing"])).toEqual([]);
   await db.update(user).set({ isPrivate: true }).where(eq(user.id, "partner"));
-  expect(
-    (await getAnalyticsHighlightSessions(db, "owner", "owner", []))[0].companions,
-  ).toMatchObject([{ id: "partner" }]);
-  expect((await getAnalyticsHighlightSessions(db, "owner", "viewer", []))[0].companions).toEqual(
-    [],
-  );
+  for (const reader of ["owner", "viewer"])
+    expect(
+      (await getAnalyticsHighlightSessions(db, "owner", reader, []))[0].companions,
+    ).toMatchObject([{ id: "partner" }]);
   await db.update(user).set({ journalVisibility: "private" }).where(eq(user.id, "owner"));
   expect(await getAnalyticsHighlightSessions(db, "owner", "viewer", [])).toEqual([]);
   expect(

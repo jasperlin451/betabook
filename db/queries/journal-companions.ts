@@ -8,11 +8,11 @@ import { journalVisibleSql } from "./content-access";
 /** Correlated only with already selected journal rows / final feed previews.
  * The partial index excludes arbitrarily many self-removal tombstones.
  * A tag is company on the author's entry, so it follows the author's audience,
- * not the companion's. A private profile or an explicit `private` journal opts a
- * companion out of other readers' views only: never the author's, whose record it
- * is, nor the companion's, who needs it to remove the tag. This is the only place
- * a companion's privacy is weighed; the name links out regardless, since the
- * profile route authorizes its own viewer. */
+ * not the companion's. An explicit `private` journal is the one opt-out, and it
+ * withdraws the name from other readers only: never from the author, whose record
+ * it is, nor the companion, who needs it to remove the tag. A private profile does
+ * not hide the name here; it is a rule about the profile page, which authorizes its
+ * own viewer, so the name links out like any other companion's. */
 export function companionsJsonSql(viewerId: string | null, entryId: SQL): SQL {
   return sql`(SELECT json_group_array(json_object('id', companion.id, 'name', companion.name,
     'isSelf', json(CASE WHEN companion.id = ${viewerId} THEN 'true' ELSE 'false' END)))
@@ -25,13 +25,12 @@ export function companionsJsonSql(viewerId: string | null, entryId: SQL): SQL {
       AND tagged_friendship.status = 'accepted'
       AND ${journalVisibleSql(viewerId, sql`tagged_entry.user_id`)}
       AND (tagged_entry.user_id = ${viewerId} OR companion.id = ${viewerId}
-        OR (companion.is_private = 0 AND companion.journal_visibility <> 'private'))
+        OR companion.journal_visibility <> 'private')
   )`;
 }
 
 /** Any accepted friend is taggable: company is a fact about the session, not a
- * question about the friend's settings. Their privacy governs who then sees the
- * name, in `companionsJsonSql`, which is where that decision belongs. */
+ * question about the friend's settings. */
 export async function searchCompanionFriends(
   db: Database,
   ownerId: string,
