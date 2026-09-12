@@ -1,15 +1,13 @@
 "use client";
 
 import { ClimbFilterControls } from "@/components/filters/climb-filter-controls";
-import { FIELD_WIDTH_CLASS } from "@/components/ui/field";
-import { OptionSelect } from "@/components/ui/option-select";
 import { DEFAULT_CLIMB_FILTER } from "@/lib/filters/climb-filter";
 import type { SearchState } from "@/lib/search";
 
 /** The signed-out half of climb search, on the same toolbar, chips, and reset
  * as the member half — minus the refinements the public catalog cannot answer.
- * Rating and ascent count are member aggregates, so their fields and their
- * sort options stay out and name order is the only ordering offered. */
+ * Rating and ascent count are member aggregates, so their fields stay out, and
+ * the public query orders on name alone, so the sort does too. */
 export function PublicSearchFilters({
   state,
   onChange,
@@ -24,18 +22,7 @@ export function PublicSearchFilters({
       showAreaLookup
       showMinAscents={false}
       showRatingFilters={false}
-      sortControl={
-        <OptionSelect
-          ariaLabel="Sort results"
-          value={state.sort === "name_desc" ? "name_desc" : "name_asc"}
-          onChange={(sort) => onChange({ ...state, sort })}
-          options={[
-            { value: "name_asc", label: "Name A–Z" },
-            { value: "name_desc", label: "Name Z–A" },
-          ]}
-          className={FIELD_WIDTH_CLASS.medium}
-        />
-      }
+      nameSortOnly
       activeFilters={
         state.query
           ? [

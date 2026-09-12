@@ -1,7 +1,7 @@
 "use client";
 import { Button } from "@heroui/react";
 import { X } from "lucide-react";
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps } from "react";
 
 import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import type { ActiveFilter } from "@/components/filters/active-filter-summary";
@@ -25,7 +25,7 @@ export function ClimbFilterControls({
   showAreaLookup = false,
   showMinAscents = true,
   showRatingFilters = true,
-  sortControl,
+  nameSortOnly = false,
   onReset,
   activeFilters = EMPTY_ACTIVE_FILTERS,
 }: {
@@ -34,9 +34,10 @@ export function ClimbFilterControls({
   showAreaLookup?: boolean;
   showMinAscents?: boolean;
   showRatingFilters?: boolean;
-  /** Replaces the four-field sort control for a list that cannot order on
-   * every field — the signed-out catalog orders by name alone. */
-  sortControl?: ReactNode;
+  /** For a list whose query orders on name alone, such as the signed-out
+   * catalog. The four-field control would offer three fields it cannot
+   * honor, so `ClimbFilters` supplies its own name-order select instead. */
+  nameSortOnly?: boolean;
   areaFetcher?: ComponentProps<typeof AreaLookup>["fetcher"];
   value: ClimbFilterState;
   onChange: (value: ClimbFilterState) => void;
@@ -117,14 +118,14 @@ export function ClimbFilterControls({
         ) : undefined
       }
       sortControl={
-        <div className="sm:ml-auto">
-          {sortControl ?? (
+        nameSortOnly ? undefined : (
+          <div className="sm:ml-auto">
             <ClimbListSortControl
               sort={value.sort}
               onNavigate={(sort) => onChange({ ...value, sort })}
             />
-          )}
-        </div>
+          </div>
+        )
       }
       ratingControl={
         <ClimbStatsFields
