@@ -30,6 +30,15 @@ export const climbs = sqliteTable(
       sql`CASE WHEN rating_count > 0 THEN CAST(rating_sum AS REAL) / rating_count ELSE NULL END`,
       { mode: "virtual" },
     ),
+    // Tenths per GRADE_FEEL_TENTHS, kept as a sum and count for the same drift reason as rating.
+    suggestedGradeTenthsSum: integer("suggested_grade_tenths_sum").notNull().default(0),
+    suggestedGradeCount: integer("suggested_grade_count").notNull().default(0),
+    avgSuggestedGrade: real("avg_suggested_grade").generatedAlwaysAs(
+      sql`CASE WHEN suggested_grade_count > 0
+        THEN CAST(suggested_grade_tenths_sum AS REAL) / (10.0 * suggested_grade_count)
+        ELSE NULL END`,
+      { mode: "virtual" },
+    ),
   },
   (t) => [
     index("climbs_area_idx").on(t.areaId),

@@ -4,6 +4,12 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createDb, type Database } from "@/db/client";
 import { climbs, sends } from "@/db/schema";
+import {
+  GRADE_FEEL_OFFSET,
+  GRADE_FEEL_TENTHS,
+  GRADE_FEEL_VALUES,
+  type GradeFeel,
+} from "@/lib/sends";
 import { seedFixtureTree, seedFixtureUser } from "@/test/fixtures";
 
 /**
@@ -230,5 +236,75 @@ describe("sends aggregate triggers", () => {
       ratingSum: stored.ratingSum,
       ratingCount: stored.ratingCount,
     }).toEqual(live);
+  });
+});
+
+describe("suggested grade aggregate", () => {
+  function insertGraded(userId: string, grade: number | null, feel: GradeFeel) {
+    return db.insert(sends).values({
+      userId,
+      climbId: CLIMB,
+      ascentStyle: "redpoint",
+      suggestedGrade: grade,
+      gradeFeel: feel,
+    });
+  }
+
+  async function suggested(climbId: number) {
+    const row = await db
+      .select({
+        tenths: climbs.suggestedGradeTenthsSum,
+        count: climbs.suggestedGradeCount,
+        avg: climbs.avgSuggestedGrade,
+      })
+      .from(climbs)
+      .where(eq(climbs.id, climbId))
+      .get();
+    return row!;
+  }
+
+  it("starts at zero with no reported grade", async () => {
+    expect(await suggested(CLIMB)).toEqual({ tenths: 0, count: 0, avg: null });
+  });
+
+  it("shifts a send by its grade feel", async () => {
+    await insertGraded("agg-user-1", 5, "high");
+    expect(await suggested(CLIMB)).toEqual({ tenths: 53, count: 1, avg: 5.3 });
+  });
+
+  it("ignores a send that suggested no grade", async () => {
+    await insertGraded("agg-user-1", 5, "solid");
+    await insertGraded("agg-user-2", null, "low");
+    expect(await suggested(CLIMB)).toEqual({ tenths: 50, count: 1, avg: 5 });
+  });
+
+  it("averages soft and stiff opinions back to the posted grade", async () => {
+    await insertGraded("agg-user-1", 5, "low");
+    await insertGraded("agg-user-2", 5, "high");
+    expect(await suggested(CLIMB)).toEqual({ tenths: 100, count: 2, avg: 5 });
+  });
+
+  it("agrees with a live aggregate after an update and a delete", async () => {
+    await insertGraded("agg-user-1", 4, "low");
+    await insertGraded("agg-user-2", 6, "solid");
+    await insertGraded("agg-user-3", 5, "high");
+    await db.update(sends).set({ gradeFeel: "high" }).where(sendFor("agg-user-1", CLIMB));
+    await db.delete(sends).where(sendFor("agg-user-2", CLIMB));
+
+    const [live] = await db.all<{ avg: number | null }>(sql`
+      SELECT AVG(suggested_grade + CASE grade_feel
+                   WHEN 'low' THEN ${GRADE_FEEL_OFFSET.low}
+                   WHEN 'high' THEN ${GRADE_FEEL_OFFSET.high}
+                   ELSE 0 END) AS avg
+      FROM sends WHERE climb_id = ${CLIMB} AND suggested_grade IS NOT NULL
+    `);
+
+    expect((await suggested(CLIMB)).avg).toBeCloseTo(live.avg!, 10);
+  });
+
+  it("keeps the tenths shift in step with the offset the rest of the app uses", () => {
+    for (const feel of GRADE_FEEL_VALUES) {
+      expect(GRADE_FEEL_TENTHS[feel] / 10).toBeCloseTo(GRADE_FEEL_OFFSET[feel], 10);
+    }
   });
 });

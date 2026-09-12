@@ -15,6 +15,9 @@ const baseClimb: Climb = {
   ratingSum: 0,
   ratingCount: 0,
   avgRating: null,
+  suggestedGradeTenthsSum: 0,
+  suggestedGradeCount: 0,
+  avgSuggestedGrade: null,
 };
 
 describe("validateClimbEditInput", () => {

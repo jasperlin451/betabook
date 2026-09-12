@@ -10,7 +10,7 @@ import {
   type DisciplineFilter,
 } from "@/lib/filters/discipline-filter";
 import { formatGrade, type ClimbType } from "@/lib/grades";
-import { ASCENT_STYLES, GRADE_FEEL_OFFSET, type AscentStyle, type GradeFeel } from "@/lib/sends";
+import { ASCENT_STYLES, type AscentStyle, type GradeFeel } from "@/lib/sends";
 
 import { areaIdCondition, areaNameCondition } from "./areas";
 import type { Climb } from "./climbs";
@@ -438,7 +438,7 @@ export type ClimbSendStats = {
   avgSuggestedGrade: number | null;
 };
 
-/** Pre-seed zero-send climbs because GROUP BY produces no row for them. */
+/** Reads the trigger-maintained aggregates on `climbs`; unknown IDs keep zero-send defaults. */
 export async function getClimbSendStats(
   db: Database,
   climbIds: number[],
@@ -456,16 +456,12 @@ export async function getClimbSendStats(
     sendCount: number;
     avgSuggestedGrade: number | null;
   }>(sql`
-    SELECT climb_id AS climbId, AVG(rating) AS avgRating, COUNT(*) AS sendCount,
-           AVG(suggested_grade + CASE grade_feel
-                 WHEN 'low' THEN ${GRADE_FEEL_OFFSET.low}
-                 WHEN 'high' THEN ${GRADE_FEEL_OFFSET.high}
-                 ELSE 0 END) AS avgSuggestedGrade
-    FROM sends
-    WHERE climb_id IN (
+    SELECT id AS climbId, avg_rating AS avgRating, send_count AS sendCount,
+           avg_suggested_grade AS avgSuggestedGrade
+    FROM climbs
+    WHERE id IN (
       SELECT CAST(value AS INTEGER) FROM json_each(${JSON.stringify(distinctIds)})
     )
-    GROUP BY climb_id
   `);
   for (const row of rows) {
     stats[row.climbId] = {

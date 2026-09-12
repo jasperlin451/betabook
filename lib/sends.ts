@@ -23,6 +23,14 @@ export const GRADE_FEEL_OFFSET: Record<GradeFeel, number> = {
   high: 0.3,
 };
 
+/** Hard-coded in the sends aggregate triggers: changing a value needs a migration that
+ * rewrites them and rebuilds climbs.suggested_grade_tenths_sum. */
+export const GRADE_FEEL_TENTHS: Record<GradeFeel, number> = {
+  low: -3,
+  solid: 0,
+  high: 3,
+};
+
 export type SendInput = {
   ascentStyle: AscentStyle;
   dateSent: string | null;
