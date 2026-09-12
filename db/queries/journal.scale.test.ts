@@ -22,7 +22,7 @@ function audienceChecks(plan: string) {
   };
 }
 
-it("evaluates the owner's audience once per statement, not once per scanned entry", async () => {
+async function seedJournal() {
   const db = createDb(env.DB);
   await resetDb(db);
   await seedFixtureTree(db);
@@ -38,18 +38,31 @@ it("evaluates the owner's audience once per statement, not once per scanned entr
       body: `note ${i}`,
     })),
   );
+  return db;
+}
 
+async function filteredPlan(db: Awaited<ReturnType<typeof seedJournal>>) {
   const plans = await explainQueries(db, () =>
     getJournalPage(db, "owner", "owner", { ...DEFAULT_JOURNAL_FILTER, query: "yosemite" }),
   );
-  const plan = plans
+  return plans
     .flat()
     .map((row) => row.detail)
     .join("\n");
+}
+
+it("evaluates the owner's audience once per statement, not once per scanned entry", async () => {
+  const plan = await filteredPlan(await seedJournal());
   const { perRow, perStatement } = audienceChecks(plan);
 
   // The entry audience, plus the send-comment check in both the select and the search.
   expect(perStatement).toHaveLength(3);
   // The companion list, whose author varies per row.
   expect(perRow).toHaveLength(1);
+});
+
+it("matches ancestor area names without walking the tree for each entry", async () => {
+  const plan = await filteredPlan(await seedJournal());
+
+  expect(plan).not.toMatch(/CORRELATED SCALAR SUBQUERY \d+\nCO-ROUTINE ancestors/);
 });

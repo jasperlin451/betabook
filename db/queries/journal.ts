@@ -7,6 +7,7 @@ import type { ClimbType } from "@/lib/grades";
 import type { JournalKind } from "@/lib/journal";
 import type { JournalCompanion } from "@/lib/journal-companions";
 
+import { areaNameCondition } from "./areas";
 import { journalVisibleSql, sendCommentVisibleSql } from "./content-access";
 import { journalHashtagsCondition } from "./hashtag-filter";
 import { companionsJsonSql } from "./journal-companions";
@@ -95,17 +96,7 @@ function filterConditions(filter: JournalFilter, viewerId: string | null, ownerI
       instr(lower(COALESCE(climbs.name, '')), lower(${filter.query})) > 0
       OR instr(lower(COALESCE(${visibleBody(viewerId, ownerId)}, '')), lower(${filter.query})) > 0
       OR instr(lower(COALESCE(j.tags, '')), lower(${filter.query})) > 0
-      OR EXISTS (
-        WITH RECURSIVE ancestors(id, parent_id, name) AS (
-          SELECT a.id, a.parent_id, a.name FROM areas a WHERE a.id = climbs.area_id
-          UNION ALL
-          SELECT parent.id, parent.parent_id, parent.name
-          FROM areas parent JOIN ancestors child ON parent.id = child.parent_id
-        )
-        SELECT 1
-        FROM ancestors
-        WHERE instr(lower(ancestors.name), lower(${filter.query})) > 0
-      )
+      OR ${areaNameCondition(filter.query) ?? sql`0`}
     )`);
   }
   if (filter.tags.length > 0) {
