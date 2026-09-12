@@ -28,7 +28,8 @@ export const searchAreaFetcher = async (query: string) =>
 function createSearchFixtureFetcher({
   failKind,
   failPage = false,
-}: { failKind?: SearchKind; failPage?: boolean } = {}): SearchFetcher {
+  publicOnly = false,
+}: { failKind?: SearchKind; failPage?: boolean; publicOnly?: boolean } = {}): SearchFetcher {
   let failed = false;
   let pageFailed = false;
   return async (state, kind, page, signal) => {
@@ -100,6 +101,8 @@ function createSearchFixtureFetcher({
     const items = matches.slice((page - 1) * 5, page * 5).map((item): AppSearchResult => ({
       ...item,
       href: "",
+      // The public catalog returns names, hierarchy, discipline and grade
+      // only — a signed-out story must not paint ratings or ascent counts.
       ...(item.kind === "climb"
         ? {
             climb: {
@@ -110,8 +113,12 @@ function createSearchFixtureFetcher({
               type: item.discipline,
               grade: item.grade,
             },
-            stats: { avgRating: item.rating ?? null, sendCount: 2 },
-            context: { ancestors: [], sendCount: 2, sent: item.sent ?? false },
+            ...(publicOnly
+              ? {}
+              : {
+                  stats: { avgRating: item.rating ?? null, sendCount: 2 },
+                  context: { ancestors: [], sendCount: 2, sent: item.sent ?? false },
+                }),
           }
         : {}),
     }));
@@ -133,15 +140,23 @@ export function IntegratedSearchDemo({
   failure = false,
   pageFailure = false,
   initialQuery = "cedar",
+  initialCategory = "all",
   initialOpen = false,
+  publicOnly = false,
 }: {
   surface?: "quick" | "full" | "journey";
   failure?: boolean;
   pageFailure?: boolean;
   initialQuery?: string;
+  initialCategory?: SearchState["category"];
   initialOpen?: boolean;
+  publicOnly?: boolean;
 }) {
-  const [state, setState] = useState<SearchState>({ ...EMPTY_SEARCH, query: initialQuery });
+  const [state, setState] = useState<SearchState>({
+    ...EMPTY_SEARCH,
+    query: initialQuery,
+    category: initialCategory,
+  });
   const [open, setOpen] = useState(initialOpen);
   const [full, setFull] = useState(surface === "full");
   const [selected, setSelected] = useState<AppSearchResult | null>(null);
@@ -149,6 +164,7 @@ export function IntegratedSearchDemo({
     createSearchFixtureFetcher({
       failKind: failure ? "climber" : undefined,
       failPage: pageFailure,
+      publicOnly,
     }),
   );
   return (
@@ -167,6 +183,7 @@ export function IntegratedSearchDemo({
         state={state}
         onChange={setState}
         fetcher={fetcher}
+        publicOnly={publicOnly}
         quick={!full}
         isOpen={full || open}
         onOpenChange={setOpen}

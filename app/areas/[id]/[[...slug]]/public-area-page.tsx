@@ -1,6 +1,6 @@
 import { AuthCallout } from "@/components/auth-callout";
 import { AreaBreadcrumbs } from "@/components/breadcrumbs";
-import { PublicCatalogToolbar } from "@/components/public-catalog-toolbar";
+import { AreaClimbsToolbar } from "@/components/filters/area-climbs-toolbar";
 import { PublicClimbList } from "@/components/public-climb-list";
 import { RegisterSearchScope } from "@/components/search-scope";
 import { SubareaRail } from "@/components/subarea-rail";
@@ -16,11 +16,15 @@ import {
   searchPublicClimbs,
 } from "@/db/queries/public-catalog";
 import { missingDescriptionMessage } from "@/lib/descriptions";
-import { parseId } from "@/lib/parse-id";
+import {
+  areaClimbsFilterToSearchParams,
+  parseAreaClimbsFilter,
+  parseAreaClimbsSort,
+} from "@/lib/filters/area-climbs-filter";
 import { publicCatalogOptions, type PublicAreaDetails } from "@/lib/public-catalog";
 import { areaDescription, areaJsonLd, locationTrail } from "@/lib/seo";
 import { areaHref, withQuery } from "@/lib/slug";
-import { toArray, type UrlParamsRecord } from "@/lib/url-params";
+import type { UrlParamsRecord } from "@/lib/url-params";
 
 export async function PublicAreaPage({
   area,
@@ -31,14 +35,11 @@ export async function PublicAreaPage({
 }) {
   const db = await getDb();
   const path = areaHref(area.id, area.name);
-  const subarea = parseId(toArray(search.subarea)[0] ?? "");
-  const params = new URLSearchParams({
-    name: toArray(search.name)[0] ?? "",
-    sort: toArray(search.sort)[0] === "name_desc" ? "name_desc" : "name_asc",
-  });
-  if (subarea) params.set("subarea", String(subarea));
+  const sort = parseAreaClimbsSort(search);
+  const filter = parseAreaClimbsFilter(search);
+  const params = areaClimbsFilterToSearchParams(sort, filter);
   const options = publicCatalogOptions(params);
-  const scope = await resolvePublicSubarea(db, area, subarea);
+  const scope = await resolvePublicSubarea(db, area, filter.subareaId);
   const [ancestors, subareas, initial] = await Promise.all([
     getPublicAncestors(db, area),
     getPublicSubareas(db, area.id),
@@ -48,13 +49,7 @@ export async function PublicAreaPage({
   const climbsBlock = (
     <div className="flex flex-col gap-3">
       <SectionHeading>Climbs</SectionHeading>
-      <PublicCatalogToolbar
-        key={`toolbar:${params}`}
-        path={path}
-        name={options.name}
-        descending={options.descending}
-        subarea={subarea}
-      />
+      <AreaClimbsToolbar areaPath={path} sort={sort} filter={filter} />
       <PublicClimbList
         key={`climbs:${params}`}
         initial={initial}
@@ -84,7 +79,7 @@ export async function PublicAreaPage({
       <p className="text-muted">{area.description || missingDescriptionMessage()}</p>
       <AuthCallout
         next={withQuery(path, search)}
-        description="Sign in to explore climb ratings, community statistics, and activity."
+        description="Sign in to see who has climbed these lines and to log your own sessions."
       />
       {subareas.length ? (
         <SidebarLayout

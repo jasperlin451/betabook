@@ -1,4 +1,4 @@
-import { eq, sql, type SQL } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import type { Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
@@ -12,7 +12,8 @@ import {
   type PublicCatalogOptions,
 } from "@/lib/public-catalog";
 
-import { areaIdCondition, areaNameCondition, getAreaBreadcrumbs } from "./areas";
+import { areaNameCondition, getAreaBreadcrumbs } from "./areas";
+import { climbListOrderBy, searchClimbsConditions } from "./climbs";
 import { toFtsPrefixQuery } from "./shared";
 
 const publicAreaColumns = { id: areas.id, name: areas.name, parentId: areas.parentId };
@@ -36,6 +37,8 @@ export async function getPublicClimb(db: Database, id: number): Promise<PublicCl
       type: climbs.type,
       grade: climbs.grade,
       description: climbs.description,
+      avgRating: climbs.avgRating,
+      sendCount: climbs.sendCount,
     })
     .from(climbs)
     .innerJoin(areas, eq(areas.id, climbs.areaId))
@@ -88,7 +91,7 @@ export async function searchPublicAreas(
     SELECT areas.id, areas.name, areas.parent_id AS parentId, areas.description FROM areas
     WHERE areas.id IN (SELECT rowid FROM areas_fts WHERE areas_fts MATCH ${query})
     ${scope ? sql`AND ${scope}` : sql``}
-    ORDER BY areas.name ${options.descending ? sql`DESC` : sql`ASC`}, areas.id
+    ORDER BY areas.name ${options.sort === "name_desc" ? sql`DESC` : sql`ASC`}, areas.id
     LIMIT ${options.pageSize + 1} OFFSET ${options.offset}
   `);
   const visible = rows.slice(0, options.pageSize);
@@ -106,32 +109,21 @@ export async function searchPublicAreas(
   };
 }
 
-/** Public ordering and membership depend only on names and hierarchy, never climb facts. */
 export async function searchPublicClimbs(
   db: Database,
   options: PublicCatalogOptions,
 ): Promise<PublicClimbsPage> {
   const empty = { climbs: [], areaBreadcrumbs: {}, hasNextPage: false };
   if (options.offset === null) return empty;
-  const conditions: SQL[] = [];
-  if (options.name) {
-    const query = toFtsPrefixQuery(options.name);
-    if (!query) return empty;
-    conditions.push(
-      sql`climbs.id IN (SELECT rowid FROM climbs_fts WHERE climbs_fts MATCH ${query})`,
-    );
-  }
-  const area =
-    options.areaId !== undefined
-      ? areaIdCondition(options.areaId)
-      : areaNameCondition(options.areaName);
-  if (area) conditions.push(area);
+  const conditions = searchClimbsConditions(options);
+  if (conditions === null) return empty;
   const rows = await db.all<PublicClimb>(sql`
     SELECT climbs.id, climbs.name, climbs.area_id AS areaId, areas.name AS areaName,
-      climbs.type, climbs.grade, climbs.description
+      climbs.type, climbs.grade, climbs.description,
+      climbs.avg_rating AS avgRating, climbs.send_count AS sendCount
     FROM climbs JOIN areas ON areas.id = climbs.area_id
     ${conditions.length ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-    ORDER BY climbs.name ${options.descending ? sql`DESC` : sql`ASC`}, climbs.id
+    ORDER BY ${climbListOrderBy(options.sort)}
     LIMIT ${options.pageSize + 1} OFFSET ${options.offset}
   `);
   const visible = rows.slice(0, options.pageSize);

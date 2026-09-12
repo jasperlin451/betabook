@@ -49,6 +49,8 @@ export function ClimbStatsFields({
   minAscents: number;
   onMinAscentsChange: (value: number) => void;
 }) {
+  // An empty wrapper would still open a gap above the grade sliders.
+  if (!showRatingFilters && !showMinAscents) return null;
   return (
     <div className="flex flex-col gap-4">
       {showRatingFilters && (

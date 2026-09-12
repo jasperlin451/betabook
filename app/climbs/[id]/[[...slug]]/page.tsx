@@ -144,9 +144,23 @@ export default async function ClimbPage({ params, searchParams }: ClimbPageProps
           </div>
           <p className="mt-1 text-muted">{climb.description || missingDescriptionMessage()}</p>
         </div>
+        <StatStrip
+          cards={[
+            {
+              key: "summary",
+              stats: [
+                {
+                  label: "Community rating",
+                  value: <RatingStars rating={climb.avgRating} precision="decimal" />,
+                },
+                { label: "Logged ascents", value: climb.sendCount },
+              ],
+            },
+          ]}
+        />
         <AuthCallout
           next={withQuery(path, search)}
-          description="Sign in to see this climb’s ratings and ascent history, and log your sessions."
+          description="Sign in to see who has climbed this line and to log your own sessions."
         />
       </div>
     );

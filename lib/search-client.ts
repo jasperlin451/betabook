@@ -4,7 +4,7 @@ import { apiFetch } from "@/lib/api-client";
 import type { ClimbListPage } from "@/lib/climb-list-pages";
 import { climbFilterToSearchParams } from "@/lib/filters/climb-filter";
 import type { PublicAreaResult, PublicClimbsPage } from "@/lib/public-catalog";
-import { publicClimbSearchItems } from "@/lib/search";
+import { publicClimbSearchItems, publicSearchParams } from "@/lib/search";
 import {
   areaSearchItems,
   climberSearchItems,
@@ -39,13 +39,8 @@ export const fetchSearchPage: SearchFetcher = async (state, kind, page, signal) 
 
 export const fetchPublicSearchPage: SearchFetcher = async (state, kind, page, signal) => {
   if (kind === "climber") throw new AuthenticationRequiredError();
-  const params = new URLSearchParams({
-    name: state.query,
-    page: String(page),
-    sort: state.sort === "name_desc" ? "name_desc" : "name_asc",
-  });
-  if (state.filter.areaId !== undefined) params.set("areaId", String(state.filter.areaId));
-  if (state.filter.areaName) params.set("areaName", state.filter.areaName);
+  const params = publicSearchParams(state, kind);
+  params.set("page", String(page));
   const response = await apiFetch(
     `/api/public/search/${kind === "climb" ? "climbs" : "areas"}?${params}`,
     { signal },

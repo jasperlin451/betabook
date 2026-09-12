@@ -9,7 +9,10 @@ test(
     await page.goto(`${appBaseURL}/?mode=climb&areaName=Cedar`);
     const scope = page.getByRole("button", { name: "Clear area name Cedar" });
     await expect(scope).toBeVisible();
-    await page.getByRole("button", { name: "Reverse name order" }).click();
+    await page.getByRole("button", { name: /Sort by/ }).click();
+    await expect(page.getByRole("option")).toHaveText(["Name", "Grade", "Rating", "Ascents"]);
+    await page.getByRole("option", { name: "Grade" }).click();
+    await expect(page).toHaveURL(/sort=grade_desc/);
     await expect(page).toHaveURL(/areaName=Cedar/);
     await expect(scope).toBeVisible();
     await scope.click();
@@ -57,6 +60,8 @@ test(
               name: id === "3" ? "Cedar Oregon" : "Cedar California",
               type: "boulder",
               grade: 5,
+              avgRating: 4,
+              sendCount: 6,
             },
           ],
           hasNextPage: false,
@@ -125,6 +130,8 @@ test(
               name: "Review climb",
               type: "boulder",
               grade: 5,
+              avgRating: null,
+              sendCount: 0,
             },
           ],
           hasNextPage: false,

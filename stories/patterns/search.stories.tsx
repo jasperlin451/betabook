@@ -19,6 +19,10 @@ export const MergePicker: Story = { render: () => <IntegratedClimbPickerDemo mod
 export const AreaPicker: Story = { render: () => <SelectionDemo /> };
 export const CompanionPicker: Story = { render: () => <SelectionDemo kind="climber" /> };
 export const Initial: Story = { render: () => <IntegratedSearchDemo initialQuery="" /> };
+export const SignedOut: Story = { render: () => <IntegratedSearchDemo publicOnly /> };
+export const SignedOutClimbs: Story = {
+  render: () => <IntegratedSearchDemo publicOnly initialCategory="climb" />,
+};
 export const Loading: Story = { render: () => <SearchDemo scenario="loading" /> };
 export const NoMatches: Story = { render: () => <SearchDemo scenario="empty" /> };
 export const Failed: Story = { render: () => <SearchDemo scenario="error" /> };

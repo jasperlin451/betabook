@@ -12,7 +12,6 @@ import { searchHref } from "@/lib/search";
 import type { AppSearchResult, SearchFetcher, SearchSnapshot, SearchState } from "@/lib/search";
 import { fetchPublicSearchPage, fetchSearchPage } from "@/lib/search-client";
 
-import { PublicSearchFilters } from "./public-search-filters";
 import { QuickSearchDialog, SearchSurface } from "./search-surface";
 
 const ignoreOpenChange = () => {};
@@ -109,36 +108,33 @@ export function SearchController({
         onNavigate={quick ? () => onOpenChange(false) : undefined}
       />
     ) : undefined,
-    filters: publicOnly ? (
-      !quick && (state.category === "climb" || state.category === "all") ? (
-        <PublicSearchFilters state={state} onChange={onChange} />
-      ) : undefined
-    ) : !quick && state.category === "climb" ? (
-      <ClimbFilterControls
-        value={state}
-        onChange={(next) => onChange({ ...state, ...next })}
-        activeFilters={
-          state.query
-            ? [
-                {
-                  id: "query",
-                  label: `Search: ${state.query}`,
-                  onRemove: () => onChange({ ...state, query: "" }),
-                },
-              ]
-            : []
-        }
-        onReset={() =>
-          onChange({
-            ...state,
-            query: "",
-            filter: DEFAULT_CLIMB_FILTER,
-            area: null,
-            sort: DEFAULT_CLIMB_LIST_SORT,
-          })
-        }
-      />
-    ) : undefined,
+    filters:
+      quick || state.category !== "climb" ? undefined : (
+        <ClimbFilterControls
+          value={state}
+          onChange={(next) => onChange({ ...state, ...next })}
+          activeFilters={
+            state.query
+              ? [
+                  {
+                    id: "query",
+                    label: `Search: ${state.query}`,
+                    onRemove: () => onChange({ ...state, query: "" }),
+                  },
+                ]
+              : []
+          }
+          onReset={() =>
+            onChange({
+              ...state,
+              query: "",
+              filter: DEFAULT_CLIMB_FILTER,
+              area: null,
+              sort: DEFAULT_CLIMB_LIST_SORT,
+            })
+          }
+        />
+      ),
   };
   return quick ? (
     <QuickSearchDialog {...props} isOpen={isOpen} onOpenChange={onOpenChange} />

@@ -69,7 +69,7 @@ it.each([{}, { mode: "all", name: "   " }])(
     ]);
   },
 );
-it("renders public catalog facts without member data, even with protected URL filters", async () => {
+it("renders public catalog facts, including the aggregates, without viewer data", async () => {
   const data = props(
     await SearchPage({
       searchParams: Promise.resolve({
@@ -88,9 +88,12 @@ it("renders public catalog facts without member data, even with protected URL fi
       discipline: "boulder",
       grade: 5,
       detail: "Test Crag / Test Boulders / Test Highball Alcove",
+      stats: { avgRating: null, sendCount: 1 },
       href: "/climbs/1/test-highball",
     },
   ]);
+  // Whether this viewer has sent the climb stays out of a signed-out payload.
+  expect(JSON.stringify(data.initial)).not.toContain('"context"');
 });
 it("uses the selected area and authenticated viewer for member results", async () => {
   state.viewer = "reader";
