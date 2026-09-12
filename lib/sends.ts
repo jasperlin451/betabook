@@ -23,6 +23,16 @@ export const GRADE_FEEL_OFFSET: Record<GradeFeel, number> = {
   high: 0.3,
 };
 
+/** The same shift in tenths, which is how climbs.suggested_grade_tenths_sum
+ * stores it. The sends aggregate triggers carry these numbers literally, so
+ * changing a shift means a migration that rewrites the triggers and rebuilds
+ * every stored sum; db/send-aggregates.test.ts fails if the two drift apart. */
+export const GRADE_FEEL_TENTHS: Record<GradeFeel, number> = {
+  low: -3,
+  solid: 0,
+  high: 3,
+};
+
 export type SendInput = {
   ascentStyle: AscentStyle;
   dateSent: string | null;

@@ -107,11 +107,12 @@ export async function seedManyClimbs(db: Database, areaId: number, count: number
     type: "boulder" as const,
     grade: i % 19,
   }));
-  // D1 has a bound-parameter limit per statement, so chunk the insert. 8
+  // D1 has a bound-parameter limit per statement, so chunk the insert. 10
   // bound columns per row (id/areaId/name/type/grade/sendCount/ratingSum/
-  // ratingCount — drizzle binds every column with a default explicitly
-  // rather than omitting it), so 12 rows/chunk stays safely under the limit.
-  const CHUNK_SIZE = 12;
+  // ratingCount/suggestedGradeTenthsSum/suggestedGradeCount — drizzle binds
+  // every column with a default explicitly rather than omitting it), so 9
+  // rows/chunk stays safely under the limit.
+  const CHUNK_SIZE = 9;
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
     await db.insert(climbs).values(rows.slice(i, i + CHUNK_SIZE));
   }
