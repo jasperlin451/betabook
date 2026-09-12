@@ -79,7 +79,7 @@ export async function PublicAreaPage({
       <p className="text-muted">{area.description || missingDescriptionMessage()}</p>
       <AuthCallout
         next={withQuery(path, search)}
-        description="Sign in to explore climb ratings, community statistics, and activity."
+        description="Sign in to see who has climbed these lines and to log your own sessions."
       />
       {subareas.length ? (
         <SidebarLayout
