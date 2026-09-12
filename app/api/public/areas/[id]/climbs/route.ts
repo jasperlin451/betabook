@@ -9,7 +9,7 @@ import { hasProtectedCatalogParams, publicCatalogOptions } from "@/lib/public-ca
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const search = new URL(request.url).searchParams;
-  if (hasProtectedCatalogParams(search))
+  if (hasProtectedCatalogParams(search, { climbFilters: true }))
     return Response.json(
       { error: "Not signed in" },
       { status: 401, headers: { "Cache-Control": "private, no-store" } },

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AppSearch } from "@/components/search/app-search";
-import { parseSearchState } from "@/lib/search";
+import { parseSearchState, publicSearchState } from "@/lib/search";
 import { loadSearch, loadAreaSelection } from "@/lib/search-loader";
 import { getMemberSession as getSession } from "@/lib/session";
 import type { UrlParamsRecord } from "@/lib/url-params";
@@ -26,8 +26,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const isBare = Object.keys(params).length === 0;
   const session = await getSession();
   if (isBare && session) redirect(`/users/${session.user.id}`);
-  const state = parseSearchState(params);
-  state.area = await loadAreaSelection(state.filter.areaId);
+  const parsed = parseSearchState(params);
+  parsed.area = await loadAreaSelection(parsed.filter.areaId);
+  // A shared member URL can carry refinements the public catalog cannot
+  // answer; the signed-out page renders the search it will actually run.
+  const state = session ? parsed : publicSearchState(parsed);
   const initial = await loadSearch(state, session?.user.id ?? null);
   return (
     <div className="flex flex-col gap-6">

@@ -13,7 +13,7 @@ import {
 } from "@/lib/public-catalog";
 
 import { areaIdCondition, areaNameCondition, getAreaBreadcrumbs } from "./areas";
-import { toFtsPrefixQuery } from "./shared";
+import { disciplineGradeConditions, toFtsPrefixQuery } from "./shared";
 
 const publicAreaColumns = { id: areas.id, name: areas.name, parentId: areas.parentId };
 export async function getPublicArea(
@@ -106,7 +106,9 @@ export async function searchPublicAreas(
   };
 }
 
-/** Public ordering and membership depend only on names and hierarchy, never climb facts. */
+/** Membership narrows on names, hierarchy, and the discipline and grade the
+ * public projection returns — never on ratings or ascent counts, which are
+ * member aggregates. Ordering stays on name alone. */
 export async function searchPublicClimbs(
   db: Database,
   options: PublicCatalogOptions,
@@ -126,6 +128,8 @@ export async function searchPublicClimbs(
       ? areaIdCondition(options.areaId)
       : areaNameCondition(options.areaName);
   if (area) conditions.push(area);
+  const disciplines = disciplineGradeConditions(options);
+  if (disciplines.length > 0) conditions.push(sql`(${sql.join(disciplines, sql` OR `)})`);
   const rows = await db.all<PublicClimb>(sql`
     SELECT climbs.id, climbs.name, climbs.area_id AS areaId, areas.name AS areaName,
       climbs.type, climbs.grade, climbs.description

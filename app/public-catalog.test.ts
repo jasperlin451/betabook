@@ -129,8 +129,54 @@ it("keeps area lists inside the requested subtree, including invalid subarea sel
   expect((await read("subarea=10&areaId=10")).climbs.map((row) => row.id)).toEqual([1, 2]);
   expect((await areaClimbs(request(""), context("missing"))).status).toBe(404);
 });
+it("narrows public climbs by discipline, alone and combined", async () => {
+  const read = async (query: string) =>
+    ((await (await climbSearch(request(query))).json()) as PublicClimbsPage).climbs.map(
+      (row) => row.name,
+    );
+  expect(await read("discipline=boulder")).toEqual(["Test Highball", "Test Slab"]);
+  expect(await read("discipline=sport&discipline=trad")).toEqual(["Test Crack", "Test Crimper"]);
+  expect(await read("discipline=boulder&name=Slab")).toEqual(["Test Slab"]);
+  expect(await read("discipline=sport&name=Slab")).toEqual([]);
+});
+it("narrows public climbs by grade within a discipline, excluding ungraded routes", async () => {
+  await db.insert(climbs).values({ id: 20, areaId: 4, name: "Test Unknown", type: "boulder" });
+  const read = async (query: string) =>
+    ((await (await climbSearch(request(query))).json()) as PublicClimbsPage).climbs.map(
+      (row) => row.name,
+    );
+  // V4 (grade 5) is inside 4–6; V1 (grade 2) and the ungraded route are not.
+  expect(await read("discipline=boulder&boulderRange=4&boulderRange=6")).toEqual(["Test Highball"]);
+  expect(await read("discipline=boulder&boulderRange=0&boulderRange=3")).toEqual(["Test Slab"]);
+  // A full range keeps ungraded routes; a range without its discipline is inert.
+  expect(await read("discipline=boulder")).toEqual(["Test Highball", "Test Slab", "Test Unknown"]);
+  expect(await read("boulderRange=4&boulderRange=6")).toEqual([
+    "Test Crack",
+    "Test Crimper",
+    "Test Highball",
+    "Test Slab",
+    "Test Unknown",
+  ]);
+});
+it("applies discipline refinements to an area's own public climb list", async () => {
+  const read = async (query: string, id: string) =>
+    ((await (await areaClimbs(request(query), context(id))).json()) as PublicClimbsPage).climbs.map(
+      (row) => row.name,
+    );
+  expect(await read("discipline=boulder", "1")).toEqual(["Test Highball", "Test Slab"]);
+  expect(await read("discipline=trad", "1")).toEqual(["Test Crack"]);
+  expect(await read("discipline=trad", "2")).toEqual([]);
+});
+it.each(["discipline=boulder", "boulderRange=4&boulderRange=6"])(
+  "keeps climb refinement %s off the area list, which has no such column to narrow on",
+  async (query) => {
+    const response = await areaSearch(request(query));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: "Not signed in" });
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  },
+);
 it.each([
-  "discipline=boulder",
   "type=trad",
   "grade=9",
   "ratingRange=5",
