@@ -239,9 +239,6 @@ describe("sends aggregate triggers", () => {
   });
 });
 
-/** The reported grade a climb shows is the average suggested grade, shifted per
- * send by how the climber said it felt. The triggers carry GRADE_FEEL_TENTHS as
- * literals, so these tests are what catches the constant and the SQL drifting. */
 describe("suggested grade aggregate", () => {
   function insertGraded(userId: string, grade: number | null, feel: GradeFeel) {
     return db.insert(sends).values({

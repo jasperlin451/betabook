@@ -438,10 +438,7 @@ export type ClimbSendStats = {
   avgSuggestedGrade: number | null;
 };
 
-/** Reads the climb rows rather than aggregating `sends`: all three figures are
- * denormalized onto `climbs` and maintained by the sends aggregate triggers, so
- * the cost is one row per listed climb instead of a grouped scan over every send
- * those climbs have collected. IDs with no climb keep the zero-send defaults. */
+/** Reads the trigger-maintained aggregates on `climbs`; unknown IDs keep zero-send defaults. */
 export async function getClimbSendStats(
   db: Database,
   climbIds: number[],

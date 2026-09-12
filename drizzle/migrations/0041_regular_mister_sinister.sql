@@ -3,15 +3,8 @@ ALTER TABLE `climbs` ADD `suggested_grade_count` integer DEFAULT 0 NOT NULL;--> 
 ALTER TABLE `climbs` ADD `avg_suggested_grade` real GENERATED ALWAYS AS (CASE WHEN suggested_grade_count > 0
         THEN CAST(suggested_grade_tenths_sum AS REAL) / (10.0 * suggested_grade_count)
         ELSE NULL END) VIRTUAL;--> statement-breakpoint
--- Recreate the send aggregate triggers so they also carry the reported grade.
--- A send contributes its suggested grade shifted by the climber's grade feel,
--- in tenths so the running sum stays exact. The -3/+3 here is GRADE_FEEL_TENTHS
--- in lib/sends.ts; changing that constant means another migration that rewrites
--- these triggers and rebuilds every stored sum.
---
--- Triggers are replaced before the backfill below, not after: a send written
--- between the two is counted twice at worst, and the backfill then recomputes
--- it from scratch. The other order would lose that write for good.
+-- -3/+3 mirror GRADE_FEEL_TENTHS in lib/sends.ts.
+-- Replace the triggers before backfilling, so a send written in between is recounted, not lost.
 DROP TRIGGER IF EXISTS sends_aggregates_ai;--> statement-breakpoint
 DROP TRIGGER IF EXISTS sends_aggregates_ad;--> statement-breakpoint
 DROP TRIGGER IF EXISTS sends_aggregates_au;--> statement-breakpoint

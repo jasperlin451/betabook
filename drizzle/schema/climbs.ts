@@ -30,11 +30,7 @@ export const climbs = sqliteTable(
       sql`CASE WHEN rating_count > 0 THEN CAST(rating_sum AS REAL) / rating_count ELSE NULL END`,
       { mode: "virtual" },
     ),
-    // The reported grade a send contributes is its suggested grade shifted by
-    // the climber's grade feel. Stored in tenths as an integer for the same
-    // reason the rating keeps a sum and a count: a running real average drifts
-    // under years of incremental +/- updates. GRADE_FEEL_TENTHS in lib/sends.ts
-    // owns the shift and must stay in step with the triggers that apply it.
+    // Tenths per GRADE_FEEL_TENTHS, kept as a sum and count for the same drift reason as rating.
     suggestedGradeTenthsSum: integer("suggested_grade_tenths_sum").notNull().default(0),
     suggestedGradeCount: integer("suggested_grade_count").notNull().default(0),
     avgSuggestedGrade: real("avg_suggested_grade").generatedAlwaysAs(
