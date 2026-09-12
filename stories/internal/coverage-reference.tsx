@@ -97,6 +97,7 @@ const examples: Record<string, string> = {
   "product-tours/social-tour-previews.tsx": "components-tutorials-social-previews--feed",
   "logged-grade-histogram.tsx": "components-charts-logged-grade-histogram--logged-grades",
   "privacy-fields.tsx": "components-account-privacy-fields--privacy",
+  "catalog-export-download.tsx": "components-account-catalog-export--available",
   "profile-heading.tsx": "patterns-profile-overview--profile",
   "profile-tabs.tsx": "patterns-navigation--navigation",
   "progression-chart.tsx": "components-charts-progression-chart--progression",
