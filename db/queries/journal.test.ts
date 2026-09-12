@@ -175,6 +175,26 @@ describe("getJournalPage", () => {
     expect(page.entries.every((entry) => entry.kind === "session")).toBe(true);
   });
 
+  it("matches an area name by word prefix, as the climb search does", async () => {
+    const page = await getJournalPage(
+      db,
+      OWNER_ID,
+      OWNER_ID,
+      filter({ query: "boulder", view: "sessions" }),
+    );
+    expect(page.entries).toHaveLength(5);
+  });
+
+  it("does not match an area name from the middle of one of its words", async () => {
+    const page = await getJournalPage(
+      db,
+      OWNER_ID,
+      OWNER_ID,
+      filter({ query: "oulders", view: "sessions" }),
+    );
+    expect(page.entries).toEqual([]);
+  });
+
   it.each(["%", "_"])("treats %s as literal search text", async (query) => {
     const page = await getJournalPage(db, OWNER_ID, OWNER_ID, filter({ query }));
     expect(page.entries).toHaveLength(1);
