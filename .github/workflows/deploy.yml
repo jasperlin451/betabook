@@ -19,7 +19,9 @@ jobs:
   test:
     name: Test & Build
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # The test suite takes about 3.5 minutes on this runner; setup, checks,
+    # the production build, and post-job cleanup need room beyond five minutes.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 

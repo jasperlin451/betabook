@@ -1,10 +1,11 @@
 "use client";
 
 import { Button } from "@heroui/react";
+import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 
 import { ClimbPicker } from "@/components/climb-picker";
-import { cardClass } from "@/components/ui/card";
+import { PageTitle } from "@/components/ui/typography";
 import type { ClimbWithAreaName } from "@/db/queries";
 
 export type EntryKindChoice =
@@ -36,8 +37,17 @@ export function EntryKindStep({
   if (choosingClimb) {
     return (
       <div className="flex flex-col gap-5">
+        <Button
+          size="sm"
+          variant="ghost"
+          className="self-start"
+          onPress={() => setChoosingClimb(false)}
+        >
+          <ArrowLeft aria-hidden className="size-4" />
+          Back
+        </Button>
         <div className="flex flex-col gap-1">
-          <p className="font-medium text-foreground">Choose a climb</p>
+          <PageTitle className="text-2xl! text-foreground">Choose a climb</PageTitle>
           <p className="text-sm text-muted">
             Log one climb at a time. You can record another entry for each climb you worked on.
           </p>
@@ -50,9 +60,6 @@ export function EntryKindStep({
           }
           sentClimbIds={sentClimbIds}
         />
-        <Button size="sm" variant="ghost" onPress={() => setChoosingClimb(false)}>
-          Back to entry type
-        </Button>
       </div>
     );
   }
@@ -60,22 +67,22 @@ export function EntryKindStep({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
-        <p className="font-medium text-foreground">What are you logging?</p>
-        <p className="text-sm text-muted">Choose where the climbing happened.</p>
+        <PageTitle className="text-foreground">What are you logging?</PageTitle>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid auto-cols-fr grid-flow-col gap-3">
         {ENTRY_TYPES.map((choice) => (
-          <button
+          <Button
             key={choice.id}
             type="button"
-            onClick={() =>
+            onPress={() =>
               choice.id === "session" ? setChoosingClimb(true) : onChoose({ kind: "training" })
             }
-            className={`cursor-pointer text-left transition-colors hover:bg-surface-secondary/60 focus-visible:status-focused ${cardClass("sm", "bordered")}`}
+            variant="outline"
+            className="h-auto min-h-16 flex-col items-start justify-start rounded-panel! px-3 py-3 text-left whitespace-normal"
           >
             <span className="block font-medium text-foreground">{choice.label}</span>
-            <span className="mt-1 block text-sm text-muted">{choice.description}</span>
-          </button>
+            <span className="mt-1 block text-sm font-normal text-muted">{choice.description}</span>
+          </Button>
         ))}
       </div>
     </div>

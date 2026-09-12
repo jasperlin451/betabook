@@ -23,12 +23,17 @@ export function LoadMoreButton({ onPress, loading, failed = false }: LoadMoreBut
       {failed && <InlineAlert id={errorId}>Couldn&apos;t load more — try again.</InlineAlert>}
       <Button
         variant="ghost"
-        onPress={onPress}
-        isPending={loading}
+        onPress={() => {
+          if (!loading) onPress();
+        }}
+        aria-disabled={loading || undefined}
         aria-describedby={failed ? errorId : undefined}
       >
         {loading ? "Loading…" : "Load more"}
       </Button>
+      <span className="sr-only" role="status">
+        {loading ? "Loading more results." : ""}
+      </span>
     </div>
   );
 }
