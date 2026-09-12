@@ -14,8 +14,6 @@ import { resetDb } from "@/test/reset-db";
 
 import { getJournalPage } from "./journal";
 
-/** Audience checks that search `user` as the content owner. A correlated one is
- * re-run for every candidate row; a plain one is evaluated once per statement. */
 function audienceChecks(plan: string) {
   const checks = plan.match(/(CORRELATED )?SCALAR SUBQUERY \d+\nSEARCH content_owner/g) ?? [];
   return {
@@ -41,8 +39,6 @@ it("evaluates the owner's audience once per statement, not once per scanned entr
     })),
   );
 
-  // A text filter is the worst case: it scans the journal rather than stopping
-  // at a page, so anything evaluated per row is paid for on every entry.
   const plans = await explainQueries(db, () =>
     getJournalPage(db, "owner", "owner", { ...DEFAULT_JOURNAL_FILTER, query: "yosemite" }),
   );
@@ -52,9 +48,8 @@ it("evaluates the owner's audience once per statement, not once per scanned entr
     .join("\n");
   const { perRow, perStatement } = audienceChecks(plan);
 
-  // The entry's own audience and the send-comment audience for both the
-  // projection and the search predicate all resolve from the owner id.
+  // The entry audience, plus the send-comment check in both the select and the search.
   expect(perStatement).toHaveLength(3);
-  // The survivor belongs to the companion list, whose author varies per row.
+  // The companion list, whose author varies per row.
   expect(perRow).toHaveLength(1);
 });

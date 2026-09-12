@@ -79,10 +79,8 @@ const VIEW_CONDITION: Record<JournalView, SQL | null> = {
   training: sql`j.kind = 'training'`,
 };
 
-/** Every journal read below filters to one owner, so the audience predicates
- * bind that owner rather than the row's column. SQLite then evaluates them once
- * for the statement instead of once per candidate row, which matters most on a
- * filtered search that scans the whole journal to fill a page. */
+/** Callers filter to one owner. Binding it rather than `j.user_id` keeps these
+ * audience checks uncorrelated, so SQLite runs them once, not per row. */
 function visibleBody(viewerId: string | null, ownerId: string): SQL {
   return sql`CASE WHEN j.is_send_comment = 0 OR ${sendCommentVisibleSql(viewerId, sql`${ownerId}`)}
     THEN j.body ELSE NULL END`;
