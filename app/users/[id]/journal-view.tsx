@@ -1,10 +1,11 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
+import { GoalPanel } from "@/components/goals/goal-panel";
+import { JournalStats } from "@/components/goals/journal-stats";
 import { JournalFilterToolbar, JournalTimeline } from "@/components/journal";
 import { NavigationPendingProvider } from "@/components/navigation-pending";
 import { ProductTour } from "@/components/product-tour";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { SidebarLayout } from "@/components/ui/page-shell";
 import { StatStrip } from "@/components/ui/stat-strip";
 import { SectionHeading } from "@/components/ui/typography";
 import { getDb } from "@/db/client";
@@ -15,10 +16,12 @@ import {
   getJournalPage,
   getProductTourState,
 } from "@/db/queries";
+import { getGoalOverview, getNextGoalGrades } from "@/db/queries/goals";
 import { getUserHashtags } from "@/db/queries/hashtag-filter";
 import { getJournalFilterFriends } from "@/db/queries/journal-companions";
 import type { JournalFilter } from "@/lib/filters/journal-filter";
 import { calendarMonth } from "@/lib/format-date";
+import { goalToday } from "@/lib/goals";
 
 export async function JournalView({
   ownerId,
@@ -33,16 +36,21 @@ export async function JournalView({
   const isOwner = viewerId === ownerId;
   const filter = isOwner ? requestedFilter : { ...requestedFilter, friendIds: [] };
   const { cf } = await getCloudflareContext({ async: true });
+  const timezone = cf?.timezone ?? "UTC";
+  const today = goalToday(timezone);
   const month = calendarMonth(new Date(), cf?.timezone ?? "UTC");
 
-  const [counts, firstPage, filteredClimb, tourState, tags, friends] = await Promise.all([
-    getJournalCounts(db, ownerId, viewerId, month),
-    getJournalPage(db, ownerId, viewerId, filter),
-    filter.climbId === null ? Promise.resolve(null) : getClimb(db, filter.climbId),
-    isOwner ? getProductTourState(db, ownerId) : Promise.resolve(null),
-    getUserHashtags(db, ownerId, viewerId, false, true),
-    isOwner ? getJournalFilterFriends(db, ownerId) : Promise.resolve([]),
-  ]);
+  const [overview, nextGrades, counts, firstPage, filteredClimb, tourState, tags, friends] =
+    await Promise.all([
+      getGoalOverview(db, ownerId, viewerId),
+      isOwner ? getNextGoalGrades(db, ownerId, ownerId) : Promise.resolve({}),
+      getJournalCounts(db, ownerId, viewerId, month),
+      getJournalPage(db, ownerId, viewerId, filter),
+      filter.climbId === null ? Promise.resolve(null) : getClimb(db, filter.climbId),
+      isOwner ? getProductTourState(db, ownerId) : Promise.resolve(null),
+      getUserHashtags(db, ownerId, viewerId, false, true),
+      isOwner ? getJournalFilterFriends(db, ownerId) : Promise.resolve([]),
+    ]);
   const areaBreadcrumbs = await getAreaBreadcrumbs(
     db,
     firstPage.entries.flatMap((entry) => (entry.areaId == null ? [] : [entry.areaId])),
@@ -78,8 +86,21 @@ export async function JournalView({
       {tourState && <ProductTour initialState={tourState} />}
       <div className="flex flex-col gap-3">
         <SectionHeading>Journal</SectionHeading>
-        <SidebarLayout sidebar={<StatStrip cards={statCards} />}>
-          <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="flex min-w-0 flex-col gap-3">
+            <GoalPanel
+              key={JSON.stringify([overview.active, overview.completed])}
+              ownerId={ownerId}
+              isOwner={isOwner}
+              initialActive={overview.active}
+              initialCompleted={overview.completed}
+              timezone={timezone}
+              today={today}
+              nextGrades={nextGrades}
+            />
+            <JournalStats>
+              <StatStrip cards={statCards} />
+            </JournalStats>
             {counts.entries > 0 && (
               <JournalFilterToolbar
                 userId={ownerId}
@@ -101,7 +122,10 @@ export async function JournalView({
               hasAnyEntries={counts.entries > 0}
             />
           </div>
-        </SidebarLayout>
+          <aside className="hidden lg:block" aria-label="Journal stats">
+            <StatStrip cards={statCards} />
+          </aside>
+        </div>
       </div>
     </NavigationPendingProvider>
   );

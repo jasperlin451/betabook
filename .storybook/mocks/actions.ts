@@ -21,3 +21,22 @@ export const updateClimb = fn<typeof Actions.updateClimb>().mockResolvedValue({
   ok: true,
   value: undefined,
 });
+
+export const saveGoal = fn<typeof Actions.saveGoal>().mockResolvedValue({ ok: true, value: -1 });
+export const deleteGoal = fn<typeof Actions.deleteGoal>().mockResolvedValue({
+  ok: true,
+  value: undefined,
+});
+
+export const createJournalEntry = fn<typeof Actions.createJournalEntry>().mockResolvedValue({
+  ok: true,
+  value: undefined,
+});
+export const createUndatedSend = fn<typeof Actions.createUndatedSend>().mockResolvedValue({
+  ok: true,
+  value: undefined,
+});
+export const updateJournalEntry = fn<typeof Actions.updateJournalEntry>().mockResolvedValue({
+  ok: true,
+  value: undefined,
+});
