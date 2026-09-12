@@ -129,7 +129,7 @@ jobs:
   deploy:
     name: Deploy
     needs: [test, ui]
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'jasperlin451/betabook'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == 'betabook-ca/betabook'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
