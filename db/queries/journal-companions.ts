@@ -13,18 +13,29 @@ import { journalVisibleSql } from "./content-access";
  * it is, nor the companion, who needs it to remove the tag. A private profile does
  * not hide the name here; it is a rule about the profile page, which authorizes its
  * own viewer, so the name links out like any other companion's. */
-export function companionsJsonSql(viewerId: string | null, entryId: SQL): SQL {
+export function companionsJsonSql(
+  viewerId: string | null,
+  entryId: SQL,
+  /** Only for statements reading a single author. Skipping the `tagged_entry` join is
+   * safe because `entryId` is always a selected row and companions cascade with it. */
+  authorId?: string,
+): SQL {
+  const author = authorId === undefined ? sql`tagged_entry.user_id` : sql`${authorId}`;
+  const authorJoin =
+    authorId === undefined
+      ? sql`JOIN journal_entries tagged_entry ON tagged_entry.id = jc.entry_id`
+      : sql``;
   return sql`(SELECT json_group_array(json_object('id', companion.id, 'name', companion.name,
     'isSelf', json(CASE WHEN companion.id = ${viewerId} THEN 'true' ELSE 'false' END)))
     FROM journal_companions jc INDEXED BY journal_companions_active_idx
-    JOIN journal_entries tagged_entry ON tagged_entry.id = jc.entry_id
+    ${authorJoin}
     JOIN user companion ON companion.id = jc.user_id
     JOIN friendships tagged_friendship ON tagged_friendship.user_id = jc.friendship_user_id
       AND tagged_friendship.friend_id = jc.friendship_friend_id
     WHERE jc.entry_id = ${entryId} AND jc.suppressed = 0
       AND tagged_friendship.status = 'accepted'
-      AND ${journalVisibleSql(viewerId, sql`tagged_entry.user_id`)}
-      AND (tagged_entry.user_id = ${viewerId} OR companion.id = ${viewerId}
+      AND ${journalVisibleSql(viewerId, author)}
+      AND (${author} = ${viewerId} OR companion.id = ${viewerId}
         OR companion.journal_visibility <> 'private')
   )`;
 }
