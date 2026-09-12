@@ -260,7 +260,7 @@ pnpm exec opennextjs-cloudflare deploy
 
 CI deployment uses the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Runtime credentials (`BETTER_AUTH_SECRET`, `RESEND_API_KEY`, and optional Google OAuth credentials) are Worker secrets configured with `pnpm exec wrangler secret put <NAME>`. Hosting, D1, rate-limit bindings, and the public auth URL are configured in [`wrangler.jsonc`](wrangler.jsonc); use your own Cloudflare resources when hosting a fork.
 
-The zone, DNS records, Email Routing, managed robots.txt, and the D1 database itself are managed with OpenTofu in [`infra/cloudflare`](infra/cloudflare/README.md) and applied by Spacelift. The Worker, its bindings and secrets, and D1 migrations stay with wrangler.
+The zone, DNS records, managed robots.txt, the `hello@betabook.ca` routing rule, and the D1 database itself are managed with OpenTofu in [`infra/cloudflare`](infra/cloudflare/README.md) and applied by Spacelift. The Worker, its bindings and secrets, and D1 migrations stay with wrangler.
 
 ## License
 

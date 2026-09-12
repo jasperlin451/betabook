@@ -1,5 +1,4 @@
-# Adopts resources created before this stack by looking up their live IDs.
-# Delete this file once Spacelift has applied the imports.
+# Delete once Spacelift has applied these imports.
 
 data "cloudflare_zone" "betabook" {
   filter = {
@@ -45,11 +44,6 @@ import {
   for_each = local.dns_records
   to       = cloudflare_dns_record.betabook[each.key]
   id       = "${local.import_zone_id}/${local.existing_record_ids["${each.value.type} ${each.value.name} ${each.value.content}"]}"
-}
-
-import {
-  to = cloudflare_email_routing_dns.betabook
-  id = local.import_zone_id
 }
 
 import {

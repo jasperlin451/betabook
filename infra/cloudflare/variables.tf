@@ -3,7 +3,7 @@ variable "account_id" {
 }
 
 variable "hello_forward_to" {
-  description = "Inbox that receives mail for hello@betabook.ca. Set in Spacelift to keep it out of the public repo."
+  description = "Inbox that hello@betabook.ca forwards to."
   type        = string
   sensitive   = true
 }

@@ -1,5 +1,5 @@
 # The apex A/AAAA records belong to the Worker custom domain in wrangler.jsonc,
-# and the MX, SPF and cf2024-1 DKIM records to Email Routing (email.tf).
+# and the MX, SPF and cf2024-1 DKIM records to Email Routing.
 locals {
   dns_records = {
     google_site_verification = {
@@ -7,7 +7,7 @@ locals {
       name     = "betabook.ca"
       content  = "google-site-verification=-XqrNrzK_yZ5ABtu-k35DeNm2qCI8IQMqIQBzTQL3P0"
       priority = null
-      ttl      = 1
+      ttl      = 3600
     }
     dmarc = {
       type     = "TXT"
@@ -43,10 +43,11 @@ locals {
 resource "cloudflare_dns_record" "betabook" {
   for_each = local.dns_records
 
-  zone_id  = cloudflare_zone.betabook.id
-  type     = each.value.type
-  name     = each.value.name
-  content  = each.value.content
+  zone_id = cloudflare_zone.betabook.id
+  type    = each.value.type
+  name    = each.value.name
+  # Cloudflare stores TXT content quoted.
+  content  = each.value.type == "TXT" ? "\"${each.value.content}\"" : each.value.content
   priority = each.value.priority
   ttl      = each.value.ttl
 }

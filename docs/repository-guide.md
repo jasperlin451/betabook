@@ -40,7 +40,7 @@ Betabook is a climbing logbook and crag database built with Next.js 16 App Route
 
 Edit schema definitions in `drizzle/schema/`, then use `pnpm db:generate` and inspect the SQL. Some indexes and triggers exist only in handwritten migrations, so the TypeScript schema is not a complete description of the database. Add new migrations under `drizzle/migrations/` and keep them compatible with the running worker; CI applies them before deployment. Run `pnpm db:migrate:local` after pulling or adding migrations: `pnpm setup` does not migrate an existing database.
 
-Keep `wrangler.jsonc`, `.dev.vars.example`, and the checked-in `cloudflare-env.d.ts` aligned when changing bindings or environment variables. Generated `worker-configuration.d.ts` is optional for local validation and must not become a build prerequisite. Zone, DNS, Email Routing, and D1 database resources belong in [`infra/cloudflare`](../infra/cloudflare/README.md); Worker settings, bindings, and custom domains stay in `wrangler.jsonc` because every deploy overwrites them.
+Keep `wrangler.jsonc`, `.dev.vars.example`, and the checked-in `cloudflare-env.d.ts` aligned when changing bindings or environment variables. Generated `worker-configuration.d.ts` is optional for local validation and must not become a build prerequisite. Zone, DNS, and D1 database resources belong in [`infra/cloudflare`](../infra/cloudflare/README.md); Worker settings, bindings, and custom domains stay in `wrangler.jsonc` because every deploy overwrites them.
 
 ## Routes and metadata
 

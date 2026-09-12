@@ -1,14 +1,11 @@
 locals {
-  # lib/email.ts sends contact form messages here.
   hello_address = "hello@betabook.ca"
 }
 
-# Owns the routing MX, SPF and cf2024-1 DKIM records.
-resource "cloudflare_email_routing_dns" "betabook" {
-  zone_id = cloudflare_zone.betabook.id
-  name    = local.zone_name
-}
+# Not cloudflare_email_routing_dns: it can't read its state, and its update
+# unlocks the routing MX records.
 
+# Plans always show a `tag` update: cloudflare/terraform-provider-cloudflare#7352.
 resource "cloudflare_email_routing_rule" "hello" {
   zone_id = cloudflare_zone.betabook.id
 
