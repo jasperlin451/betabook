@@ -55,10 +55,9 @@ it("evaluates the owner's audience once per statement, not once per scanned entr
   const plan = await filteredPlan(await seedJournal());
   const { perRow, perStatement } = audienceChecks(plan);
 
-  // The entry audience, plus the send-comment check in both the select and the search.
-  expect(perStatement).toHaveLength(3);
-  // The companion list, whose author varies per row.
-  expect(perRow).toHaveLength(1);
+  // Every audience check binds the owner, including the companion list's.
+  expect(perStatement).toHaveLength(4);
+  expect(perRow).toEqual([]);
 });
 
 it("matches ancestor area names without walking the tree for each entry", async () => {

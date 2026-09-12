@@ -126,7 +126,7 @@ function journalEntrySelect(viewerId: string | null, ownerId: string): SQL {
       j.entry_date AS entryDate,
       ${visibleBody(viewerId, ownerId)} AS body,
       j.tags AS tags,
-      ${companionsJsonSql(viewerId, sql`j.id`)} AS companions,
+      ${companionsJsonSql(viewerId, sql`j.id`, ownerId)} AS companions,
       climbs.name AS climbName,
       climbs.type AS climbType,
       climbs.grade AS climbGrade,
@@ -157,7 +157,7 @@ export async function getJournalPage(
   ];
   if (filter.friendIds.length > 0) {
     conditions.push(sql`EXISTS (
-      SELECT 1 FROM json_each(${companionsJsonSql(viewerId, sql`j.id`)}) companion_filter
+      SELECT 1 FROM json_each(${companionsJsonSql(viewerId, sql`j.id`, ownerId)}) companion_filter
       WHERE json_extract(companion_filter.value, '$.id') IN (
         SELECT value FROM json_each(${JSON.stringify(filter.friendIds)})
       )
@@ -381,7 +381,7 @@ export async function getOpenProjectSessions(
         j.entry_date AS entryDate,
         ${visibleBody(viewerId, ownerId)} AS body,
         j.tags AS tags,
-        ${companionsJsonSql(viewerId, sql`j.id`)} AS companions,
+        ${companionsJsonSql(viewerId, sql`j.id`, ownerId)} AS companions,
         climbs.name AS climbName,
         climbs.type AS climbType,
         climbs.grade AS climbGrade,

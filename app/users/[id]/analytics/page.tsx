@@ -74,16 +74,22 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
   const selectedTags = normalizeHashtagFilters(toArray(search.tag));
   const journalVisible = await canReadJournal(db, user.id, viewerId);
   const isOwner = viewerId === id;
-  const [rows, journalSessions, tags, viewerAnnouncements] = await Promise.all([
-    getUserSendsForAnalytics(db, id, viewerId, selectedTags),
-    journalVisible
-      ? getJournalSessionsForAnalytics(db, user.id, viewerId, selectedTags)
-      : Promise.resolve(undefined),
-    getUserHashtags(db, id, viewerId),
-    isOwner
-      ? getViewerFeatureAnnouncements(session.user.id, session.user.createdAt.getTime())
-      : Promise.resolve([]),
-  ]);
+  // Loaded here, not after the empty-state return, to avoid two extra round trips.
+  const [rows, journalSessions, tags, viewerAnnouncements, initialLayout, highlightSessions] =
+    await Promise.all([
+      getUserSendsForAnalytics(db, id, viewerId, selectedTags),
+      journalVisible
+        ? getJournalSessionsForAnalytics(db, user.id, viewerId, selectedTags)
+        : Promise.resolve(undefined),
+      getUserHashtags(db, id, viewerId),
+      isOwner
+        ? getViewerFeatureAnnouncements(session.user.id, session.user.createdAt.getTime())
+        : Promise.resolve([]),
+      getAnalyticsLayout(db, id, viewerId),
+      journalVisible
+        ? getAnalyticsHighlightSessions(db, id, viewerId, selectedTags)
+        : Promise.resolve([]),
+    ]);
 
   // Grades only compare within one discipline, so the whole page is always
   // scoped to one — the chips only offer disciplines this climber has
@@ -131,16 +137,12 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     );
   }
 
-  const initialLayout = await getAnalyticsLayout(db, id, viewerId);
   const announcements = getAnnouncementCandidates(viewerAnnouncements, {
     page: ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.page,
     availableFeatureIds: [ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.featureId],
     userCreatedAt: session.user.createdAt,
     now: new Date(),
   });
-  const highlightSessions = journalVisible
-    ? await getAnalyticsHighlightSessions(db, id, viewerId, selectedTags)
-    : [];
   const lifetime = buildUserAnalytics(rows, scope, journalSessions);
   // Offer the same years across disciplines so switching never silently resets the period.
   const all = buildUserAnalytics(rows, "all", journalSessions);

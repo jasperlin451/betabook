@@ -22,7 +22,7 @@ export async function getAnalyticsHighlightSessions(
   >(sql`
     SELECT j.id, j.entry_date AS entryDate, c.id AS climbId, c.name AS climbName,
       c.type AS climbType, j.sent, j.is_ascent AS isAscent,
-      ${companionsJsonSql(viewerId, sql`j.id`)} AS companions
+      ${companionsJsonSql(viewerId, sql`j.id`, ownerId)} AS companions
     FROM journal_entries j JOIN climbs c ON c.id = j.climb_id
     WHERE j.user_id = ${ownerId} AND j.kind = 'session'
       AND ${journalVisibleSql(viewerId, sql`j.user_id`)}
