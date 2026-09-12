@@ -21,7 +21,6 @@ vi.mock("next/navigation", () => ({
 type Lookup = { names: string[]; settle: () => void };
 let pending: Lookup[] = [];
 
-/** Hold every lookup open so the number in flight at once is observable. */
 beforeEach(() => {
   pending = [];
   vi.mocked(resolveImportClimbs)

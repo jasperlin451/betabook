@@ -179,8 +179,6 @@ type WizardResult = Omit<ImportResult, "missing"> & {
 /** Cap inline rows; the download includes every row needing attention. */
 const MAX_LISTED_FAILURES = 50;
 
-/** Lookups in flight at once while resolving a file's climbs. A large import is
- * hundreds of chunks, and running them one at a time pays full latency on each. */
 const LOOKUP_CONCURRENCY = 5;
 
 const NOT_ATTEMPTED_MESSAGE = "the import stopped before reaching this row";
@@ -516,11 +514,8 @@ export function ImportWizard({ profileHref }: { profileHref: string }) {
 
     let index: CandidateIndex = new Map();
 
-    /** Chunks are requested concurrently but merged in chunk order, never in the
-     * order they settle: a name can appear in more than one area lookup, and the
-     * resulting candidate order decides which alternatives an ambiguous row
-     * offers first. Stops launching further requests once one fails, and reports
-     * the earliest failing chunk so the message does not depend on timing. */
+    /** Merge in chunk order, not settle order: the merged candidate order decides
+     * which alternatives an ambiguous row offers first. */
     const resolveChunks = async <T,>(
       chunks: T[][],
       call: (
