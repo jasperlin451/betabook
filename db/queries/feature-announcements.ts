@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { cache } from "react";
 
-import type { Database } from "@/db/client";
+import { getDb, type Database } from "@/db/client";
 import { featureAnnouncementDismissals } from "@/db/schema";
 import {
   FEATURE_ANNOUNCEMENTS,
@@ -27,27 +28,19 @@ export async function getDismissedFeatureAnnouncementIds(
   return rows.map((row) => row.featureId);
 }
 
-/** Use the signed-in viewer's immutable signup date, never the viewed profile's date.
- * availableFeatureIds lists the targets actually rendered for this viewer/page state.
- * Historical/future releases require no dismissal rows and no database lookup. */
-export async function getPageFeatureAnnouncements(
+/** Load the viewer's releases before page data determines which targets are visible. */
+export async function loadViewerFeatureAnnouncements(
   db: Database,
   viewer: { id: string; createdAt: Date },
   {
-    page,
-    availableFeatureIds,
     now = new Date(),
     definitions = FEATURE_ANNOUNCEMENTS,
   }: {
-    page: string;
-    availableFeatureIds: readonly string[];
     now?: Date;
     definitions?: readonly FeatureAnnouncementDefinition[];
-  },
+  } = {},
 ): Promise<FeatureAnnouncementDefinition[]> {
   const candidates = getAnnouncementCandidates(definitions, {
-    page,
-    availableFeatureIds,
     userCreatedAt: viewer.createdAt,
     now,
   });
@@ -60,3 +53,8 @@ export async function getPageFeatureAnnouncements(
   );
   return candidates.filter((feature) => !dismissed.has(feature.featureId));
 }
+
+// Primitive keys share a read across callers in one render, never across requests.
+export const getViewerFeatureAnnouncements = cache(async (userId: string, createdAt: number) =>
+  loadViewerFeatureAnnouncements(await getDb(), { id: userId, createdAt: new Date(createdAt) }),
+);

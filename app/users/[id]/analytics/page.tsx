@@ -18,11 +18,14 @@ import { getJournalSessionsForAnalytics, getUserSendsForAnalytics } from "@/db/q
 import { getAnalyticsHighlightSessions } from "@/db/queries/analytics-highlights";
 import { getAnalyticsLayout } from "@/db/queries/analytics-layout";
 import { canReadJournal } from "@/db/queries/content-access";
-import { getPageFeatureAnnouncements } from "@/db/queries/feature-announcements";
+import { getViewerFeatureAnnouncements } from "@/db/queries/feature-announcements";
 import { getUserHashtags } from "@/db/queries/hashtag-filter";
 import { buildAnalyticsHighlights } from "@/lib/analytics-highlights";
 import { parseAnalyticsYears } from "@/lib/analytics-years";
-import { ANALYTICS_CUSTOMIZE_ANNOUNCEMENT } from "@/lib/feature-announcements";
+import {
+  ANALYTICS_CUSTOMIZE_ANNOUNCEMENT,
+  getAnnouncementCandidates,
+} from "@/lib/feature-announcements";
 import { normalizeHashtagFilters } from "@/lib/filters/hashtag-filter";
 import type { ClimbType } from "@/lib/grades";
 import { getMemberSession as getSession } from "@/lib/session";
@@ -70,12 +73,16 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
 
   const selectedTags = normalizeHashtagFilters(toArray(search.tag));
   const journalVisible = await canReadJournal(db, user.id, viewerId);
-  const [rows, journalSessions, tags] = await Promise.all([
+  const isOwner = viewerId === id;
+  const [rows, journalSessions, tags, viewerAnnouncements] = await Promise.all([
     getUserSendsForAnalytics(db, id, viewerId, selectedTags),
     journalVisible
       ? getJournalSessionsForAnalytics(db, user.id, viewerId, selectedTags)
       : Promise.resolve(undefined),
     getUserHashtags(db, id, viewerId),
+    isOwner
+      ? getViewerFeatureAnnouncements(session.user.id, session.user.createdAt.getTime())
+      : Promise.resolve([]),
   ]);
 
   // Grades only compare within one discipline, so the whole page is always
@@ -124,16 +131,13 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     );
   }
 
-  const isOwner = viewerId === id;
-  const [initialLayout, announcements] = await Promise.all([
-    getAnalyticsLayout(db, id, viewerId),
-    isOwner
-      ? getPageFeatureAnnouncements(db, session.user, {
-          page: ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.page,
-          availableFeatureIds: [ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.featureId],
-        })
-      : Promise.resolve([]),
-  ]);
+  const initialLayout = await getAnalyticsLayout(db, id, viewerId);
+  const announcements = getAnnouncementCandidates(viewerAnnouncements, {
+    page: ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.page,
+    availableFeatureIds: [ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.featureId],
+    userCreatedAt: session.user.createdAt,
+    now: new Date(),
+  });
   const highlightSessions = journalVisible
     ? await getAnalyticsHighlightSessions(db, id, viewerId, selectedTags)
     : [];
