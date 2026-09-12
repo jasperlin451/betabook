@@ -27,6 +27,8 @@ const meta = {
           grade: 5,
           type: "boulder",
           description: "A clean arete.",
+          avgRating: 4.2,
+          sendCount: 37,
         },
         {
           id: -2,
@@ -36,6 +38,8 @@ const meta = {
           description: null,
           areaId: -1,
           areaName: "Cedar Grove",
+          avgRating: null,
+          sendCount: 0,
         },
       ],
       areaBreadcrumbs: { [-1]: [{ id: -2, name: "North Woods" }] },

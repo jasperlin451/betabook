@@ -3,10 +3,7 @@ import { Button } from "@heroui/react";
 import { X } from "lucide-react";
 import type { ComponentProps } from "react";
 
-import {
-  ClimbListSortControl,
-  type ClimbListSortField,
-} from "@/components/climb-list-sort-control";
+import { ClimbListSortControl } from "@/components/climb-list-sort-control";
 import type { ActiveFilter } from "@/components/filters/active-filter-summary";
 import { statsActiveFilters } from "@/components/filters/active-filter-values";
 import { ClimbFilters } from "@/components/filters/climb-filters";
@@ -28,7 +25,6 @@ export function ClimbFilterControls({
   showAreaLookup = false,
   showMinAscents = true,
   showRatingFilters = true,
-  sortFields,
   onReset,
   activeFilters = EMPTY_ACTIVE_FILTERS,
 }: {
@@ -37,9 +33,6 @@ export function ClimbFilterControls({
   showAreaLookup?: boolean;
   showMinAscents?: boolean;
   showRatingFilters?: boolean;
-  /** Narrows the sort fields for a list whose query cannot order on all of
-   * them, such as the signed-out catalog. Defaults to every field. */
-  sortFields?: ClimbListSortField[];
   areaFetcher?: ComponentProps<typeof AreaLookup>["fetcher"];
   value: ClimbFilterState;
   onChange: (value: ClimbFilterState) => void;
@@ -123,7 +116,6 @@ export function ClimbFilterControls({
         <div className="sm:ml-auto">
           <ClimbListSortControl
             sort={value.sort}
-            fields={sortFields}
             onNavigate={(sort) => onChange({ ...value, sort })}
           />
         </div>

@@ -32,7 +32,7 @@ function Search({ publicOnly = true, quick = false }: { publicOnly?: boolean; qu
     />
   );
 }
-it("shows public grades from catalog endpoints and keeps climber discovery locked", async () => {
+it("shows public grades and aggregates from catalog endpoints, with climbers locked", async () => {
   const transport = vi.fn<typeof fetch>(async (url) =>
     requestUrl(url).includes("/climbs?")
       ? Response.json({
@@ -45,6 +45,8 @@ it("shows public grades from catalog endpoints and keeps climber discovery locke
               grade: 5,
               type: "boulder",
               description: "A route.",
+              avgRating: 4,
+              sendCount: 12,
             },
           ],
           areaBreadcrumbs: {},
@@ -58,6 +60,7 @@ it("shows public grades from catalog endpoints and keeps climber discovery locke
   expect(await screen.findByRole("link", { name: "Open Test route, Test area" })).toBeVisible();
   expect(screen.getByText("V4")).toBeVisible();
   expect(screen.getByText("Boulder")).toBeVisible();
+  expect(screen.getByText("12 ascents")).toBeVisible();
   expect(transport.mock.calls).toHaveLength(2);
   expect(transport.mock.calls.map(([url]) => requestUrl(url))).toEqual(
     expect.arrayContaining([
@@ -104,7 +107,7 @@ it("discards a late member response after switching to public search", async () 
   expect(screen.getByRole("region", { name: "Member content" })).toBeVisible();
 });
 
-it("narrows signed-out climb results by discipline and grade, without member refinements", async () => {
+it("sends the full refinement set to the public catalog and shows what it returns", async () => {
   const transport = vi.fn<typeof fetch>(async (url) =>
     requestUrl(url).includes("/climbs?")
       ? Response.json({
@@ -117,6 +120,8 @@ it("narrows signed-out climb results by discipline and grade, without member ref
               grade: 5,
               type: "boulder",
               description: "A route.",
+              avgRating: 4,
+              sendCount: 12,
             },
           ],
           areaBreadcrumbs: {},
@@ -134,49 +139,40 @@ it("narrows signed-out climb results by discipline and grade, without member ref
   await user.click(screen.getByRole("button", { name: "Climbs" }));
   await user.click(await screen.findByRole("button", { name: "Expand filters" }));
 
-  // Rating and ascent count are member aggregates: no fields, and no sort
-  // field either — but the same sort control the member half uses.
-  expect(screen.queryByRole("group", { name: "Rating range" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("spinbutton", { name: "Min ascents" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: /Sort by/ }));
   expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
     "Name",
     "Grade",
+    "Rating",
+    "Ascents",
   ]);
-  await user.click(screen.getByRole("option", { name: "Grade" }));
-  // Grade opens hardest-first, as it does for a member.
-  await waitFor(() => expect(climbRequests().at(-1)).toContain("sort=grade_desc"));
-  await user.click(screen.getByRole("button", { name: "Sort descending" }));
-  await waitFor(() => expect(climbRequests().at(-1)).toContain("sort=grade_asc"));
+  await user.click(screen.getByRole("option", { name: "Rating" }));
+  await waitFor(() => expect(climbRequests().at(-1)).toContain("sort=rating_desc"));
 
   await user.click(screen.getByRole("button", { name: "Boulder", pressed: false }));
-  await waitFor(() => expect(climbRequests().at(-1)).toContain("discipline=boulder"));
-  expect(screen.getByRole("group", { name: "Boulder range" })).toBeVisible();
-  expect(screen.getByRole("button", { name: "Remove Boulder" })).toBeVisible();
-
   await user.click(screen.getByRole("button", { name: /Min grade/ }));
   await user.click(await screen.findByRole("option", { name: "V4" }));
   await waitFor(() => {
     const params = new URL(climbRequests().at(-1) ?? "", "https://betabook.test").searchParams;
-    // V4 is index 5 on the Hueco scale; the untouched upper bound stays open.
+    expect(params.getAll("discipline")).toEqual(["boulder"]);
     expect(params.getAll("boulderRange")).toEqual(["5", String(DEFAULT_BOULDER_RANGE[1])]);
   });
 
-  // Clearing drops the refinements, and the next query goes out unnarrowed.
-  await user.click(screen.getByRole("button", { name: "Clear all" }));
-  expect(screen.queryByRole("region", { name: "Active filters" })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Boulder" })).toHaveAttribute("aria-pressed", "false");
-  await user.type(screen.getByRole("searchbox", { name: "Search Betabook" }), "Test");
+  await user.click(
+    within(screen.getByRole("radiogroup", { name: "Min rating" })).getByRole("radio", {
+      name: "4 stars",
+    }),
+  );
   await waitFor(() => {
     const params = new URL(climbRequests().at(-1) ?? "", "https://betabook.test").searchParams;
-    expect(params.get("name")).toBe("Test");
-    expect(params.getAll("discipline")).toEqual([]);
-    expect(params.getAll("boulderRange")).toEqual([]);
+    expect(params.getAll("ratingRange")).toEqual(["4", "5"]);
   });
-  expect(transport.mock.calls.some(([url]) => requestUrl(url).includes("ratingRange"))).toBe(false);
+
+  // A signed-out payload still carries no viewer state, so no row is marked sent.
+  expect(screen.queryByText("Sent")).not.toBeInTheDocument();
 });
 
-it("carries the member ordering into the palette's sign-in link, which offers no sort", async () => {
+it("keeps the palette's sign-in link pointed at the current search", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn<typeof fetch>(async () =>
@@ -186,8 +182,6 @@ it("carries the member ordering into the palette's sign-in link, which offers no
   const user = userEvent.setup();
   render(<Search quick />);
   const callout = screen.getByRole("region", { name: "Member content" });
-  // The dialog shows neither filters nor a sort control, so the search it
-  // hands back at sign-in keeps the member default rather than name order.
   expect(screen.queryByRole("button", { name: "Expand filters" })).not.toBeInTheDocument();
   const signIn = within(callout).getByRole("link", { name: "Sign in" });
   const href = (query: string) =>

@@ -1,14 +1,18 @@
 "use client";
 
-import { AppLink } from "@/components/ui/app-link";
-import { DisciplineChip } from "@/components/ui/discipline-chip";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Grade } from "@/components/ui/grade";
-import { LoadMoreButton } from "@/components/ui/load-more-button";
+import { ClimbList } from "@/components/climb-list";
 import { usePagedList } from "@/hooks/use-paged-list";
-import { formatGrade } from "@/lib/grades";
-import type { PublicClimbsPage } from "@/lib/public-catalog";
-import { climbHref } from "@/lib/slug";
+import type { PublicClimb, PublicClimbsPage } from "@/lib/public-catalog";
+
+/** Suggested grade stays behind a session; the other two aggregates do not. */
+function publicSendStats(climbs: PublicClimb[]) {
+  return Object.fromEntries(
+    climbs.map((climb) => [
+      climb.id,
+      { avgRating: climb.avgRating, sendCount: climb.sendCount, avgSuggestedGrade: null },
+    ]),
+  );
+}
 
 export function PublicClimbList({
   initial,
@@ -35,41 +39,17 @@ export function PublicClimbList({
     },
   });
   return (
-    <div className="flex flex-col gap-3">
-      {list.items.length ? (
-        <ul className="divide-y divide-separator">
-          {list.items.map((climb) => (
-            <li key={climb.id}>
-              <AppLink
-                href={climbHref(climb.id, climb.name)}
-                className="flex w-full flex-col items-start gap-1 px-3 py-3 text-foreground no-underline hover:bg-surface-secondary"
-              >
-                <span className="flex w-full items-start justify-between gap-3">
-                  <span className="min-w-0 break-words">{climb.name}</span>
-                  <span className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
-                    <Grade>{formatGrade(climb.type, climb.grade)}</Grade>
-                    <DisciplineChip type={climb.type} />
-                  </span>
-                </span>
-                <span className="text-xs text-muted">
-                  {[...(list.meta[climb.areaId] ?? []).map((a) => a.name), climb.areaName].join(
-                    " / ",
-                  )}
-                </span>
-              </AppLink>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <EmptyState message="No climbs match in this area." />
-      )}
-      {list.hasMore && (
-        <LoadMoreButton
-          onPress={list.loadMore}
-          loading={list.loadingMore}
-          failed={list.loadMoreFailed}
-        />
-      )}
-    </div>
+    <ClimbList
+      climbs={list.items}
+      emptyMessage="No climbs match in this area."
+      sendStats={publicSendStats(list.items)}
+      areaBreadcrumbs={list.meta}
+      pagination={{
+        hasNextPage: list.hasMore,
+        loadingMore: list.loadingMore,
+        onLoadMore: list.loadMore,
+        failed: list.loadMoreFailed,
+      }}
+    />
   );
 }

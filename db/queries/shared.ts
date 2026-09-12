@@ -37,9 +37,7 @@ export function disciplineGradeCondition(
   return sql`(climbs.type = ${type} AND climbs.grade BETWEEN ${min} AND ${max})`;
 }
 
-/** One OR-able clause per checked discipline. Shared by the member climb
- * search and the public catalog: both narrow on `type` and `grade`, which the
- * public projection already returns. */
+/** One OR-able clause per checked discipline. */
 export function disciplineGradeConditions(filter: DisciplineGradeFilter): SQL[] {
   const clauses: SQL[] = [];
   if (filter.disciplines.includes("boulder") && filter.boulderRange) {

@@ -436,8 +436,13 @@ export type ClimbWithAreaName = Pick<Climb, "id" | "areaId" | "name" | "type" | 
 
 export const SEARCH_PAGE_SIZE = 25;
 
+/** The ORDER BY every climb list shares, tie-breaks and id stabilizer included. */
+export function climbListOrderBy(sort: SubtreeClimbsSort = "ascents_desc"): SQL {
+  return sql`${SUBTREE_CLIMBS_ORDER_BY[sort]}, ${sortTieBreak(sort)}, climbs.id`;
+}
+
 /** A null result means no matchable FTS tokens; an empty array means no filters. */
-function searchClimbsConditions(params: SearchClimbsParams): SQL[] | null {
+export function searchClimbsConditions(params: SearchClimbsParams): SQL[] | null {
   const conditions: SQL[] = [];
 
   if (params.name) {
@@ -491,7 +496,7 @@ export async function searchClimbs(
     FROM climbs
     JOIN areas ON areas.id = climbs.area_id
     ${searchClimbsWhereClause(conditions)}
-    ORDER BY ${SUBTREE_CLIMBS_ORDER_BY[params.sort ?? "ascents_desc"]}, ${sortTieBreak(params.sort ?? "ascents_desc")}, climbs.id
+    ORDER BY ${climbListOrderBy(params.sort)}
     LIMIT ${pageSize + 1}
     OFFSET ${offset}
   `);

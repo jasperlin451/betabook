@@ -8,10 +8,8 @@ import {
   parseClimbFilter,
 } from "@/lib/filters/climb-filter";
 import type { ClimbFilterState } from "@/lib/filters/climb-filter-state";
-import { DEFAULT_MIN_ASCENTS, DEFAULT_RATING_RANGE } from "@/lib/filters/climb-stats-filter";
-import { appendDisciplineFilterParams } from "@/lib/filters/discipline-filter";
 import type { ClimbType } from "@/lib/grades";
-import { parsePublicCatalogSort, type PublicClimbsPage } from "@/lib/public-catalog";
+import type { PublicClimbsPage } from "@/lib/public-catalog";
 import { areaHref, climbHref } from "@/lib/slug";
 import { toArray, type UrlParamsRecord } from "@/lib/url-params";
 
@@ -86,37 +84,17 @@ export function parseSearchState(
   };
 }
 
-/** The signed-out catalog answers and orders on name, area, discipline and
- * grade. Rating and ascent count are member aggregates, so a URL carrying
- * them would otherwise raise a filter chip and a sort field the results never
- * honor. Narrowing the state — rather than only the request — keeps the
- * controls, the URL the controls write, and the results describing one search. */
-export function publicSearchState(state: SearchState): SearchState {
-  return {
-    ...state,
-    sort: parsePublicCatalogSort(state.sort),
-    filter: {
-      ...state.filter,
-      ratingRange: DEFAULT_RATING_RANGE,
-      minAscents: DEFAULT_MIN_ASCENTS,
-    },
-  };
-}
-
-/** The public endpoints' own parameter spelling. The server's first page and
- * every later "load more" build it here so they cannot narrow differently.
- * Areas carry no discipline or grade, so neither those filters nor a grade
- * ordering reach anything but the climb list. */
+/** The public endpoints' spelling of a search. An area list has no climb
+ * columns, so only the name scope and a name ordering reach it. */
 export function publicSearchParams(state: SearchState, kind: SearchKind): URLSearchParams {
-  const { query, sort, filter } = publicSearchState(state);
-  const climbs = kind === "climb";
+  if (kind !== "area")
+    return climbFilterToSearchParams(state.sort, { ...state.filter, name: state.query });
   const params = new URLSearchParams({
-    name: query,
-    sort: climbs || sort === "name_desc" ? sort : "name_asc",
+    name: state.query,
+    sort: state.sort === "name_desc" ? "name_desc" : "name_asc",
   });
-  if (filter.areaId !== undefined) params.set("areaId", String(filter.areaId));
-  if (filter.areaName) params.set("areaName", filter.areaName);
-  if (climbs) appendDisciplineFilterParams(params, filter);
+  if (state.filter.areaId !== undefined) params.set("areaId", String(state.filter.areaId));
+  if (state.filter.areaName) params.set("areaName", state.filter.areaName);
   return params;
 }
 
@@ -130,27 +108,36 @@ export function searchHref(state: SearchState): string {
   return `/?${params}`;
 }
 
+/** The row every climb result shares. A signed-out page stops here; a member
+ * page adds the record and the viewer's own send state on top. */
+function climbSearchItem(
+  climb: Pick<ClimbWithAreaName, "id" | "name" | "areaName" | "type" | "grade">,
+  ancestors: { id: number; name: string }[],
+  stats: { avgRating: number | null; sendCount: number },
+): AppSearchResult {
+  return {
+    id: `climb-${climb.id}`,
+    kind: "climb",
+    name: climb.name,
+    detail: [...ancestors.map((area) => area.name), climb.areaName].join(" / "),
+    discipline: climb.type,
+    grade: climb.grade,
+    stats,
+    href: climbHref(climb.id, climb.name),
+  };
+}
+
 export function climbSearchItems(page: ClimbListPage): AppSearchResult[] {
   return page.climbs.map((climb) => {
     const ancestors = page.areaBreadcrumbs[climb.areaId] ?? [];
+    const sendCount = page.sendStats[climb.id]?.sendCount ?? 0;
     return {
-      id: `climb-${climb.id}`,
-      kind: "climb",
-      name: climb.name,
-      detail: [...ancestors.map((a) => a.name), climb.areaName].join(" / "),
-      discipline: climb.type,
-      grade: climb.grade,
-      stats: {
+      ...climbSearchItem(climb, ancestors, {
         avgRating: page.sendStats[climb.id]?.avgRating ?? null,
-        sendCount: page.sendStats[climb.id]?.sendCount ?? 0,
-      },
-      href: climbHref(climb.id, climb.name),
+        sendCount,
+      }),
       climb,
-      context: {
-        ancestors,
-        sendCount: page.sendStats[climb.id]?.sendCount ?? 0,
-        sent: page.sentClimbIds?.includes(climb.id) ?? false,
-      },
+      context: { ancestors, sendCount, sent: page.sentClimbIds?.includes(climb.id) ?? false },
     };
   });
 }
@@ -178,16 +165,10 @@ export function climberSearchItems(climbers: ClimberRow[]): AppSearchResult[] {
 }
 
 export function publicClimbSearchItems(page: PublicClimbsPage): AppSearchResult[] {
-  return page.climbs.map((climb) => ({
-    id: `climb-${climb.id}`,
-    kind: "climb",
-    name: climb.name,
-    grade: climb.grade,
-    discipline: climb.type,
-    detail: [
-      ...(page.areaBreadcrumbs[climb.areaId] ?? []).map((area) => area.name),
-      climb.areaName,
-    ].join(" / "),
-    href: climbHref(climb.id, climb.name),
-  }));
+  return page.climbs.map((climb) =>
+    climbSearchItem(climb, page.areaBreadcrumbs[climb.areaId] ?? [], {
+      avgRating: climb.avgRating,
+      sendCount: climb.sendCount,
+    }),
+  );
 }

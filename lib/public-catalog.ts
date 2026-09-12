@@ -1,4 +1,7 @@
 import type { AreaBreadcrumbs } from "@/db/queries/areas";
+import type { SubtreeClimbsSort } from "@/db/queries/climbs";
+import { parseClimbListSort } from "@/lib/climb-list-sort";
+import { parseRatingRange } from "@/lib/filters/climb-stats-filter";
 import {
   parseDisciplineFilter,
   toDisciplineGradeFilter,
@@ -25,25 +28,26 @@ export type PublicClimb = {
   type: ClimbType;
   grade: number | null;
   description: string | null;
+  /** Whole-catalog aggregates over logged sends. They name no one, so they
+   * are readable without a session; the sends behind them are not. */
+  avgRating: number | null;
+  sendCount: number;
 };
 export type PublicClimbsPage = {
   climbs: PublicClimb[];
   areaBreadcrumbs: AreaBreadcrumbs;
   hasNextPage: boolean;
 };
-/** Ordering a signed-out reader may ask for. An area list has only its name;
- * a climb list may also order on grade, which the public projection already
- * returns. Rating and ascent count stay out: they are member aggregates, and
- * ordering on them would leak through the row order even unlabelled. */
+/** A climb list orders on every field the member list does; an area list has only its name. */
 const PUBLIC_AREA_SORTS = ["name_asc", "name_desc"] as const;
-const PUBLIC_CLIMB_SORTS = [...PUBLIC_AREA_SORTS, "grade_asc", "grade_desc"] as const;
-export type PublicCatalogSort = (typeof PUBLIC_CLIMB_SORTS)[number];
 
 export type PublicCatalogOptions = DisciplineGradeFilter & {
   name: string;
   areaId?: number;
   areaName?: string;
-  sort: PublicCatalogSort;
+  sort: SubtreeClimbsSort;
+  ratingRange: [number, number];
+  minAscents: number;
   offset: number | null;
   pageSize: number;
 };
@@ -59,31 +63,33 @@ const PUBLIC_PARAMS = new Set([
   "sort",
 ]);
 
-/** Climb lists also narrow on discipline and grade — the two climb facts the
- * public projection already returns, so filtering on them discloses nothing a
- * reader could not read off the rows. An area list has neither column, so the
- * same params there would be dropped in silence and stay protected. */
-const PUBLIC_CLIMB_PARAMS = new Set(["discipline", "boulderRange", "sportRange", "tradRange"]);
+/** Narrowing on a climb fact the projection already returns discloses nothing
+ * new. An area list has none of these columns, so the same params there would
+ * be dropped in silence and stay protected. */
+const PUBLIC_CLIMB_PARAMS = new Set([
+  "discipline",
+  "boulderRange",
+  "sportRange",
+  "tradRange",
+  "ratingRange",
+  "minAscents",
+]);
 
 export function hasProtectedCatalogParams(
   params: URLSearchParams,
   { climbFilters = false }: { climbFilters?: boolean } = {},
 ): boolean {
-  const sorts: readonly string[] = climbFilters ? PUBLIC_CLIMB_SORTS : PUBLIC_AREA_SORTS;
+  const sort = params.get("sort");
   return (
     [...params.keys()].some(
       (key) => !PUBLIC_PARAMS.has(key) && !(climbFilters && PUBLIC_CLIMB_PARAMS.has(key)),
     ) ||
-    (params.has("sort") && !sorts.includes(params.get("sort") ?? ""))
+    // A climb list accepts any climb-list ordering; an area list only its name.
+    (sort !== null &&
+      (climbFilters
+        ? parseClimbListSort({ sort }) !== sort
+        : !(PUBLIC_AREA_SORTS as readonly string[]).includes(sort)))
   );
-}
-
-/** Junk and member-only orderings both read as the default rather than
- * silently ordering some other way. */
-export function parsePublicCatalogSort(value: string | null): PublicCatalogSort {
-  return (PUBLIC_CLIMB_SORTS as readonly string[]).includes(value ?? "")
-    ? (value as PublicCatalogSort)
-    : "name_asc";
 }
 
 export function publicCatalogOptions(params: URLSearchParams): PublicCatalogOptions {
@@ -94,7 +100,9 @@ export function publicCatalogOptions(params: URLSearchParams): PublicCatalogOpti
     name: params.get("name") ?? "",
     areaId: parseAreaId(params.get("areaId") ?? undefined),
     areaName: params.get("areaName") ?? undefined,
-    sort: parsePublicCatalogSort(params.get("sort")),
+    sort: parseClimbListSort({ sort: params.get("sort") ?? undefined }),
+    ratingRange: parseRatingRange(params.getAll("ratingRange")),
+    minAscents: Math.max(0, Math.trunc(Number(params.get("minAscents"))) || 0),
     offset: params.has("offset")
       ? parseOffset(params)
       : page === null
