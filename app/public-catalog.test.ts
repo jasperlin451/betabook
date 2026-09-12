@@ -1,4 +1,5 @@
 import { env } from "cloudflare:test";
+import { eq } from "drizzle-orm";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { GET as areaClimbs } from "@/app/api/public/areas/[id]/climbs/route";
@@ -176,12 +177,44 @@ it.each(["discipline=boulder", "boulderRange=4&boulderRange=6"])(
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   },
 );
+it("orders public climbs by grade, keeping ties and ungraded routes off member aggregates", async () => {
+  await db.insert(climbs).values({ id: 20, areaId: 4, name: "Test Unknown", type: "boulder" });
+  // A high rating and ascent count on the easiest route: if either reached the
+  // ordering, this row would not stay first ascending.
+  await db
+    .update(climbs)
+    .set({ sendCount: 99, ratingSum: 50, ratingCount: 10 })
+    .where(eq(climbs.id, 2));
+  const read = async (query: string) =>
+    ((await (await climbSearch(request(query))).json()) as PublicClimbsPage).climbs.map(
+      (row) => row.name,
+    );
+  expect(await read("sort=grade_asc")).toEqual([
+    "Test Slab",
+    "Test Highball",
+    "Test Crack",
+    "Test Crimper",
+    "Test Unknown",
+  ]);
+  expect(await read("sort=grade_desc")).toEqual([
+    "Test Crimper",
+    "Test Crack",
+    "Test Highball",
+    "Test Slab",
+    "Test Unknown",
+  ]);
+});
+it.each(["sort=grade_asc", "sort=grade_desc"])(
+  "keeps climb ordering %s off the area list, which has no grade to order on",
+  async (query) => {
+    expect((await areaSearch(request(query))).status).toBe(401);
+  },
+);
 it.each([
   "type=trad",
   "grade=9",
   "ratingRange=5",
   "minAscents=10",
-  "sort=grade_asc",
   "sort=rating_desc",
   "sort=ascents_desc",
   "count=1",

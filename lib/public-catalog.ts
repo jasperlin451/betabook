@@ -31,11 +31,19 @@ export type PublicClimbsPage = {
   areaBreadcrumbs: AreaBreadcrumbs;
   hasNextPage: boolean;
 };
+/** Ordering a signed-out reader may ask for. An area list has only its name;
+ * a climb list may also order on grade, which the public projection already
+ * returns. Rating and ascent count stay out: they are member aggregates, and
+ * ordering on them would leak through the row order even unlabelled. */
+const PUBLIC_AREA_SORTS = ["name_asc", "name_desc"] as const;
+const PUBLIC_CLIMB_SORTS = [...PUBLIC_AREA_SORTS, "grade_asc", "grade_desc"] as const;
+export type PublicCatalogSort = (typeof PUBLIC_CLIMB_SORTS)[number];
+
 export type PublicCatalogOptions = DisciplineGradeFilter & {
   name: string;
   areaId?: number;
   areaName?: string;
-  descending: boolean;
+  sort: PublicCatalogSort;
   offset: number | null;
   pageSize: number;
 };
@@ -61,12 +69,21 @@ export function hasProtectedCatalogParams(
   params: URLSearchParams,
   { climbFilters = false }: { climbFilters?: boolean } = {},
 ): boolean {
+  const sorts: readonly string[] = climbFilters ? PUBLIC_CLIMB_SORTS : PUBLIC_AREA_SORTS;
   return (
     [...params.keys()].some(
       (key) => !PUBLIC_PARAMS.has(key) && !(climbFilters && PUBLIC_CLIMB_PARAMS.has(key)),
     ) ||
-    (params.has("sort") && !["name_asc", "name_desc"].includes(params.get("sort") ?? ""))
+    (params.has("sort") && !sorts.includes(params.get("sort") ?? ""))
   );
+}
+
+/** Junk and member-only orderings both read as the default rather than
+ * silently ordering some other way. */
+export function parsePublicCatalogSort(value: string | null): PublicCatalogSort {
+  return (PUBLIC_CLIMB_SORTS as readonly string[]).includes(value ?? "")
+    ? (value as PublicCatalogSort)
+    : "name_asc";
 }
 
 export function publicCatalogOptions(params: URLSearchParams): PublicCatalogOptions {
@@ -77,7 +94,7 @@ export function publicCatalogOptions(params: URLSearchParams): PublicCatalogOpti
     name: params.get("name") ?? "",
     areaId: parseAreaId(params.get("areaId") ?? undefined),
     areaName: params.get("areaName") ?? undefined,
-    descending: params.get("sort") === "name_desc",
+    sort: parsePublicCatalogSort(params.get("sort")),
     offset: params.has("offset")
       ? parseOffset(params)
       : page === null

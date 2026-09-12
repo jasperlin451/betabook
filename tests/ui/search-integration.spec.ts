@@ -9,10 +9,12 @@ test(
     await page.goto(`${appBaseURL}/?mode=climb&areaName=Cedar`);
     const scope = page.getByRole("button", { name: "Clear area name Cedar" });
     await expect(scope).toBeVisible();
-    // Signed out, name order is the only ordering the public catalog offers.
-    await page.getByRole("button", { name: /Sort results/ }).click();
-    await page.getByRole("option", { name: "Name Z–A" }).click();
-    await expect(page).toHaveURL(/sort=name_desc/);
+    // Signed out, the shared sort control offers the two fields the public
+    // catalog can order on; grade opens hardest-first.
+    await page.getByRole("button", { name: /Sort by/ }).click();
+    await expect(page.getByRole("option")).toHaveText(["Name", "Grade"]);
+    await page.getByRole("option", { name: "Grade" }).click();
+    await expect(page).toHaveURL(/sort=grade_desc/);
     await expect(page).toHaveURL(/areaName=Cedar/);
     await expect(scope).toBeVisible();
     await scope.click();

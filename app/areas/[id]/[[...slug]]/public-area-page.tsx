@@ -52,7 +52,7 @@ export async function PublicAreaPage({
         key={`toolbar:${params}`}
         path={path}
         name={options.name}
-        descending={options.descending}
+        descending={options.sort === "name_desc"}
         subarea={subarea}
       />
       <PublicClimbList

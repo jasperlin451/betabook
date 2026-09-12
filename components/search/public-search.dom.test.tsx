@@ -134,10 +134,20 @@ it("narrows signed-out climb results by discipline and grade, without member ref
   await user.click(screen.getByRole("button", { name: "Climbs" }));
   await user.click(await screen.findByRole("button", { name: "Expand filters" }));
 
-  // Rating and ascent count are member aggregates: no fields, and name order only.
+  // Rating and ascent count are member aggregates: no fields, and no sort
+  // field either — but the same sort control the member half uses.
   expect(screen.queryByRole("group", { name: "Rating range" })).not.toBeInTheDocument();
   expect(screen.queryByRole("spinbutton", { name: "Min ascents" })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Sort results/ })).toHaveTextContent("Name A–Z");
+  await user.click(screen.getByRole("button", { name: /Sort by/ }));
+  expect(screen.getAllByRole("option").map((option) => option.textContent)).toEqual([
+    "Name",
+    "Grade",
+  ]);
+  await user.click(screen.getByRole("option", { name: "Grade" }));
+  // Grade opens hardest-first, as it does for a member.
+  await waitFor(() => expect(climbRequests().at(-1)).toContain("sort=grade_desc"));
+  await user.click(screen.getByRole("button", { name: "Sort descending" }));
+  await waitFor(() => expect(climbRequests().at(-1)).toContain("sort=grade_asc"));
 
   await user.click(screen.getByRole("button", { name: "Boulder", pressed: false }));
   await waitFor(() => expect(climbRequests().at(-1)).toContain("discipline=boulder"));

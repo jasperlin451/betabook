@@ -4,6 +4,7 @@ import type { Database } from "@/db/client";
 import { areas, climbs } from "@/db/schema";
 import {
   publicHasNextPage,
+  type PublicCatalogSort,
   type PublicArea,
   type PublicAreaDetails,
   type PublicAreaResult,
@@ -88,7 +89,7 @@ export async function searchPublicAreas(
     SELECT areas.id, areas.name, areas.parent_id AS parentId, areas.description FROM areas
     WHERE areas.id IN (SELECT rowid FROM areas_fts WHERE areas_fts MATCH ${query})
     ${scope ? sql`AND ${scope}` : sql``}
-    ORDER BY areas.name ${options.descending ? sql`DESC` : sql`ASC`}, areas.id
+    ORDER BY areas.name ${options.sort === "name_desc" ? sql`DESC` : sql`ASC`}, areas.id
     LIMIT ${options.pageSize + 1} OFFSET ${options.offset}
   `);
   const visible = rows.slice(0, options.pageSize);
@@ -106,9 +107,20 @@ export async function searchPublicAreas(
   };
 }
 
-/** Membership narrows on names, hierarchy, and the discipline and grade the
- * public projection returns — never on ratings or ascent counts, which are
- * member aggregates. Ordering stays on name alone. */
+/** Order on the two columns the public projection returns. Ties break on name
+ * and id only: bringing avg_rating or send_count into the tie-break, as the
+ * member list does, would let member aggregates shape a public row order. */
+const PUBLIC_CLIMBS_ORDER_BY: Record<PublicCatalogSort, SQL> = {
+  name_asc: sql`climbs.name ASC`,
+  name_desc: sql`climbs.name DESC`,
+  // Ungraded routes sort last either way, matching the member list.
+  grade_asc: sql`(climbs.grade IS NULL), climbs.grade ASC, climbs.name ASC`,
+  grade_desc: sql`climbs.grade DESC, climbs.name ASC`,
+};
+
+/** Membership and ordering use names, hierarchy, discipline and grade — the
+ * facts the public projection already returns — never ratings or ascent
+ * counts, which are member aggregates. */
 export async function searchPublicClimbs(
   db: Database,
   options: PublicCatalogOptions,
@@ -135,7 +147,7 @@ export async function searchPublicClimbs(
       climbs.type, climbs.grade, climbs.description
     FROM climbs JOIN areas ON areas.id = climbs.area_id
     ${conditions.length ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``}
-    ORDER BY climbs.name ${options.descending ? sql`DESC` : sql`ASC`}, climbs.id
+    ORDER BY ${PUBLIC_CLIMBS_ORDER_BY[options.sort]}, climbs.id
     LIMIT ${options.pageSize + 1} OFFSET ${options.offset}
   `);
   const visible = rows.slice(0, options.pageSize);
