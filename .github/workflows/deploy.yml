@@ -86,7 +86,7 @@ jobs:
       # Playwright pins the browser build to its own version, so the lockfile is
       # the cache key. Without this every job re-downloads Chromium.
       - name: Cache Playwright browser
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
