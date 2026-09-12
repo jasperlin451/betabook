@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { beforeEach, expect, it } from "vitest";
 
 import { createDb } from "@/db/client";
@@ -102,6 +102,32 @@ it("returns connected public climber/day groups, deduplicates ascents, and bound
   expect(JSON.stringify(page)).not.toContain("Undated");
 });
 
+it("carries each climber's own grade and feel for the same climb", async () => {
+  await db
+    .update(sends)
+    .set({ suggestedGrade: 7, gradeFeel: "high" })
+    .where(and(eq(sends.userId, "public"), eq(sends.climbId, 1)));
+  await db
+    .update(sends)
+    .set({ suggestedGrade: 3, gradeFeel: "low" })
+    .where(and(eq(sends.userId, "quiet"), eq(sends.climbId, 1)));
+
+  const [quiet, shared] = (await getFeedPage(db, "viewer")).days;
+  expect(quiet.activities).toMatchObject([
+    { kind: "send", climbId: 1, climbGrade: 5, reportedGrade: 3, gradeFeel: "low" },
+  ]);
+  expect(shared.activities).toMatchObject([
+    { kind: "send", climbId: 1, climbGrade: 5, reportedGrade: 7, gradeFeel: "high" },
+    { kind: "repeat", climbId: 1, reportedGrade: 7, gradeFeel: "high" },
+    { kind: "session", climbId: 2, reportedGrade: null, gradeFeel: "solid" },
+  ]);
+
+  await seedFixtureJournalEntry(db, { userId: "public", climbId: 3, entryDate: "2026-09-02" });
+  expect((await getFeedPage(db, "viewer")).days[0].activities).toMatchObject([
+    { kind: "session", climbId: 3, climbGrade: 10, reportedGrade: null, gradeFeel: null },
+  ]);
+});
+
 it.each(["all", "sends"] as const)(
   "returns the nearest two area ancestors in %s previews with indexed lookups",
   async (view) => {
@@ -144,6 +170,7 @@ it.each(["all", "sends"] as const)(
     const plans = await explainQueries(db, () => getFeedPage(db, "viewer", view));
     expect(plans).toHaveLength(1);
     const details = plans[0].map((row) => row.detail).join("\n");
+    expect(details).toMatch(/SEARCH reported USING INDEX sends_user_climb_unique/);
     expect(details).toMatch(/SEARCH area_parent USING INTEGER PRIMARY KEY/);
     expect(details).toMatch(/SEARCH area_grandparent USING INTEGER PRIMARY KEY/);
   },

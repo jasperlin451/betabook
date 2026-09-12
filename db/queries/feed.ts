@@ -4,7 +4,7 @@ import type { Database } from "@/db/client";
 import type { FeedCursor, FeedView } from "@/lib/feed";
 import type { ClimbType } from "@/lib/grades";
 import type { JournalCompanion } from "@/lib/journal-companions";
-import type { AscentStyle } from "@/lib/sends";
+import type { AscentStyle, GradeFeel } from "@/lib/sends";
 
 import { journalVisibleSql, sendCommentVisibleSql } from "./content-access";
 import { companionsJsonSql } from "./journal-companions";
@@ -16,6 +16,10 @@ type FeedActivity = {
   climbName: string | null;
   climbType: ClimbType | null;
   climbGrade: number | null;
+  /** Null where the climber has no send for the climb, or imported one without
+   * a grade. */
+  reportedGrade: number | null;
+  gradeFeel: GradeFeel | null;
   areaId: number | null;
   areaName: string | null;
   areaAncestors?: { id: number; name: string }[];
@@ -105,12 +109,14 @@ export async function getFeedPage(
       ${view === "all" ? sql`CASE WHEN u.journalVisible THEN ${companionsJsonSql(viewerId, companionEntryId)} ELSE '[]' END` : sql`'[]'`} AS companions,
       CASE WHEN length(p.body) > 240 THEN substr(p.body, 1, 240) || '…' ELSE p.body END AS body,
       c.name AS climbName, c.type AS climbType, c.grade AS climbGrade,
+      reported.suggested_grade AS reportedGrade, reported.grade_feel AS gradeFeel,
       a.id AS areaId, a.name AS areaName,
       area_parent.id AS parentAreaId, area_parent.name AS parentAreaName,
       area_grandparent.id AS grandparentAreaId, area_grandparent.name AS grandparentAreaName
     FROM days d JOIN authors u ON u.id = d.userId
     JOIN previews p ON p.date = d.date AND p.userId = d.userId AND p.position <= 3
     LEFT JOIN climbs c ON c.id = p.climbId LEFT JOIN areas a ON a.id = c.area_id
+    LEFT JOIN sends reported ON reported.user_id = p.userId AND reported.climb_id = p.climbId
     LEFT JOIN areas area_parent ON area_parent.id = a.parent_id
     LEFT JOIN areas area_grandparent ON area_grandparent.id = area_parent.parent_id
     ORDER BY d.date DESC, d.userId DESC, p.position
