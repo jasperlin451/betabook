@@ -62,7 +62,6 @@ it.each<{ view: FeedView; visible: boolean; section: string }>([
     );
     expect(within(card).getByText("Found the sequence.")).toBeInTheDocument();
     expect(within(card).getByText("Flash", { exact: true })).toBeInTheDocument();
-    // V6 is this climber's call, V4 the posted grade.
     expect(within(card).getByText("V6")).toBeInTheDocument();
     expect(within(card).queryByText("V4")).not.toBeInTheDocument();
     if (view === "sends") expect(screen.queryByText("Sam Rivera")).not.toBeInTheDocument();

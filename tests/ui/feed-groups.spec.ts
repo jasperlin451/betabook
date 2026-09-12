@@ -37,8 +37,7 @@ test(
     await openStory(page, testInfo, `components-journal-feed-group-card--disagreeing-grades`);
     const card = page.getByRole("article");
     await expect(card.getByText("V5", { exact: true })).toBeVisible();
-    // Twice: the climb heading, and the one climber who agrees with it.
-    await expect(card.getByText("V4", { exact: true })).toHaveCount(2);
+    await expect(card.getByText("V4", { exact: true })).toHaveCount(1);
     await expect(card.getByLabel("Felt hard for the grade")).toBeVisible();
     await card.getByText("See all activity (1 more)", { exact: true }).click();
     await expect(card.getByText("V3", { exact: true })).toBeVisible();

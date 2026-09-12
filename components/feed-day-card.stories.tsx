@@ -29,7 +29,6 @@ const day: FeedDay = {
       id: 1,
       kind: "send",
       ...feedStoryClimbs[0],
-      // Cedar Arete is posted V4; Alex called it V5, hard.
       reportedGrade: 6,
       gradeFeel: "high",
       ascentStyle: "flash",
@@ -76,7 +75,6 @@ const sendActivities: FeedDay["activities"] = feedStoryClimbs.map((climb, index)
   ...climb,
   id: index + 1,
   ascentStyle: index === 0 ? "flash" : "redpoint",
-  // The last climb keeps the muted posted-grade fallback in view.
   reportedGrade: index === 2 ? null : climb.climbGrade + 1,
   gradeFeel: index === 0 ? "high" : "solid",
   body: index === 0 ? day.activities[0].body : null,

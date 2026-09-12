@@ -25,7 +25,6 @@ const base: FeedDay = {
   training: 0,
   activities: [],
 };
-// Cedar Arete is posted V4, the heading row's grade.
 const activity: FeedDay["activities"][number] = {
   id: 1,
   kind: "session",
@@ -67,7 +66,7 @@ export const SharedClimb: Story = {
   render: () => (
     <StoryPage
       title="Shared climb in the feed"
-      description="Both friends tagged each other. Alex redpointed and called it V5, hard for the grade. Jordan's session shows the posted V4 greyed out, because Jordan has never reported a grade here."
+      description="Both friends tagged each other. Alex redpointed and called it V5, hard for the grade. Jordan's session falls back to the climb's posted V4, greyed out, because Jordan has never reported a grade here."
     >
       <FeedGroupCard group={group} />
     </StoryPage>
@@ -84,7 +83,7 @@ export const DisagreeingGrades: Story = {
   render: () => (
     <StoryPage
       title="One climb, three opinions"
-      description="Each row keeps the grade its own climber reported, with the arrow showing how it felt against the posted V4."
+      description="Each row keeps the grade its own climber reported, with the arrow showing how the climb felt to them."
     >
       <FeedGroupCard
         group={{
@@ -158,7 +157,6 @@ export const LargeGroup: Story = {
               id: index + 1,
               kind: index % 3 === 0 ? "send" : index % 3 === 1 ? "repeat" : "session",
               ascentStyle: index % 3 === 0 ? "flash" : null,
-              // V3-V5 spread: the column has to stay readable when no two agree.
               reportedGrade: 4 + (index % 3),
               gradeFeel: index % 3 === 0 ? "high" : "solid",
               body: `Notes from climber ${index + 1}.`,

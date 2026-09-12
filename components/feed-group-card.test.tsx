@@ -14,7 +14,6 @@ vi.mock("next/link", () => ({
     </a>
   ),
 }));
-// Quiet Arete is posted V4; Alex calls it V6 and hard.
 const activity: FeedDay["activities"][number] = {
   id: 1,
   kind: "session",
@@ -87,7 +86,7 @@ it("shows the climb once and preserves both authors' statuses, notes, and author
   expect(html).toContain("Session");
   expect(html).not.toContain(">Sent<");
   expect(html).toContain("Flash");
-  expect(html.match(/V4/g)).toHaveLength(1);
+  expect(html).not.toContain("V4");
   expect(html).toContain("V6");
   expect(html).toContain("V2");
   expect(html).toContain("Felt hard for the grade");
@@ -97,7 +96,7 @@ it("stands in the posted grade only for the climber who reported none", () => {
   const html = renderToStaticMarkup(
     <FeedGroupCard group={sharedClimbGroup({ reportedGrade: null, gradeFeel: null })} />,
   );
-  expect(html.match(/V4/g)).toHaveLength(2);
+  expect(html.match(/V4/g)).toHaveLength(1);
   expect(html).toContain("V6");
   expect(html.match(/Posted grade, none reported/g)).toHaveLength(1);
   expect(html).not.toContain("Felt soft for the grade");

@@ -16,9 +16,8 @@ type FeedActivity = {
   climbName: string | null;
   climbType: ClimbType | null;
   climbGrade: number | null;
-  /** This climber's own grade for the climb, from their send of it. Null where
-   * they have no send (a session on an unsent climb) or imported one without a
-   * grade, which is when a row falls back to climbGrade. */
+  /** Null where the climber has no send for the climb, or imported one without
+   * a grade. */
   reportedGrade: number | null;
   gradeFeel: GradeFeel | null;
   areaId: number | null;

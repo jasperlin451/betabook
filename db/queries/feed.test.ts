@@ -118,7 +118,6 @@ it("carries each climber's own grade and feel for the same climb", async () => {
   ]);
   expect(shared.activities).toMatchObject([
     { kind: "send", climbId: 1, climbGrade: 5, reportedGrade: 7, gradeFeel: "high" },
-    // A repeat reads the same climber's send, and an undated send still counts.
     { kind: "repeat", climbId: 1, reportedGrade: 7, gradeFeel: "high" },
     { kind: "session", climbId: 2, reportedGrade: null, gradeFeel: "solid" },
   ]);

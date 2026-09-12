@@ -1,10 +1,8 @@
 import { expect, test, openStory } from "./story";
 
-// Cedar Arete is posted V4. The day card leads with the climber's own V5; the
-// group card's first grade is the heading row's posted one.
-for (const { story, grade: gradeText } of [
-  { story: "feed-day-card--activity-feed", grade: "V5" },
-  { story: "feed-group-card--shared-climb", grade: "V4" },
+for (const { story, gradeSharesClimbRow } of [
+  { story: "feed-day-card--activity-feed", gradeSharesClimbRow: true },
+  { story: "feed-group-card--shared-climb", gradeSharesClimbRow: false },
 ]) {
   test(
     `${story} uses the app's climb, area, and grade layout`,
@@ -19,7 +17,7 @@ for (const { story, grade: gradeText } of [
       const parent = page
         .getByRole("link", { name: "North Woods", exact: true, includeHidden: true })
         .first();
-      const grade = page.getByText(gradeText, { exact: true }).first();
+      const grade = page.getByText("V5", { exact: true }).first();
       await expect(climb).toHaveCSS("font-size", "16px");
       await expect(area).toHaveCSS("font-size", "12px");
       await expect(climb).toHaveAttribute("href", "/climbs/1/cedar-arete");
@@ -38,7 +36,8 @@ for (const { story, grade: gradeText } of [
       const gradeBox = await grade.boundingBox();
       if (!climbBox || !areaBox || !gradeBox) throw new Error("Missing climb metadata");
       expect(areaBox.y).toBeGreaterThanOrEqual(climbBox.y + climbBox.height - 1);
-      expect(gradeBox.x).toBeGreaterThan(climbBox.x + climbBox.width);
+      if (gradeSharesClimbRow) expect(gradeBox.x).toBeGreaterThan(climbBox.x + climbBox.width);
+      else expect(gradeBox.y).toBeGreaterThan(climbBox.y + climbBox.height);
       await expect(page.getByText("Sent", { exact: true })).toHaveCount(0);
       await expect(page.getByText("Repeated", { exact: true })).toHaveCount(0);
       await page.screenshot({

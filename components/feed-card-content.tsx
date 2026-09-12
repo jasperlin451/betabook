@@ -112,9 +112,6 @@ function climbRowProps(activity: FeedDay["activities"][number]) {
   };
 }
 
-/** The grade this climber reported, never the consensus, so friends who
- * disagree on one climb each keep their own number and feel. The posted grade
- * stands in muted where they reported none. */
 function FeedReportedGrade({
   activity,
 }: {
@@ -140,17 +137,8 @@ function FeedReportedGrade({
   );
 }
 
-/** The shared climb's own row, so its grade stays the posted one; the climbers'
- * grades sit on their rows below it. */
 export function FeedClimbContext({ activity }: { activity: FeedDay["activities"][number] }) {
-  return (
-    <ListRow
-      {...climbRowProps(activity)}
-      trailing={
-        activity.climbType && <Grade>{formatGrade(activity.climbType, activity.climbGrade)}</Grade>
-      }
-    />
-  );
+  return <ListRow {...climbRowProps(activity)} />;
 }
 
 export function FeedActivityOutcome({
