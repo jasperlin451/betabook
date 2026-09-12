@@ -11,6 +11,7 @@ import {
   type DropIndicatorProps,
 } from "react-aria-components";
 
+import { FeatureAnnouncement } from "@/components/feature-announcement";
 import { cardClass } from "@/components/ui/card";
 import { EYEBROW_CLASS } from "@/components/ui/eyebrow";
 import { InlineAlert } from "@/components/ui/inline-alert";
@@ -24,6 +25,7 @@ import {
   type AnalyticsItemId,
   type AnalyticsLayout,
 } from "@/lib/analytics-layout";
+import { ANALYTICS_CUSTOMIZE_ANNOUNCEMENT } from "@/lib/feature-announcements";
 
 export type AnalyticsPanel = {
   id: AnalyticsItemId;
@@ -436,15 +438,25 @@ export function AnalyticsWorkspace({
       items: charts.filter((item) => !layout.charts.some((id) => id === item.id)),
     },
   ];
+  const customizeButton =
+    canCustomize && !editing ? (
+      <Button variant="outline" size="sm" aria-label="Customize dashboard" onPress={openEditor}>
+        <SlidersHorizontal size={16} />
+        Customize
+      </Button>
+    ) : null;
   return (
     <div className={`flex flex-col gap-6 ${editing ? "pb-24" : ""}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SectionHeading>Analytics</SectionHeading>
-        {canCustomize && !editing && (
-          <Button variant="outline" size="sm" aria-label="Customize dashboard" onPress={openEditor}>
-            <SlidersHorizontal size={16} />
-            Customize
-          </Button>
+        {canCustomize && (
+          <FeatureAnnouncement
+            featureId={ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.featureId}
+            placement="bottom end"
+            isEnabled={!editing}
+          >
+            {customizeButton}
+          </FeatureAnnouncement>
         )}
       </div>
       {isEditing && (

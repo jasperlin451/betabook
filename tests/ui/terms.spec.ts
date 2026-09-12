@@ -30,7 +30,11 @@ test(
 test("terms open from signup without losing entries and remain reachable from the footer", async ({
   page,
   context,
+  request,
 }, testInfo) => {
+  // This checks navigation, not Next dev's cold compilation time. Compile the
+  // destination before the click, as the app-server readiness does for home.
+  await expect(await request.get("/contact")).toBeOK();
   await page.goto("/sign-up?next=%2Faccount");
   const email = page.getByRole("textbox", { name: "Email" });
   await email.fill("climber@example.com");
@@ -72,4 +76,5 @@ test("terms open from signup without losing entries and remain reachable from th
   });
   await page.getByRole("article").getByRole("link", { name: "contact form" }).last().click();
   await expect(page).toHaveURL("/contact");
+  await expect(page.getByRole("heading", { name: "Contact", exact: true })).toBeVisible();
 });

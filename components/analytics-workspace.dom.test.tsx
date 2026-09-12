@@ -2,9 +2,16 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 
+import { FeatureAnnouncementScope } from "@/components/feature-announcement";
+import type { ActionResult } from "@/lib/action-result";
 import { DEFAULT_ANALYTICS_LAYOUT, ANALYTICS_CARD_IDS } from "@/lib/analytics-layout";
+import { ANALYTICS_CUSTOMIZE_ANNOUNCEMENT } from "@/lib/feature-announcements";
 
 import { AnalyticsWorkspace } from "./analytics-workspace";
+
+vi.mock("@/actions", () => ({
+  dismissFeatureAnnouncement: vi.fn<() => Promise<{ ok: true; value: undefined }>>(),
+}));
 
 beforeEach(() => {
   // Visibility is exercised in Playwright; jsdom has no viewport geometry.
@@ -132,4 +139,62 @@ it("offers optional charts through the chart placeholder and hides it after addi
   expect(screen.getByRole("article", { name: "Volume over time" })).toBeVisible();
   expect(screen.getByRole("article", { name: "Flash rate by grade" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "Customize charts" })).not.toBeInTheDocument();
+});
+
+function announcedWorkspace({
+  dismissed = false,
+  owner = true,
+  dismissAction,
+}: {
+  dismissed?: boolean;
+  owner?: boolean;
+  dismissAction?: (id: string) => Promise<ActionResult>;
+} = {}) {
+  return (
+    <FeatureAnnouncementScope
+      userId="owner"
+      page={ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.page}
+      announcements={dismissed ? [] : [ANALYTICS_CUSTOMIZE_ANNOUNCEMENT]}
+      dismissAction={dismissAction}
+    >
+      <AnalyticsWorkspace cards={cards} charts={[]} canCustomize={owner} />
+    </FeatureAnnouncementScope>
+  );
+}
+
+it("announces Customize to owners until X is pressed, without treating editing as dismissal", async () => {
+  const user = userEvent.setup();
+  const dismissAction = vi
+    .fn<() => Promise<{ ok: true; value: undefined }>>()
+    .mockResolvedValue({ ok: true, value: undefined });
+  render(announcedWorkspace({ dismissAction }));
+  expect(screen.getByRole("heading", { name: "Make Analytics your own" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Customize dashboard" }));
+  expect(
+    screen.queryByRole("heading", { name: "Make Analytics your own" }),
+  ).not.toBeInTheDocument();
+  expect(dismissAction).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.getByRole("heading", { name: "Make Analytics your own" })).toBeVisible();
+  await user.click(
+    screen.getByRole("button", { name: "Dismiss announcement: Make Analytics your own" }),
+  );
+  expect(dismissAction).toHaveBeenCalledExactlyOnceWith("analytics-customize");
+  await user.click(screen.getByRole("button", { name: "Customize dashboard" }));
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(
+    screen.queryByRole("heading", { name: "Make Analytics your own" }),
+  ).not.toBeInTheDocument();
+});
+
+it("does not announce Customize to visitors or owners who already dismissed it", () => {
+  const view = render(announcedWorkspace({ dismissed: true }));
+  expect(
+    screen.queryByRole("heading", { name: "Make Analytics your own" }),
+  ).not.toBeInTheDocument();
+  view.rerender(announcedWorkspace({ owner: false }));
+  expect(screen.queryByRole("button", { name: "Customize dashboard" })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("heading", { name: "Make Analytics your own" }),
+  ).not.toBeInTheDocument();
 });

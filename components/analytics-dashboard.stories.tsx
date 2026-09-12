@@ -3,6 +3,7 @@ import { useState } from "react";
 import { userEvent, within } from "storybook/test";
 
 import { AnalyticsYearFilter } from "@/components/analytics-year-filter";
+import { FeatureAnnouncementScope } from "@/components/feature-announcement";
 import { AnalyticsHashtagFilter } from "@/components/filters/analytics-hashtag-filter";
 import { choicePillClass } from "@/components/ui/choice-pill";
 import { DISCIPLINE_CHIP_CLASSNAME, DISCIPLINE_LABELS } from "@/components/ui/discipline-chip";
@@ -13,6 +14,10 @@ import {
   DEFAULT_ANALYTICS_LAYOUT,
   parseAnalyticsLayout,
 } from "@/lib/analytics-layout";
+import {
+  ANALYTICS_CUSTOMIZE_ANNOUNCEMENT,
+  getAnnouncementCandidates,
+} from "@/lib/feature-announcements";
 import type { ClimbType } from "@/lib/grades";
 import { buildUserAnalytics } from "@/lib/user-analytics";
 import { StoryPage } from "@/stories/fixtures/story-layout";
@@ -97,6 +102,23 @@ const sessions: HighlightSession[] = [
 
 const ALL_YEARS: number[] = [];
 
+function getDemoAnnouncements(
+  announcement: boolean,
+  announcementDismissed: boolean,
+  announcementNewUser: boolean,
+) {
+  return announcement && !announcementDismissed
+    ? getAnnouncementCandidates([ANALYTICS_CUSTOMIZE_ANNOUNCEMENT], {
+        page: ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.page,
+        availableFeatureIds: [ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.featureId],
+        userCreatedAt: new Date(
+          announcementNewUser ? "2026-09-10T00:00:00Z" : "2026-01-01T00:00:00Z",
+        ),
+        now: new Date("2026-09-10T12:00:00Z"),
+      })
+    : [];
+}
+
 function DashboardExample({
   initialPeriod = ALL_YEARS,
   undatedOnly = false,
@@ -106,6 +128,9 @@ function DashboardExample({
   showHighlights = false,
   hiddenCharts = false,
   showFilters = false,
+  announcement = false,
+  announcementDismissed = false,
+  announcementNewUser = false,
 }: {
   initialPeriod?: number[];
   undatedOnly?: boolean;
@@ -115,13 +140,16 @@ function DashboardExample({
   showHighlights?: boolean;
   hiddenCharts?: boolean;
   showFilters?: boolean;
+  announcement?: boolean;
+  announcementDismissed?: boolean;
+  announcementNewUser?: boolean;
 }) {
   const [scope, setScope] = useState<ClimbType>("boulder");
   const [period, setPeriod] = useState<number[]>(initialPeriod);
   const rows = undatedOnly ? sends.filter((send) => send.dateSent == null) : sends;
   const lifetime = buildUserAnalytics(rows, scope);
   const analytics = buildUserAnalytics(rows, scope, undefined, period);
-  return (
+  const content = (
     <StoryPage title="Analytics">
       <AnalyticsDashboard
         sends={rows}
@@ -208,6 +236,16 @@ function DashboardExample({
       />
     </StoryPage>
   );
+  return (
+    <FeatureAnnouncementScope
+      userId="sample"
+      page={ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.page}
+      announcements={getDemoAnnouncements(announcement, announcementDismissed, announcementNewUser)}
+      dismissAction={async () => ({ ok: true, value: undefined })}
+    >
+      {content}
+    </FeatureAnnouncementScope>
+  );
 }
 
 export const AllTime: Story = { render: () => <DashboardExample /> };
@@ -285,4 +323,16 @@ export const ExpandedFilters: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Expand filters" }));
   },
+};
+
+/** Real dashboard and announcement; only dismissal transport is local to Storybook. */
+export const CustomizeAnnouncement: Story = {
+  render: () => <DashboardExample announcement showFilters />,
+};
+export const CustomizeAnnouncementDismissed: Story = {
+  render: () => <DashboardExample announcement announcementDismissed showFilters />,
+};
+
+export const CustomizeNewAccount: Story = {
+  render: () => <DashboardExample announcement announcementNewUser showFilters />,
 };

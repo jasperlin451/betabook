@@ -6,6 +6,7 @@ import { ProfileHeader, getUserById } from "@/app/users/[id]/profile-shell";
 import { AnalyticsDashboard } from "@/components/analytics-dashboard";
 import { AnalyticsYearNavigation } from "@/components/analytics-year-filter";
 import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
+import { FeatureAnnouncementScope } from "@/components/feature-announcement";
 import { AnalyticsHashtagFilter } from "@/components/filters/analytics-hashtag-filter";
 import { AppLink } from "@/components/ui/app-link";
 import { choicePillClass } from "@/components/ui/choice-pill";
@@ -17,9 +18,14 @@ import { getJournalSessionsForAnalytics, getUserSendsForAnalytics } from "@/db/q
 import { getAnalyticsHighlightSessions } from "@/db/queries/analytics-highlights";
 import { getAnalyticsLayout } from "@/db/queries/analytics-layout";
 import { canReadJournal } from "@/db/queries/content-access";
+import { getViewerFeatureAnnouncements } from "@/db/queries/feature-announcements";
 import { getUserHashtags } from "@/db/queries/hashtag-filter";
 import { buildAnalyticsHighlights } from "@/lib/analytics-highlights";
 import { parseAnalyticsYears } from "@/lib/analytics-years";
+import {
+  ANALYTICS_CUSTOMIZE_ANNOUNCEMENT,
+  getAnnouncementCandidates,
+} from "@/lib/feature-announcements";
 import { normalizeHashtagFilters } from "@/lib/filters/hashtag-filter";
 import type { ClimbType } from "@/lib/grades";
 import { getMemberSession as getSession } from "@/lib/session";
@@ -67,12 +73,16 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
 
   const selectedTags = normalizeHashtagFilters(toArray(search.tag));
   const journalVisible = await canReadJournal(db, user.id, viewerId);
-  const [rows, journalSessions, tags] = await Promise.all([
+  const isOwner = viewerId === id;
+  const [rows, journalSessions, tags, viewerAnnouncements] = await Promise.all([
     getUserSendsForAnalytics(db, id, viewerId, selectedTags),
     journalVisible
       ? getJournalSessionsForAnalytics(db, user.id, viewerId, selectedTags)
       : Promise.resolve(undefined),
     getUserHashtags(db, id, viewerId),
+    isOwner
+      ? getViewerFeatureAnnouncements(session.user.id, session.user.createdAt.getTime())
+      : Promise.resolve([]),
   ]);
 
   // Grades only compare within one discipline, so the whole page is always
@@ -96,7 +106,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
   const scope = requested !== "all" && present.includes(requested) ? requested : (dominant ?? null);
 
   if (scope == null) {
-    return (
+    const content = (
       <div className="flex flex-col gap-6">
         <ProfileHeader user={user} viewerId={session?.user.id ?? null} />
         <SectionHeading>Analytics</SectionHeading>
@@ -110,10 +120,24 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         />
       </div>
     );
+    return (
+      <FeatureAnnouncementScope
+        userId={session.user.id}
+        page={`/users/${id}/analytics`}
+        announcements={[]}
+      >
+        {content}
+      </FeatureAnnouncementScope>
+    );
   }
 
-  const isOwner = viewerId === id;
   const initialLayout = await getAnalyticsLayout(db, id, viewerId);
+  const announcements = getAnnouncementCandidates(viewerAnnouncements, {
+    page: ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.page,
+    availableFeatureIds: [ANALYTICS_CUSTOMIZE_ANNOUNCEMENT.featureId],
+    userCreatedAt: session.user.createdAt,
+    now: new Date(),
+  });
   const highlightSessions = journalVisible
     ? await getAnalyticsHighlightSessions(db, id, viewerId, selectedTags)
     : [];
@@ -126,7 +150,7 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
     ? buildUserAnalytics(rows, scope, journalSessions, selectedYears)
     : lifetime;
 
-  return (
+  const content = (
     <div className="flex flex-col gap-6">
       <ProfileHeader user={user} viewerId={session?.user.id ?? null} />
 
@@ -175,5 +199,14 @@ export default async function UserAnalyticsPage({ params, searchParams }: UserAn
         }
       />
     </div>
+  );
+  return (
+    <FeatureAnnouncementScope
+      userId={session.user.id}
+      page={`/users/${id}/analytics`}
+      announcements={announcements}
+    >
+      {content}
+    </FeatureAnnouncementScope>
   );
 }
