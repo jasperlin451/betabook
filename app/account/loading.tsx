@@ -18,7 +18,7 @@ export default function Loading() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {Array.from({ length: 6 }, (_, index) => (
+        {Array.from({ length: 7 }, (_, index) => (
           <div key={index} className={`flex flex-col gap-3 ${cardClass("md")}`}>
             <Skeleton tone="raised" className="h-5 w-28" />
             <Skeleton tone="raised" className="h-4 w-full" />

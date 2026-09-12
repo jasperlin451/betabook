@@ -3,6 +3,8 @@ import { ShieldCheck, Upload } from "lucide-react";
 import type { Metadata } from "next";
 
 import { AccountFriendRequests } from "@/components/account-friend-requests";
+import { CatalogExportDownload } from "@/components/catalog-export-download";
+import { CatalogExportGenerateButton } from "@/components/catalog-export-generate-button";
 import { CurrentPageAuthCallout } from "@/components/current-page-auth-callout";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { DisplayNameForm } from "@/components/display-name-form";
@@ -19,6 +21,7 @@ import { PageTitle, SectionHeading } from "@/components/ui/typography";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { getDb } from "@/db/client";
 import { getUser } from "@/db/queries";
+import { getCatalogExportBucket, getCatalogExportInfo } from "@/lib/catalog-export";
 import { getMemberSession as getSession, isAdmin } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -59,6 +62,8 @@ export default async function AccountPage() {
   const user = await getUser(db, session.user.id);
   const name = user?.name ?? session.user.name;
   const image = user?.image ?? session.user.image;
+  const admin = isAdmin({ user: { role: user?.role } });
+  const catalogExport = await getCatalogExportInfo(await getCatalogExportBucket());
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -122,6 +127,14 @@ export default async function AccountPage() {
         </AccountSection>
 
         <AccountSection
+          title="Catalog data"
+          description="Every area and climb as one JSON file, refreshed weekly."
+        >
+          <CatalogExportDownload info={catalogExport} />
+          {admin && <CatalogExportGenerateButton />}
+        </AccountSection>
+
+        <AccountSection
           title="Getting started"
           description="Learn to log sessions, add friends, and set your journal privacy."
         >
@@ -133,7 +146,7 @@ export default async function AccountPage() {
           <SignOutButton />
         </AccountSection>
 
-        {isAdmin({ user: { role: user?.role } }) && (
+        {admin && (
           <AccountSection
             title="Moderation"
             description="Review change requests for the areas you moderate."

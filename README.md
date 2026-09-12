@@ -258,7 +258,15 @@ pnpm exec opennextjs-cloudflare deploy
 
 `pnpm deploy` is a build-and-deploy shortcut; it does **not** apply migrations. Migrations must stay compatible with the currently deployed worker because the schema changes before the new worker is live.
 
-CI deployment uses the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Runtime credentials (`BETTER_AUTH_SECRET`, `RESEND_API_KEY`, and optional Google OAuth credentials) are Worker secrets configured with `pnpm exec wrangler secret put <NAME>`. Hosting, D1, rate-limit bindings, and the public auth URL are configured in [`wrangler.jsonc`](wrangler.jsonc); use your own Cloudflare resources when hosting a fork.
+The Worker also runs a weekly cron (Mondays 06:00 UTC, `triggers.crons` in `wrangler.jsonc`) that snapshots the public catalog — areas and climbs, names/hierarchy/descriptions/grades only — into the `betabook-exports` R2 bucket, where members download it from `/account`. The bucket must exist before the first deploy that binds it:
+
+```bash
+pnpm exec wrangler r2 bucket create betabook-exports
+```
+
+The deploy API token needs **Workers R2 Storage: Edit** for that binding. After deploying, an admin can generate the first snapshot from `/account` instead of waiting for Monday.
+
+CI deployment uses the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Runtime credentials (`BETTER_AUTH_SECRET`, `RESEND_API_KEY`, and optional Google OAuth credentials) are Worker secrets configured with `pnpm exec wrangler secret put <NAME>`. Hosting, D1, R2, rate-limit bindings, the cron schedule, and the public auth URL are configured in [`wrangler.jsonc`](wrangler.jsonc); use your own Cloudflare resources when hosting a fork.
 
 ## License
 
