@@ -25,10 +25,13 @@ const base: FeedDay = {
   training: 0,
   activities: [],
 };
+// Cedar Arete is posted V4, the heading row's grade.
 const activity: FeedDay["activities"][number] = {
   id: 1,
   kind: "session",
   ...feedStoryClimbs[0],
+  reportedGrade: null,
+  gradeFeel: null,
   ascentStyle: null,
   body: "Worked the opening moves with Jordan.",
   companions: [{ id: "jordan", name: "Jordan Lee", isSelf: false }],
@@ -41,7 +44,13 @@ const group: Extract<FeedCard, { kind: "group" }> = {
   entries: [
     {
       day: { ...base, sends: 1, sessions: 0 },
-      activity: { ...activity, kind: "send", ascentStyle: "redpoint" },
+      activity: {
+        ...activity,
+        kind: "send",
+        ascentStyle: "redpoint",
+        reportedGrade: 6,
+        gradeFeel: "high",
+      },
     },
     {
       day: { ...base, userId: "jordan", name: "Jordan Lee" },
@@ -58,9 +67,42 @@ export const SharedClimb: Story = {
   render: () => (
     <StoryPage
       title="Shared climb in the feed"
-      description="Both friends tagged each other. Alex redpointed; Jordan logged a session."
+      description="Both friends tagged each other. Alex redpointed and called it V5, hard for the grade. Jordan's session shows the posted V4 greyed out, because Jordan has never reported a grade here."
     >
       <FeedGroupCard group={group} />
+    </StoryPage>
+  ),
+};
+const disagreeingClimbers: (Pick<FeedDay["activities"][number], "reportedGrade" | "gradeFeel"> & {
+  name: string;
+})[] = [
+  { name: "Alex Rivera", reportedGrade: 6, gradeFeel: "high" },
+  { name: "Jordan Lee", reportedGrade: 5, gradeFeel: "solid" },
+  { name: "Sam Okafor", reportedGrade: 4, gradeFeel: "low" },
+];
+export const DisagreeingGrades: Story = {
+  render: () => (
+    <StoryPage
+      title="One climb, three opinions"
+      description="Each row keeps the grade its own climber reported, with the arrow showing how it felt against the posted V4."
+    >
+      <FeedGroupCard
+        group={{
+          ...group,
+          entries: disagreeingClimbers.map(({ name, reportedGrade, gradeFeel }, index) => ({
+            day: { ...base, userId: `climber-${index}`, name, sends: 1, sessions: 0 },
+            activity: {
+              ...activity,
+              id: index + 1,
+              kind: "send",
+              ascentStyle: "redpoint",
+              reportedGrade,
+              gradeFeel,
+              body: null,
+            },
+          })),
+        }}
+      />
     </StoryPage>
   ),
 };
@@ -116,6 +158,9 @@ export const LargeGroup: Story = {
               id: index + 1,
               kind: index % 3 === 0 ? "send" : index % 3 === 1 ? "repeat" : "session",
               ascentStyle: index % 3 === 0 ? "flash" : null,
+              // V3-V5 spread: the column has to stay readable when no two agree.
+              reportedGrade: 4 + (index % 3),
+              gradeFeel: index % 3 === 0 ? "high" : "solid",
               body: `Notes from climber ${index + 1}.`,
               companions:
                 index < 7

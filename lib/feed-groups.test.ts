@@ -15,6 +15,8 @@ function entry(
     climbName: "Shared climb",
     climbType: "boulder",
     climbGrade: 4,
+    reportedGrade: null,
+    gradeFeel: null,
     areaId: 1,
     areaName: "Woods",
     ascentStyle: null,

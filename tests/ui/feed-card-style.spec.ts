@@ -1,6 +1,11 @@
 import { expect, test, openStory } from "./story";
 
-for (const story of ["feed-day-card--activity-feed", "feed-group-card--shared-climb"]) {
+// Cedar Arete is posted V4. The day card leads with the climber's own V5; the
+// group card's first grade is the heading row's posted one.
+for (const { story, grade: gradeText } of [
+  { story: "feed-day-card--activity-feed", grade: "V5" },
+  { story: "feed-group-card--shared-climb", grade: "V4" },
+]) {
   test(
     `${story} uses the app's climb, area, and grade layout`,
     { tag: "@layout" },
@@ -14,7 +19,7 @@ for (const story of ["feed-day-card--activity-feed", "feed-group-card--shared-cl
       const parent = page
         .getByRole("link", { name: "North Woods", exact: true, includeHidden: true })
         .first();
-      const grade = page.getByText("V4", { exact: true }).first();
+      const grade = page.getByText(gradeText, { exact: true }).first();
       await expect(climb).toHaveCSS("font-size", "16px");
       await expect(area).toHaveCSS("font-size", "12px");
       await expect(climb).toHaveAttribute("href", "/climbs/1/cedar-arete");

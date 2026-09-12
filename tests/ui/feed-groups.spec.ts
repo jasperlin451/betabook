@@ -31,6 +31,31 @@ test(
   },
 );
 test(
+  "each climber on a shared climb keeps their own grade and feel",
+  { tag: "@layout" },
+  async ({ page }, testInfo) => {
+    await openStory(page, testInfo, `components-journal-feed-group-card--disagreeing-grades`);
+    const card = page.getByRole("article");
+    await expect(card.getByText("V5", { exact: true })).toBeVisible();
+    // Twice: the climb heading, and the one climber who agrees with it.
+    await expect(card.getByText("V4", { exact: true })).toHaveCount(2);
+    await expect(card.getByLabel("Felt hard for the grade")).toBeVisible();
+    await card.getByText("See all activity (1 more)", { exact: true }).click();
+    await expect(card.getByText("V3", { exact: true })).toBeVisible();
+    await expect(card.getByLabel("Felt soft for the grade")).toBeVisible();
+    const climbBox = await card.getByRole("link", { name: "Cedar Arete" }).boundingBox();
+    const ownBox = await card.getByText("V5", { exact: true }).boundingBox();
+    if (!climbBox || !ownBox) throw new Error("Missing climb or reported-grade bounds");
+    expect(ownBox.y).toBeGreaterThan(climbBox.y);
+    await page.screenshot({
+      path: testInfo.outputPath("disagreeing-grades.png"),
+      fullPage: true,
+      animations: "disabled",
+    });
+  },
+);
+
+test(
   "large connected group expands locally without additional requests",
   { tag: "@behavior" },
   async ({ page }, testInfo) => {

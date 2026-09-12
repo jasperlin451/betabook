@@ -5,7 +5,7 @@ import { AreaBreadcrumb } from "@/components/area-breadcrumb";
 import { AscentStyle } from "@/components/ascent-style";
 import { CompanionList } from "@/components/journal/companion-list";
 import { AppLink } from "@/components/ui/app-link";
-import { Grade } from "@/components/ui/grade";
+import { Grade, GradeArrow } from "@/components/ui/grade";
 import { ListRow } from "@/components/ui/list-row";
 import { UserAvatarStack } from "@/components/ui/user-avatar-stack";
 import type { FeedDay } from "@/db/queries/feed";
@@ -112,6 +112,36 @@ function climbRowProps(activity: FeedDay["activities"][number]) {
   };
 }
 
+/** The grade this climber reported, never the consensus, so friends who
+ * disagree on one climb each keep their own number and feel. The posted grade
+ * stands in muted where they reported none. */
+function FeedReportedGrade({
+  activity,
+}: {
+  activity: Pick<
+    FeedDay["activities"][number],
+    "climbType" | "climbGrade" | "reportedGrade" | "gradeFeel"
+  >;
+}) {
+  const { climbType, climbGrade, reportedGrade, gradeFeel } = activity;
+  if (!climbType) return null;
+  return (
+    <Grade>
+      {reportedGrade == null ? (
+        <span className="font-normal text-muted" title="Posted grade, none reported">
+          {formatGrade(climbType, climbGrade)}
+        </span>
+      ) : (
+        formatGrade(climbType, reportedGrade)
+      )}
+      {gradeFeel === "high" && <GradeArrow direction="up" label="Felt hard for the grade" />}
+      {gradeFeel === "low" && <GradeArrow direction="down" label="Felt soft for the grade" />}
+    </Grade>
+  );
+}
+
+/** The shared climb's own row, so its grade stays the posted one; the climbers'
+ * grades sit on their rows below it. */
 export function FeedClimbContext({ activity }: { activity: FeedDay["activities"][number] }) {
   return (
     <ListRow
@@ -155,9 +185,7 @@ export function FeedActivityRow({
       trailing={
         activity.kind !== "training" && (
           <div className="flex flex-col items-end gap-1 text-sm">
-            {!grouped && activity.climbType && (
-              <Grade>{formatGrade(activity.climbType, activity.climbGrade)}</Grade>
-            )}
+            <FeedReportedGrade activity={activity} />
             <FeedActivityOutcome activity={activity} />
           </div>
         )

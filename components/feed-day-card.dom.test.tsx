@@ -13,6 +13,8 @@ const activity: FeedDay["activities"][number] = {
   climbName: "Quiet Arete",
   climbType: "boulder",
   climbGrade: 5,
+  reportedGrade: 7,
+  gradeFeel: "high",
   areaId: 3,
   areaName: "Pine Canyon",
   ascentStyle: "flash",
@@ -60,6 +62,9 @@ it.each<{ view: FeedView; visible: boolean; section: string }>([
     );
     expect(within(card).getByText("Found the sequence.")).toBeInTheDocument();
     expect(within(card).getByText("Flash", { exact: true })).toBeInTheDocument();
+    // V6 is this climber's call, V4 the posted grade.
+    expect(within(card).getByText("V6")).toBeInTheDocument();
+    expect(within(card).queryByText("V4")).not.toBeInTheDocument();
     if (view === "sends") expect(screen.queryByText("Sam Rivera")).not.toBeInTheDocument();
     else
       expect(screen.getByRole("link", { name: "Sam Rivera" })).toHaveAttribute(
@@ -68,6 +73,50 @@ it.each<{ view: FeedView; visible: boolean; section: string }>([
       );
   },
 );
+it("keeps each row's own grade and feel, standing in the posted grade only where none was reported", () => {
+  render(
+    <FeedDayCard
+      view="all"
+      day={{
+        ...day,
+        sends: 3,
+        activities: [
+          activity,
+          {
+            ...activity,
+            id: 2,
+            climbId: 13,
+            climbName: "Pine Slab",
+            reportedGrade: 3,
+            gradeFeel: "solid",
+          },
+          {
+            ...activity,
+            id: 3,
+            climbId: 14,
+            climbName: "Cedar Crack",
+            reportedGrade: null,
+            gradeFeel: null,
+          },
+        ],
+      }}
+    />,
+  );
+  expect(screen.getByText("V6")).toBeInTheDocument();
+  expect(screen.getByLabelText("Felt hard for the grade")).toBeInTheDocument();
+  expect(screen.getByText("V2")).toBeInTheDocument();
+  expect(screen.getByTitle("Posted grade, none reported")).toHaveTextContent("V4");
+});
+it("marks a softer call with the down arrow the rest of the site uses", () => {
+  render(
+    <FeedDayCard
+      view="all"
+      day={{ ...day, sends: 1, activities: [{ ...activity, gradeFeel: "low" }] }}
+    />,
+  );
+  expect(screen.getByLabelText("Felt soft for the grade")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Felt hard for the grade")).not.toBeInTheDocument();
+});
 it("counts all unshown activity kinds and offers a destination even without previews", () => {
   const { rerender } = render(
     <FeedDayCard day={{ ...day, repeats: 1, sessions: 2, training: 1 }} view="all" />,
@@ -111,6 +160,8 @@ it("omits the extra destination when all activity is previewed and renders outco
             climbName: null,
             climbType: null,
             climbGrade: null,
+            reportedGrade: null,
+            gradeFeel: null,
             areaId: null,
             areaName: null,
             ascentStyle: null,
