@@ -8,6 +8,8 @@ import {
   parseClimbFilter,
 } from "@/lib/filters/climb-filter";
 import type { ClimbFilterState } from "@/lib/filters/climb-filter-state";
+import { DEFAULT_MIN_ASCENTS, DEFAULT_RATING_RANGE } from "@/lib/filters/climb-stats-filter";
+import { appendDisciplineFilterParams } from "@/lib/filters/discipline-filter";
 import type { ClimbType } from "@/lib/grades";
 import type { PublicClimbsPage } from "@/lib/public-catalog";
 import { areaHref, climbHref } from "@/lib/slug";
@@ -82,6 +84,35 @@ export function parseSearchState(
     sort: parseClimbListSort(params),
     area,
   };
+}
+
+/** The signed-out catalog answers name, area, discipline and grade, and orders
+ * by name. Rating and ascent count are member aggregates, so a URL carrying
+ * them would otherwise raise a filter chip and a sort field the results never
+ * honor. Narrowing the state — rather than only the request — keeps the
+ * controls, the URL the controls write, and the results describing one search. */
+export function publicSearchState(state: SearchState): SearchState {
+  return {
+    ...state,
+    sort: state.sort === "name_desc" ? "name_desc" : "name_asc",
+    filter: {
+      ...state.filter,
+      ratingRange: DEFAULT_RATING_RANGE,
+      minAscents: DEFAULT_MIN_ASCENTS,
+    },
+  };
+}
+
+/** The public endpoints' own parameter spelling. The server's first page and
+ * every later "load more" build it here so they cannot narrow differently.
+ * Areas carry no discipline or grade, so those reach the climb list only. */
+export function publicSearchParams(state: SearchState, kind: SearchKind): URLSearchParams {
+  const { query, sort, filter } = publicSearchState(state);
+  const params = new URLSearchParams({ name: query, sort });
+  if (filter.areaId !== undefined) params.set("areaId", String(filter.areaId));
+  if (filter.areaName) params.set("areaName", filter.areaName);
+  if (kind === "climb") appendDisciplineFilterParams(params, filter);
+  return params;
 }
 
 /** Used by quick-search expansion, full results, and browser history. */

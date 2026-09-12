@@ -9,7 +9,10 @@ test(
     await page.goto(`${appBaseURL}/?mode=climb&areaName=Cedar`);
     const scope = page.getByRole("button", { name: "Clear area name Cedar" });
     await expect(scope).toBeVisible();
-    await page.getByRole("button", { name: "Reverse name order" }).click();
+    // Signed out, name order is the only ordering the public catalog offers.
+    await page.getByRole("button", { name: /Sort results/ }).click();
+    await page.getByRole("option", { name: "Name Z–A" }).click();
+    await expect(page).toHaveURL(/sort=name_desc/);
     await expect(page).toHaveURL(/areaName=Cedar/);
     await expect(scope).toBeVisible();
     await scope.click();

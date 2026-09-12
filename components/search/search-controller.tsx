@@ -8,7 +8,7 @@ import type { AreaSelection } from "@/lib/area-selection";
 import { DEFAULT_CLIMB_LIST_SORT } from "@/lib/climb-list-sort";
 import { DEFAULT_CLIMB_FILTER } from "@/lib/filters/climb-filter";
 import { withClimbFilterArea } from "@/lib/filters/climb-filter-state";
-import { searchHref } from "@/lib/search";
+import { publicSearchState, searchHref } from "@/lib/search";
 import type { AppSearchResult, SearchFetcher, SearchSnapshot, SearchState } from "@/lib/search";
 import { fetchPublicSearchPage, fetchSearchPage } from "@/lib/search-client";
 
@@ -19,7 +19,7 @@ const ignoreOpenChange = () => {};
 
 /** Real search behavior shared by the app and isolated, network-injected stories. */
 export function SearchController({
-  state,
+  state: requested,
   onChange,
   initial,
   fetcher,
@@ -47,6 +47,12 @@ export function SearchController({
   resultHref?: (item: AppSearchResult) => string;
   publicOnly?: boolean;
 }) {
+  // A signed-out viewer can arrive on a member's shared URL, so the full
+  // surface renders the search it will actually run — covering the first
+  // render and browser history alike. The palette shows no filters and no
+  // sort, so narrowing there would only strip the member refinements from the
+  // sign-in link that carries this search back into the member experience.
+  const state = publicOnly && !quick ? publicSearchState(requested) : requested;
   const search = useSearch({
     state,
     initial,
@@ -109,36 +115,35 @@ export function SearchController({
         onNavigate={quick ? () => onOpenChange(false) : undefined}
       />
     ) : undefined,
-    filters: publicOnly ? (
-      !quick && (state.category === "climb" || state.category === "all") ? (
+    filters:
+      quick || state.category !== "climb" ? undefined : publicOnly ? (
         <PublicSearchFilters state={state} onChange={onChange} />
-      ) : undefined
-    ) : !quick && state.category === "climb" ? (
-      <ClimbFilterControls
-        value={state}
-        onChange={(next) => onChange({ ...state, ...next })}
-        activeFilters={
-          state.query
-            ? [
-                {
-                  id: "query",
-                  label: `Search: ${state.query}`,
-                  onRemove: () => onChange({ ...state, query: "" }),
-                },
-              ]
-            : []
-        }
-        onReset={() =>
-          onChange({
-            ...state,
-            query: "",
-            filter: DEFAULT_CLIMB_FILTER,
-            area: null,
-            sort: DEFAULT_CLIMB_LIST_SORT,
-          })
-        }
-      />
-    ) : undefined,
+      ) : (
+        <ClimbFilterControls
+          value={state}
+          onChange={(next) => onChange({ ...state, ...next })}
+          activeFilters={
+            state.query
+              ? [
+                  {
+                    id: "query",
+                    label: `Search: ${state.query}`,
+                    onRemove: () => onChange({ ...state, query: "" }),
+                  },
+                ]
+              : []
+          }
+          onReset={() =>
+            onChange({
+              ...state,
+              query: "",
+              filter: DEFAULT_CLIMB_FILTER,
+              area: null,
+              sort: DEFAULT_CLIMB_LIST_SORT,
+            })
+          }
+        />
+      ),
   };
   return quick ? (
     <QuickSearchDialog {...props} isOpen={isOpen} onOpenChange={onOpenChange} />

@@ -4,7 +4,7 @@ import { hasProtectedCatalogParams, publicCatalogOptions } from "@/lib/public-ca
 
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
-  if (hasProtectedCatalogParams(params))
+  if (hasProtectedCatalogParams(params, { climbFilters: true }))
     return Response.json(
       { error: "Not signed in" },
       { status: 401, headers: { "Cache-Control": "private, no-store" } },

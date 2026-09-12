@@ -1,4 +1,9 @@
 import type { AreaBreadcrumbs } from "@/db/queries/areas";
+import {
+  parseDisciplineFilter,
+  toDisciplineGradeFilter,
+  type DisciplineGradeFilter,
+} from "@/lib/filters/discipline-filter";
 import type { ClimbType } from "@/lib/grades";
 import {
   parseAreaId,
@@ -6,6 +11,7 @@ import {
   parsePage,
   parseSuggestionLimit,
   offsetReachesPaginationLimit,
+  searchParamsToRecord,
 } from "@/lib/url-params";
 
 export type PublicArea = { id: number; name: string; parentId: number | null };
@@ -25,7 +31,7 @@ export type PublicClimbsPage = {
   areaBreadcrumbs: AreaBreadcrumbs;
   hasNextPage: boolean;
 };
-export type PublicCatalogOptions = {
+export type PublicCatalogOptions = DisciplineGradeFilter & {
   name: string;
   areaId?: number;
   areaName?: string;
@@ -44,9 +50,21 @@ const PUBLIC_PARAMS = new Set([
   "limit",
   "sort",
 ]);
-export function hasProtectedCatalogParams(params: URLSearchParams): boolean {
+
+/** Climb lists also narrow on discipline and grade — the two climb facts the
+ * public projection already returns, so filtering on them discloses nothing a
+ * reader could not read off the rows. An area list has neither column, so the
+ * same params there would be dropped in silence and stay protected. */
+const PUBLIC_CLIMB_PARAMS = new Set(["discipline", "boulderRange", "sportRange", "tradRange"]);
+
+export function hasProtectedCatalogParams(
+  params: URLSearchParams,
+  { climbFilters = false }: { climbFilters?: boolean } = {},
+): boolean {
   return (
-    [...params.keys()].some((key) => !PUBLIC_PARAMS.has(key)) ||
+    [...params.keys()].some(
+      (key) => !PUBLIC_PARAMS.has(key) && !(climbFilters && PUBLIC_CLIMB_PARAMS.has(key)),
+    ) ||
     (params.has("sort") && !["name_asc", "name_desc"].includes(params.get("sort") ?? ""))
   );
 }
@@ -55,6 +73,7 @@ export function publicCatalogOptions(params: URLSearchParams): PublicCatalogOpti
   const pageSize = parseSuggestionLimit(params) ?? 25;
   const page = parsePage(params, pageSize);
   return {
+    ...toDisciplineGradeFilter(parseDisciplineFilter(searchParamsToRecord(params))),
     name: params.get("name") ?? "",
     areaId: parseAreaId(params.get("areaId") ?? undefined),
     areaName: params.get("areaName") ?? undefined,

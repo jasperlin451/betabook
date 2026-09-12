@@ -49,6 +49,9 @@ export function ClimbStatsFields({
   minAscents: number;
   onMinAscentsChange: (value: number) => void;
 }) {
+  // Both hidden means a caller that offers no member aggregates at all; an
+  // empty wrapper would still open a gap above the grade sliders.
+  if (!showRatingFilters && !showMinAscents) return null;
   return (
     <div className="flex flex-col gap-4">
       {showRatingFilters && (

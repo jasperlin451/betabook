@@ -11,7 +11,7 @@ import { getPublicArea, searchPublicAreas, searchPublicClimbs } from "@/db/queri
 import type { AreaSelection } from "@/lib/area-selection";
 import { toClimbQueryParams } from "@/lib/filters/climb-filter";
 import { publicCatalogOptions } from "@/lib/public-catalog";
-import { publicClimbSearchItems } from "@/lib/search";
+import { publicClimbSearchItems, publicSearchParams } from "@/lib/search";
 import {
   areaSearchItems,
   climberSearchItems,
@@ -42,14 +42,6 @@ export async function loadSearch(
   const kinds = state.category === "all" ? SEARCH_KINDS : [state.category];
   if (!viewerId) {
     const db = await getDb();
-    const options = publicCatalogOptions(
-      new URLSearchParams({
-        name: state.query,
-        ...(state.filter.areaId !== undefined ? { areaId: String(state.filter.areaId) } : {}),
-        ...(state.filter.areaName ? { areaName: state.filter.areaName } : {}),
-        sort: state.sort === "name_desc" ? "name_desc" : "name_asc",
-      }),
-    );
     return Promise.all(
       kinds.map(async (kind) => {
         if (kind === "climber")
@@ -64,6 +56,7 @@ export async function loadSearch(
             page: { items: [], hasMore: false, nextPage: 1 },
             status: "idle" as const,
           };
+        const options = publicCatalogOptions(publicSearchParams(state, kind));
         const page =
           kind === "area"
             ? await searchPublicAreas(db, options)
